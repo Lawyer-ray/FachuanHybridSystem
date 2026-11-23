@@ -62,7 +62,7 @@ class _BindingMixin(_ScanServiceContract):
     def _resolve_session_storage_provider(self, session: Any) -> Any | None:
         """从 session → contract → binding 链路解析云存储 provider；未绑定按本地存储（None）。
 
-        S13-30（2026-11-23 二轮审计）：原实现 ``except Exception`` 把**任何**异常都
+        S13-30（2026-11-23 二轮审计）：原实现裸宽捕获把**任何**异常都
         抹平成「本地存储」（provider 构造失败、凭据缺失也不例外），于是云端绑定被当
         本地处理：``source_path`` 的相对路径去进程 CWD 下找 → 整批导入报「源文件
         不存在」，根因只在 debug 日志里；CWD 下恰好有同名文件则读错文件入库。现在

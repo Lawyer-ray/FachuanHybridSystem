@@ -243,7 +243,7 @@ class QichachaMcpProvider:
                 result = client.call_tool(tool_name=tool_name, arguments={"searchKey": company_id})
             except (ValidationException, ExternalServiceError) as exc:
                 # 只捕本模块已知的失败面（客户端把错误统一包成这两类）；
-                # **不写 `except Exception`** —— 仓库棘轮禁止新增宽捕获，且真未知异常该冒泡。
+                # **不写裸宽捕获** —— 仓库棘轮禁止新增，且真未知异常该冒泡。
                 # 单工具失败不应拖垮整个类别，但必须留痕（warning，不是 debug）。
                 failures.append(tool_name)
                 logger.warning(

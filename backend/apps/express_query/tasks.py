@@ -178,7 +178,7 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
         pdf_content = tmp_pdf_path.read_bytes()
     except SessionUnavailableError as exc:
         # S39-04（2026-11-23 二轮审计）：原实现让 SessionUnavailableError 直接冒泡到
-        # 两个入口的 `except Exception`，任务被写成 FAILED，与 session_lock 文档
+        # 两个入口的宽捕获，任务被写成 FAILED，与 session_lock 文档
         # 「拿不到锁直接抛错，由调用方把任务转入等待」相悖 → 现在就地捕获并转等待登录。
         _handle_session_unavailable(task, session, str(exc))
         return

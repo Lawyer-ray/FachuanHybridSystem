@@ -418,7 +418,7 @@ _GLOBAL_SEM_KEY = "agent:pool:global_count"
 
 #: 闸门操作可能抛的具体异常（连接断 / 超时 / ACL 变更 / 协议错）。
 #:
-#: 不用 ``except Exception``：异常棘轮禁止新增宽捕获，而这里失败就该降级，
+#: 不用裸宽捕获：异常棘轮禁止新增，而这里失败就该降级，
 #: 用一个具名元组反而更诚实（与 ``event_bus._CACHE_ERRORS`` 同口径）。
 _GATE_ERRORS: tuple[type[BaseException], ...] = (OSError, ValueError, TypeError, RuntimeError)
 try:  # pragma: no cover - redis 随 RedisCache 一起装，这里只为类型收敛
@@ -464,7 +464,7 @@ class _RedisGate:
         Raises:
             _RedisGateUnavailable: Redis 连不上或 INCR/EXPIRE 报错（**降级信号**）。
 
-        S37-09（2026-11-23 二轮审计）：原实现是 ``except Exception: return False``——
+        S37-09（2026-11-23 二轮审计）：原实现是裸 except + return False——
         把「Redis 故障」和「容量满」混成同一个返回值，且一行日志都不留。
         """
         client = _redis_sync_client()

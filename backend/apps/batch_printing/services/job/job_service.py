@@ -159,8 +159,7 @@ class BatchPrintJobService:
         self._ensure_owner(job, user)
         return job
 
-    @staticmethod
-    def _ensure_owner(job: BatchPrintJob, user: Any) -> None:
+    def _ensure_owner(self, job: BatchPrintJob, user: Any) -> None:
         """非管理员访问他人任务一律按「不存在」处理（不泄露存在性）。"""
         if user is None or is_admin_user(user):
             return

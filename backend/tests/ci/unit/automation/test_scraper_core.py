@@ -18,7 +18,7 @@ except ImportError:
     _HAS_LOGIN = False
 
 from apps.automation.services.scraper.core.cookie_service import CookieService
-from apps.automation.services.scraper.core.screenshot_utils import ScreenshotUtils
+from apps.automation.services.scraper.core.screenshot_utils import ScreenshotUtils, collect_screenshots
 
 pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
@@ -93,7 +93,7 @@ class TestCookieService:
 
 
 class TestScreenshotUtils:
-    """ScreenshotUtils 测试。"""
+    """截图收集测试（S31-06 起实现是模块级函数 `collect_screenshots`，不再挂在类上）。"""
 
     def test_collect_screenshots_no_dir(self) -> None:
         """截图目录不存在返回空列表。"""
@@ -103,8 +103,7 @@ class TestScreenshotUtils:
             old_media_root = django.conf.settings.MEDIA_ROOT
             django.conf.settings.MEDIA_ROOT = tmpdir
             try:
-                utils = ScreenshotUtils()
-                result = utils.collect_screenshots()
+                result = collect_screenshots()
                 assert result == []
             finally:
                 django.conf.settings.MEDIA_ROOT = old_media_root
@@ -119,8 +118,7 @@ class TestScreenshotUtils:
             try:
                 screenshot_dir = Path(tmpdir) / "automation" / "screenshots"
                 screenshot_dir.mkdir(parents=True)
-                utils = ScreenshotUtils()
-                result = utils.collect_screenshots()
+                result = collect_screenshots()
                 assert result == []
             finally:
                 django.conf.settings.MEDIA_ROOT = old_media_root
@@ -141,8 +139,7 @@ class TestScreenshotUtils:
                 (screenshot_dir / "test1.png").write_bytes(b"fake png")
                 (screenshot_dir / "test2.png").write_bytes(b"fake png")
 
-                utils = ScreenshotUtils()
-                result = utils.collect_screenshots(limit=5)
+                result = collect_screenshots(limit=5)
                 assert len(result) == 2
             finally:
                 django.conf.settings.MEDIA_ROOT = old_media_root

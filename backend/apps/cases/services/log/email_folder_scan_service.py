@@ -247,7 +247,7 @@ class EmailFolderScanService:
             children = provider.list_directory(folder_path)
         except CloudStorageError:
             raise
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             # S14-03（2026-11-23 二轮审计）：原实现把非 CloudStorageError 的传输层
             # 异常（httpx.RequestError 超时/连接失败、gdrive HttpError/socket.timeout）
             # 吞成 []，调用方于是回落到 fallback 并报「文件夹内没有可导入的文件」——
@@ -318,7 +318,7 @@ class EmailFolderScanService:
                     result.append(file_path)
         except CloudStorageError:
             raise
-        except Exception:
+        except (OSError, RuntimeError, ValueError):
             logger.exception("云存储文件收集失败: %s", folder_path)
         return sorted(result)
 

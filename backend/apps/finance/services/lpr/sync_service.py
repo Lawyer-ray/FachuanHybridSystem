@@ -57,7 +57,7 @@ class LPRSyncService:
 
         try:
             lpr_data_list = self._fetch_with_playwright()
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError) as e:
             logger.error("[LPRSync] Fetch failed: %s", e)
             raise BusinessException(message=f"获取LPR数据失败: {e}", code="LPR_SYNC_FAILED")
 

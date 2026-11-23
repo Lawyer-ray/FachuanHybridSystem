@@ -104,7 +104,9 @@ class TestSyncLatest:
 
     def test_sync_fetch_fails(self) -> None:
         svc = LPRSyncService()
-        with patch.object(svc, "_fetch_with_playwright", side_effect=Exception("network error")):
+        # S36-03 配套收窄：抓取失败的宽捕获已改为具体异常类型，这里用真实的网络错误类型
+        # （`OSError` 覆盖 socket/timeout 链），而不是裸 `Exception`。
+        with patch.object(svc, "_fetch_with_playwright", side_effect=OSError("network error")):
             with pytest.raises(BusinessException, match="获取LPR数据失败"):
                 svc.sync_latest()
 

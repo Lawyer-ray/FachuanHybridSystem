@@ -39,13 +39,14 @@ class TestValidateCreateParamsRound4:
         from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         repo = PreservationQuoteRepository()
-        # 合法参数静默通过（无返回值、不抛异常即为通过）
-        repo.validate_create_params(
+        # 合法参数静默通过：显式断言返回值（不是断言「不抛异常」这种无法表达的形态）
+        result = repo.validate_create_params(
             preserve_amount=Decimal("500"),
             corp_id="2550",
             category_id="127000",
             credential_id=42,
         )
+        assert result is None
 
     def test_multiple_errors_collected(self):
         from plugins.court_automation.preservation_quote.exceptions import ValidationError

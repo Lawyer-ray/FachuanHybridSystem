@@ -508,7 +508,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         try:
             # S45-03（2026-11-23 二轮审计）：`ModelListService` 没有 `get_cached_models`
             # （只有 `get_result`/`get_models`/`aget_result`/`aget_models`），这行必抛
-            # AttributeError 被下面的 `except Exception` 吞掉 → 管理页**永远只显示默认模型**。
+            # AttributeError 被下面的宽捕获吞掉 → 管理页**永远只显示默认模型**。
             models = ModelListService().get_result().models
         except Exception:
             logger.exception("加载模型列表失败")

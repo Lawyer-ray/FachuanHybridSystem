@@ -158,7 +158,7 @@ class ReconcilerService:
 
         # S01-01（2026-11-23 二轮审计）：原实现不校验 json.loads 的形状，LLM 返回
         # `[...]` / `"..."` / `null` 时下一行 data.get 直接 AttributeError，又被上层
-        # except Exception 静默吞成空 StatementInfo（「全字段未知」且无任何提示）。
+        # 宽捕获会静默吞成空 StatementInfo（「全字段未知」且无任何提示）。
         if not isinstance(data, dict):
             logger.warning("LLM 返回的 JSON 不是对象（实际 %s），已按空对账单处理", type(data).__name__)
             return StatementInfo()

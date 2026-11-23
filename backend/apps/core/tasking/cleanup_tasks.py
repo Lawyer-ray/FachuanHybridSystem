@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from django.conf import settings
+from django.db import DatabaseError
 
 logger = logging.getLogger("apps.core.tasking.cleanup")
 
@@ -144,7 +145,7 @@ def _register_schedules() -> None:
             if not svc.schedule_exists(name):
                 svc.create_interval_schedule(func=func, name=name, minutes=minutes)
                 logger.info("已注册定时任务: %s", name)
-        except Exception:
+        except (DatabaseError, OSError, RuntimeError, ValueError):
             logger.warning("定时任务注册失败: %s（继续注册其余任务）", name, exc_info=True)
             unregistered.append(name)
 
