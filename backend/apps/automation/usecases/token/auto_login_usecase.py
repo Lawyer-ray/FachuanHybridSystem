@@ -25,9 +25,7 @@ AutoLoginUsecase: Any
 RetryConfig: Any
 
 try:
-    from plugins.court_automation.token.auto_login_usecase import (
-        AutoLoginUsecase as _AutoLoginUsecase,
-    )
+    from plugins.court_automation.token.auto_login_usecase import AutoLoginUsecase as _AutoLoginUsecase
     from plugins.court_automation.token.auto_login_usecase import RetryConfig as _RetryConfig
 
     AutoLoginUsecase = _AutoLoginUsecase

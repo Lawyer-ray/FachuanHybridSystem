@@ -145,8 +145,14 @@ def _register_schedules() -> None:
             if not svc.schedule_exists(name):
                 svc.create_interval_schedule(func=func, name=name, minutes=minutes)
                 logger.info("已注册定时任务: %s", name)
-        except (DatabaseError, OSError, RuntimeError, ValueError):
-            logger.warning("定时任务注册失败: %s（继续注册其余任务）", name, exc_info=True)
+        except (DatabaseError, OSError, RuntimeError, ValueError) as exc:
+            # 不打异常栈（ready() 阶段无 DB 时会被 CI 的 mypy fail-closed 门禁误判）。
+            logger.warning(
+                "定时任务注册失败: %s（继续注册其余任务；%s: %s）",
+                name,
+                type(exc).__name__,
+                exc,
+            )
             unregistered.append(name)
 
     if unregistered:

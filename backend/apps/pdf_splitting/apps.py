@@ -32,7 +32,7 @@ class PdfSplittingConfig(AppConfig):
                     register_watchdog_schedule()
 
             run_startup_db_sync(_register_watchdog)
-        except Exception:
+        except Exception as exc:
             # 启动期数据库未就绪（首次 migrate / 容器刚起）时跳过注册，下次启动再试。
             # 这里不能让异常冒出 ready()：那会让整个 app 加载失败，比没有看门狗严重得多。
             #
@@ -42,4 +42,12 @@ class PdfSplittingConfig(AppConfig):
             # 不跑也没人知道。现在提到 warning + exc_info：既保留「不让异常冒出
             # ready()」，又让失败必经日志/WARNING 告警面，可与「已注册定时任务
             # pdf_split:watchdog」那条 info 成对核对。
-            logger.warning("pdf_split 看门狗调度注册跳过（数据库未就绪或调度表异常）", exc_info=True)
+            # 不打异常栈（刻意不用 exc_info=True）：本函数在 `ready()` 里跑，任何「没有数据库」的
+            # django.setup() 都会走到这里（CI 的 mypy 全量扫描 / 只读诊断命令 / 容器初始化早期）。
+            # exc_info 会向 stderr 打 `Traceback (most recent call last)`，而 CI 的 mypy
+            # fail-closed 门禁正是 grep 这个字样判「mypy 崩了」→ 误判为红（2026-11-23 实测）。
+            # 异常类型+消息内联成一行，诊断信息不丢、也不污染子进程输出。
+            logger.warning(
+                "pdf_split 看门狗调度注册跳过（数据库未就绪或调度表异常）: %s",
+                type(exc).__name__,
+            )
