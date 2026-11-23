@@ -208,6 +208,10 @@ def verify_citations(text: str, credential_id: int | None = None) -> dict[str, A
     #: 所以下面消费 ``payload`` 的整段要跳过。
     degraded = False
 
+    #: 预绑定：422 降级分支不会给 payload 赋值，但下面 `checked = {} if degraded else {...payload...}`
+    #: 的另一臂引用了它 —— 虽然短路求值不会访问，CodeQL 的 py/uninitialized-local-variable 仍会报。
+    payload: dict[str, Any] = {}
+
     if statutes:
         # 走既有威科链路（含登录、凭证解密、插件探测——不重写以保住安全审计
         # 做过的域白名单等约束）
@@ -246,7 +250,7 @@ def verify_citations(text: str, credential_id: int | None = None) -> dict[str, A
             else {str(item.get("law_name") or "").strip(): item for item in (payload.get("references") or [])}
         )
         # 降级时不逐条对账：那批 references 已在 422 分支里按 not_verified 补过
-        for item in (statutes if not degraded else []):
+        for item in statutes if not degraded else []:
             hit = checked.get(item["law_name"])
             if hit is None:
                 references.append(
@@ -279,15 +283,13 @@ def verify_citations(text: str, credential_id: int | None = None) -> dict[str, A
                 }
             )
     else:
-        if statutes and not note:
-            note = (
-                "未提供 credential_id，本次只做了格式与结构校验，法条一律标记为 "
-                "not_verified。若需确认条文现行有效性，请带 credential_id 重新核查。"
-            )
-        elif not note:
+        # 这里 statutes 必为空（外层是 `if statutes:` 的 else），所以既不需要逐条补
+        # not_verified，也不存在「未提供 credential_id」那条分支——原来的
+        # `if statutes and not note:` 与后面的 for 循环都是死代码
+        # （CodeQL py/unreachable-statement）。
+        if not note:
             note = "文中未发现法条引用。"
-        for item in statutes:
-            references.append({**item, "status": "not_verified", "issue": "未执行法规库检索"})
+            coverage = "format_only"
 
     references.extend(case_numbers)
     summary = _summarize(references)
