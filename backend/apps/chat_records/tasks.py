@@ -116,6 +116,7 @@ def extract_recording_frames_task(  # pragma: no cover
     import tempfile
 
     from django.core.files.base import ContentFile
+    from django.db import transaction
     from django.db.models import Max
 
     from apps.chat_records.models import ChatRecordRecording, ChatRecordScreenshot, ExtractStatus, ScreenshotSource
@@ -254,9 +255,16 @@ def extract_recording_frames_task(  # pragma: no cover
                     total=total_files,
                 )
 
-            ChatRecordScreenshot.objects.filter(
-                project_id=recording.project_id, source=ScreenshotSource.EXTRACT
-            ).delete()
+            # G3（2026-11-23 二轮审计）：原实现先 `delete()` 全部 EXTRACT 截图再逐帧写，
+            # 无事务。取消（循环内显式 raise）/ OCR 失败 / 进程中断 → 旧截图已删、新截图
+            # 没写完，成果全丢且要重新付一次 OCR 成本。
+            # 现在「先算后换」：记下旧批次 id，新截图从旧 max(ordering) 之后续写，
+            # 全部成功后再在事务里删旧批次；失败时旧批次原样保留。
+            stale_extract_ids = list(
+                ChatRecordScreenshot.objects.filter(
+                    project_id=recording.project_id, source=ScreenshotSource.EXTRACT
+                ).values_list("id", flat=True)
+            )
 
             base_ordering = (
                 ChatRecordScreenshot.objects.filter(project_id=recording.project_id)
@@ -307,6 +315,16 @@ def extract_recording_frames_task(  # pragma: no cover
                 )
 
             fps.reorder_screenshots(recording.project_id, _reorder_callback)
+
+            if stale_extract_ids:
+                # 新批次已全部写完，才删旧批次（同一事务内，要么全删要么不动）
+                with transaction.atomic():
+                    deleted, _ = ChatRecordScreenshot.objects.filter(id__in=stale_extract_ids).delete()
+                logger.info(
+                    "抽帧替换旧批次: recording_id=%s 删除旧截图 %s 条",
+                    recording_id,
+                    deleted,
+                )
 
         if params.strategy == "ocr":
             logger.info(

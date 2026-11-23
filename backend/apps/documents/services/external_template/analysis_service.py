@@ -721,16 +721,29 @@ class AnalysisService:
     # ------------------------------------------------------------------
 
     def retry_analysis(self, template_id: int) -> list[Any]:  # pragma: no cover
-        """重新触发 LLM 分析：删除旧映射后重新分析。"""
+        """重新触发 LLM 分析。
+
+        G13（2026-11-23 二轮审计）：原实现**先**把旧映射删掉再调 LLM，且没有事务——
+        LLM 超时/限流/解析失败即把律师**人工确认过**的映射永久清空，无法撤销。
+        现在改为「先算后换」：新映射算出来之后再在事务里替换。
+        """
+        from django.db import transaction
+
         from apps.documents.models.external_template import ExternalTemplateFieldMapping
 
-        deleted_count, _ = ExternalTemplateFieldMapping.objects.filter(template_id=template_id).delete()
-        logger.info(
-            "重新分析: template_id=%d, 已删除旧映射 %d 条",
-            template_id,
-            deleted_count,
+        # 先记下旧映射的主键，再跑分析（analyze_template 自己会**新建**映射，
+        # 所以绝不能"分析完之后删掉该模板的全部映射"——那会把刚算出来的也删掉）。
+        old_mapping_ids = list(
+            ExternalTemplateFieldMapping.objects.filter(template_id=template_id).values_list("id", flat=True)
         )
-        return self.analyze_template(template_id)
+
+        new_mappings = self.analyze_template(template_id)
+
+        # 新映射已落库，再在事务里清掉旧的那批（只删本次之前存在的 id）。
+        with transaction.atomic():
+            deleted_count, _ = ExternalTemplateFieldMapping.objects.filter(id__in=old_mapping_ids).delete()
+        logger.info("重新分析: template_id=%d, 已清理旧映射 %d 条", template_id, deleted_count)
+        return new_mappings
 
     def confirm_mappings(self, template_id: int) -> dict[str, Any]:  # pragma: no cover
         """确认字段映射：置模板状态为已确认并返回确认摘要。"""

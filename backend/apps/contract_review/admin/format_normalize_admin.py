@@ -11,6 +11,7 @@ import logging
 from typing import Any
 
 from django.contrib import admin, messages
+from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from django.template.response import TemplateResponse
 from django.urls import path
@@ -153,11 +154,16 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
         ).order_by("-created_at")
 
         # 统计待处理任务数量
-        pending_count = ReviewTask.objects.filter(
-            original_file__isnull=False,
-            original_file__gt="",
-            output_file__isnull=True,
-        ).count()
+        # S27-02（2026-11-23 二轮审计）：`output_file` 是 CharField（非 nullable），
+        # `output_file__isnull=True` 永远不命中 → 待处理计数恒 0、批量格式化静默空跑。
+        pending_count = (
+            ReviewTask.objects.filter(
+                original_file__isnull=False,
+                original_file__gt="",
+            )
+            .filter(Q(output_file__isnull=True) | Q(output_file=""))
+            .count()
+        )
 
         context = {
             **self.admin_site.each_context(request),
@@ -308,22 +314,19 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
         if request.method == "POST":
             annotation_content = request.POST.get("annotation_content", "")
             if annotation_content:
-                # FormatNormalize 是 ReviewTask 的代理模型，task 本身就是 format_record
-                format_record = FormatNormalize.objects.get(pk=task.pk)
-
-                # 添加批注
-                annotation = {
-                    "author": request.user.get_full_name() or request.user.username,  # type: ignore[union-attr]
-                    "content": annotation_content,
-                    "created_at": timezone.now().isoformat(),
-                }
-
-                if not format_record.annotations:  # type: ignore[attr-defined]
-                    format_record.annotations = []  # type: ignore[attr-defined]
-                format_record.annotations.append(annotation)  # type: ignore[attr-defined]
-                format_record.save(update_fields=["annotations"])  # type: ignore[misc]
-
-                messages.success(request, "批注添加成功")
+                # S27-01（2026-11-23 二轮审计）：原代码往 `format_record.annotations` 写，
+                # 而 `ReviewTask`（及其代理 `FormatNormalize`）**没有这个字段**，
+                # `save(update_fields=["annotations"])` 必抛 FieldDoesNotExist —— 加批注 100% 崩。
+                # 落库位置需要一个新字段（= 迁移），本轮按红线**不建迁移**，改为
+                # fail-closed + 明示，不再假装保存成功。
+                logger.warning(
+                    "格式调整批注未落库：ReviewTask 无 annotations/metadata 字段，需先定存储方案（task=%s）",
+                    task.pk,
+                )
+                messages.error(
+                    request,
+                    "批注暂未保存：该功能缺少落库字段（ReviewTask.annotations），需先确认存储方案后再启用",
+                )
             else:
                 messages.error(request, "批注内容不能为空")
 
