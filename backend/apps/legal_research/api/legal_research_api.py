@@ -102,8 +102,8 @@ async def _resolve_credential_for(request: Any, explicit: int | None) -> int:
     user = getattr(request, "user", None)
     if user is None or not getattr(user, "is_authenticated", False):
         user = getattr(request, "auth", None)
-    # 本函数被 async 视图调用：`resolve_weike_credential_id` 里是同步 ORM
-    # （AccountCredential.objects.filter(...).first()），直接在 async 上下文里跑会抛
+    # 本函数被 async 视图调用：`resolve_weike_credential_id` 里是同步 ORM（对凭证表发
+    # queryset 查询 `.first()`），直接在 async 上下文里跑会抛
     # SynchronousOnlyOperation → 端点恒 500（2026-11-23 端到端实测：任何有律所的真实律师、
     # 不传 credential_id 时都会 500，只有"不挂律所"的异常数据才走到设计的 422）。
     resolved = await sync_to_async(resolve_weike_credential_id)(user=user, explicit=explicit)

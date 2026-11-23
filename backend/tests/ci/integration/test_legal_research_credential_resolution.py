@@ -14,9 +14,11 @@ ORM」这件事锁死。
 
 from __future__ import annotations
 
+import secrets
+
 import pytest
 
-from apps.organization.models import AccountCredential, Lawyer, LawFirm
+from apps.organization.models import AccountCredential, LawFirm, Lawyer
 
 
 def _make_firm_user(*, username: str, with_firm: bool = True) -> Lawyer:
@@ -45,6 +47,7 @@ def test_law_verification_degrades_to_422_when_firm_has_no_weike_credential(clie
 
     assert resp.status_code == 422, resp.content
     assert "威科" in resp.content.decode()
+    assert "威科" in resp.content.decode()
 
 
 @pytest.mark.django_db
@@ -64,7 +67,8 @@ def test_law_verification_resolves_firm_credential_without_explicit_id(
         site_name="weike",
         url="https://www.wkinfo.com.cn/",
         account="weike-user",
-        password="weike-pass",
+        # 不用字面密码：会触发 detect-secrets（本仓库 pre-commit 会拦）
+        password=secrets.token_urlsafe(16),
     )
 
     captured: dict[str, object] = {}
@@ -104,3 +108,4 @@ def test_law_verification_without_firm_still_degrades(client) -> None:
     )
 
     assert resp.status_code == 422, resp.content
+    assert "威科" in resp.content.decode()
