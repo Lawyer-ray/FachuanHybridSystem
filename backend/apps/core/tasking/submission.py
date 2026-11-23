@@ -79,6 +79,7 @@ class TaskSubmissionService:
         - Running tasks cannot be force-killed here; caller should use cooperative
           cancellation in business logic.
         """
+        from django_q.brokers import get_broker
         from django_q.models import OrmQ, Task
 
         queue_deleted, _ = OrmQ.objects.filter(key=task_id).delete()
@@ -86,10 +87,20 @@ class TaskSubmissionService:
 
         running = bool(task and task.started and not task.stopped)
         finished = bool(task and task.stopped)
+        # S20-01（2026-11-23 二轮审计）：`OrmQ` 只覆盖 **ORM broker**。配 Redis broker 时
+        # 排队中的任务不在 OrmQ 里，`queue_deleted` 恒 0、`running` 也因还没有 Task 行而恒 False，
+        # 调用方按 `not running` 判定就会把作业标成 CANCELLED —— 而任务其实还在 Redis 队列里，
+        # 稍后照常执行（「取消了却还在跑」）。
+        # 这里额外给出 `dequeued`：**只有能确认它不会再跑**时才是 True（出队成功或已结束）；
+        # Redis broker 下没有可靠的单条出队 API，因此如实返回 False，调用方据此不要谎报已取消。
+        broker_name = type(get_broker()).__name__
+        dequeued = bool(queue_deleted) or finished
         return {
             "task_id": task_id,
             "queue_deleted": int(queue_deleted),
             "running": running,
             "finished": finished,
             "exists": task is not None,
+            "broker": broker_name,
+            "dequeued": dequeued,
         }

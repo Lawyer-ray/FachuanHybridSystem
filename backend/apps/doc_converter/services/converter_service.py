@@ -135,8 +135,11 @@ class DocConverterService:
                 logger.exception("doc_converter_cancel_failed: job=%s task=%s", job.id, job.task_id)
 
         updates: dict[str, Any] = {"cancel_requested": True}
+        # S20-01（2026-11-23 二轮审计）：原来用「没在跑」当作「已取消」，但 Redis broker 下
+        # 排队中的任务既不在 OrmQ 里、也还没有 Task 行，于是「没在跑」= True 而任务照常执行。
+        # 现在只认 `dequeued`（= 确认出队成功或已结束），否则只置 `cancel_requested` 让业务侧协作取消。
         can_mark_cancelled = job.status == DocConverterJobStatus.PENDING and (
-            not job.task_id or bool(cancel_result.get("queue_deleted")) or not bool(cancel_result.get("running"))
+            not job.task_id or bool(cancel_result.get("dequeued"))
         )
         if can_mark_cancelled:
             updates.update(status=DocConverterJobStatus.CANCELLED, finished_at=timezone.now())
