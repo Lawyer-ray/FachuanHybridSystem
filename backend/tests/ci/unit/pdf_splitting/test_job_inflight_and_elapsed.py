@@ -21,6 +21,7 @@ from django.utils import timezone
 
 from apps.pdf_splitting.models import PdfSplitJob, PdfSplitJobStatus, PdfSplitSourceType, PdfSplitStage
 from apps.pdf_splitting.services.job_service import PdfSplitJobService, _elapsed_seconds_for
+from apps.testing.factories import LawyerFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -44,6 +45,7 @@ def _make_job(
     cancel_requested: bool = False,
     minutes_ago: int = 0,
     stage: str = PdfSplitStage.EXTRACT,
+    created_by: Any = None,
 ) -> PdfSplitJob:
     job = PdfSplitJob.objects.create(
         id=uuid4(),
@@ -55,6 +57,7 @@ def _make_job(
         processed_pages=pages,
         current_page=pages,
         cancel_requested=cancel_requested,
+        created_by=created_by,
     )
     if minutes_ago:
         # created_at 是 auto_now_add，只能绕过 save() 回填
@@ -186,9 +189,10 @@ class TestFileNameNormalisationAsymmetry:
     def test_reusable_job_matches_raw_attachment_name(self) -> None:
         sanitized = "行政复议听取意见通知书_某某案件__20261120收.pdf"
         raw = "行政复议听取意见通知书（某某案件）_20261120收.pdf"
-        job = _make_job(name=sanitized, status=PdfSplitJobStatus.REVIEW_REQUIRED, pages=93)
+        owner = LawyerFactory()
+        job = _make_job(name=sanitized, status=PdfSplitJobStatus.REVIEW_REQUIRED, pages=93, created_by=owner)
 
-        found = PdfSplitJobService().find_reusable_job(source_name=raw, total_pages=93)
+        found = PdfSplitJobService().find_reusable_job(source_name=raw, total_pages=93, user=owner)
 
         assert found is not None and found.id == job.id
 
@@ -203,8 +207,9 @@ class TestFileNameNormalisationAsymmetry:
 
     def test_sanitized_name_still_matches(self) -> None:
         """反向也要成立：调用方直接给清洗后的名字不能因此 miss。"""
-        job = _make_job(name="卷宗_A_B.pdf", status=PdfSplitJobStatus.REVIEW_REQUIRED)
-        found = PdfSplitJobService().find_reusable_job(source_name="卷宗_A_B.pdf")
+        owner = LawyerFactory()
+        job = _make_job(name="卷宗_A_B.pdf", status=PdfSplitJobStatus.REVIEW_REQUIRED, created_by=owner)
+        found = PdfSplitJobService().find_reusable_job(source_name="卷宗_A_B.pdf", user=owner)
         assert found is not None and found.id == job.id
 
     def test_different_pages_still_miss(self) -> None:

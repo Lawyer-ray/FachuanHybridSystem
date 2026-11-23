@@ -187,15 +187,19 @@ class TestNormalizeDefaults:
 class TestConfirmSegments:
     """端到端：确认后 DB 段、segments.json、任务状态三者必须一致。"""
 
-    def test_确认后落库并排导出(self, tmp_path: Path) -> None:
+    def test_确认后落库并排导出(self, tmp_path: Path, django_capture_on_commit_callbacks: Any) -> None:
         job = _job(pages=4)
         with patch(_SUBMIT_PATH) as submit:
             submit.return_value.submit.return_value = "task-xyz"
 
-            result = PdfSplitJobService().confirm_segments(
-                job_id=job.id,
-                items=[_item(1, 2, filename="起诉状.pdf"), _item(3, 4, filename="证据.pdf")],
-            )
+            # G7（2026-11-23 二轮审计）：导出任务改为 `transaction.on_commit` 派发
+            # （原实现写在 atomic 内，worker 可能读到删前/建前的分段 → 导出错包）。
+            # 单测里必须显式执行 on_commit 回调，否则任务永远不会被派发。
+            with django_capture_on_commit_callbacks(execute=True):
+                result = PdfSplitJobService().confirm_segments(
+                    job_id=job.id,
+                    items=[_item(1, 2, filename="起诉状.pdf"), _item(3, 4, filename="证据.pdf")],
+                )
 
         # 1) DB 段
         segments = list(PdfSplitSegment.objects.filter(job=job).order_by("order"))
@@ -208,10 +212,11 @@ class TestConfirmSegments:
         payload = json.loads(json_path.read_text(encoding="utf-8"))
         assert len(payload) == 2
 
-        # 3) 任务进入 EXPORTING 且拿到 task_id
+        # 3) 任务进入 EXPORTING；task_id 在事务提交后才回写（on_commit 内），故查库而非查返回对象
         assert result.status == PdfSplitJobStatus.EXPORTING
-        assert result.task_id == "task-xyz"
         assert result.cancel_requested is False
+        job.refresh_from_db()
+        assert job.task_id == "task-xyz"
 
     def test_重复确认会覆盖旧段而不是累加(self) -> None:
         """律师改完分段再点一次确认，旧段必须被替换——累加会产出重复页。

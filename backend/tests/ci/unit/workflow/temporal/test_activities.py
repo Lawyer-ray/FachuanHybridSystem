@@ -52,11 +52,15 @@ class TestLlmChatHelper:
 
 
 class TestRecordStep:
+    """G2（2026-11-23 二轮审计）：`started_at` 不能被后续状态推进抹成 None。"""
+
     @pytest.mark.asyncio
-    async def test_creates_step_execution(self):
+    async def test_running_sets_started_at(self):
         mock_se_mod = MagicMock()
         mock_obj = MagicMock()
         mock_obj.attempts = None
+        mock_obj.started_at = None
+        mock_obj.asave = AsyncMock()
         mock_se_mod.StepExecution.Status.RUNNING = "running"
         mock_se_mod.StepExecution.Status.SUCCESS = "success"
         mock_se_mod.StepExecution.Status.FAILED = "failed"
@@ -75,14 +79,45 @@ class TestRecordStep:
         ):
             from apps.workflow.temporal.activities import record_step
 
-            # The function does local import, but we need to ensure the mock is used
-            # Since record_step is decorated with @activity.defn, we call it directly
-            # by invoking the underlying function
             fn = record_step.fn if hasattr(record_step, "fn") else record_step
             result = await fn(1, "step1", "Step 1", "activity", "running")
-            # 步骤执行记录应被创建/更新
-            mock_se_mod.StepExecution.objects.aupdate_or_create.assert_awaited_once()
-            assert result is None
+
+        assert result is None
+        assert mock_obj.started_at == "now", "首次进入 running 必须写开始时间"
+        mock_obj.asave.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_success_does_not_wipe_started_at(self):
+        """历史 bug：success 分支把 started_at 写成 None，`ordering=["started_at"]` 下排序塌陷。"""
+        mock_se_mod = MagicMock()
+        mock_obj = MagicMock()
+        mock_obj.attempts = 1
+        mock_obj.started_at = "original-start"
+        mock_obj.asave = AsyncMock()
+        mock_se_mod.StepExecution.Status.RUNNING = "running"
+        mock_se_mod.StepExecution.Status.SUCCESS = "success"
+        mock_se_mod.StepExecution.Status.FAILED = "failed"
+        mock_se_mod.StepExecution.objects.aupdate_or_create = AsyncMock(return_value=(mock_obj, False))
+
+        mock_tz = MagicMock()
+        mock_tz.now.return_value = "now"
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "apps.workflow.models": mock_se_mod,
+                "django.utils": MagicMock(timezone=mock_tz),
+                "django.utils.timezone": mock_tz,
+            },
+        ):
+            from apps.workflow.temporal.activities import record_step
+
+            fn = record_step.fn if hasattr(record_step, "fn") else record_step
+            await fn(1, "step1", "Step 1", "activity", "success")
+
+        assert mock_obj.started_at == "original-start", "终态不得覆盖开始时间"
+        assert mock_obj.attempts == 1, "非 running 状态不应累加 attempts"
+        assert not mock_obj.asave.await_count, "没有字段需要回写时不应多打一次 UPDATE"
 
 
 # ── generic_code_exec ──

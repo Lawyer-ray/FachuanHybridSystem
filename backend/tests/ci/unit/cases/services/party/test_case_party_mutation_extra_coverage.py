@@ -34,7 +34,7 @@ class TestValidateLegalStatusCompatibilityWithClientId:
         mock_config.is_legal_status_valid_for_case_type.return_value = True
         svc = _make_service()
         with patch.object(svc, "_validate_our_party_legal_status") as mock_validate:
-            result = svc.validate_legal_status_compatibility(case_id=1, legal_status="plaintiff_side", client_id=10)
+            result = svc.validate_legal_status_compatibility(case_id=1, legal_status="plaintiff", client_id=10)
             assert result is True
             mock_validate.assert_called_once()
 
@@ -48,7 +48,7 @@ class TestValidateOurPartyLegalStatus:
         svc.client_service.get_client_internal.return_value = mock_client_dto
         mock_qs = MagicMock()
         # Should not raise - returns early
-        svc._validate_our_party_legal_status(case_id=1, legal_status="plaintiff_side", client_id=10, parties_qs=mock_qs)
+        svc._validate_our_party_legal_status(case_id=1, legal_status="plaintiff", client_id=10, parties_qs=mock_qs)
         # 非我方客户早退，不校验业务配置
         mock_config.is_legal_status_valid_for_case_type.assert_not_called()
 
@@ -57,7 +57,7 @@ class TestValidateOurPartyLegalStatus:
         svc = _make_service()
         svc.client_service.get_client_internal.return_value = None
         mock_qs = MagicMock()
-        svc._validate_our_party_legal_status(case_id=1, legal_status="plaintiff_side", client_id=10, parties_qs=mock_qs)
+        svc._validate_our_party_legal_status(case_id=1, legal_status="plaintiff", client_id=10, parties_qs=mock_qs)
         mock_config.is_legal_status_valid_for_case_type.assert_not_called()
 
     @patch("apps.cases.services.party.case_party_mutation_service.business_config")
@@ -91,15 +91,15 @@ class TestValidateOurPartyLegalStatus:
         mock_client_dto.is_our_client = True
         svc.client_service.get_client_internal.return_value = mock_client_dto
         mock_config.is_legal_status_valid_for_case_type.return_value = True
-        # plaintiff_side has opposing_group = defendant_side
+        # 原告侧 与 被告侧 是对立阵营（真实枚举值：plaintiff / defendant）
         mock_config.get_legal_status_label.return_value = "原告"
         mock_qs = MagicMock()
         mock_qs.filter.return_value.exclude.return_value.values_list.return_value = [
-            ("defendant_side", "已有被告"),
+            ("defendant", "已有被告"),
         ]
         with pytest.raises(ValidationException, match="我方当事人诉讼地位冲突"):
             svc._validate_our_party_legal_status(
-                case_id=1, legal_status="plaintiff_side", client_id=10, parties_qs=mock_qs
+                case_id=1, legal_status="plaintiff", client_id=10, parties_qs=mock_qs
             )
 
     @patch("apps.cases.services.party.case_party_mutation_service.business_config")
@@ -113,7 +113,7 @@ class TestValidateOurPartyLegalStatus:
         # No existing parties with conflicting statuses
         mock_qs.filter.return_value.exclude.return_value.values_list.return_value = []
         result = svc._validate_our_party_legal_status(
-            case_id=1, legal_status="plaintiff_side", client_id=10, parties_qs=mock_qs
+            case_id=1, legal_status="plaintiff", client_id=10, parties_qs=mock_qs
         )
         # 无冲突时静默通过
         assert result is None
@@ -128,11 +128,11 @@ class TestValidateOurPartyLegalStatus:
         mock_config.get_legal_status_label.return_value = "上诉人"
         mock_qs = MagicMock()
         mock_qs.filter.return_value.exclude.return_value.values_list.return_value = [
-            ("appellee_side", "已有被上诉人"),
+            ("appellee", "已有被上诉人"),
         ]
         with pytest.raises(ValidationException):
             svc._validate_our_party_legal_status(
-                case_id=1, legal_status="appellant_side", client_id=10, parties_qs=mock_qs
+                case_id=1, legal_status="appellant", client_id=10, parties_qs=mock_qs
             )
 
     @patch("apps.cases.services.party.case_party_mutation_service.business_config")
@@ -145,11 +145,11 @@ class TestValidateOurPartyLegalStatus:
         mock_config.get_legal_status_label.return_value = "刑事被告人"
         mock_qs = MagicMock()
         mock_qs.filter.return_value.exclude.return_value.values_list.return_value = [
-            ("criminal_victim_side", "已有刑事被害人"),
+            ("victim", "已有刑事被害人"),
         ]
         with pytest.raises(ValidationException):
             svc._validate_our_party_legal_status(
-                case_id=1, legal_status="criminal_defendant_side", client_id=10, parties_qs=mock_qs
+                case_id=1, legal_status="criminal_defendant", client_id=10, parties_qs=mock_qs
             )
 
 

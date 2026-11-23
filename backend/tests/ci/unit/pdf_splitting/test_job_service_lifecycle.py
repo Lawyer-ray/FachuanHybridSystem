@@ -515,52 +515,72 @@ class TestFindReusableJob:
 
     def test_文件名为空直接返回None(self) -> None:
         _make_job(name="任何.pdf")
-        assert _service().find_reusable_job(source_name="") is None
+        assert _service().find_reusable_job(source_name="", user=LawyerFactory()) is None
 
     def test_同名同页数且已出结果才命中(self) -> None:
-        job = _make_job(name="借贷纠纷.pdf", pages=5, status=PdfSplitJobStatus.COMPLETED)
-        found = _service().find_reusable_job(source_name="借贷纠纷.pdf", total_pages=5)
+        owner = LawyerFactory()
+        job = _make_job(name="借贷纠纷.pdf", pages=5, status=PdfSplitJobStatus.COMPLETED, created_by=owner)
+        found = _service().find_reusable_job(source_name="借贷纠纷.pdf", total_pages=5, user=owner)
         assert found is not None and found.pk == job.pk
 
     @pytest.mark.parametrize("status", [PdfSplitJobStatus.PENDING, PdfSplitJobStatus.PROCESSING])
     def test_未出结果的任务不复用(self, status: str) -> None:
         """进行中的任务由 ``find_inflight_job`` 接管；这里返回它等于把半成品当结论。"""
-        _make_job(name="借贷纠纷.pdf", pages=5, status=status)
-        assert _service().find_reusable_job(source_name="借贷纠纷.pdf", total_pages=5) is None
+        owner = LawyerFactory()
+        _make_job(name="借贷纠纷.pdf", pages=5, status=status, created_by=owner)
+        assert _service().find_reusable_job(source_name="借贷纠纷.pdf", total_pages=5, user=owner) is None
 
     def test_页数不同不复用(self) -> None:
         """同名不同页 = 另一份文件。误用会让律师拿到别人卷宗的分段。"""
-        _make_job(name="借贷纠纷.pdf", pages=5)
-        assert _service().find_reusable_job(source_name="借贷纠纷.pdf", total_pages=9) is None
+        owner = LawyerFactory()
+        _make_job(name="借贷纠纷.pdf", pages=5, created_by=owner)
+        assert _service().find_reusable_job(source_name="借贷纠纷.pdf", total_pages=9, user=owner) is None
 
     def test_未传页数时不校验页数(self) -> None:
         """调用方拿不到页数时（附件元信息缺 page_count）只按文件名匹配，
         否则「能复用却显示要重跑」。"""
-        job = _make_job(name="借贷纠纷.pdf", pages=5)
-        found = _service().find_reusable_job(source_name="借贷纠纷.pdf", total_pages=None)
+        owner = LawyerFactory()
+        job = _make_job(name="借贷纠纷.pdf", pages=5, created_by=owner)
+        found = _service().find_reusable_job(source_name="借贷纠纷.pdf", total_pages=None, user=owner)
         assert found is not None and found.pk == job.pk
 
-    def test_刻意不按created_by过滤(self) -> None:
-        """复用的是「这份文件的识别结果」，不是「某人的私人物品」。
+    def test_未传user一律不复用(self) -> None:
+        """S17-01（2026-11-23 二轮审计）：端点是无 body 的 GET，API 层没有材料包归属校验。
 
-        材料包常由助理先跑一次、主办律师再来用；任务也可能是脚本/管理后台跑的
-        （created_by 为空）。按属主过滤会让这些场景全部 miss，又退回从零重跑。
-        安全性由调用方保证（能打开材料包的人才拿得到结果）。
+        原口径「刻意不按 created_by 过滤」让「知道文件名 + 页数」的人都能拉到他人案件的
+        `segments[].content_md`。新契约：拿不到用户上下文时**一律 miss**（miss 的代价是重跑，
+        比越权读小得多）。
         """
+        _make_job(name="借贷纠纷.pdf", pages=5, status=PdfSplitJobStatus.COMPLETED)
+        assert _service().find_reusable_job(source_name="借贷纠纷.pdf", total_pages=5, user=None) is None
+
+    def test_跨属主不复用(self) -> None:
+        """他人创建的任务不再复用（原口径会命中 → 水平越权读）。"""
         assistant = LawyerFactory()
         principal = LawyerFactory()
-        job = _make_job(name="借贷纠纷.pdf", pages=5, created_by=assistant)
+        _make_job(name="借贷纠纷.pdf", pages=5, status=PdfSplitJobStatus.COMPLETED, created_by=assistant)
 
         found = _service().find_reusable_job(source_name="借贷纠纷.pdf", total_pages=5, user=principal)
+
+        assert found is None, "他人创建的任务不得复用：会泄露对方案件的分段正文"
+
+    def test_管理员可复用他人任务(self) -> None:
+        """保留管理侧的运维能力（排障时用管理员身份接管复用）。"""
+        assistant = LawyerFactory()
+        admin = LawyerFactory(is_admin=True)
+        job = _make_job(name="借贷纠纷.pdf", pages=5, status=PdfSplitJobStatus.COMPLETED, created_by=assistant)
+
+        found = _service().find_reusable_job(source_name="借贷纠纷.pdf", total_pages=5, user=admin)
 
         assert found is not None and found.pk == job.pk
 
     def test_取最新的一份(self) -> None:
         """同一文件被故意重跑过几次时，律师要看的是最终结论（最新那次）。"""
-        _make_job(name="借贷纠纷.pdf", pages=5, status=PdfSplitJobStatus.REVIEW_REQUIRED)
-        newest = _make_job(name="借贷纠纷.pdf", pages=5, status=PdfSplitJobStatus.COMPLETED)
+        owner = LawyerFactory()
+        _make_job(name="借贷纠纷.pdf", pages=5, status=PdfSplitJobStatus.REVIEW_REQUIRED, created_by=owner)
+        newest = _make_job(name="借贷纠纷.pdf", pages=5, status=PdfSplitJobStatus.COMPLETED, created_by=owner)
 
-        found = _service().find_reusable_job(source_name="借贷纠纷.pdf", total_pages=5)
+        found = _service().find_reusable_job(source_name="借贷纠纷.pdf", total_pages=5, user=owner)
 
         assert found is not None and found.pk == newest.pk
 

@@ -62,12 +62,18 @@ def feed_user(db: None):
 
 
 @pytest.fixture
-def feed_reminder(db: None):
-    """无案件/合同挂载的提醒：Feed 可见性口径的第三分支（对所有人可见）。"""
+def feed_reminder(db: None, feed_user):
+    """无案件/合同挂载的提醒：**只对创建者本人（或管理员）可见**。
+
+    G17（2026-11-23 二轮审计）：原口径第三个 OR 分支没有任何属主约束，
+    持订阅 token 的人可拉到全所的全局提醒与只绑 case_log 的提醒。
+    现在统一走 `reminder_read_scope`，未绑定提醒按 created_by 收敛。
+    """
     return Reminder.objects.create(
         reminder_type="hearing",
         content="feed 端点开庭提醒",
         due_at=timezone.now() + datetime.timedelta(days=1),
+        created_by=feed_user,
     )
 
 

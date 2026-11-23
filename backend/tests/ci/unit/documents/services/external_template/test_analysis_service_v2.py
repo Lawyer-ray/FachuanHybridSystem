@@ -562,15 +562,26 @@ class TestAnalyzeTemplate:
 
 
 class TestRetryAnalysis:
-    def test_deletes_and_reanalyzes(self) -> None:
+    def test_reanalyzes_then_replaces_old_mappings(self, db: None) -> None:
+        """G13（2026-11-23 二轮审计）：必须先算后换。
+
+        原实现先删光全部映射再调 LLM —— LLM 失败就把律师**人工确认过**的映射永久清空。
+        新契约：先跑 analyze_template（它自己会建新映射），再按「旧映射 id 列表」删旧批。
+        """
         svc = _make_service()
+        order: list[str] = []
         with (
             patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm,
-            patch.object(svc, "analyze_template", return_value=[]) as mock_analyze,
+            patch.object(svc, "analyze_template", side_effect=lambda tid: order.append("analyze") or []) as mock_analyze,
         ):
-            mock_fm.objects.filter.return_value.delete.return_value = (3, {})
-            result = svc.retry_analysis(1)
+            mock_fm.objects.filter.return_value.values_list.return_value = [7, 8]
+            mock_fm.objects.filter.return_value.delete.side_effect = lambda: order.append("delete") or (2, {})
+            svc.retry_analysis(1)
+
         mock_analyze.assert_called_once_with(1)
+        assert order == ["analyze", "delete"], "必须先分析成功再删旧映射，否则 LLM 失败即永久丢数据"
+        # 只删「本次之前存在」的那批 id，不能把刚算出来的新映射一起删掉
+        assert mock_fm.objects.filter.call_args_list[-1].kwargs == {"id__in": [7, 8]}
 
 
 class TestCreateManualMapping:
