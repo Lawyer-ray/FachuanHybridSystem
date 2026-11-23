@@ -86,5 +86,10 @@ def register_watchdog_schedule() -> None:
         )
         logger.info("已注册定时任务: %s（每 %d 分钟）", WATCHDOG_SCHEDULE_NAME, WATCHDOG_INTERVAL_MINUTES)
     except Exception:
-        # app ready 阶段数据库可能未就绪（首次 migrate / 容器刚起），下次启动会再试
-        logger.debug("pdf_split 看门狗调度注册跳过（未就绪）", exc_info=True)
+        # app ready 阶段数据库可能未就绪（首次 migrate / 容器刚起），下次启动会再试。
+        #
+        # S18-b-01（2026-11-23 二轮审计）：这里原为 `logger.debug`，而生产 `apps.*`
+        # 的日志级别是 INFO——「看门狗没进调度表」于是在日志里一个字都没有（它才是
+        # 真正吃掉异常的那一层，apps.py 外层的 except 根本轮不到）。现在提为
+        # warning + exc_info：不影响「不冒泡到 ready()」的取舍，但失败必经告警面。
+        logger.warning("pdf_split 看门狗调度注册跳过（数据库未就绪或调度表异常）", exc_info=True)

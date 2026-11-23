@@ -248,12 +248,19 @@ class DropboxProvider(_RecursiveWalkMixin):  # pragma: no cover
         parts = path.strip("/").split("/")
         current = ""
         for part in parts:
-            current = f"{current}/{part}" if current else f"/{part}"
+            # S25-02（2026-11-23 二轮审计）：原实现拼的是 `/图/子目录`，没过
+            # `_full_path`，于是忘了账号配置的 `dropbox_root_path`（如 `/法川`）：
+            # 目录建到了账号根下，紧接着 `write_file` 又把文件传到 `/法川/…/
+            # 目录/文件`——父目录不存在，Dropbox 报 path/not_found。
+            # 现在每一层都过 `_full_path`，与 write_file/read_file/exists 同一口径
+            # （root 为空时 `_full_path` 就是不前缀，行为不变）。
+            current = f"{current}/{part}" if current else part
+            dbx_path = self._full_path(current)
             try:
-                self._dbx.files_get_metadata(current)
+                self._dbx.files_get_metadata(dbx_path)
             except dropbox.exceptions.ApiError:
                 try:
-                    self._dbx.files_create_folder_v2(current)
+                    self._dbx.files_create_folder_v2(dbx_path)
                 except dropbox.exceptions.ApiError as e:
                     # 只忽略 "路径已存在" 错误，其他错误向上传播
                     if e.error.is_path() and e.error.get_path().is_conflict():

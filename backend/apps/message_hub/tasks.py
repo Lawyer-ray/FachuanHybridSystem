@@ -167,4 +167,9 @@ def _register_schedule() -> None:  # pragma: no cover
             existing.save(update_fields=updates)
             logger.info("已校正定时任务: %s（更新 %s）", TASK_NAME, ", ".join(updates))
     except Exception:
-        logger.debug("定时任务注册跳过（未就绪）")
+        # S42-05（2026-11-23 二轮审计）：原来是 `logger.debug`，而生产 `apps.*` 的
+        # 日志级别是 INFO（apps/core/infrastructure/logging.py），这一行永远被过滤掉。
+        # 调度行没落库时 `sync_all_sources` 没有任何第二个调用方（手动按钮走的是
+        # `POST /sources/sync-all`），自动同步会永久静默失效且零告警。
+        # 现在提到 warning + exc_info：DB 未就绪/`django_q` 迁移未跑都能在日志里看见。
+        logger.warning("定时任务注册跳过（数据库未就绪或调度表异常）: %s", TASK_NAME, exc_info=True)

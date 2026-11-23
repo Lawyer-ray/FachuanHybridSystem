@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import pymupdf as fitz
-from django.core.files.base import ContentFile
+from django.core.files import File
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.utils import timezone
@@ -152,7 +152,10 @@ class PdfSplitJobService:
                 resolved_path = self._validate_local_pdf_path(source_path or "")
                 original_name = resolved_path.name
                 original_abs_path = resolved_path.as_posix()
-                storage.save_overwrite(storage.source_pdf_path, ContentFile(resolved_path.read_bytes()))
+                # S17-04（2026-11-23 二轮审计）：本地路径分支同样不再 `read_bytes()`
+                # 整份读进内存，改为以只读文件对象流式落盘（storage 内部 chunked 写）。
+                with resolved_path.open("rb") as local_fh:
+                    storage.save_overwrite(storage.source_pdf_path, File(local_fh))
                 source_type = PdfSplitSourceType.LOCAL_PATH
 
             total_pages = self._validate_pdf_file(storage.source_pdf_path)
@@ -282,7 +285,9 @@ class PdfSplitJobService:
         )
         return None
 
-    def find_inflight_job(self, *, source_name: str, total_pages: int | None = None) -> PdfSplitJob | None:
+    def find_inflight_job(
+        self, *, source_name: str, total_pages: int | None = None, user: Any = None
+    ) -> PdfSplitJob | None:
         """找一份**正在进行中**的拆分任务，供前端接管轮询。
 
         ## 为什么需要它
@@ -297,10 +302,24 @@ class PdfSplitJobService:
         1. `source_original_name` 相同；
         2. `status` 在 pending / processing（还没出结果的那些）；
         3. 未发起取消（已按取消的马上就会变成 cancelled，接管它只会白转圈）；
-        4. 传了 `total_pages` 才校验页数（同 `find_reusable_job`）。
+        4. 传了 `total_pages` 才校验页数（同 `find_reusable_job`）；
+        5. 传入 `user` 时只看自己的任务（管理员全量）。
 
-        不按 `created_by` 过滤，理由同 `find_reusable_job`：共用的是「这份文件的
-        识别进度」。返回 None 表示没有进行中的任务，调用方照常新建。
+        ## 属主收敛（S31-02，2026-11-23 二轮审计）
+
+        原实现「不按 `created_by` 过滤」，理由是「共用的是这份文件的识别进度」。
+        但端点 `GET /pdf-splitting/inflight-job?source_name=&total_pages=` 是**无 body
+        的 GET**，「助手先跑、主办接管」这个理由换来的代价是：知道文件名（就是律师
+        自己给材料包的命名）+ 可选页数，就能拿到他人任务 payload 里的
+        `summary_payload` 与**已落库分段的 `content_md` 正文**（水平越权读，
+        隔壁 `find_reusable_job` 已按 S17-01 修好，本条没跟上）。
+
+        口径取 `get_job` 的写法（`user` 缺省 None ⇒ 不过滤，传入则收敛），而不是
+        `find_reusable_job` 的 fail-closed：本方法的既有调用方与单测都按「不带 user」
+        调用，fail-closed 会让它们全部变成 miss。端点层已固定传 user，越权面在
+        真实入口上已堵住；要彻底收紧成 fail-closed 需同步改测试，留给后续轮次。
+
+        返回 None 表示没有进行中的任务，调用方照常新建。
         """
         if not source_name:
             return None
@@ -312,6 +331,11 @@ class PdfSplitJobService:
         )
         if total_pages is not None:
             queryset = queryset.filter(total_pages=total_pages)
+        if user is not None:
+            from apps.core.security.admin_access import is_admin_user
+
+            if not is_admin_user(user):
+                queryset = queryset.filter(created_by=user)
         return queryset.order_by("-created_at").first()
 
     def get_job(self, job_id: uuid.UUID, user: Any = None) -> PdfSplitJob:
@@ -601,7 +625,6 @@ class PdfSplitJobService:
 
     def _save_uploaded_pdf(self, file: UploadedFile, target_path: Path) -> str:
         from django.conf import settings
-        from django.core.files.base import ContentFile
         from django.core.files.storage import default_storage
 
         file_name = file.name or "upload.pdf"
@@ -618,8 +641,13 @@ class PdfSplitJobService:
             )
         media_root = Path(settings.MEDIA_ROOT)
         rel_path = target_path.relative_to(media_root).as_posix()
-        content = file.read()
-        default_storage.save(rel_path, ContentFile(content))
+        # S17-04（2026-11-23 二轮审计）：原实现 `content = file.read()` 把整份 PDF 读成
+        # bytes，再交给 `ContentFile(content)` 复制一层 BytesIO，峰值≈文件大小的 2 倍
+        # （上限 1 GiB 时单请求 2 GiB RSS，两三个并发上传就能 OOM 掉 web worker）。
+        # 现在把 UploadedFile 直接交给 storage：`FileSystemStorage._save` 走
+        # `content.chunks()` 分块写盘（TemporaryUploadedFile 更会走 `file_move_safe`
+        # 直接移动临时文件），内存只剩单个 chunk，落盘字节逐字节不变。
+        default_storage.save(rel_path, file)
         return sanitize_upload_filename(file_name)
 
     def _validate_local_pdf_path(self, source_path: str) -> Path:

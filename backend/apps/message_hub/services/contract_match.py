@@ -269,7 +269,9 @@ def suggest_contracts_for_message(*, subject: str, body_text: str, body_html: st
     candidates: list[MatchCandidate] = []
     contracts = (
         Contract.objects.filter(status=ContractStatus.ACTIVE)
-        .prefetch_related("cases", "contract_parties__client", "payments")
+        # `cases__case_numbers`：案号在 `CaseNumber.number`（反向关系 `case_numbers`），
+        # 不在 `Case` 上——见下方 S42-04 注释，不预取就是每个案件一次额外查询。
+        .prefetch_related("cases__case_numbers", "contract_parties__client", "payments")
         .only("id", "name", "fee_mode", "fixed_amount", "risk_rate")
     )
     for contract in contracts:
@@ -277,7 +279,13 @@ def suggest_contracts_for_message(*, subject: str, body_text: str, body_html: st
         paid = _to_decimal(contract.payments.aggregate(total=Sum("amount"))["total"])
 
         cases = list(contract.cases.all())
-        contract_case_numbers = [str(getattr(c, "case_number", "") or "") for c in cases]
+        # S42-04（2026-11-23 二轮审计）：原实现读 `getattr(c, "case_number", "")`，
+        # 而 `Case` 没有这个字段（案号在 `CaseNumber.number`，反向关系
+        # `case.case_numbers`），`getattr` 的默认值把 AttributeError 吞成空串、
+        # 后面 `[n for n in ... if n]` 又把空串滤干净 → 案号强信号（W_CASE_NUMBER=1.0，
+        # 唯一能凑到 CONFIDENT_THRESHOLD 的信号）恒为 0，且日志里一点痕迹都没有。
+        # 现在按真实关系取：一个案件可有多个案号（一审/二审/执行），全收。
+        contract_case_numbers = [str(getattr(cn, "number", "") or "") for c in cases for cn in c.case_numbers.all()]
         case_target_amounts = [_to_decimal(getattr(c, "target_amount", None)) for c in cases]
         party_names = [
             str(getattr(cp.client, "name", "") or "") for cp in contract.contract_parties.all() if cp.client_id
