@@ -3,6 +3,8 @@ import type { KyInstance } from 'ky'
 import { todayKey } from '@/lib/date'
 import type { components } from '@/types/api-schema'
 
+import { DEFAULT_FIXED_FEE_AMOUNT } from './constants'
+
 /**
  * 示例项目模板 —— 新建项目时可选「从示例开始」。
  *
@@ -203,7 +205,7 @@ export async function createFromTemplate(
           representation_stages: [t.stage],
           lawyer_ids: [lawyerId],
           fee_mode: 'FIXED',
-          fixed_amount: 5000,
+          fixed_amount: DEFAULT_FIXED_FEE_AMOUNT,
           parties: ourClientId ? [{ client_id: ourClientId, role: 'PRINCIPAL' }] : [],
           cases: [],
         },

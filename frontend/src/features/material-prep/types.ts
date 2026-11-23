@@ -256,6 +256,38 @@ export type CloudEngine = EngineName
 /** 勾选的引擎集合。**空数组 = 自动容灾**（不勾任何引擎时的默认行为） */
 export type CloudSelection = CloudEngine[]
 
+/** 菜单里的固定顺序：MinerU 在最前，因为它也是双引擎的正主（见 `resolveBackendRequest`） */
+export const CLOUD_ENGINES: readonly CloudEngine[] = ['mineru', 'paddleocr_vl', 'textin']
+
+function isCloudEngine(v: unknown): v is CloudEngine {
+  return typeof v === 'string' && (CLOUD_ENGINES as readonly string[]).includes(v)
+}
+
+/**
+ * 把任意来源的值收窄成引擎集合。
+ *
+ * 为什么要收窄：选择集来自 store（`localStorage` 持久化 / 旧会话留下的单值 `'auto'`），
+ * 不是可信形状。旧值 `'auto'`、`null`、未知引擎名一律当「没勾」（= 容灾）——
+ * 宁可回到安全的默认行为，也不要带着一个不存在的引擎去请求云端。
+ *
+ * 同时去重并按 `CLOUD_ENGINES` 固定排序：勾选顺序不该影响标题文案与正主选择。
+ *
+ * 定义在域根而不是 `components/reader/platform-selection.ts`：store 与
+ * reader-state 都在域根层，根层不该反向指向子目录（E6）。
+ */
+export function normalizeCloudSelection(raw: unknown): CloudSelection {
+  if (!Array.isArray(raw)) return []
+  const picked = new Set(raw.filter(isCloudEngine))
+  return CLOUD_ENGINES.filter((e) => picked.has(e))
+}
+
+/** 勾上 / 取消一个引擎。返回**新数组**（zustand 靠引用变化触发订阅） */
+export function toggleCloudEngine(selection: CloudSelection, engine: CloudEngine): CloudSelection {
+  const has = selection.includes(engine)
+  const next = has ? selection.filter((e) => e !== engine) : [...selection, engine]
+  return normalizeCloudSelection(next)
+}
+
 /** 材料包级的识别成本选择（`DraftState.recognition`） */
 export interface RecognitionPrefs {
   /** fast_text = 电子页只抽文本层（不计费、无坐标）；layout = 电子页也上云（更准、更慢、按页计费） */

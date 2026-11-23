@@ -82,6 +82,10 @@ WSL2 只是 Docker 的「后台引擎」，**你全程还是在普通 Windows �
 > 如果你坚持在 Windows 原生终端(Cmd/PowerShell)操作，请确保用 **Git Bash** 或 PowerShell 执行、且克隆前已 `git config --global core.autocrlf input`，否则 `docker-entrypoint.sh` 可能因 CRLF 换行符启动失败。
 >
 > 本项目不依赖 `backend/plugins` 子模块，**无需** `--recurse-submodules`，直接 `git clone` 即可（相关高级功能会静默降级，不影响主流程）。
+>
+> **该子模块（`FachuanPlugins`）是内部仓库，不对外提供**：外部没有访问权限，克隆本仓库也拿不到它，
+> 也没有任何公开地址可以拉取。它是**可选增强**，缺失时启动与主流程均正常，只是相关高级功能不可用；
+> 请不要尝试通过子模块地址、镜像或他人副本获取它。
 
 ```bash
 # 1) 克隆项目（Windows 用户请在上一步的 WSL 终端里执行，不要带 --recurse-submodules）

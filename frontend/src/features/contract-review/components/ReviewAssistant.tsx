@@ -133,6 +133,18 @@ export function ReviewAssistant({
     void suggest()
   }, [instruction, suggest])
 
+  /**
+   * 底部指令框的发送：有选区时与「生成改法」同一个动作（同一条指令、同一个接口）；
+   * 无选区时后端没有整体问答能力，如实提示去哪问，绝不伪造一次发送。
+   */
+  const sendFromComposer = () => {
+    if (effectiveSelection) {
+      void suggest()
+      return
+    }
+    toast.info('当前只支持「选中原文后改写」。整体问答请用右上角 AI 助手（⌘J）。')
+  }
+
   const accept = useCallback(
     async (index: number, candidate: DirectEditCandidate) => {
       setBusyIndex(index)
@@ -291,31 +303,26 @@ export function ReviewAssistant({
         ) : null}
       </div>
 
-      {/* ── 底部：无选区时的提问入口（只答不改） ── */}
+      {/* ── 底部：指令的紧凑入口。与上方 textarea 共用同一个 instruction —— 以前有选区时
+          value 恒为 ''、onChange 直接 return，是个能聚焦、有光标却打不出字的假输入框 ── */}
       <div className="flex-none border-t border-border-light px-3.5 py-2.5">
         <div className="flex items-center gap-1.5 rounded-[7px] border border-border bg-background px-2 py-1.5">
           <input
-            value={selection ? '' : instruction}
-            onChange={(e) => {
-              if (selection) return // 有选区时指令走上面的 textarea，避免两处状态打架
-              setInstruction(e.target.value)
-            }}
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !selection) {
-                e.preventDefault()
-                toast.info('当前只支持「选中原文后改写」。整体问答请用右上角 AI 助手（⌘J）。')
-              }
+              // 中文输入法用 Enter 选词不是发送
+              if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+              e.preventDefault()
+              sendFromComposer()
             }}
-            placeholder={selection ? '选中原文后下指令；无选区则直接提问' : '无选区时只能提问，不会改文档'}
+            placeholder={effectiveSelection ? '选中原文后下指令；无选区则直接提问' : '无选区时只能提问，不会改文档'}
             className="min-w-0 flex-1 bg-transparent text-[11.5px] outline-none placeholder:text-muted-foreground"
           />
           <button
             type="button"
             aria-label="发送"
-            onClick={() => {
-              if (selection) void suggest()
-              else toast.info('当前只支持「选中原文后改写」。整体问答请用右上角 AI 助手（⌘J）。')
-            }}
+            onClick={sendFromComposer}
             className="grid size-6 flex-none place-items-center rounded-[5px] bg-foreground text-background transition-opacity hover:opacity-85"
           >
             <Send className="size-3" />

@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { FileText, Loader2, Mail, MessageSquare, PackageCheck } from 'lucide-react'
+import { FileText, Mail, MessageSquare, PackageCheck } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { friendlyTime } from '@/lib/format'
@@ -11,7 +11,6 @@ function SourceIcon({ row }: { row: InboxRow }) {
   const cls = 'h-4 w-4'
   if (isPackSource(row)) return <FileText className={cls} aria-hidden />
   if (row.source_type === 'court_sms') return <MessageSquare className={cls} aria-hidden />
-  if (row.source_type === 'imap') return <Mail className={cls} aria-hidden />
   return <Mail className={cls} aria-hidden />
 }
 
@@ -28,14 +27,11 @@ function SourceIcon({ row }: { row: InboxRow }) {
 export const InboxRowItem = memo(function InboxRowItem({
   row,
   active,
-  converting,
   onSelect,
 }: {
   row: InboxRow
   /** 当前在右侧详情抽屉里打开的那条 */
   active: boolean
-  /** 该行正在转材料包（禁用重复点击并给转圈） */
-  converting: boolean
   onSelect: (row: InboxRow) => void
 }) {
   const packSource = isPackSource(row)
@@ -112,9 +108,8 @@ export const InboxRowItem = memo(function InboxRowItem({
               {row.attachment_count} 附件
             </span>
           )}
-          {converting && <Loader2 className="h-3 w-3 animate-spin text-status-blue" aria-hidden />}
           {/* 可转但未转：给一个极简提示，不放大成按钮（行本身就是入口） */}
-          {convertible && !converting && (
+          {convertible && (
             <span className="rounded-[4px] border border-border px-1 py-px text-[10px] text-muted-foreground">
               可转材料包
             </span>

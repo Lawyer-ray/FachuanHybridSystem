@@ -45,6 +45,10 @@ interface Props {
  *
  * 责任边界：宽度百分比与拖拽中标记都由调用方持有（useSplitDrag），这里只画；
  * 行内编辑的 overrides、跳过/撤销动作同理由调用方的 hook 提供。
+ *
+ * 左栏宽度走容器上的 `--split-w` 变量：拖拽中由 hook 直改（零 setState），
+ * 这里的 `var(--split-w, <splitPct>%)` 缺省值就是已提交的百分比，首帧即正确。
+ * 变量写在容器上而不是左栏本身，是因为拖拽换算百分比用的是容器的实际像素宽。
  */
 export function RecognizeSplitPane({
   bodyRef,
@@ -73,7 +77,7 @@ export function RecognizeSplitPane({
             'hidden min-w-0 flex-col lg:flex',
             draggingSplit && 'pointer-events-none',
           )}
-          style={{ width: `${splitPct}%` }}
+          style={{ width: `var(--split-w, ${splitPct}%)` }}
         >
           <DocumentPreview
             url={previewUrl}

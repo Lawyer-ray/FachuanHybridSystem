@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 import { Info, Link2, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
@@ -42,6 +43,9 @@ function formatExpiry(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
 }
 
+/** 行内等确认的破坏性动作（换发 / 作废 / 删除） */
+type PendingAction = { kind: 'rotate' | 'revoke' | 'delete'; id: number }
+
 /** 一次性明文提示条：刚生成/刚换发的链接都走它，风格统一 */
 function OneTimeUrlNotice({ url, hint }: { url: string; hint: string }) {
   return (
@@ -50,6 +54,129 @@ function OneTimeUrlNotice({ url, hint }: { url: string; hint: string }) {
       <ShareUrlBox url={url} />
       <p className="text-[11px] text-muted-foreground">关掉这个面板后就看不到了，如需再发请用「换发」。</p>
     </div>
+  )
+}
+
+/**
+ * 确认态：一句提示 + 确认键 + 取消。三个破坏性动作共用同一套确认 UI。
+ */
+function ConfirmBar({
+  hint,
+  confirmLabel,
+  destructive = false,
+  onConfirm,
+  onCancel,
+}: {
+  hint: ReactNode
+  confirmLabel: string
+  /** 作废/删除用红色确认键：它们比换发更重 */
+  destructive?: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <>
+      <span className="text-xs text-muted-foreground">{hint}</span>
+      <Button variant={destructive ? 'destructive' : 'default'} size="sm" onClick={onConfirm}>
+        {confirmLabel}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={onCancel}>
+        取消
+      </Button>
+    </>
+  )
+}
+
+/**
+ * 行内操作区：常规三键 / 三个确认态 / 已失效行只留删除。
+ *
+ * 互斥由 `pending`（单个判别式）决定，而不是三个 `xxxId` 布尔汤：早退链从上往下
+ * 只有一种情况成立，任何时候都只渲染出一组按钮。
+ */
+function RowActions({
+  row,
+  isOpen,
+  pending,
+  onAsk,
+  onCancel,
+  onConfirmRotate,
+  onConfirmRevoke,
+  onConfirmDelete,
+}: {
+  row: UploadLinkRow
+  isOpen: boolean
+  /** 该行正在等确认的动作；null = 常规操作组 */
+  pending: PendingAction['kind'] | null
+  onAsk: (kind: PendingAction['kind']) => void
+  onCancel: () => void
+  onConfirmRotate: () => void
+  onConfirmRevoke: () => void
+  onConfirmDelete: () => void
+}) {
+  if (pending === 'delete') {
+    return (
+      <ConfirmBar
+        hint={
+          <>
+            删除后<b>「{row.title}」</b>将不再出现在列表里（已收材料包会保留），确定？
+          </>
+        }
+        confirmLabel="确认删除"
+        destructive
+        onConfirm={onConfirmDelete}
+        onCancel={onCancel}
+      />
+    )
+  }
+
+  // 已失效/已作废的行：只剩「删除」可做（作废过的不必再作废）
+  if (!isOpen) {
+    return (
+      <Button variant="ghost" size="sm" onClick={() => onAsk('delete')}>
+        <Trash2 className="h-3.5 w-3.5" /> 删除
+      </Button>
+    )
+  }
+
+  if (pending === 'revoke') {
+    return (
+      <ConfirmBar
+        hint="作废后客户手里的链接立即失效，确定？"
+        confirmLabel="确认作废"
+        destructive
+        onConfirm={onConfirmRevoke}
+        onCancel={onCancel}
+      />
+    )
+  }
+
+  if (pending === 'rotate') {
+    return (
+      <ConfirmBar
+        hint={
+          <>
+            换发会让<b>「{row.title}」</b>的旧链接立即失效，确定？
+          </>
+        }
+        confirmLabel="确认换发"
+        onConfirm={onConfirmRotate}
+        onCancel={onCancel}
+      />
+    )
+  }
+
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => onAsk('rotate')}>
+        <RefreshCw className="h-3.5 w-3.5" /> 换发新链接
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => onAsk('revoke')}>
+        作废
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => onAsk('delete')}>
+        <Trash2 className="h-3.5 w-3.5" /> 删除
+      </Button>
+    </>
   )
 }
 
@@ -63,12 +190,15 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
   const returningFromCreate = useRef(false)
   /** 换发结果带上行 id：多行时必须能看出新链接属于哪一条 */
   const [rotated, setRotated] = useState<{ id: number; title: string; url: string } | null>(null)
-  /** 待确认换发的行（破坏性操作，先确认再执行） */
-  const [rotatingId, setRotatingId] = useState<number | null>(null)
-  /** 待确认作废的行 */
-  const [confirmingId, setConfirmingId] = useState<number | null>(null)
-  /** 待确认删除的行（彻底删除，比作废更重） */
-  const [deletingId, setDeletingId] = useState<number | null>(null)
+  /**
+   * 行内待确认的动作：换发 / 作废 / 删除共用一个状态（破坏性操作先确认再执行）。
+   *
+   * 三者共用同一行操作区、同一时刻只可能出现一组确认按钮，所以用一个带 kind 的
+   * 单状态：三个各自独立的 `xxxId` 能同时为真，那种「不可能组合」只能靠渲染顺序
+   * 去维持，改一处判断就会在同一行冒出两组确认按钮。
+   * （换发**成功后的结果**不在这里——它要留在那一行里继续显示且与确认态无关，见 rotated。）
+   */
+  const [pending, setPending] = useState<PendingAction | null>(null)
 
   const reload = useCallback(() => {
     setLoading(true)
@@ -86,9 +216,7 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
       setCreated(null)
     }
     setRotated(null)
-    setRotatingId(null)
-    setConfirmingId(null)
-    setDeletingId(null)
+    setPending(null)
     reload()
   }, [open, reload])
 
@@ -105,13 +233,13 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
     deleteUploadLink(row.id)
       .then(() => {
         toast(`已删除「${row.title}」`)
-        setDeletingId(null)
+        setPending(null)
         // 删掉的行如果刚好是换发结果那张，把结果也清掉，避免悬空的提示
         if (rotated?.id === row.id) setRotated(null)
         reload()
       })
       .catch((e: unknown) => {
-        setDeletingId(null)
+        setPending(null)
         // 后端对非本人/非管理员一律 404：这里给明确文案，不说「出错了」让人猜
         const status = (e as { response?: { status?: number } })?.response?.status
         toast.error(status === 404 ? '无权删除该链接（仅创建人或管理员可删）' : errMessage(e, '删除失败'))
@@ -123,11 +251,11 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
       .then((created2) => {
         // 必须走 api.buildShareUrl：手抄 `/u/<token>` 一旦路由改名就会静默发出 404 链接
         setRotated({ id: row.id, title: row.title, url: buildShareUrl(created2.token) })
-        setRotatingId(null)
+        setPending(null)
         reload()
       })
       .catch((e: unknown) => {
-        setRotatingId(null)
+        setPending(null)
         toast.error(errMessage(e, '换发失败'))
       })
   }
@@ -162,9 +290,8 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
             ) : (
               rows.map((row) => {
                 const isOpen = row.state === 'open'
-                const isRotating = rotatingId === row.id
-                const isVoiding = confirmingId === row.id
-                const isDeleting = deletingId === row.id
+                /** 该行正在等确认的动作；null = 常规操作组 */
+                const pendingKind = pending?.id === row.id ? pending.kind : null
                 const justRotated = rotated?.id === row.id
                 return (
                   <div
@@ -194,65 +321,19 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
 
                     {/* 操作区：确认态互斥，永远只出现一组按钮，避免多行时点错 */}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {isDeleting ? (
-                        <>
-                          <span className="text-xs text-muted-foreground">
-                            删除后<b>「{row.title}」</b>将不再出现在列表里（已收材料包会保留），确定？
-                          </span>
-                          <Button variant="destructive" size="sm" onClick={() => remove(row)}>
-                            确认删除
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setDeletingId(null)}>
-                            取消
-                          </Button>
-                        </>
-                      ) : !isOpen ? (
-                        /* 已失效/已作废的行：只剩「删除」可做（作废过的不必再作废） */
-                        <Button variant="ghost" size="sm" onClick={() => setDeletingId(row.id)}>
-                          <Trash2 className="h-3.5 w-3.5" /> 删除
-                        </Button>
-                      ) : isVoiding ? (
-                        <>
-                          <span className="text-xs text-muted-foreground">作废后客户手里的链接立即失效，确定？</span>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => {
-                              setConfirmingId(null)
-                              revoke(row.id)
-                            }}
-                          >
-                            确认作废
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setConfirmingId(null)}>
-                            取消
-                          </Button>
-                        </>
-                      ) : isRotating ? (
-                        <>
-                          <span className="text-xs text-muted-foreground">
-                            换发会让<b>「{row.title}」</b>的旧链接立即失效，确定？
-                          </span>
-                          <Button size="sm" onClick={() => rotate(row)}>
-                            确认换发
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setRotatingId(null)}>
-                            取消
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button variant="outline" size="sm" onClick={() => setRotatingId(row.id)}>
-                            <RefreshCw className="h-3.5 w-3.5" /> 换发新链接
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setConfirmingId(row.id)}>
-                            作废
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setDeletingId(row.id)}>
-                            <Trash2 className="h-3.5 w-3.5" /> 删除
-                          </Button>
-                        </>
-                      )}
+                      <RowActions
+                        row={row}
+                        isOpen={isOpen}
+                        pending={pendingKind}
+                        onAsk={(kind) => setPending({ kind, id: row.id })}
+                        onCancel={() => setPending(null)}
+                        onConfirmRotate={() => rotate(row)}
+                        onConfirmRevoke={() => {
+                          setPending(null)
+                          revoke(row.id)
+                        }}
+                        onConfirmDelete={() => remove(row)}
+                      />
                     </div>
 
                     {/* 换发结果就地显示在这一行里面，并点名标题——多行也不会搞混 */}

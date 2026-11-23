@@ -26,7 +26,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { GlobalSearch } from '@/features/search'
-import { NewProjectDialog } from '@/features/workbench/components/NewProjectDialog'
+import { NewProjectDialog } from '@/features/workbench'
 
 /**
  * 全局顶层导航（全站唯一一套，由 App 的 AppShell 渲染一次、跨页面常驻）。

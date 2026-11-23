@@ -1,6 +1,6 @@
 import { createPdfSplitJob, fetchAttachmentBytes, findReusablePdfSplitJob, ocrImage, parseOfficeFile } from '../../api'
 import { readEngineDisagreements, readInconsistencies, readPageQuality } from '../../draft'
-import type { EngineDisagreement, Inconsistency, PageQuality, PdfSplitSegmentSuggestion } from '../../types'
+import type { BundleMat, EngineDisagreement, Inconsistency, PageQuality, PdfSplitSegmentSuggestion } from '../../types'
 import type { CloudBackend } from '../../api'
 import type { PollLease } from '@/hooks/use-poll-session'
 import { blocksToMarkdown, guessImageType, pollJob, segmentBackendOf, type JobProgressSnapshot } from './auto-split-helpers'
@@ -146,6 +146,38 @@ export async function runPdfTrack(args: {
   }
 }
 
+/** 旁路轨道的取字那一步：拿到已下载的字节和它属于哪份材料，返回正文（空串 = 没取到字） */
+type TextExtractor = (args: { bytes: ArrayBuffer; mat: BundleMat }) => Promise<string>
+
+/**
+ * 图片 / Office 两轨共用的骨架：逐份下载字节 → 交取字器 → 有字就收。
+ *
+ * 两轨**只差取字那一步**，其余完全一致：过期即停（不再发新请求）、单份失败只加计数
+ * 不中断循环（一份坏图 / 加密 docx 不该让同批其它份白跑）。抽成一份是为了让这条
+ * 容错口径只有一处实现，改一处两轨同时生效。
+ */
+async function runTextTrack(args: {
+  openId: number
+  targets: MatTarget[]
+  isStale: () => boolean
+  extract: TextExtractor
+}): Promise<TrackOutcome> {
+  const { openId, targets, isStale, extract } = args
+  const texts: ExtractedText[] = []
+  let failed = 0
+  for (const { mat, mi } of targets) {
+    if (isStale()) return { stale: true, texts: [], failed: 0 }
+    try {
+      const bytes = await fetchAttachmentBytes(openId, mat.partIndex)
+      const md = await extract({ bytes, mat })
+      if (md) texts.push({ mi, md })
+    } catch {
+      failed += 1
+    }
+  }
+  return { stale: false, texts, failed }
+}
+
 /**
  * 图片轨：单页取字（RapidOCR）。
  *
@@ -157,22 +189,13 @@ export async function runPhotoTrack(args: {
   targets: MatTarget[]
   isStale: () => boolean
 }): Promise<TrackOutcome> {
-  const { openId, targets, isStale } = args
-  const texts: ExtractedText[] = []
-  let failed = 0
-  for (const { mat, mi } of targets) {
-    if (isStale()) return { stale: true, texts: [], failed: 0 }
-    try {
-      const bytes = await fetchAttachmentBytes(openId, mat.partIndex)
-      const blob = new Blob([bytes], { type: guessImageType(mat.n) })
-      const ocr = await ocrImage(blob)
-      const md = blocksToMarkdown(ocr.blocks)
-      if (md) texts.push({ mi, md })
-    } catch {
-      failed += 1
-    }
-  }
-  return { stale: false, texts, failed }
+  return runTextTrack({
+    ...args,
+    extract: async ({ bytes, mat }) => {
+      const ocr = await ocrImage(new Blob([bytes], { type: guessImageType(mat.n) }))
+      return blocksToMarkdown(ocr.blocks)
+    },
+  })
 }
 
 /**
@@ -185,20 +208,11 @@ export async function runOfficeTrack(args: {
   targets: MatTarget[]
   isStale: () => boolean
 }): Promise<TrackOutcome> {
-  const { openId, targets, isStale } = args
-  const texts: ExtractedText[] = []
-  let failed = 0
-  for (const { mat, mi } of targets) {
-    if (isStale()) return { stale: true, texts: [], failed: 0 }
-    try {
-      const bytes = await fetchAttachmentBytes(openId, mat.partIndex)
-      const file = new File([bytes], mat.customName || mat.n)
-      const parsed = await parseOfficeFile(file)
-      const md = parsed.markdown || parsed.text
-      if (md) texts.push({ mi, md })
-    } catch {
-      failed += 1
-    }
-  }
-  return { stale: false, texts, failed }
+  return runTextTrack({
+    ...args,
+    extract: async ({ bytes, mat }) => {
+      const parsed = await parseOfficeFile(new File([bytes], mat.customName || mat.n))
+      return parsed.markdown || parsed.text
+    },
+  })
 }

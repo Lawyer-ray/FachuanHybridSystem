@@ -3,11 +3,11 @@
  *
  * 放**规范级常量**（照搬后端、变更频率极低、猜错会导致业务缺项的东西）。
  * 演示态的假数据不放这里，放 `demo-data/`。
- * 立案会话的阶段文案（`PHASE_META` / `pillTone`）也收在这里：它是对后端 status
- * 的呈现映射，被一张网与 OA 两块立案面板共用。
+ * 立案会话的阶段文案（`PHASE_META` / `pillTone` / `sessionTone`）也收在这里：
+ * 它们是对后端 status 的呈现映射，被一张网与 OA 两块立案面板共用。
  */
 
-import type { Tone } from '@/components/shared/StatusBadge'
+import type { Tone } from '@/lib/tone'
 
 import type { AutoPhase } from '../hooks/use-auto-run'
 
@@ -78,4 +78,17 @@ export const PHASE_META: Record<AutoPhase, { tone: Tone; text: string }> = {
 /** StatusBadge 的 Tone 含 purple，Pill 不收 —— 进度语气只会用到这五种，窄化一次 */
 export function pillTone(t: Tone): 'neutral' | 'green' | 'red' | 'yellow' | 'blue' {
   return t === 'purple' ? 'neutral' : t
+}
+
+/**
+ * 后端的会话 `status` → 语气。后端取值大小写/拼写不完全统一，按语义归类。
+ * 一张网的立案结果块与 OA 盖章 / 归档面板的「会话状态」胶囊共用同一条映射，
+ * 不各自维护副本（P02-006）。
+ */
+export function sessionTone(status: string): Tone {
+  const s = (status || '').toLowerCase()
+  if (s === 'success' || s === 'finished' || s === 'completed') return 'green'
+  if (s === 'failed' || s === 'error') return 'red'
+  if (s === 'running' || s === 'pending' || s === 'processing' || s === 'in_progress') return 'blue'
+  return 'neutral'
 }

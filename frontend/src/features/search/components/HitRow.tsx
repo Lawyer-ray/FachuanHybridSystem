@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 
-import { BADGE_TONE_CLS } from '@/components/shared/StatusBadge'
+import { BADGE_TONE_CLS } from '@/lib/tone'
 import { cn } from '@/lib/utils'
 
 import { SIDE_LABEL, type CategoryMeta } from '../categories'

@@ -1,8 +1,13 @@
 /**
- * 一轮的生命周期：用量记账、排队提示、压缩状态、降级/失败、收尾判定。
+ * 一轮的生命周期：用量记账、降级/失败、收尾判定，以及排队/压缩状态的退场清理。
  *
  * 共同点：它们改的都是**栏级/轮级**状态（`turnStats` / `turnStatsByLane` /
  * `queuePosition` / `compacting` / `lastError` / 哪些气泡还在流），而不是正文本身。
+ *
+ * `queuePosition` / `compacting` 在本文件只有**清理**、没有写入：写入端在
+ * `handlers/approval-question.ts`（onQueued 记排队名次、onCompaction 记压缩阶段）。
+ * 这里处理的两条退场路径是「事件永远不会再来」时唯一的清理时机：onProgress
+ * （本轮开始推进，排队横幅该消失）与 onStreamEnd（断流时压缩 end 不会到达）。
  *
  * 收尾的难点全部写在 {@link createLaneLifecycleHandlers} 的 finishLane 里：多答时每栏
  * 各发一次 done，先跑完的那栏**不能**把其他栏一起收掉。
@@ -32,7 +37,10 @@ export function createLaneLifecycleHandlers(ctx: TurnHandlerContext): {
     }))
   }
 
-  /** 仅在有值时才 set（避免每个 delta 都触发一次状态写入） */
+  /**
+   * 排队横幅的退场清理（写入端在 `handlers/approval-question.ts` 的 onQueued）。
+   * 仅在有值时才 set（避免每个 delta 都触发一次状态写入）。
+   */
   const clearQueueBanner = () => {
     set((s) => (s.queuePosition !== null ? { queuePosition: null } : s))
   }
@@ -74,7 +82,7 @@ export function createLaneLifecycleHandlers(ctx: TurnHandlerContext): {
     //
     // 同时要把**被丢下的那几栏**就地收尾并标「本轮未做」：后端收窄了 agents，
     // 只会给主栏发 done，其余栏永远等不到收尾信号——界面上就是一排转圈的空栏。
-    // 主栏是 `targetOf('')`（路由表为空时它就是第一栏，见 store/turn.ts）。
+    // 主栏是 `targetOf('')`（路由表为空时它就是第一栏，见 store/turn-send.ts）。
     const keptId = targetOf('')
     set((s) => ({
       messages: s.messages.map((m) =>

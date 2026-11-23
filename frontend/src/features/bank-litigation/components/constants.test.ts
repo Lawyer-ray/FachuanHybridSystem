@@ -4,10 +4,11 @@
  * 这一份被 OA 立案与一张网立案两侧共用：
  * - PHASE_META：轮询阶段 → 语气 / 文案（idle..timeout 五种全覆盖）
  * - pillTone：把 StatusBadge 的 Tone 窄化成 Pill 接受的五种
+ * - sessionTone：后端会话 status → 语气（一张网立案结果块 + OA 盖章面板共用）
  */
 import { describe, expect, it } from 'vitest'
 
-import { PHASE_META, pillTone } from './constants'
+import { PHASE_META, pillTone, sessionTone } from './constants'
 
 describe('PHASE_META', () => {
   it('五个阶段各有语气与文案，一句都不重复', () => {
@@ -34,5 +35,25 @@ describe('pillTone', () => {
     expect(pillTone('yellow')).toBe('yellow')
     expect(pillTone('blue')).toBe('blue')
     expect(pillTone('neutral')).toBe('neutral')
+  })
+})
+
+describe('sessionTone', () => {
+  // OA 盖章 / 归档面板的「会话状态」胶囊复用这条映射，它认得哪些 status 值必须钉住：
+  // 尤其 in_progress —— 后端 OA 会话会返回这个值，漏了就会灰成「中性」但实际在跑。
+  it.each([
+    ['success', 'green'],
+    ['finished', 'green'],
+    ['completed', 'green'],
+    ['failed', 'red'],
+    ['error', 'red'],
+    ['running', 'blue'],
+    ['pending', 'blue'],
+    ['processing', 'blue'],
+    ['in_progress', 'blue'],
+    ['', 'neutral'],
+    ['unknown_status', 'neutral'],
+  ])('%s → %s', (status, tone) => {
+    expect(sessionTone(status)).toBe(tone)
   })
 })

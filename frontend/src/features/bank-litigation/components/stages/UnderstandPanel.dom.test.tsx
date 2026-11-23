@@ -5,6 +5,8 @@
  * - 读懂抽屉：三个视图切换，渲染视图里 markdown 标题与表格真的变成标签
  * - 读懂抽屉：换转换方法后能真的走一遍重转并出结论
  * - 关键字段：行点开能看到原文上下文与可改正的输入框，改正后回到列表生效
+ * - 读懂抽屉：关掉再换一份文档，视图回到默认渲染态
+ * - 关键字段：关掉再点另一行，输入框不带上一行的改正草稿
  * - 批量重转：全选 → 跑完 → 给结论
  */
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
@@ -75,6 +77,41 @@ describe('UnderstandPanel 细节', () => {
     // 回到列表：值被替换，并带「已改」标记
     expect(screen.getByText('DEMO-改后-001')).toBeTruthy()
     expect(screen.getByText('已改')).toBeTruthy()
+  })
+
+  it('读懂抽屉：关掉再换一份，视图回到默认渲染态（不沿用上一份的源码视图）', () => {
+    render(<UnderstandPanel />)
+
+    fireEvent.click(screen.getAllByText('查看全文')[0]!)
+    fireEvent.click(within(screen.getByRole('dialog')).getByText('源码'))
+    fireEvent.click(within(screen.getByRole('dialog')).getByText('确认无误'))
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    // 第 3 份的摘录里有「## 还款明细」：只有默认的渲染视图才会把它渲染成标题
+    fireEvent.click(screen.getAllByText('查看全文')[2]!)
+    expect(
+      within(screen.getByRole('dialog')).getByRole('heading', { level: 2, name: '还款明细' }),
+    ).toBeTruthy()
+  })
+
+  it('字段抽屉：关掉再点另一行，输入框是空的，不带上一行的改正草稿', () => {
+    render(<UnderstandPanel />)
+    const [first, second] = DEMO_UNDERSTAND_FIELDS
+
+    fireEvent.click(screen.getByText(first!.field))
+    const input = within(screen.getByRole('dialog')).getByLabelText(
+      '手工改正（会记进字段修订历史）',
+    ) as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'DEMO-上一行-草稿' } })
+    fireEvent.click(within(screen.getByRole('dialog')).getByText('保持原值'))
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    // 改点另一个字段：抽屉是常驻挂载的，按字段取 key 才会给它一份干净草稿
+    fireEvent.click(screen.getByText(second!.field))
+    const nextInput = within(screen.getByRole('dialog')).getByLabelText(
+      '手工改正（会记进字段修订历史）',
+    ) as HTMLInputElement
+    expect(nextInput.value).toBe('')
   })
 
   it('全选后批量重转能跑完并给出结论', async () => {

@@ -18,7 +18,8 @@ import { fmtMoney } from '../utils'
 
 /**
  * 一张网在线立案面板（`CourtFilingPanel`）。
- * 律所 OA 那一半在 `oa/OAFilingPanel.tsx`（当年按文件行数红线拆出去的），
+ * 律所 OA 那一半的旧实现 `oa/OAFilingPanel.tsx` 已于 v27.24.1 删除（无生产挂载点，
+ * 只有自己的测试引用），立案入口现只有一张网这一条。
  * 两侧共用件在 `filing-session-result.tsx`（结果块）与 `constants.ts`（阶段文案）。
  *
  * ═══ 两条链路的共同形状 ═══

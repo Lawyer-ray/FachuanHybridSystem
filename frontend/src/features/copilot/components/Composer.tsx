@@ -194,7 +194,7 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
     mention.onKeyDown(event) === 'consumed' || slash.onKeyDown(event)
 
   /**
-   * 发送 + 成功清引用：`onQueued(true)` 表示消息已入列（store/turn.ts 那里也在此
+   * 发送 + 成功清引用：`onQueued(true)` 表示消息已入列（store/turn-send.ts 那里也在此
    * 清 pendingFiles/pendingRefs）。失败时保留 chips，重试不丢引用。
    */
   const sendWithMentions = useCallback(

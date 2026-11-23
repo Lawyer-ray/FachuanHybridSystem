@@ -89,7 +89,7 @@ export function BankLitigationPage({ initialCaseId }: { initialCaseId?: number |
 // ───────────────────────── 案件工作区 ─────────────────────────
 
 function CaseWorkspace({ caseId, onBack }: { caseId: number; onBack: () => void }) {
-  // 默认落在「整包分段」：这是律师打开案件后的第一个动作。
+  // 默认落在「① 收案」：这是律师打开案件后的第一个动作。
   const [section, setSection] = useState<Section>('intake')
   const c = useCase(caseId)
 

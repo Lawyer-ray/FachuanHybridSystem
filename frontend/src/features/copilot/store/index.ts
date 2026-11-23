@@ -9,7 +9,7 @@
  * - backends.ts      agent 后端选择（新建会话用 pi / dsh，持久化偏好）
  * - answers.ts       本轮跑哪几个 agent（多答：1~4 栏，逐轮可选）
  * - session.ts       会话生命周期（进入业务范围/切换/历史回放与分页）
- * - turn.ts          一轮对话（发送、流生命周期、插话、后台任务）
+ * - turn.ts          一轮对话（发送、流生命周期、插话、后台任务；send 的各阶段在 turn-send.ts）
  * - approval.ts      审批卡（加载合并/决策/失效清理）
  * - attachment.ts    待发草稿（附件/文件夹引用/框选引用 chips，无网络）
  * - context-usage.ts 上下文水位与消息反馈

@@ -12,7 +12,7 @@
  * 收件箱的一个来源档位出现，因此这里不再测它。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -124,6 +124,43 @@ describe('同步按钮的调用目标', () => {
 
     expect(apiMock.syncAllSources).not.toHaveBeenCalled()
     expect(apiMock.syncSource).not.toHaveBeenCalled()
+  })
+})
+
+/** 与 use-sync-sources 的 POLL_INTERVAL_MS 对齐（该常量不对外导出） */
+const POLL_TICK_MS = 2_000
+
+describe('卸载后停止轮询', () => {
+  // 回归：轮询链原本没有取消通道，组件卸载后仍每 2 秒发一次 listSources，
+  // 最长到 60 秒上限才停。这里让 last_sync_at 一直不变（= 最坏情况：同步迟迟
+  // 不完成），推进若干拍后卸载，再推进同样的拍数，请求数必须原地不动。
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('组件卸载后不再发 listSources', async () => {
+    const { unmount } = render(wrap(<Harness source="imap" />))
+    fireEvent.click(screen.getByRole('button', { name: /同步邮箱/ }))
+
+    // 冲微任务：快照 listSources → 基线 listInbox → syncSource → 进入 2s 等待
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    // 先确认轮询确实在跑，否则下面「数量不变」可能只是根本没开始
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_TICK_MS)
+    })
+    expect(apiMock.listSources.mock.calls.length).toBe(2)
+
+    unmount()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_TICK_MS * 10)
+    })
+    expect(apiMock.listSources.mock.calls.length).toBe(2)
   })
 })
 

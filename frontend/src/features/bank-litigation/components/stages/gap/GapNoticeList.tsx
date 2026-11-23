@@ -46,6 +46,7 @@ export function GapNoticeList({
             onClick={() => onPick(g.item)}
             className={cn('flex items-start gap-2.5 px-5 py-3', isChecked && 'bg-secondary/50')}
           >
+            {/* 勾选框只勾选、不开行：鼠标靠下面的 stopPropagation，键盘由 ClickableRow 按事件源放行 */}
             <button
               type="button"
               aria-label={`勾选 ${g.item}`}

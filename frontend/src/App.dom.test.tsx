@@ -12,7 +12,7 @@
  * AppNavbar 的三处依赖（useAuth / organization/me / GlobalSearch）。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -59,6 +59,10 @@ vi.mock('@/features/workbench', async () => {
     ProjectDetailPageLazy: lazy(() =>
       Promise.resolve({ default: () => <main>project-detail-page</main> }),
     ),
+    // AppNavbar 现在从桶出口静态取 NewProjectDialog（跨域深引豁免已删除），
+    // mock 工厂必须跟上真实模块形状；壳层只验证「点导航能挂载对话框」，
+    // 对话框自身行为由 workbench 域测试覆盖，不要删这个 stub。
+    NewProjectDialog: () => null,
   }
 })
 vi.mock('@/features/material-prep', () => ({ DeskPage: () => <main>desk-page</main> }))
@@ -101,6 +105,13 @@ function setupApp({ idleFiresNow, route = '/' }: { idleFiresNow: boolean; route?
 
 const header = () => document.querySelector('header')
 const current = (name: string) => screen.getByRole('link', { name }).getAttribute('aria-current')
+/**
+ * AI 助手抽屉的根节点（copilot 域真模块的 `<aside>`）：展开即挂载，收起后滑出
+ * 240ms 才卸载。面板 chunk 首次展开才下载，故等待上限放宽（同下 /assistant 用例）。
+ */
+const copilotPanel = () => document.querySelector('aside')
+const waitForPanel = (present: boolean) =>
+  waitFor(() => expect(Boolean(copilotPanel())).toBe(present), { timeout: 5000 })
 
 /**
  * jsdom 未实现 window.matchMedia。AppShell 展开时会真实挂载 copilot 域
@@ -211,22 +222,28 @@ describe('AppShell：AI 助手面板开关', () => {
     expect(document.body.textContent).not.toContain('copilot-panel')
   })
 
-  it('localStorage 记忆为展开时初始即挂载', async () => {
+  it('展开态不持久化：localStorage 里遗留的 copilot:open=1 不再被恢复', async () => {
     localStorage.setItem('copilot:open', '1')
     setupApp({ idleFiresNow: false })
-    // copilot 域是真实模块（未 mock），展开后会尝试渲染；这里只验证不抛错
     await waitFor(() => expect(header()).toBeTruthy())
+    // 旧实现据此恢复展开态；现在默认就是收起。等一拍确认不是「还没挂完」
+    await new Promise((r) => setTimeout(r, 50))
+    expect(copilotPanel()).toBeNull()
+    // 也不再改写这个键：读与写一起删了，键留在原地不再有人碰
+    expect(localStorage.getItem('copilot:open')).toBe('1')
   })
 
-  it('⌘J 切换面板并把状态写入 localStorage', async () => {
+  it('⌘J 展开 / 再按收起，全程不写 localStorage', async () => {
     setupApp({ idleFiresNow: false })
     await waitFor(() => expect(header()).toBeTruthy())
 
     fireEvent.keyDown(window, { key: 'j', metaKey: true })
-    await waitFor(() => expect(localStorage.getItem('copilot:open')).toBe('1'))
+    await waitForPanel(true)
+    expect(localStorage.getItem('copilot:open')).toBeNull()
 
     fireEvent.keyDown(window, { key: 'j', metaKey: true })
-    await waitFor(() => expect(localStorage.getItem('copilot:open')).toBe('0'))
+    await waitForPanel(false)
+    expect(localStorage.getItem('copilot:open')).toBeNull()
   })
 
   it('Ctrl+J 同样生效（Windows/Linux）', async () => {
@@ -234,44 +251,61 @@ describe('AppShell：AI 助手面板开关', () => {
     await waitFor(() => expect(header()).toBeTruthy())
 
     fireEvent.keyDown(window, { key: 'j', ctrlKey: true })
-    await waitFor(() => expect(localStorage.getItem('copilot:open')).toBe('1'))
+    await waitForPanel(true)
   })
 
   it('无修饰键的 j 不触发切换', async () => {
     setupApp({ idleFiresNow: false })
-    await waitFor(() => expect(header()).toBeTruthy())
+    await screen.findByText('home-page')
+
+    // 先开检索：⌘J 若被误触发会同步把检索关掉（两层互斥是状态联动），
+    // 比「等一会儿看有没有写盘」更硬的观测点
+    fireEvent.keyDown(window, { key: 'k', metaKey: true })
+    expect(screen.getByText('gs-open')).toBeTruthy()
 
     fireEvent.keyDown(window, { key: 'j' })
-    await new Promise((r) => setTimeout(r, 30))
-    expect(localStorage.getItem('copilot:open')).toBeNull()
+    expect(screen.getByText('gs-open')).toBeTruthy()
   })
 
   it('详情页不渲染压暗遮罩：否则点右栏合同会点到遮罩把助手收回去', async () => {
-    localStorage.setItem('copilot:open', '1')
     // 详情页路由 + 宽屏（matchMedia 替身固定 matches:false，即窄屏）：
     // 即便没开 dock，详情页也必须屏蔽遮罩，否则整个内容区不可点。
     setupApp({ idleFiresNow: false, route: '/projects/393' })
     await waitFor(() => expect(header()).toBeTruthy())
+    // 真把面板展开（展开态不再从 localStorage 恢复）后再看遮罩，否则断言空转
+    fireEvent.keyDown(window, { key: 'j', metaKey: true })
+    await waitForPanel(true)
     // 遮罩是 aria-hidden 的覆盖层；详情页里它不该出现
-    await waitFor(() => {
-      const backdrop = document.querySelector('[aria-hidden="true"].fixed')
-      expect(backdrop).toBeNull()
-    })
+    const backdrop = document.querySelector('[aria-hidden="true"].fixed')
+    expect(backdrop).toBeNull()
   })
 
   it('/assistant 上不叠抽屉：页面自己就是全屏助手', async () => {
+    // 先等「面板 chunk 加载结束」这个正面信号：CopilotPanelLazy 与 AssistantPageLazy
+    // 是同一个 import()（见 app/preload.ts），这里直接把那个模块求值完成。
+    //
+    // 为什么必须是它而不是「等一会儿」：面板挂在 `<Suspense fallback={null}>` 里，
+    // chunk 没到时即便壳层判断写错也渲染不出 aside——先睡一段时间再断言「不存在」，
+    // 睡不够就假绿、睡多久都只是概率。chunk 求值完成后面板随时可渲染，壳层一旦
+    // 决定挂载就会在同一次 commit 里真挂出 aside，否定断言才有意义。
+    await import('@/features/copilot')
+
     setupApp({ idleFiresNow: false, route: '/assistant' })
-    // 独立页（真组件，本文件不 mock copilot 域）先渲染出来。超时放宽到 5s：
-    // 全量跑时 copilot chunk 的模块求值很慢，1s 会把「还没加载完」误判成「没渲染」
-    expect(await screen.findByRole('main', { name: 'AI 助手' }, { timeout: 5000 })).toBeTruthy()
+    // 助手页自己的 Suspense 完成（本文件不 mock copilot 域，渲染的是真组件）
+    expect(await screen.findByRole('main', { name: 'AI 助手' })).toBeTruthy()
 
     // 再按 ⌘J：开关状态照旧切换（离开本页即恢复），但本页不该多出一个 fixed 抽屉——
     // 同一段对话两个输入框同屏，用户不知道该跟哪个说
     fireEvent.keyDown(window, { key: 'j', metaKey: true })
-    await waitFor(() => expect(localStorage.getItem('copilot:open')).toBe('1'))
-    // 等一拍再断言「不存在」：抽屉若该挂载，copilotMounted 的 effect 会在这一拍里挂上
-    await new Promise((r) => setTimeout(r, 50))
-    expect(document.querySelector('aside')).toBeNull()
+    // 用 `act` 冲净「开关 → copilotMounted → 挂面板」这条 effect 级联（确定性，不靠睡眠时长），
+    // 再断言本页没有抽屉：抽屉若该挂载，级联正是在这一拍里挂上。
+    await act(async () => {})
+    expect(copilotPanel()).toBeNull()
+
+    // 状态确实切过去了：离开本页（回首页）就该看到抽屉——否则上面那条「不存在」
+    // 只证得出「没开」，压不住「开了也不叠」这个语义
+    fireEvent.click(screen.getByRole('link', { name: '首页' }))
+    await waitForPanel(true)
   })
 
   it('localStorage 读取抛错时回落收起态（不崩）', async () => {
@@ -283,7 +317,7 @@ describe('AppShell：AI 助手面板开关', () => {
     getItem.mockRestore()
   })
 
-  it('localStorage 写入抛错时仍能切换（仅不持久化）', async () => {
+  it('面板开关不碰 localStorage：setItem 抛错也照常展开', async () => {
     setupApp({ idleFiresNow: false })
     await waitFor(() => expect(header()).toBeTruthy())
 
@@ -293,7 +327,9 @@ describe('AppShell：AI 助手面板开关', () => {
     expect(() => {
       fireEvent.keyDown(window, { key: 'j', metaKey: true })
     }).not.toThrow()
+    // 先拆桩再等面板挂载：面板域自己会用 localStorage 记并排/侧栏偏好
     setItem.mockRestore()
+    await waitForPanel(true)
   })
 })
 
@@ -336,19 +372,20 @@ describe('AppShell：⌘K 检索开关与 ⌘J AI 助手互斥', () => {
     // 修复前：面板展开后检索弹窗仍叠在上面（双重压暗）
     fireEvent.keyDown(window, { key: 'j', metaKey: true })
     expect(screen.getByText('gs-closed')).toBeTruthy()
-    await waitFor(() => expect(localStorage.getItem('copilot:open')).toBe('1'))
+    await waitForPanel(true)
   })
 
-  it('AI 助手展开时按 ⌘K：收起面板（含持久化）、打开检索（反向互斥）', async () => {
+  it('AI 助手展开时按 ⌘K：收起面板、打开检索（反向互斥）', async () => {
     setupApp({ idleFiresNow: false })
     await screen.findByText('home-page')
 
     fireEvent.keyDown(window, { key: 'j', metaKey: true })
-    await waitFor(() => expect(localStorage.getItem('copilot:open')).toBe('1'))
+    await waitForPanel(true)
 
     fireEvent.keyDown(window, { key: 'k', metaKey: true })
     expect(screen.getByText('gs-open')).toBeTruthy()
-    await waitFor(() => expect(localStorage.getItem('copilot:open')).toBe('0'))
+    // 面板随之收起（滑出 240ms 后卸载），不会与检索弹窗同屏叠加
+    await waitForPanel(false)
   })
 
   it('按住不放（e.repeat）不连续切换', async () => {

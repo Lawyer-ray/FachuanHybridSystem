@@ -61,7 +61,8 @@ export function useGotoPage(params: {
       // 多源材料包里同一页码可能出现多次（每份 PDF 都从 1 开始），取第一个能定位到的
       const si = segs.findIndex((s) => s.refs.some((r) => r.p === p))
       if (si < 0) return
-      const ref = segs[si]!.refs.find((r) => r.p === p)!
+      const ref = segs[si]?.refs.find((r) => r.p === p)
+      if (!ref) return
       onFocusSeg(si)
       scrollToPage(ref.mi, ref.p)
     },

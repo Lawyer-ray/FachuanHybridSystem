@@ -5,6 +5,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { errMessage } from '@/lib/errors'
 import { SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
+import { sessionTone } from './constants'
 import { FoundContractCard, LookupErrorCard } from './oa/OALookupCards'
 import { OAActionRail } from './oa/OAActionRail'
 import {
@@ -59,10 +60,6 @@ const META: Record<
 
 export function OAStampPanel({ siteName }: { siteName?: string }) {
   return <OAActionPanel kind="stamp" siteName={siteName} />
-}
-
-export function OAArchivePanel({ siteName }: { siteName?: string }) {
-  return <OAActionPanel kind="archive" siteName={siteName} />
 }
 
 function OAActionPanel({ kind, siteName }: { kind: Kind; siteName?: string }) {
@@ -240,12 +237,4 @@ function PhaseBadge({ phase, ticks }: { phase: AutoPhase; ticks: number }) {
       ) : null}
     </>
   )
-}
-
-function sessionTone(status: string): 'neutral' | 'blue' | 'green' | 'red' {
-  const s = (status || '').toLowerCase()
-  if (s === 'success' || s === 'finished' || s === 'completed') return 'green'
-  if (s === 'failed' || s === 'error') return 'red'
-  if (s === 'running' || s === 'pending' || s === 'processing' || s === 'in_progress') return 'blue'
-  return 'neutral'
 }

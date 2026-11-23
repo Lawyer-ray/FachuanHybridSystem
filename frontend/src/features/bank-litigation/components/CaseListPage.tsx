@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react'
 import { AlertTriangle, ChevronRight, Gavel, RefreshCw } from 'lucide-react'
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
-import { StatusBadge, type Tone } from '@/components/shared/StatusBadge'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
+import type { Tone } from '@/lib/tone'
 
 import { useCases } from '../hooks/use-cases'
 import { fmtMoney } from '../utils'
@@ -53,19 +54,20 @@ export function CaseListPage({ onOpen }: { onOpen: (caseId: number) => void }) {
   const [keyword, setKeyword] = useState('')
 
   const rows = useMemo<CaseRow[]>(() => {
-    const list = (data ?? []) as unknown as CaseRow[]
+    const list: CaseRow[] = data ?? []
     const kw = keyword.trim()
     const filtered = kw
       ? list.filter(
           (c) => c.name.includes(kw) || (c.cause_of_action ?? '').includes(kw),
         )
       : list
-    // 排序：待立案（无案号、在办）优先，其次按 id 倒序（新的在上）
+    // 排序：待立案（无案号、在办）优先，其次按 id 倒序（新的在上）。
+    // 生成物里 id 可选可空（ModelSchema 口径），数据库主键实际必有 —— 排序按 0 处理。
     return [...filtered].sort((a, b) => {
       const aF = !a.filing_number && a.status === '在办' ? 0 : 1
       const bF = !b.filing_number && b.status === '在办' ? 0 : 1
       if (aF !== bF) return aF - bF
-      return b.id - a.id
+      return (b.id ?? 0) - (a.id ?? 0)
     })
   }, [data, keyword])
 
@@ -103,11 +105,15 @@ export function CaseListPage({ onOpen }: { onOpen: (caseId: number) => void }) {
           <span>标的额</span>
           <span />
         </div>
-        {rows.map((c) => (
+        {rows.map((c, i) => (
           <button
-            key={c.id}
+            key={c.id ?? `row-${i}`}
             type="button"
-            onClick={() => onOpen(c.id)}
+            onClick={() => {
+              // id 可空：这种脏行点不开，早退而不是把 0 当案件 id 传给上层
+              if (c.id == null) return
+              onOpen(c.id)
+            }}
             className="grid w-full grid-cols-[1fr_72px_96px_120px_132px_28px] items-center gap-3 border-b border-border/60 px-4 py-2.5 text-left transition-colors last:border-b-0 hover:bg-secondary/40"
           >
             <div className="min-w-0">
@@ -116,7 +122,6 @@ export function CaseListPage({ onOpen }: { onOpen: (caseId: number) => void }) {
               </div>
               <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
                 {c.cause_of_action || '（未填案由）'}
-                {c.contract_name ? ` · ${c.contract_name}` : ''}
               </div>
             </div>
             <span className="text-[12px] text-secondary-foreground">

@@ -11,30 +11,21 @@ import type { components } from '@/types/api-schema'
 export type Case = components['schemas']['CaseOut']
 
 /**
- * 列表行用到的字段投影。
+ * 列表行用到的字段投影（字段与可空性全部取自生成物 CaseOut）。
  *
  * 为什么投影：CaseOut 带 parties/assignments/logs/case_numbers/chats/contacts
  * 等七八个关联数组，列表页一个都不用。直接吃整个 CaseOut 会让列表的渲染
  * 依赖永远不动的那几个字段之外的形状——后端一改 logs 结构，列表类型也跟着变，
  * 白白制造「无关改动」的编译错误。
  *
- * `contract_name` / `cause_of_action` / `target_amount` / `current_stage`
- * 在生成物里是 optional + nullable，这里统一成「可能没有」，逼调用点处理空值。
+ * 为什么不手写：手写版把 `id` 写成必填，还写了 CaseOut 里根本没有的
+ * contract_name / group_key / group_name —— 调用点只好用 `as unknown as` 把差异盖住。
+ * 现在一律 Pick 生成物：`id` 保持 `number | null` 口径，由列表页显式处理。
  */
-export interface CaseRow {
-  id: number
-  name: string
-  status: string
-  current_stage?: string | null
-  cause_of_action?: string | null
-  target_amount?: string | null
-  filing_number?: string | null
-  contract_id?: number | null
-  contract_name?: string | null
-  group_key?: string | null
-  group_name?: string | null
-  start_date?: string | null
-}
+export type CaseRow = Pick<
+  components['schemas']['CaseOut'],
+  'id' | 'name' | 'status' | 'current_stage' | 'cause_of_action' | 'target_amount' | 'filing_number'
+>
 
 /** 材料槽位状态：ok 齐备 / miss 缺件 / stale 待更新 / na 不适用 */
 export type SlotStatus = 'ok' | 'miss' | 'stale' | 'na'

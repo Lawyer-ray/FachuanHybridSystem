@@ -34,7 +34,7 @@ const CONTINUABLE_REASONS: ReadonlySet<string> = new Set<FinishReason>(['cancell
  * 三个键都可选是刻意的：
  * - 旧数据（引入 `finish_reason` 之前的行）只有 `metadata.truncated`；
  * - 新数据两者都有；
- * - 实时气泡只有 `truncated`（停止/断连时本地置位，见 store/turn.ts）。
+ * - 实时气泡只有 `truncated`（停止/断连时本地置位，见 store/turn-send.ts）。
  *
  * `ChatMessage` 可直接传进来（它的 `truncated?: boolean` 满足本形状）；
  * `finishReason` / `finish_reason` 需要调用方从 `metadata` 取——**目前还没有

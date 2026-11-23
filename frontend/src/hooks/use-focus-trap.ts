@@ -11,6 +11,14 @@ import { useEffect, useRef } from 'react'
  * 所以按最小改动补齐无障碍，保留自绘壳层。真要统一视觉再换 Sheet 是有意的后续决定。
  *
  * 关闭时还原焦点：抽屉常由工具栏按钮打开，焦点丢回 body 会让键盘用户从头 Tab。
+ *
+ * **Esc 与 Tab 挂在两个不同的相**（2026-11-23 接 DetailDrawer 时修）：
+ * - Tab 走 capture：必须在浏览器默认的 Tab 行为生效前拦下，否则焦点已经跑到背后页面了。
+ * - Esc 走 bubble，并先看 `e.defaultPrevented`：抽屉里常有行内编辑（重命名的
+ *   输入框自己在 onKeyDown 里用 Esc 取消）。若也在 capture 里 `stopPropagation`，
+ *   那次按键根本到不了内层处理器，Esc 会变成「只关抽屉」而不是「取消编辑 + 关
+ *   抽屉」。放 bubble 后目标元素的 onKeyDown 先跑，再轮到本 hook；内层若自己
+ *   `preventDefault()` / `stopPropagation()`，就只取消编辑、不关抽屉。
  */
 export function useFocusTrap(active: boolean, onClose: () => void) {
   const panelRef = useRef<HTMLElement>(null)
@@ -20,12 +28,7 @@ export function useFocusTrap(active: boolean, onClose: () => void) {
     const panel = panelRef.current
     const restoreTo = document.activeElement instanceof HTMLElement ? document.activeElement : null
 
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        onClose()
-        return
-      }
+    const onTabKey = (e: KeyboardEvent) => {
       if (e.key !== 'Tab' || !panel) return
       // 焦点圈定：Tab / Shift+Tab 在抽屉内循环，不跑到背后的页面上
       const focusables = Array.from(
@@ -47,9 +50,18 @@ export function useFocusTrap(active: boolean, onClose: () => void) {
       }
     }
 
-    window.addEventListener('keydown', onKey, true)
+    const onEscapeKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      onClose()
+      // 关完再挡住冒泡：祖先还有别的抽屉在开时不要一起关
+      e.stopPropagation()
+    }
+
+    window.addEventListener('keydown', onTabKey, true)
+    window.addEventListener('keydown', onEscapeKey)
     return () => {
-      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('keydown', onTabKey, true)
+      window.removeEventListener('keydown', onEscapeKey)
       restoreTo?.focus()
     }
   }, [active, onClose])

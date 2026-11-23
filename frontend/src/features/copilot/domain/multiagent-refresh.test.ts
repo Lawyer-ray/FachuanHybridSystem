@@ -105,7 +105,7 @@ function columnsByAgent(plan: TurnPlan[]): Record<string, { content: string; too
 }
 
 /**
- * 实时（未刷新）的消息顺序：`store/turn.ts` 开流时先把本轮各栏 assistant
+ * 实时（未刷新）的消息顺序：`store/turn-send.ts` 开流时先把本轮各栏 assistant
  * 气泡全部入列，工具消息在事件到达时才 append，所以工具都在气泡之后。
  * 与后端落库顺序（工具可能插在回答之间）不同，但渲染结果必须一致。
  */
@@ -113,7 +113,7 @@ function liveMessagesFrom(rows: AgentHistoryMessage[]): ChatMessage[] {
   const users = rows.filter((row) => row.role === 'user')
   const assistants = rows.filter((row) => row.role === 'assistant')
   const tools = rows.filter((row) => row.role === 'tool')
-  // store/turn.ts：只有多栏才给 assistant 气泡登记 agentKind；单栏的 assistant
+  // store/turn-send.ts：只有多栏才给 assistant 气泡登记 agentKind；单栏的 assistant
   // 保持「空 = pi」的老口径，工具行仍带事件里的来源。
   const multiColumn =
     new Set(assistants.map((row) => row.agent_kind || DEFAULT_AGENT_KIND)).size > 1

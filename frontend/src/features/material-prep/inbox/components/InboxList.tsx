@@ -26,7 +26,6 @@ export function InboxList({
   search,
   unreadOnly,
   activeId,
-  convertingId,
   onSelect,
 }: {
   rows: InboxRow[]
@@ -38,7 +37,6 @@ export function InboxList({
   search: string
   unreadOnly: boolean
   activeId: number | null
-  convertingId: number | null
   onSelect: (row: InboxRow) => void
 }) {
   const groups = groupByTime(rows)
@@ -75,13 +73,7 @@ export function InboxList({
             </h3>
             <div className="divide-y divide-border/70">
               {group.rows.map((row) => (
-                <InboxRowItem
-                  key={row.id}
-                  row={row}
-                  active={activeId === row.id}
-                  converting={convertingId === row.id}
-                  onSelect={onSelect}
-                />
+                <InboxRowItem key={row.id} row={row} active={activeId === row.id} onSelect={onSelect} />
               ))}
             </div>
           </section>

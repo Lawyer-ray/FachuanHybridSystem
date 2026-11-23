@@ -5,7 +5,7 @@ import { discardPendingSave, scheduleSave } from './draft-persistence'
 import { clearPdfDocuments } from '@/lib/pdf'
 import { errMessage } from '@/lib/errors'
 import { READER_CLOSE_MS } from './constants'
-import { toggleCloudEngine, normalizeCloudSelection } from './components/reader/platform-selection'
+import { toggleCloudEngine, normalizeCloudSelection } from './types'
 import {
   applyPageSelection,
   appendMatsToDraft,

@@ -5,6 +5,7 @@
  * - 生成的文书：每行有模板下拉，默认 v3.2，可切 v2.8
  * - 利冲：导出报告走进度并落一个 PDF 名
  * - 条款逐条审核：抽屉里编辑后列表回显「已修改」
+ * - 条款编辑抽屉关掉再改选另一条：输入框是新条目的值，不带上一条的草稿
  * - 机器人的执行录像从这里能打开
  */
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
@@ -54,6 +55,29 @@ describe('ContractPanel', () => {
     expect(within(updated).getByText('已修改')).toBeTruthy()
     expect(within(updated).getByText('代为和解、代收款项及执行款')).toBeTruthy()
     expect(within(updated).queryByText('未填')).toBeNull()
+  })
+
+  it('关掉条款抽屉再改选另一条：输入框是新条目的值，保存也不写上一条的草稿', () => {
+    render(<ContractPanel />)
+
+    // 先在「特别授权」里打一段字，不保存就关掉
+    const typedIn = DEMO_CONTRACT_TERMS.find((t) => !t.filled)!
+    const typedText = '代为和解、代收款项及执行款'
+    fireEvent.click(within(screen.getByText(typedIn.clause).closest('li')!).getByRole('button', { name: /编辑/ }))
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: typedText } })
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    // 改选另一条：输入框里是这一条自己的自动填充值，不是上一段草稿
+    const next = DEMO_CONTRACT_TERMS.find((t) => t.clause === '标的额')!
+    fireEvent.click(within(screen.getByText(next.clause).closest('li')!).getByRole('button', { name: /编辑/ }))
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe(next.value)
+
+    // 不打字直接保存：写回的是新条目自己的值（旧实现会把上一段草稿存到这一条上）
+    fireEvent.click(screen.getByRole('button', { name: '保存修改' }))
+    const saved = screen.getByText(next.clause).closest('li')!
+    expect(within(saved).getByText(next.value)).toBeTruthy()
+    expect(screen.queryByText(typedText)).toBeNull()
   })
 
   it('点「查看执行录像」打开录像抽屉', () => {

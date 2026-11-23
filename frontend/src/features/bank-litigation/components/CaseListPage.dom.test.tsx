@@ -8,7 +8,8 @@
  * - **筛选**：案件名与案由都能命中；清空关键字恢复全量。
  *
  * 另外覆盖三态（loading / error / empty）、阶段中文映射（含历史中文存量）、
- * 案号与标的额的空值呈现。
+ * 案号与标的额的空值呈现，以及生成物里 id 可空（`id?: number | null`）时
+ * 列表仍能渲染、点击不把空 id 交给上层。
  */
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,14 +22,14 @@ import { CaseListPage } from './CaseListPage'
 
 const useCasesMock = vi.mocked(useCases)
 
-function row(over: Partial<CaseRow> & { id: number; name: string }): CaseRow {
+function row(over: Partial<CaseRow> & { name: string }): CaseRow {
   return {
+    id: 1,
     status: '在办',
     current_stage: 'first_trial',
     cause_of_action: '金融借款合同纠纷',
     target_amount: '820000.00',
     filing_number: null,
-    contract_name: null,
     ...over,
   }
 }
@@ -194,15 +195,21 @@ describe('CaseListPage · 行内容', () => {
     expect(screen.getByText('¥998,670.21')).toBeTruthy()
   })
 
-  it('案由为空写「（未填案由）」，有合同时拼在案由后面', () => {
-    mockCases([
-      row({ id: 2, name: 'A', cause_of_action: null }),
-      row({ id: 1, name: 'B', cause_of_action: '买卖合同纠纷', contract_name: '某某买卖合同' }),
-    ])
+  it('案由为空写「（未填案由）」', () => {
+    mockCases([row({ id: 2, name: 'A', cause_of_action: null })])
     render(<CaseListPage onOpen={() => {}} />)
 
     expect(screen.getByText('（未填案由）')).toBeTruthy()
-    expect(screen.getByText('买卖合同纠纷 · 某某买卖合同')).toBeTruthy()
+  })
+
+  it('后端返回 id 为 null 时不崩：照常渲染，点击不把空 id 交给上层', () => {
+    const onOpen = vi.fn()
+    mockCases([row({ id: null, name: '缺 id 的脏数据' })])
+    render(<CaseListPage onOpen={onOpen} />)
+
+    expect(screen.getByText('缺 id 的脏数据')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /缺 id 的脏数据/ }))
+    expect(onOpen).not.toHaveBeenCalled()
   })
 
   it('点一行把 caseId 交给上层', () => {

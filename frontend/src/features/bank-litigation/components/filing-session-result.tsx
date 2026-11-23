@@ -2,24 +2,18 @@
  * 立案会话的结果块：两个立案面板（一张网 / 律所 OA）共用。
  *
  * ═══ 为什么单独一个文件 ═══
- * OA 立案（`oa/OAFilingPanel.tsx`）与一张网（`CourtFilingPanel.tsx`）的会话形状完全相同：
+ * 立案会话（旧 OA 实现 `oa/OAFilingPanel.tsx` 已于 v27.24.1 删除，现只有一张网
+ * `CourtFilingPanel.tsx`）的会话形状：
  * 提交 → 后台跑 → 轮询 → 终态停。结果块两侧共用，所以抽成单组件文件，
- * 两个面板各自 import；轮询阶段的文案与语气在 `constants.ts`（`PHASE_META` / `pillTone`）。
+ * 两个面板各自 import；轮询阶段的文案与语气在 `constants.ts`（`PHASE_META` / `pillTone`），
+ * 会话 `status` → 语气在 `constants.ts` 的 `sessionTone`（与 OA 盖章/归档面板共用）。
  */
 
-import { StatusBadge, type Tone } from '@/components/shared/StatusBadge'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 import { cn } from '@/lib/utils'
 
 import type { AutoPhase } from '../hooks/use-auto-run'
-
-/** 会话状态 → 语气。后端 status 字符串大小写/取值不完全统一，按语义归类。 */
-function sessionTone(status: string): Tone {
-  const s = (status || '').toLowerCase()
-  if (s === 'success' || s === 'finished' || s === 'completed') return 'green'
-  if (s === 'failed' || s === 'error') return 'red'
-  if (s === 'running' || s === 'pending' || s === 'processing') return 'blue'
-  return 'neutral'
-}
+import { sessionTone } from './constants'
 
 /**
  * 会话结果块。两个面板共用：

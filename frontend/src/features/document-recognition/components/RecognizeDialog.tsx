@@ -105,19 +105,20 @@ export function RecognizeDialog({ open, onClose, onSaved, file, taskId, textRows
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent
-        // 记忆宽度走 CSS 变量、只在 lg 断点生效（<lg 单栏永远 560px，不被历史宽度撑爆）
+        // 宽度走 CSS 变量、只在 lg 断点生效（<lg 单栏永远 560px，不被历史宽度撑爆）。
+        // 拖拽中 useDialogWidthDrag 直接改这个变量（零 setState），松手才提交 state；
+        // 没有记忆宽度时变量的初值就是自适应宽 min(95vw, 视口-48px)。
         style={
-          splitReady && dialogWidth != null ? ({ '--dr-dialog-w': `${dialogWidth}px` } as React.CSSProperties) : undefined
+          splitReady
+            ? ({
+                '--dr-dialog-w': dialogWidth != null ? `${dialogWidth}px` : 'min(95vw, calc(100vw - 48px))',
+              } as React.CSSProperties)
+            : undefined
         }
         className={cn(
           'flex w-full flex-col gap-0 overflow-x-hidden p-6 transition-[max-width] duration-300 ease-out',
           splitReady
-            ? cn(
-                'max-h-[88vh] sm:max-w-[560px] lg:h-[88vh] lg:max-w-none lg:overflow-hidden',
-                dialogWidth != null
-                  ? 'lg:w-[var(--dr-dialog-w)]'
-                  : 'lg:w-[min(95vw,calc(100vw-48px))]',
-              )
+            ? 'max-h-[88vh] sm:max-w-[560px] lg:h-[88vh] lg:w-(--dr-dialog-w) lg:max-w-none lg:overflow-hidden'
             : 'max-h-[85vh] max-w-[560px] overflow-y-auto',
         )}
       >

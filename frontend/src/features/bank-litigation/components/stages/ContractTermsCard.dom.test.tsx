@@ -49,13 +49,15 @@ describe('TermEditDrawer', () => {
     )
 
     const box = screen.getByRole('textbox')
-    fireEvent.change(box, { target: { value: '代为和解、代收款项' } })
+    const typed = '代为和解、代收款项'
+    fireEvent.change(box, { target: { value: typed } })
     fireEvent.click(screen.getByRole('button', { name: '保存修改' }))
 
     expect(onSave).toHaveBeenCalledTimes(1)
     const [savedClause, savedValue] = vi.mocked(onSave).mock.calls[0]!
     expect(savedClause).toBe(clause)
-    // 抽屉按详情键复用，保存的是输入框里那一版（不是自动填充原文）
+    // 保存的是输入框里那一版（不是自动填充原文）
     expect(savedValue).not.toBe('')
+    expect(savedValue).toBe(typed)
   })
 })

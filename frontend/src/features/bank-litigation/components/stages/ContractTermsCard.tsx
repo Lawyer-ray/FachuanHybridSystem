@@ -12,7 +12,7 @@
 import { useState } from 'react'
 import { AlertTriangle, FileText, PencilLine } from 'lucide-react'
 
-import { DEMO_CONTRACT_GEN, DEMO_CONTRACT_TERMS } from '../demo-data'
+import { DEMO_CONTRACT_GEN, DEMO_CONTRACT_TERMS, type ContractTermRow } from '../demo-data'
 import { pendingTermCount, type TermDraft } from './contract-terms'
 import { ClickableRow } from '../ClickableRow'
 import { ActionButton, InsetBlock, Pill, SectionTitle, WorkCard } from '../ui'
@@ -84,7 +84,14 @@ export function ContractTermsCard({
   )
 }
 
-/** 单条条款的编辑抽屉：改完保存回列表 */
+/**
+ * 单条条款的编辑抽屉：改完保存回列表。
+ *
+ * 面板里这个抽屉是**常驻挂载**的（`clause` 为 null 时渲染成空），所以草稿不能留在
+ * 这一层：`TermEditDrawerBody` 才是按 clause 取 key 的内容层，换一条 = 换实例，
+ * 上一条改了没保存的字不会跟到下一条的输入框里（也不会被「保存修改」写到新条目上）。
+ * 手法同 contract-review 的 ReviewLaunchDrawer / 本目录 returned/MailboxConfig。
+ */
 export function TermEditDrawer({
   clause,
   drafts,
@@ -97,11 +104,38 @@ export function TermEditDrawer({
   onClose: () => void
 }) {
   const term = clause ? DEMO_CONTRACT_TERMS.find((t) => t.clause === clause) : undefined
-  const current = drafts[term?.clause ?? '']?.value
-  /** 输入框的值提到抽屉这一层：保存按钮在 footer，得拿到最新文本 */
-  const [text, setText] = useState('')
 
   if (term == null) return null
+
+  return (
+    <TermEditDrawerBody
+      key={term.clause}
+      term={term}
+      value={drafts[term.clause]?.value ?? term.value}
+      edited={drafts[term.clause]?.edited ?? false}
+      onSave={onSave}
+      onClose={onClose}
+    />
+  )
+}
+
+/** 内容层：抽屉打开时才挂载，输入框的草稿活在这里 */
+function TermEditDrawerBody({
+  term,
+  value,
+  edited,
+  onSave,
+  onClose,
+}: {
+  term: ContractTermRow
+  /** 这一条的当前值（改过就是草稿值，没改就是自动填充值） */
+  value: string
+  edited: boolean
+  onSave: (clause: string, value: string) => void
+  onClose: () => void
+}) {
+  /** 输入框的值提到这一层：保存按钮在 footer，得拿到最新文本 */
+  const [text, setText] = useState(value)
 
   return (
     <DetailDrawer
@@ -110,7 +144,7 @@ export function TermEditDrawer({
       width={480}
       title={`${term.clause} · 编辑`}
       subtitle={term.source}
-      badge={drafts[term.clause]?.edited ? <Pill tone="blue">已修改</Pill> : null}
+      badge={edited ? <Pill tone="blue">已修改</Pill> : null}
       footer={
         <>
           <ActionButton dark onClick={() => onSave(term.clause, text.trim() || term.value)}>
@@ -121,29 +155,31 @@ export function TermEditDrawer({
       }
     >
       <TermEditBody
-        current={current ?? term.value}
+        current={value}
         source={term.source}
         filled={term.filled}
+        text={text}
         onChange={setText}
       />
     </DetailDrawer>
   )
 }
 
-/** 编辑体：抽屉每次按条目重挂载，输入框以自动填充原值起步 */
+/** 编辑体：受控输入，初值由内容层给（那条的自动填充值，不是上一条的草稿） */
 function TermEditBody({
   current,
   source,
   filled,
+  text,
   onChange,
 }: {
   current: string
   source: string
   filled: boolean
-  /** 每次输入把最新文本抛给抽屉（保存按钮在 footer） */
+  /** 正在编辑的文本（草稿在内容层，保存按钮要拿最新那份） */
+  text: string
   onChange: (value: string) => void
 }) {
-  const [text, setText] = useState(current)
   return (
     <div className="flex flex-col gap-3">
       <div>
@@ -151,10 +187,7 @@ function TermEditBody({
         <textarea
           value={text}
           rows={3}
-          onChange={(e) => {
-            setText(e.target.value)
-            onChange(e.target.value)
-          }}
+          onChange={(e) => onChange(e.target.value)}
           className="w-full resize-y rounded-[8px] border border-border bg-background px-2.5 py-2 text-[12px] leading-[1.6] outline-none focus:border-foreground/40"
         />
       </div>
@@ -225,6 +258,7 @@ export function ContractGenCard({
             <Pill tone={d.status === 'generated' ? 'green' : 'yellow'}>
               {d.status === 'generated' ? '已生成' : '待生成'}
             </Pill>
+            {/* 模板下拉只切模板、不开行：鼠标靠 stopPropagation，键盘由 ClickableRow 按事件源放行 */}
             <select
               aria-label={`${d.name} 模板`}
               value={templates[d.name] ?? 'v3.2'}

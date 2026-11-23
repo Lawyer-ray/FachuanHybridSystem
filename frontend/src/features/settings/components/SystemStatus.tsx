@@ -8,9 +8,10 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Loader2, RefreshCw, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { StatusBadge, type Tone } from '@/components/shared/StatusBadge'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { errMessage } from '@/lib/errors'
+import type { Tone } from '@/lib/tone'
 import {
   fetchAgentUsage,
   fetchLlmModels,

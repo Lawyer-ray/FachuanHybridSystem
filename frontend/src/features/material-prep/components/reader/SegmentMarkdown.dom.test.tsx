@@ -384,6 +384,46 @@ describe('页面框双击 → 进入修改', () => {
 })
 
 /**
+ * 「两个引擎都不对」→ 点「修改」：编辑态要用那侧引擎全文作起点。
+ *
+ * 这里锁的是**预填本身**：以前草稿留在 BlockRow 里用 effect 灌种子文本，
+ * 输入框会先渲染一轮本行原文再被改掉；现在编辑态是自带 useState 初值的子组件，
+ * 首帧就是种子文本。
+ */
+describe('种子文本预填（点「修改」用引擎全文作起点）', () => {
+  const SEED_A = '引擎 B 读作：原告提交了转账凭据。'
+  const SEED_B = '引擎 A 读作：原告提交了转账凭证一张。'
+
+  it('进入编辑态首帧就是种子文本，不是本行原文', () => {
+    const { container } = render(
+      <SegmentMarkdown
+        {...base({ onEditBlock: vi.fn(), editRequestKey: 's1:1:0', editRequestSeed: SEED_A })}
+      />,
+    )
+    const ta = container.querySelector('textarea') as HTMLTextAreaElement
+    expect(ta.value).toBe(SEED_A)
+  })
+
+  it('同一种子文本下父级重渲染不冲掉律师已打的字', () => {
+    const props = base({ onEditBlock: vi.fn(), editRequestKey: 's1:1:0', editRequestSeed: SEED_A })
+    const { container, rerender } = render(<SegmentMarkdown {...props} />)
+    fireEvent.change(container.querySelector('textarea')!, { target: { value: '我改到一半' } })
+
+    rerender(<SegmentMarkdown {...props} />)
+    expect((container.querySelector('textarea') as HTMLTextAreaElement).value).toBe('我改到一半')
+  })
+
+  it('换成另一侧的种子文本时，输入框重新预填', () => {
+    const props = base({ onEditBlock: vi.fn(), editRequestKey: 's1:1:0', editRequestSeed: SEED_A })
+    const { container, rerender } = render(<SegmentMarkdown {...props} />)
+    fireEvent.change(container.querySelector('textarea')!, { target: { value: '第一版的改法' } })
+
+    rerender(<SegmentMarkdown {...props} editRequestSeed={SEED_B} />)
+    expect((container.querySelector('textarea') as HTMLTextAreaElement).value).toBe(SEED_B)
+  })
+})
+
+/**
  * 质量提示条：正文里只有几行零散字符时，律师**看不出那是图纸**。
  * 提示条必须写在标题下方（开始读正文之前），并且能一步跳回原页。
  */

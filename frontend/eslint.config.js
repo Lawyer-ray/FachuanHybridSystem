@@ -96,19 +96,6 @@ export default defineConfig([
       ],
     },
   },
-  // TODO(技术债)：以下 3 处存量跨域深引用暂时豁免，同上为 ratchet 而非默许。
-  // 修法：把被引用的组件/函数提到 components/shared（或让目标 feature 在 index.ts 导出），
-  // 然后删除对应条目。禁止往这里加新文件。
-  {
-    files: [
-      'src/components/shared/AppNavbar.tsx', // -> @/features/workbench/components/NewProjectDialog
-      // 2026-11-23（v27.24.1）：另两条豁免已失效——special-bits 现引 `@/components/shared/DetailDrawer`、
-      // PaymentPasteZone 现引 `@/lib/clipboard-file`（#677 已上提），因此从白名单删除。
-    ],
-    rules: {
-      'no-restricted-imports': 'off',
-    },
-  },
   {
     files: ['**/__tests__/**', '**/*.test.*'],
     rules: {

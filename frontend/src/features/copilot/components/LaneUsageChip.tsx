@@ -11,7 +11,7 @@
  * 金额一律不显示——前端没有单价表，拿 token 乘单价必然错（后端也无 cost 列）。
  *
  * 两种数据来源（与 domain/usage 的 `LaneUsage` 一一对应）：
- * - 实时：本轮的 `turnStatsByLane[kind]`（每轮开头清空，见 store/turn.ts）；
+ * - 实时：本轮的 `turnStatsByLane[kind]`（每轮开头清空，见 store/turn-send.ts）；
  * - 历史：调用方把落库的用量按 `usage` 传进来（`laneUsageFromMetadata` 的产物）。
  *   传了就优先用它——**刷新后能不能看见分栏用量，就看有没有人接这条线**。
  */

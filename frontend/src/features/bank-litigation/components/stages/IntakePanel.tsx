@@ -119,8 +119,9 @@ export function IntakePanel() {
         <IntakeRail droppedCount={dropped.size} />
       </div>
 
-      {/* 材料详情抽屉 */}
+      {/* 材料详情抽屉：常驻挂载，key 取当前材料，换一份就从第 1 页、折叠态重来 */}
       <MaterialDrawer
+        key={picked ?? 'none'}
         seq={picked}
         onClose={() => setPicked(null)}
         excluded={excluded}

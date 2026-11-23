@@ -1,7 +1,7 @@
 /**
  * store slice：agent 后端选择（新建会话用 pi 还是 dsh）。
  *
- * 为什么选择放进 store 而不是组件本地 state：`send` 在 `store/turn.ts` 里建会话
+ * 为什么选择放进 store 而不是组件本地 state：`send` 到 `store/turn-send.ts` 里建会话
  * 时需要它，而建会话发生在「用户敲下回车」那一刻，不是组件能拦的路由。
  *
  * ## 语义：只能为新会话选
