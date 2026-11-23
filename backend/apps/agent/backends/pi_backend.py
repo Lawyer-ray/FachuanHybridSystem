@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from typing import Any
@@ -215,9 +216,16 @@ class PiBackend:
                 await registry.register(session_id, pi_session)
                 # P2-3：跨 worker 路由注册（Redis 路由表）
                 register_live_route(session_id, env._worker_id())
+                # S47-05（2026-11-23 二轮审计）：路由 TTL 只有 120 秒且只在开跑时写一次，
+                # 长对话（>2 分钟）会把路由丢掉 → 用户插话被转发到别的 worker → 「插话没生效」。
+                # 下面在事件循环里按时续期（60s 一次，SET 带 EX，成本可忽略）。
+                route_refresh_at = time.monotonic() + 60.0
             try:
                 await pi_session.prompt(ctx.prompt)
                 while True:
+                    if not ctx.isolated and time.monotonic() >= route_refresh_at:
+                        register_live_route(session_id, env._worker_id())
+                        route_refresh_at = time.monotonic() + 60.0
                     if pending_next is None:
                         pending_next = asyncio.ensure_future(stream.__anext__())
                     await asyncio.wait({pending_next}, timeout=0.2)
