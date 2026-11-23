@@ -22,7 +22,7 @@ vi.mock('./api', () => ({
   api: { post },
 }))
 
-import { appendTicket, stripTicket, withDownloadTicket } from './download-ticket'
+import { appendTicket, hasTicket, stripTicket, withDownloadTicket } from './download-ticket'
 
 /** ky ResponsePromise 形状桩 */
 function respond(body: unknown) {
@@ -73,6 +73,18 @@ describe('stripTicket', () => {
   it('没有票据时原样返回', () => {
     expect(stripTicket('/x?a=1')).toBe('/x?a=1')
     expect(stripTicket('/x')).toBe('/x')
+  })
+})
+
+describe('hasTicket', () => {
+  it('认 appendTicket 拼出来的形态', () => {
+    expect(hasTicket('/x?ticket=abc')).toBe(true)
+    expect(hasTicket(appendTicket('/x?v=2', 'abc'))).toBe(true)
+  })
+
+  it('空票据（appendTicket 原样返回）与未换票的 path 都不算带票', () => {
+    expect(hasTicket('/x')).toBe(false)
+    expect(hasTicket(appendTicket('/x', ''))).toBe(false)
   })
 })
 

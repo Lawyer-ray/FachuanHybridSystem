@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, TriangleAlert } from 'lucide-react'
 import { getEditorConfig, type EditorMode } from './api'
 
@@ -15,7 +15,7 @@ import { getEditorConfig, type EditorMode } from './api'
 
 const API_JS = '/web-apps/apps/api/documents/api.js'
 
-
+/** 挂载点 id 的进程级计数器（唯一性来源；见 placeId 为何不用 useId） */
 let ooSeq = 0
 
 /** DS 的 api.js 全局只该加载一次：并发挂载时共用一个 Promise */
@@ -42,6 +42,13 @@ interface EditorInstance {
   destroyEditor?: () => void
   /** DS 官方：把当前编辑内容存为指定格式的 Blob。用于「保存 / 另存为」。 */
   downloadAs?: (format: string) => Promise<Blob>
+  /**
+   * DS 的外部命令入口（`serviceCommand({ c: 'forcesave' })` 触发立即回存）。
+   *
+   * 不在官方对外文档里，社区版实例上确实存在（实测）；声明成可选即表示
+   * 「可能没有」，调用侧用 typeof 守卫——所以这里是类型而非断言。
+   */
+  serviceCommand?: (cmd: { c: string }) => void
 }
 
 /** 供调用方持有的编辑器句柄 */
@@ -134,8 +141,15 @@ export function OfficeView({
   const mountedSig = useRef('')
   /** 当前 effect 的签名，cleanup 用它判断是否是被同一签名重新挂载 */
   const sigRef = useRef('')
-  /** 挂载点 DOM id：DS 官方签名是 DocEditor(placeholderId, config)，传元素在部分版本静默失败 */
-  const placeId = useMemo(() => `oo-${++ooSeq}`, [])
+  /**
+   * 挂载点 DOM id：DS 官方签名是 DocEditor(placeholderId, config)，传元素在部分版本静默失败。
+   *
+   * 取一次就锁死的值，所以用 useState 的惰性初始化而不是 useMemo——useMemo 的
+   * 函数约定是纯的，在里面自增模块级计数器在 StrictMode 重跑 / 并发渲染下会
+   * 一次次翻号。也不用 useId()：它的返回值形如 `:r0:`，带 CSS 伪类前缀字符，
+   * 而这个 id 是交给 DS 的 api.js 自己去查元素的（怎么转义不归我们管）。
+   */
+  const [placeId] = useState(() => `oo-${++ooSeq}`)
 
   /**
    * 插件桥监听（页面 ← 桥）。
@@ -223,9 +237,7 @@ export function OfficeView({
                     // 立即把当前内容推回 callbackUrl（后端 adopt_edited 落盘）。
                     // 跨源时外层仍持有实例引用，方法调用不受同源限制——这是
                     // 唯一能「程序化触发保存」的正规入口（downloadAs 社区版没有）。
-                    const inst = editorRef.current as unknown as
-                      | { serviceCommand?: (a: { c: string }) => void }
-                      | null
+                    const inst = editorRef.current
                     if (typeof inst?.serviceCommand !== 'function') return false
                     inst.serviceCommand({ c: 'forcesave' })
                     return true

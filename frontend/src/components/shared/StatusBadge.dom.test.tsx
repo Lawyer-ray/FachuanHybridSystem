@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * components/shared/status-badge（状态色单一来源）单测（jsdom）。
+ * components/shared/StatusBadge（状态色单一来源）单测（jsdom）。
  *
  * 锁住的是「tone → 三件套」这张表：调用方后续全部改走 StatusBadge，
  * 一旦某个 tone 的 border/bg/text 被改错（或误改成硬编码 hex），这里直接红。
@@ -9,7 +9,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
-import { BADGE_TONE_CLS, StatusBadge, type Tone } from './status-badge'
+import { BADGE_TONE_CLS, StatusBadge, type Tone } from './StatusBadge'
 
 const TONES: Tone[] = ['green', 'yellow', 'red', 'blue', 'purple', 'neutral']
 

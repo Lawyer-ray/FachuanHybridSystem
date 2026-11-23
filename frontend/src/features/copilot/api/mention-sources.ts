@@ -12,9 +12,11 @@ export interface GlobalSearchItem {
   id: number
   title: string
   subtitle: string
-  side: string
+  // 与生成物 `SearchResultItem`（api-schema.d.ts）对齐：side 是三值枚举、contract_id 可缺省。
+  // 手抄成 `string` / 必填会静默丢掉契约约束（审计 P05-101）。
+  side: 'ours' | 'opposing' | ''
   case_type: string
-  contract_id: number | null
+  contract_id?: number | null
   contract_name: string
 }
 

@@ -71,6 +71,19 @@ export function looksLikeCaseFolder(name: string): boolean {
   return /办案|法律服务|日常事务/.test(stripOrderPrefix(name))
 }
 
+/**
+ * 事项排序：有日期的按日期倒序（最近的在前），无日期的沉底按名字排。
+ *
+ * hook 与 `pickServiceItems` 引同一个比较器：两边各手写一份时，任一处改了排序
+ * 口径（无日期的改按 subpath 排之类）都会让「自动识别」与「一次扫完」两路不一致。
+ */
+export function byDateDescThenTitle(a: { date: string; title: string }, b: { date: string; title: string }): number {
+  if (a.date && b.date) return b.date.localeCompare(a.date)
+  if (a.date) return -1
+  if (b.date) return 1
+  return a.title.localeCompare(b.title, 'zh')
+}
+
 /** 条目来自文件夹扫描的最小形状（与后端 folder-entries 对齐，只要这两列） */
 export interface FolderEntry {
   name: string
@@ -112,13 +125,7 @@ export function pickServiceItems(roots: FolderEntry[], childrenOf: (subpath: str
     }
   }
 
-  // 有日期的按日期倒序（最近的在前），无日期的沉底按名字排
-  return out.sort((a, b) => {
-    if (a.date && b.date) return b.date.localeCompare(a.date)
-    if (a.date) return -1
-    if (b.date) return 1
-    return a.title.localeCompare(b.title, 'zh')
-  })
+  return out.sort(byDateDescThenTitle)
 }
 
 /**

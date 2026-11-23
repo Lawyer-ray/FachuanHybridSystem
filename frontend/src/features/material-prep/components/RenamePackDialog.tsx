@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
-import { useRenamePack } from '../hooks/use-inbox'
+import { useRenamePack } from '../hooks/use-material-packs'
 import { useReader } from '../store'
 import type { InboxMessage } from '../types'
 

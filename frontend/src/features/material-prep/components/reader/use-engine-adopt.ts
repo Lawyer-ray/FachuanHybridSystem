@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 
-import { blockKeyOf } from '../../draft/block-keys'
+import { blockKeyOf } from '../../draft'
 import type { DraftState } from '../../types'
 
 /**

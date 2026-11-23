@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
 
+import { DEFAULT_FILTER } from '../constants'
 import type { ContractFacetItem, ContractPageResponse, WorkbenchFilter } from '../types'
 
 interface FilterBarProps {
@@ -170,7 +171,7 @@ export function FilterBar({ facets, filter, onChange }: FilterBarProps) {
               <button
                 type="button"
                 className="rounded-[9px] px-2 py-1 text-xs text-muted-foreground underline underline-offset-3 hover:text-foreground"
-                onClick={() => onChange({ status: 'active', cat: '', fee: '', q: '' })}
+                onClick={() => onChange(DEFAULT_FILTER)}
               >
                 清除全部筛选
               </button>
@@ -186,7 +187,7 @@ export function FilterBar({ facets, filter, onChange }: FilterBarProps) {
               key={c.key}
               text={c.text}
               onRemove={() => {
-                if (c.key === 'status') set({ status: 'active' })
+                if (c.key === 'status') set({ status: DEFAULT_FILTER.status })
                 else if (c.key === 'cat') set({ cat: '' })
                 else set({ fee: '' })
               }}

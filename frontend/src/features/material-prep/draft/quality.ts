@@ -33,23 +33,28 @@ function numList(v: unknown): number[] {
 export function readPageQuality(raw: unknown): PageQuality | null {
   if (!raw || typeof raw !== 'object') return null
   const src = raw as Record<string, unknown>
-  const quality: PageQuality = {
-    graphic_pages: numList(src.graphic_pages),
-    sparse_pages: numList(src.sparse_pages),
-    blank_pages: numList(src.blank_pages),
-    details: strMap(src.details),
-    doc_hints: strMap(src.doc_hints),
-    doc_missing: readDocMissing(src.doc_missing),
-  }
+  const graphicPages = numList(src.graphic_pages)
+  const sparsePages = numList(src.sparse_pages)
+  const blankPages = numList(src.blank_pages)
+  const docHints = strMap(src.doc_hints)
+  const docMissing = readDocMissing(src.doc_missing)
   // 全空就当没有：让调用方少一层「有没有内容」的判断。
   // doc_missing 也算内容：它可能单独出现（知道缺什么、没给类型码），丢了就整张清单消失。
   const empty =
-    quality.graphic_pages!.length === 0 &&
-    quality.sparse_pages!.length === 0 &&
-    quality.blank_pages!.length === 0 &&
-    Object.keys(quality.doc_hints!).length === 0 &&
-    Object.keys(quality.doc_missing!).length === 0
-  return empty ? null : quality
+    graphicPages.length === 0 &&
+    sparsePages.length === 0 &&
+    blankPages.length === 0 &&
+    Object.keys(docHints).length === 0 &&
+    Object.keys(docMissing).length === 0
+  if (empty) return null
+  return {
+    graphic_pages: graphicPages,
+    sparse_pages: sparsePages,
+    blank_pages: blankPages,
+    details: strMap(src.details),
+    doc_hints: docHints,
+    doc_missing: docMissing,
+  }
 }
 
 /** `{页号: 字符串}` 的收窄：非字符串 / 空串一律丢（空串等于没提示，留着只添乱） */

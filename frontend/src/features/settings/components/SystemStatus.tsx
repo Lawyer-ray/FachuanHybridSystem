@@ -8,7 +8,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Loader2, RefreshCw, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { StatusBadge, type Tone } from '@/components/shared/status-badge'
+import { StatusBadge, type Tone } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { errMessage } from '@/lib/errors'
 import {
@@ -19,11 +19,12 @@ import {
   testLlmConnection,
   type QClusterStatus,
 } from '../api'
+import { SETTINGS_KEY, settingsKeys } from '../constants'
 
 type CardState = 'loading' | 'ok' | 'warn' | 'error' | 'unknown'
 
 /**
- * 卡片状态 → 徽章档位（色板取 tokens，见 shared/status-badge）。
+ * 卡片状态 → 徽章档位（色板取 tokens，见 shared/StatusBadge）。
  *
  * 此前这里是两组平行的颜色 map（圆点一组、文字一组），同一语义在两处手抄，
  * 改色时必然漏一处；且「状态标签」本质就是一枚徽章，圆点+彩色文字的拼法
@@ -91,7 +92,7 @@ function qState(data: QClusterStatus | undefined): { state: CardState; text: str
 }
 
 function BackendCard() {
-  const q = useQuery({ queryKey: ['settings', 'backend-probe'], queryFn: probeBackend })
+  const q = useQuery({ queryKey: settingsKeys.backendProbe, queryFn: probeBackend })
   if (q.isLoading) {
     return (
       <StatusCard title="后端服务" state="loading" stateText="探测中…">
@@ -116,7 +117,7 @@ function BackendCard() {
 }
 
 function QueueCard() {
-  const q = useQuery({ queryKey: ['settings', 'q-cluster'], queryFn: fetchQClusterStatus })
+  const q = useQuery({ queryKey: settingsKeys.qCluster, queryFn: fetchQClusterStatus })
   const s = qState(q.data)
   return (
     <StatusCard title="Django-Q 任务队列" state={s.state} stateText={s.text}>
@@ -145,8 +146,8 @@ function QueueCard() {
 }
 
 function LlmCard() {
-  const modelsQuery = useQuery({ queryKey: ['settings', 'llm-models'], queryFn: fetchLlmModels })
-  const usageQuery = useQuery({ queryKey: ['settings', 'agent-usage'], queryFn: () => fetchAgentUsage(1) })
+  const modelsQuery = useQuery({ queryKey: settingsKeys.llmModels, queryFn: fetchLlmModels })
+  const usageQuery = useQuery({ queryKey: settingsKeys.agentUsage, queryFn: () => fetchAgentUsage(1) })
   const [modelId, setModelId] = useState('')
   const queryClient = useQueryClient()
 
@@ -232,7 +233,7 @@ function LlmCard() {
         variant="ghost"
         size="sm"
         className="mt-1 h-7 px-2 text-[11.5px]"
-        onClick={() => void queryClient.invalidateQueries({ queryKey: ['settings'] })}
+        onClick={() => void queryClient.invalidateQueries({ queryKey: SETTINGS_KEY })}
       >
         <RefreshCw className="size-3" />
         刷新

@@ -1,6 +1,6 @@
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
-import { docTodosOf, type DocTodo } from '../../draft/quality'
+import { docTodosOf, type DocTodo } from '../../draft'
 import type { PageQuality } from '../../types'
 
 /**

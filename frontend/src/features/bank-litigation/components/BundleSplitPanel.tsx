@@ -10,7 +10,7 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import { StatusBadge } from '@/components/shared/status-badge'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { errMessage } from '@/lib/errors'
 

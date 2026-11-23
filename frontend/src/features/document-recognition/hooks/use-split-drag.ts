@@ -36,20 +36,23 @@ export function useSplitDrag(): [number, () => void, RefObject<HTMLDivElement | 
   const [pct, setPct] = useState(initialSplitPct)
   const [dragging, setDragging] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
+  // 最新宽度（onMove 写、onUp 读）：落盘不能放在 setPct 的 updater 里——
+  // updater 必须是纯函数，StrictMode / 并发渲染会重放它，等于写两次 localStorage；
+  // 而 onUp 里读 state 闭包又会拿到拖拽开始时的旧值。
+  const latestPct = useRef(pct)
 
   useEffect(() => {
     if (!dragging) return
     const onMove = (e: MouseEvent) => {
       const rect = bodyRef.current?.getBoundingClientRect()
       if (!rect || rect.width === 0) return
-      setPct(clampSplit(((e.clientX - rect.left) / rect.width) * 100))
+      const next = clampSplit(((e.clientX - rect.left) / rect.width) * 100)
+      latestPct.current = next
+      setPct(next)
     }
     const onUp = () => {
       setDragging(false)
-      setPct((p) => {
-        localStorage.setItem(SPLIT_PCT_KEY, String(Math.round(p)))
-        return p
-      })
+      localStorage.setItem(SPLIT_PCT_KEY, String(Math.round(latestPct.current)))
     }
     return attachDragListeners(onMove, onUp)
   }, [dragging])
@@ -70,6 +73,8 @@ export function useDialogWidthDrag(): [number | null, (e: { preventDefault: () =
   const [dragging, setDragging] = useState(false)
   const [viewportW, setViewportW] = useState(() => window.innerWidth)
   const startRef = useRef({ x: 0, w: 0 })
+  // 同上：落盘读 ref 而不是在 setWidth 的 updater 里写 localStorage
+  const latestWidth = useRef(width)
 
   useEffect(() => {
     const onResize = () => setViewportW(window.innerWidth)
@@ -81,14 +86,14 @@ export function useDialogWidthDrag(): [number | null, (e: { preventDefault: () =
     if (!dragging) return
     const onMove = (e: MouseEvent) => {
       const maxW = window.innerWidth - 32
-      setWidth(Math.min(maxW, Math.max(MIN_DIALOG_WIDTH, startRef.current.w + (e.clientX - startRef.current.x))))
+      const next = Math.min(maxW, Math.max(MIN_DIALOG_WIDTH, startRef.current.w + (e.clientX - startRef.current.x)))
+      latestWidth.current = next
+      setWidth(next)
     }
     const onUp = () => {
       setDragging(false)
-      setWidth((w) => {
-        if (w != null) localStorage.setItem(DIALOG_WIDTH_KEY, String(Math.round(w)))
-        return w
-      })
+      const w = latestWidth.current
+      if (w != null) localStorage.setItem(DIALOG_WIDTH_KEY, String(Math.round(w)))
     }
     return attachDragListeners(onMove, onUp)
   }, [dragging])

@@ -1,4 +1,4 @@
-import { StatusBadge, type Tone } from '@/components/shared/status-badge'
+import { StatusBadge, type Tone } from '@/components/shared/StatusBadge'
 
 import type { PdfSplitSegment } from '../../api'
 

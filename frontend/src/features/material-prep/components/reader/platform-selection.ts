@@ -1,5 +1,7 @@
 import type { CloudBackend } from '../../api/pdf-split'
-import type { EngineName } from '../../types'
+import type { CloudEngine, CloudSelection } from '../../types'
+
+export type { CloudEngine, CloudSelection }
 
 /**
  * 自动分段「解析平台」的多选口径：勾哪些引擎就跑哪些，勾两个就交叉比对。
@@ -17,16 +19,6 @@ import type { EngineName } from '../../types'
  * 互相打架（勾了 auto 又勾 mineru 该算什么？）。所以空集合就是 auto，
  * 菜单里用一句说明把这个后果讲清楚。
  */
-
-/**
- * 可选引擎。取值与后端 `cloud_backend` / `dual_engines` 的字符串逐字一致，
- * 也与 `EngineName`（双引擎分歧数据里的引擎码）同一套拼写——两处若不一致，
- * 「勾了 PaddleOCR-VL」与「分歧里出现 paddleocr_vl」就对不上。
- */
-export type CloudEngine = EngineName
-
-/** 勾选的引擎集合。**空数组 = 自动容灾**（不勾任何引擎时的默认行为） */
-export type CloudSelection = CloudEngine[]
 
 /** 菜单里的固定顺序：MinerU 在最前，因为它也是双引擎的正主（见 `resolveBackendRequest`） */
 export const CLOUD_ENGINES: readonly CloudEngine[] = ['mineru', 'paddleocr_vl', 'textin']

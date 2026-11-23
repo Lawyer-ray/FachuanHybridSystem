@@ -1,9 +1,14 @@
 import { useMemo, useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 
-import { disagreementKindLabel, engineLabel, variantFullTextOf } from '../../draft'
-import { diffSegments } from '../../draft/text-diff'
-import { suggestionsOf, type EngineSuggestion } from '../../draft/engine-suggest'
+import {
+  diffSegments,
+  disagreementKindLabel,
+  engineLabel,
+  suggestionsOf,
+  variantFullTextOf,
+  type EngineSuggestion,
+} from '../../draft'
 import type { EngineDisagreement, Inconsistency, Segment } from '../../types'
 import { cn } from '@/lib/utils'
 

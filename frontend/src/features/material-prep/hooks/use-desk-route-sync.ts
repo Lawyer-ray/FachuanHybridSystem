@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { materialPrep } from '@/app/paths'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { parseStage } from '../stages'
-import { useJudgePack } from './use-inbox'
+import { useJudgePack } from './use-material-packs'
 import { useReader } from '../store'
 
 /**
@@ -27,6 +27,8 @@ export function useDeskRouteSync() {
     if (id == null) return
     if (useReader.getState().openId === Number(id)) return
     void openPack(Number(id))
+    // 依赖只写 id：效果按「路径 id 变化」触发，openPack 是 store 方法，
+    // 引用不稳定也不应跟随（跟随只会让同一 id 重复 open）。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
@@ -53,6 +55,8 @@ export function useDeskRouteSync() {
       void judgePack.invalidate()
     }
     prevOpenId.current = openId
+    // 依赖只写 openId：本条只在「openId 变 null」时触发失效，
+    // judgePack.invalidate 是 mutation 方法，引用不稳定也不应跟随。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openId])
 }

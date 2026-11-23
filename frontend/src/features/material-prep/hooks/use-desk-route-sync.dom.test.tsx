@@ -25,7 +25,7 @@ import { getPackDetail } from '../api'
 import { useReader } from '../store'
 import type { InboxMessageDetail } from '../types'
 
-import { PACKS_KEY } from './use-inbox'
+import { PACKS_KEY } from './use-material-packs'
 import { useDeskRouteSync } from './use-desk-route-sync'
 
 const getDetailMock = vi.mocked(getPackDetail)

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Archive, Loader2, Search, Stamp } from 'lucide-react'
 
-import { StatusBadge } from '@/components/shared/status-badge'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { errMessage } from '@/lib/errors'
 import { SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'

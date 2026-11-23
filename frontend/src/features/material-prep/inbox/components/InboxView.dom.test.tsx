@@ -12,7 +12,6 @@
  * 筛选控件本身已上提到 DeskPage 的统一工具栏，不在本视图 DOM 里；
  * 因此这里只喂受控值、断言取数参数与空态，不再点档位药丸。
  */
-import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
@@ -157,21 +156,7 @@ function ControlledHarness({
   )
 }
 
-/** 包一层路由 + query 外壳。`element` 换成任意受控节点（直连 props 的用例用它）。 */
-function wrapWith(harness: Partial<Parameters<typeof ControlledHarness>[0]> = {}, element?: ReactNode) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/inbox']}>
-        <Routes>
-          <Route path="/inbox" element={element ?? <ControlledHarness {...harness} />} />
-          <Route path="/material-prep/:id" element={<div>材料预处理页</div>} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  )
-}
-
+/** 包一层路由 + query 外壳。`initialEntries` 给深链接用例指定起始 URL。 */
 function wrap(
   harness: Partial<Parameters<typeof ControlledHarness>[0]> = {},
   initialEntries: string[] = ['/inbox'],
@@ -221,7 +206,7 @@ describe('InboxView', () => {
 
   it('source 受控 prop 变化会用对应 source_type 重新取数', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1 })])
-    wrapWith({ initial: { source: 'all' } })
+    wrap({ initial: { source: 'all' } })
     await screen.findByText(/执保XXXX号/)
     expect(apiMock.listInbox).toHaveBeenLastCalledWith(expect.objectContaining({ source: 'all' }))
 
@@ -334,7 +319,7 @@ describe('InboxView', () => {
 
   it('unreadOnly / search 受控 prop 变化会带进取数参数', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1 })])
-    wrapWith()
+    wrap()
     await screen.findByText(/执保XXXX号/)
 
     fireEvent.click(screen.getByRole('button', { name: '打开未读' }))

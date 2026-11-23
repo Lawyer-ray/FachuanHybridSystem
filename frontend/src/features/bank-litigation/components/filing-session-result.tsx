@@ -1,34 +1,16 @@
-/* eslint-disable react-refresh/only-export-components */
 /**
- * 立案会话的共用呈现：轮询阶段文案 + 会话结果块。
+ * 立案会话的结果块：两个立案面板（一张网 / 律所 OA）共用。
  *
  * ═══ 为什么单独一个文件 ═══
  * OA 立案（`oa/OAFilingPanel.tsx`）与一张网（`CourtFilingPanel.tsx`）的会话形状完全相同：
- * 提交 → 后台跑 → 轮询 → 终态停。两侧共用这套阶段文案与结果块，
- * 但 react-refresh 规则不允许一个「组件文件」再导出常量/纯函数，
- * 所以把共用部分收在这里，两个面板各自 import。
- * 本文件同时导出常量/纯函数与一个小组件，fast-refresh 规则按
- * `components/shared/status-badge.tsx` 的同样取舍在文件级关闭（改本文件时整页刷新）。
+ * 提交 → 后台跑 → 轮询 → 终态停。结果块两侧共用，所以抽成单组件文件，
+ * 两个面板各自 import；轮询阶段的文案与语气在 `constants.ts`（`PHASE_META` / `pillTone`）。
  */
 
-import { StatusBadge, type Tone } from '@/components/shared/status-badge'
+import { StatusBadge, type Tone } from '@/components/shared/StatusBadge'
 import { cn } from '@/lib/utils'
 
 import type { AutoPhase } from '../hooks/use-auto-run'
-
-/** 轮询阶段 → 语气与文案 */
-export const PHASE_META: Record<AutoPhase, { tone: Tone; text: string }> = {
-  idle: { tone: 'neutral', text: '待启动' },
-  submitting: { tone: 'blue', text: '正在提交' },
-  running: { tone: 'blue', text: '执行中' },
-  done: { tone: 'neutral', text: '已结束' },
-  timeout: { tone: 'yellow', text: '等待超时' },
-}
-
-/** StatusBadge 的 Tone 含 purple，Pill 不收 —— 进度语气只会用到这五种，窄化一次 */
-export function pillTone(t: Tone): 'neutral' | 'green' | 'red' | 'yellow' | 'blue' {
-  return t === 'purple' ? 'neutral' : t
-}
 
 /** 会话状态 → 语气。后端 status 字符串大小写/取值不完全统一，按语义归类。 */
 function sessionTone(status: string): Tone {

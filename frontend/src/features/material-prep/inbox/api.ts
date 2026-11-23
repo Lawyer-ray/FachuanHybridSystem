@@ -21,9 +21,6 @@ export const INBOX_LIST_KEY = ['inbox-list'] as const
 /** 列表默认取多少条：收件箱是持续增长的慢数据，首屏不必拉全量 */
 export const INBOX_PAGE_SIZE = 200
 
-type InboxMessageOut = components['schemas']['InboxMessageOut']
-
-/** 后端 source_type 多值过滤（逗号分隔，与 material_prep 的 PACK_SOURCE_TYPES 同协议） */
 /**
  * 档位 → 后端 source_type 参数。
  *
@@ -106,22 +103,12 @@ export function attachmentUrl(messageId: number, partIndex: number, inline: bool
   return `/api/v1/inbox/messages/${messageId}/attachments/${partIndex}/${kind}`
 }
 
-export type { InboxMessageOut }
-
 // ── 来源同步 ──────────────────────────────────────────────
 //
 // 接口在同一个 /api/v1/inbox 域下（sources / sources/sync-all / sources/{id}/sync），
 // 挂载前缀已按后端 openapi.json 核对，不猜。
 
 type MessageSourceOut = components['schemas']['MessageSourceOut']
-
-/** 同步目标的状态判据：后端 SyncStatus 只有 pending/success/failed，没有 running，
- *  所以「跑完了没有」不能看 last_sync_status，只能看 last_sync_at 是否更新。 */
-export interface SourceSyncSnapshot {
-  id: number
-  last_sync_at: string | null
-  last_sync_status: string
-}
 
 /** GET /inbox/sources —— 消息来源列表（后端已按可见性收敛） */
 export async function listSources(): Promise<MessageSourceOut[]> {

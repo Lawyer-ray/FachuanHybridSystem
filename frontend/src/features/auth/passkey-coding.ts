@@ -52,6 +52,18 @@ export interface AssertionResponseJSON {
   }
 }
 
+/** WebAuthn + 平台认证器（Touch ID / Windows Hello）双条件可用才展示入口。
+ *  登录页的一键登录按钮与绑定页的「添加通行密钥」共用同一探测：环境不支持
+ *  WebAuthn 或探测本身抛异常，一律降级为 false（不阻塞页面渲染）。 */
+export async function platformAuthenticatorAvailable(): Promise<boolean> {
+  if (typeof window === 'undefined' || !window.PublicKeyCredential) return false
+  try {
+    return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+  } catch {
+    return false
+  }
+}
+
 /** ArrayBuffer → base64url（无填充） */
 export function bytesToBase64url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)

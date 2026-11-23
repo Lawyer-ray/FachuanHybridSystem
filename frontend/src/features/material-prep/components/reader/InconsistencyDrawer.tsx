@@ -1,6 +1,6 @@
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
-import { inconsistencyKindOf, pagesText, sortInconsistencies } from '../../draft/quality'
+import { inconsistencyKindOf, pagesText, sortInconsistencies } from '../../draft'
 import type { Inconsistency } from '../../types'
 
 /**

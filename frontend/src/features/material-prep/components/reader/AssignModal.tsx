@@ -69,6 +69,9 @@ export function AssignModal({
       对方当事人: infos.find((f) => f.k === '对方当事人')?.v || '',
       标的额: infos.find((f) => f.k === '标的额')?.v || '',
     })
+    // 依赖只写 open：挂载点是 ReaderDialogs 的 `{showAssign && <AssignModal open …>}`，
+    // 每次打开都是新挂载，infos 必为最新，旧值预填不可达；把 infos / setQ 加进来
+    // 反而会在 infos 变动时冲掉用户正在填的字段。
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Esc / 遮罩点击 / 焦点陷阱 / 焦点归还 / 背景滚动锁全部交给 Radix Dialog。

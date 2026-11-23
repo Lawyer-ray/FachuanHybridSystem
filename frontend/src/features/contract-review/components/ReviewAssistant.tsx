@@ -27,6 +27,7 @@ import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
 import { applyTaskEdit, suggestDirectEdit } from '../api'
+import { REVIEW_INSTRUCTION_PLACEHOLDER } from '../constants'
 import type { DirectEditCandidate } from '../types'
 
 /** 一条候选改法在列表里的展示态 */
@@ -204,11 +205,7 @@ export function ReviewAssistant({
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
             rows={2}
-            placeholder={
-              effectiveSelection
-                ? '例如：按泰国法审查这一条，我方是承租方'
-                : '先选中原文，再下指令'
-            }
+            placeholder={effectiveSelection ? REVIEW_INSTRUCTION_PLACEHOLDER : '先选中原文，再下指令'}
             className="w-full resize-none rounded-[8px] border border-border bg-background px-2.5 py-2 text-[12px] leading-[1.55] outline-none focus:border-foreground/30"
             onKeyDown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') void suggest()

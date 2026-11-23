@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 
 import { listFolderEntries, type FolderOwnerKind } from '../../api'
 import { workbenchKeys } from '../../hooks/use-workbench-data'
-import { parseDatedFolder, pickServiceItems, serviceItemStatus, stripOrderPrefix } from './service-items'
+import { byDateDescThenTitle, looksLikeCaseFolder, parseDatedFolder, pickServiceItems, serviceItemStatus } from './service-items'
 import type { ServiceItem } from './ServiceItemStream'
 
 /**
@@ -43,7 +43,7 @@ export function useServiceItems(
     if (rootEntries.length === 0) return null
     // 只认名字，不下探——自动识别只看根层命名（省一次请求）；
     // 认不出时由页面提示用户手动指定，而不是静默扫完全部子目录
-    const hit = rootEntries.find((f) => /办案|法律服务|日常事务/.test(stripOrderPrefix(f.name)))
+    const hit = rootEntries.find((f) => looksLikeCaseFolder(f.name))
     return hit?.subpath ?? null
   }, [source, rootEntries])
 
@@ -63,12 +63,7 @@ export function useServiceItems(
         const { date, title } = parseDatedFolder(kid.name)
         return { kid, date, title }
       })
-      .sort((a, b) => {
-        if (a.date && b.date) return b.date.localeCompare(a.date)
-        if (a.date) return -1
-        if (b.date) return 1
-        return a.title.localeCompare(b.title, 'zh')
-      })
+      .sort(byDateDescThenTitle)
       .map<ServiceItem>(({ kid, date, title }) => {
         // 交付状态看事项目录里**有没有文件**（后端在列目录时顺手算了 file_count）：
         // 空目录 = 事情还没产出东西 → 待办/进行中。判据本身在 serviceItemStatus

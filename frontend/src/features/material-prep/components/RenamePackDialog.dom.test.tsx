@@ -14,7 +14,7 @@ const hookMock = vi.hoisted(() => ({
 }))
 const storeMock = vi.hoisted(() => ({ renameSubject: vi.fn() }))
 
-vi.mock('../hooks/use-inbox', () => ({ useRenamePack: () => hookMock }))
+vi.mock('../hooks/use-material-packs', () => ({ useRenamePack: () => hookMock }))
 vi.mock('../store', () => ({
   useReader: (sel: (s: typeof storeMock) => unknown) => sel(storeMock),
 }))

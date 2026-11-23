@@ -33,9 +33,11 @@ export interface DragChromeOptions {
  *
  * 同时挂 mouse* 与 pointer*：老调用方（document-recognition 的分屏/弹窗拖拽）
  * 历来用 mouse 事件，新调用方用 pointer 事件（要接 pointercancel）。浏览器里
- * 一次鼠标拖动两种都发，只算谁先到（finish 有幂等闸），不会双车道各跑一遍。
+ * 一次鼠标拖动两种都发，所以 **onMove 每帧会跑两次**（mouse 一趟、pointer 一趟），
+ * 调用方必须幂等——现调用方都是直接写同一个 setState 值，React 会 bail out。
+ * finish 有幂等闸，up/cancel 那侧不会重复触发 onEnd。
  *
- * @param onMove 指针/鼠标移动（每次调一次，调用方自己直改 DOM）
+ * @param onMove 指针/鼠标移动（mouse* 与 pointer* 各调一次，调用方自己直改 DOM）
  * @param onEnd  拖拽结束（up / cancel / 调用方主动取消都走它）；
  *               先复位外壳再调用，调用方此后不必操心 userSelect/光标/iframe
  */

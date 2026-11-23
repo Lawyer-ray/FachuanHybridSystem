@@ -28,37 +28,18 @@
  * 错位。现在只在 `open` 时写一次默认目标（唯一一条 effect），其余全部在渲染期
  * 派生（`teamId` / `kind` / `effectiveFirmAck`），提交也用派生值，保证「界面显示
  * 什么就提交什么」。
+ *
+ * 拆分记录：草稿状态与跨层派生值在 `use-promote-draft`；本文件只留候选查询、提交
+ * 与外壳。
  */
 
-import { useEffect, useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
-
-import { fetchPromoteCandidates, promoteMemory } from '../../memory-api'
-import type { MemoryKind, MemoryScopes } from '../../types'
+import type { MemoryScopes } from '../../types'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { LAW_FIRM_KINDS, MAX_RULE_CHARS } from './labels'
-import { PromoteRuleEditor } from './PromoteRuleEditor'
 import { PromoteCandidatesPanel } from './PromoteCandidatesPanel'
-import { normalize, scanPii } from './pii'
-
-/** 提交闸门的前置拦截：返回第一条不满足的原因（空串 = 可提交） */
-function findBlocker(input: {
-  selectedCount: number
-  trimmed: string
-  sameAsSource: boolean
-  draftPii: string[]
-  target: 'team' | 'law_firm'
-  firmAck: boolean
-}): string {
-  if (input.selectedCount === 0) return '请至少选择一条来源记忆'
-  if (!input.trimmed) return '请写一条可复用的规则'
-  if (input.trimmed.length > MAX_RULE_CHARS) return `规则过长（上限 ${MAX_RULE_CHARS} 字）`
-  if (input.sameAsSource) return '不能原样提升，请改写成可复用的规则（脱敏）'
-  if (input.draftPii.length > 0) return `内容仍含敏感信息：${input.draftPii.join('、')}`
-  if (input.target === 'law_firm' && !input.firmAck) return '请先确认该规则将对全所所有律师生效'
-  return ''
-}
+import { PromoteRuleEditor } from './PromoteRuleEditor'
+import { usePromoteDraft } from './use-promote-draft'
+import { usePromoteSubmission } from './use-promote-submission'
 
 export function MemoryPromoteDialog({
   open,
@@ -71,83 +52,11 @@ export function MemoryPromoteDialog({
   scopes: MemoryScopes | undefined
   onPromoted: () => void
 }) {
-  const [target, setTarget] = useState<'team' | 'law_firm'>('team')
-  const [pickedTeamId, setTeamId] = useState<number | null>(null)
-  const [selected, setSelected] = useState<string[]>([])
-  const [content, setContent] = useState('')
-  const [pickedKind, setKind] = useState<MemoryKind>('procedure')
-  // 律所层影响全所，需显式确认（与后端 acknowledged_firm_wide 对应）
-  const [firmAck, setFirmAck] = useState(false)
-
-  const curatableTeams = scopes?.teams.filter((t) => t.can_curate) ?? []
-  const canFirm = scopes?.law_firm.can_curate ?? false
-  const firstTeamId = curatableTeams[0]?.id ?? null
-
-  // 唯一保留的 effect：打开时落到第一个可策展目标，避免律师先看一个空面板。
-  // 依赖里刻意不带 curatableTeams——否则 scopes 一到就重跑，把律师已选的团队冲掉。
-  useEffect(() => {
-    if (!open) return
-    if (firstTeamId !== null) {
-      setTarget('team')
-      setTeamId((prev) => prev ?? firstTeamId)
-    } else if (canFirm) {
-      setTarget('law_firm')
-      setTeamId(null)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
-
-  // 三条跨层修正都在渲染期派生：律所层不带 teamId（后端按 scope 校验，混传会被拒）、
-  // 律所层不允许「事实」（非法类型拉回惯例）、离开律所层不认之前的确认
-  // （避免「在团队层勾过、切到律所层后忘了」这种假确认）
-  const teamId = target === 'law_firm' ? null : (pickedTeamId ?? firstTeamId)
-  const kind = target === 'law_firm' && !LAW_FIRM_KINDS.includes(pickedKind) ? 'procedure' : pickedKind
-  const effectiveFirmAck = target === 'law_firm' && firmAck
-
-  const candidatesQuery = useQuery({
-    queryKey: ['copilot', 'memory', 'candidates', target, teamId],
-    queryFn: () =>
-      fetchPromoteCandidates({
-        scope: target,
-        teamId: target === 'team' ? (teamId ?? undefined) : undefined,
-      }),
-    enabled: open && (target === 'law_firm' ? canFirm : teamId != null),
-    staleTime: 60_000,
-  })
-
-  const promoteMutation = useMutation({
-    mutationFn: () =>
-      promoteMemory({
-        sourceIds: selected,
-        content: content.trim(),
-        kind,
-        scope: target,
-        teamId: target === 'team' ? (teamId ?? undefined) : undefined,
-        acknowledgedFirmWide: effectiveFirmAck,
-      }),
-    onSuccess: onPromoted,
-  })
-
-  const candidates = candidatesQuery.data ?? []
-  const selectedCandidates = candidates.filter((c) => selected.includes(c.id))
-  const trimmed = content.trim()
-  const sameAsSource = selectedCandidates.some((c) => normalize(c.content) === normalize(trimmed))
-  const draftPii = scanPii(trimmed)
-  const blocker = findBlocker({
-    selectedCount: selected.length,
-    trimmed,
-    sameAsSource,
-    draftPii,
-    target,
-    firmAck: effectiveFirmAck,
-  })
-
-  /** 换目标：换团队/换层都要清空已选（旧候选的 id 不属于新池） */
-  const handleTargetChange = (next: 'team' | 'law_firm', nextTeamId: number | null) => {
-    setTarget(next)
-    setTeamId(nextTeamId)
-    setSelected([])
-  }
+  const draft = usePromoteDraft({ open, scopes })
+  const { candidates, loading, selectedCandidates, sameAsSource, draftPii, blocker, submitting, submitError, submit } =
+    usePromoteSubmission({ open, draft, onPromoted })
+  const { target, teamId, kind, content, selected, firmAck, setKind, setContent, setFirmAck, changeTarget, toggleSelected } =
+    draft
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -165,12 +74,10 @@ export function MemoryPromoteDialog({
             teamId={teamId}
             scopes={scopes}
             candidates={candidates}
-            loading={candidatesQuery.isLoading}
+            loading={loading}
             selected={selected}
-            onTargetChange={handleTargetChange}
-            onToggleSelected={(id, checked) =>
-              setSelected((prev) => (checked ? [...prev, id] : prev.filter((item) => item !== id)))
-            }
+            onTargetChange={changeTarget}
+            onToggleSelected={toggleSelected}
           />
           <PromoteRuleEditor
             target={target}
@@ -181,16 +88,16 @@ export function MemoryPromoteDialog({
             sourceCount={selectedCandidates.length}
             sameAsSource={sameAsSource}
             draftPii={draftPii}
-            firmAck={effectiveFirmAck}
+            firmAck={firmAck}
             onFirmAckChange={setFirmAck}
           />
         </div>
 
-        {promoteMutation.isError && <p className="text-[11px] text-destructive">提交失败：{promoteMutation.error.message}</p>}
+        {submitError && <p className="text-[11px] text-destructive">提交失败：{submitError}</p>}
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>取消</Button>
-          <Button disabled={Boolean(blocker) || promoteMutation.isPending} onClick={() => promoteMutation.mutate()}>
-            {promoteMutation.isPending ? '提交中…' : '提炼'}
+          <Button disabled={Boolean(blocker) || submitting} onClick={submit}>
+            {submitting ? '提交中…' : '提炼'}
           </Button>
         </DialogFooter>
       </DialogContent>

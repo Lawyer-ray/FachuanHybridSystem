@@ -100,6 +100,7 @@ export function SpecialDocDrawer({
             <div className="flex items-center gap-2">
               <input
                 autoFocus
+                aria-label="交付物名称"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {

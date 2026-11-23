@@ -2,7 +2,7 @@
 import type { AssignInfo, BundleMat, DraftState, PackStatus, PageKey, PositionedBlock, Segment } from '../types'
 import { matLabel, withDefaultNames } from './labels'
 import { blocksForPages, blockTextIndexOf, concatBlocks, joinMdByPages, joinWholeMd, shiftPageSpans } from './md-pages'
-import { initialSegments } from './resolve'
+import { initialSegments } from './initial'
 import { nextSegId } from './seg-id'
 
 /**

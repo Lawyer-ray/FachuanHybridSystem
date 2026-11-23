@@ -18,7 +18,7 @@ import { FileText, Folder, Scale, ScrollText } from 'lucide-react'
 import type { ComponentType } from 'react'
 
 import { mentionOptionId, type MentionCandidate } from '../domain'
-import type { MentionGroup } from '../hooks/use-mention-menu'
+import type { MentionGroup } from '../hooks/use-mention-race'
 
 export interface MentionMenuProps {
   /** listbox 的 DOM id（textarea 的 aria-controls 指向它） */

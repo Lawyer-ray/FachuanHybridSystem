@@ -108,8 +108,8 @@ export function ContractMatchPanel({ messageId }: { messageId: number }) {
               )}
               {c.reasons.length > 0 && (
                 <ul className="mt-1 space-y-0.5">
-                  {c.reasons.map((r) => (
-                    <li key={r} className="text-[11px] text-muted-foreground/90">
+                  {c.reasons.map((r, i) => (
+                    <li key={`${c.contract_id}:${i}`} className="text-[11px] text-muted-foreground/90">
                       · {r}
                     </li>
                   ))}

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { FileText, Gavel } from 'lucide-react'
 
 import { ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
-import { StatusBadge } from '@/components/shared/status-badge'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 
 import { CaseListPage } from './CaseListPage'
 import { fmtMoney } from '../utils'

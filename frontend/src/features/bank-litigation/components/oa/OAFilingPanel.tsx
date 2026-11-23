@@ -17,7 +17,7 @@ import { useState } from 'react'
 import { Loader2, Play } from 'lucide-react'
 
 import { ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
-import { StatusBadge } from '@/components/shared/status-badge'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 
 import { useOAConfigs } from '../../hooks/use-cases'
 import { useOAFiling } from '../../hooks/use-auto-run'
@@ -34,7 +34,8 @@ import {
   WorkCard,
 } from '../ui'
 import { DEMO_OA_FILING_LOG, DEMO_OA_HISTORY, DEMO_OA_SITES } from '../demo-data'
-import { PHASE_META, SessionResult, pillTone } from '../filing-session'
+import { PHASE_META, pillTone } from '../constants'
+import { SessionResult } from '../filing-session-result'
 import { OAFailureCauses } from './OAFailureCauses'
 import { OAFieldMapping } from './OAFieldMapping'
 import { OAHistoryTable } from './OAHistoryTable'

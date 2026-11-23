@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * material-prep 收件箱 hooks 单测（jsdom）。
+ * material-prep 材料包 hooks 单测（jsdom）。
  *
  * mock 只打 api 层（../api 的列表 / 上传 / 打标 / 删除 / 重命名），
  * 覆盖：useMaterialPacks 的查询配置（staleTime / 禁 focus 重拉）与数据透传、
@@ -26,7 +26,7 @@ vi.mock('../api', async (importOriginal) => {
 import { deletePack, listMaterialPacks, renamePack, setPackStatusRemote, uploadPack } from '../api'
 import type { InboxMessage, InboxMessageDetail } from '../types'
 
-import { PACKS_KEY, useCreatePack, useDeletePack, useJudgePack, useMaterialPacks, useRenamePack } from './use-inbox'
+import { PACKS_KEY, useCreatePack, useDeletePack, useJudgePack, useMaterialPacks, useRenamePack } from './use-material-packs'
 
 const listMock = vi.mocked(listMaterialPacks)
 const uploadMock = vi.mocked(uploadPack)

@@ -12,7 +12,13 @@ import { DEMO_CONVERT_LOG } from '../demo-data'
 
 // ───────────────────────── 历史记录 ─────────────────────────
 
-export function HistoryBlock({ caseId, onCount }: { caseId: number; onCount?: (n: number) => void }) {
+/**
+ * 转换记录表。
+ *
+ * `caseId` 仍留在 props 里（调用方是案件页），但后端 `DocConvertRecordOut`
+ * 没有 `case_id` 字段，记录无法按案件过滤 —— 这里不做过滤，等接口加上字段再收。
+ */
+export function HistoryBlock({ onCount }: { caseId: number; onCount?: (n: number) => void }) {
   const [state, setState] = useState<{ loading: boolean; data: ConvertRecordList | null; error: string | null }>({
     loading: true,
     data: null,
@@ -32,14 +38,9 @@ export function HistoryBlock({ caseId, onCount }: { caseId: number; onCount?: (n
   }, [nonce])
 
   const items = state.data?.items ?? []
-  // 只展示与本案相关的记录：后端记录里带业务标识，没有就展示全部
-  const related = items.filter((r) => {
-    const anyR = r as unknown as { case_id?: number | null }
-    return anyR.case_id == null || anyR.case_id === caseId
-  })
   // 后端无记录（或接口不可用）时铺演示记录：空表在这一页是最差的画面，
   // 律师看不到「转过什么」就不敢点转换。演示记录不参与任何判断，只填行。
-  const useDemo = !state.loading && related.length === 0
+  const useDemo = !state.loading && items.length === 0
   const rows = useDemo
     ? DEMO_CONVERT_LOG.map((r) => ({
         id: r.id,
@@ -50,24 +51,16 @@ export function HistoryBlock({ caseId, onCount }: { caseId: number; onCount?: (n
         ms: r.ms,
         ok: r.ok,
       }))
-    : related.slice(0, 15).map((r) => {
-        const row = r as unknown as {
-          id: number
-          original_name?: string
-          mbid_name?: string
-          created_at?: string
-        }
-        return {
-          id: row.id,
-          original_name: row.original_name,
-          mbid_name: row.mbid_name,
-          created_at: (row.created_at ?? '').slice(0, 16).replace('T', ' '),
-          pages: null as number | null,
-          ms: null as number | null,
-          ok: true,
-        }
-      })
-  const rowCount = useDemo ? rows.length : related.length
+    : items.slice(0, 15).map((r) => ({
+        id: r.id,
+        original_name: r.original_name,
+        mbid_name: r.mbid_name,
+        created_at: (r.created_at ?? '').slice(0, 16).replace('T', ' '),
+        pages: null as number | null,
+        ms: null as number | null,
+        ok: true,
+      }))
+  const rowCount = useDemo ? rows.length : items.length
 
   // 把条数回传给父级，用于顶部统计格（避免父级再拉一次接口）
   useEffect(() => {

@@ -3,7 +3,7 @@ import { FileText, Loader2, Mail, MessageSquare, PackageCheck } from 'lucide-rea
 
 import { cn } from '@/lib/utils'
 import { friendlyTime } from '@/lib/format'
-import { SOURCE_BADGE, SOURCE_LABEL, rowSubtitle } from '../constants'
+import { SOURCE_BADGE, SOURCE_LABEL, UNREAD_ACCENT, rowSubtitle } from '../constants'
 import { canConvert, isPackSource, type InboxRow } from '../types'
 
 /** 来源类型 → 行首图标（法院类用印章感的 Mail / 短信气泡，材料包用盒子） */
@@ -53,7 +53,9 @@ export const InboxRowItem = memo(function InboxRowItem({
       )}
     >
       {/* 未读色条 */}
-      {!row.is_read && <span className="absolute inset-y-2 left-0 w-[2px] rounded-full bg-status-blue" aria-hidden />}
+      {!row.is_read && (
+        <span className={cn('absolute inset-y-2 left-0 w-[2px] rounded-full', UNREAD_ACCENT)} aria-hidden />
+      )}
 
       <span
         className={cn(

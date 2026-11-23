@@ -25,7 +25,11 @@
 import { type KyInstance } from 'ky'
 import { createAnonymousClient, createApiClient } from '@/lib/api'
 import { setTokens } from '@/lib/token'
-import type { components, operations } from '@/types/api-schema'
+import type { components } from '@/types/api-schema'
+import type { BoundAccount, SocialProviderInfo, SocialSession } from './types'
+
+/** Provider / 会话 / 绑定账号三个类型定义在 `types.ts`，此处 re-export 保持既有 import 路径 */
+export type { BoundAccount, SocialProviderInfo, SocialSession }
 
 /** 未登录即可用的客户端：不带 JWT，但要带 cookie（state 在 session 里）。
  *  参数口径与豁免理由见 lib/api.ts 的 createAnonymousClient。 */
@@ -37,17 +41,6 @@ const socialClient: KyInstance = createAnonymousClient()
  *  shareInflightSession），ky 自动重试会覆盖在途 state，必须关掉。 */
 const authedSocialClient = createApiClient({ credentials: 'same-origin', retry: 0 })
 
-/** 已启用的社交登录方式（GET /social/providers 的行，生成物 ProviderOut）。
- *  client_config 是渲染所需公开信息（app_id / authorize_url / 二维码尺寸等，
- *  生成物按 dict 收成字符串索引签名），不含密钥；provider-catalog 里为 null
- *  表示该平台尚未配置启用。 */
-export type SocialProviderInfo = Omit<components['schemas']['ProviderOut'], 'login_mode'> & {
-  /** 覆写收窄：生成物按后端 str 字段声明为裸 string；前端只实现两种渲染
-   *  形态，收窄成字面量联合让分派漏分支在编译期暴露（未知值由 login-methods
-   *  的 toKind 运行时兜底为 redirect，不会漏处理）。 */
-  login_mode: 'redirect' | 'embedded_qr'
-}
-
 /** providers 列表信封：行类型用收窄后的 SocialProviderInfo（login_mode 两值联合）。
  *  生成物行是裸 string，后端实际只产出这两种值；信封本体仍投影生成物，
  *  后端增删字段时 tsc 能跟着报警。 */
@@ -55,18 +48,9 @@ type SocialProvidersEnvelope = Omit<components['schemas']['ProvidersListOut'], '
   providers: SocialProviderInfo[]
 }
 
-/** 授权会话（POST /social/{provider}/session 的响应）。
- *  生成物组件名 SessionOut 与 OA 归档等域共用同名单例，为钉死 social 契约
- *  按 operation 投影。success / message 生成物为必有（Schema 带默认值），与
- *  旧手写版的可选不同，以生成物为准——消费方均已做空串兜底。 */
-export type SocialSession = operations['apps_social_auth_api_social_auth_api_create_session']['responses'][200]['content']['application/json']
-
 /** 用 TempAuth 码换 JWT 的响应（POST /social/token-exchange，生成物 TokenExchangeOut）。
  *  username / message 生成物为必有（Schema @default ''），以生成物为准。 */
 export type SocialTokenExchangeResponse = components['schemas']['TokenExchangeOut']
-
-/** 当前用户已绑定的社交账号（GET /social/bindings 的行，生成物 BoundAccountOut） */
-export type BoundAccount = components['schemas']['BoundAccountOut']
 
 /** 生成授权 URL 的通用封装：业务失败是 200 + success:false，必须在这里 throw。 */
 async function requestSession(client: KyInstance, path: string): Promise<SocialSession> {

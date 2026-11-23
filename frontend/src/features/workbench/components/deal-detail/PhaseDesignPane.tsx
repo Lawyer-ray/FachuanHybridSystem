@@ -49,7 +49,7 @@ export function PhaseDesignPane({
 
   const addPhase = () => {
     const node = blankPhase('')
-    const next = selected(draft, sel) ? insertAfter(draft, sel!.key, node) : appendPhase(draft, node)
+    const next = sel && selected(draft, sel) ? insertAfter(draft, sel.key, node) : appendPhase(draft, node)
     onChange(next)
     onSelect(node.key)
   }

@@ -3,7 +3,13 @@
  *
  * 放**规范级常量**（照搬后端、变更频率极低、猜错会导致业务缺项的东西）。
  * 演示态的假数据不放这里，放 `demo-data/`。
+ * 立案会话的阶段文案（`PHASE_META` / `pillTone`）也收在这里：它是对后端 status
+ * 的呈现映射，被一张网与 OA 两块立案面板共用。
  */
+
+import type { Tone } from '@/components/shared/StatusBadge'
+
+import type { AutoPhase } from '../hooks/use-auto-run'
 
 /**
  * 归档清单项（与后端 ChecklistItem 同构，省略前端用不到的字段）
@@ -58,4 +64,18 @@ export const SOURCE_LABEL: Record<ArchiveItem['source'], string> = {
   contract: '合同文件夹',
   case: '案件材料',
   manual: '手工上传',
+}
+
+/** 轮询阶段 → 语气与文案 */
+export const PHASE_META: Record<AutoPhase, { tone: Tone; text: string }> = {
+  idle: { tone: 'neutral', text: '待启动' },
+  submitting: { tone: 'blue', text: '正在提交' },
+  running: { tone: 'blue', text: '执行中' },
+  done: { tone: 'neutral', text: '已结束' },
+  timeout: { tone: 'yellow', text: '等待超时' },
+}
+
+/** StatusBadge 的 Tone 含 purple，Pill 不收 —— 进度语气只会用到这五种，窄化一次 */
+export function pillTone(t: Tone): 'neutral' | 'green' | 'red' | 'yellow' | 'blue' {
+  return t === 'purple' ? 'neutral' : t
 }

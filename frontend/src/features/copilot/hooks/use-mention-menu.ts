@@ -18,20 +18,25 @@
  * 本 hook 只回答「这个按键归不归我」（'consumed' | 'pass'）；改草稿由调用方拿
  * `onPick(insert, token)` 自己做（`applyMention` 是纯函数），本 hook 不碰草稿、
  * 不碰 store——store 写入是 `addMention` 的事。
+ *
+ * 拆分记录（现行 266 行，仍在 200–350 可接受带）：token 与 Esc 签名派生是纯函数，
+ * 在 `domain/mention.ts`（`mentionTokenAt` / `mentionTokenSignature`）；机制 1 / 2
+ * 的竞态闸门在 `hooks/use-mention-race.ts`（`useMentionRace`）。本文件只留数据源
+ * 构建、共享高亮与键盘裁决。
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { globalSearch, loadScopeFolderRows } from '../api'
 import type { ScopeFolderRows } from '../api'
 import {
-  detectMentionToken,
   filterMentionCandidates,
   flattenMentionOptions,
   makeMentionInsert,
+  mentionTokenAt,
+  mentionTokenSignature,
   moveMentionHighlight,
   type MentionCandidate,
-  type MentionGroupLike,
   type MentionHighlight,
   type MentionInsert,
   type MentionSource,
@@ -39,16 +44,10 @@ import {
 } from '../domain'
 import type { CopilotScope } from '../types'
 import { useImeEnterGuard } from './use-ime-enter-guard'
+import { useMentionRace } from './use-mention-race'
 
 /** 每个源最多几行（一屏；再多键盘也翻不完，还会把别的组挤出视野） */
 const SOURCE_LIMIT = 12
-
-/** 菜单组：源的结果 + 该组自己的状态（失败时整组消失） */
-export interface MentionGroup extends MentionGroupLike {
-  title: string
-  status: 'pending' | 'ready'
-  items: MentionCandidate[]
-}
 
 /** 键盘裁决结果：'consumed' = 菜单吃掉了这个键，调用方必须短路发送逻辑 */
 export type MentionKeyResult = 'consumed' | 'pass'
@@ -78,6 +77,11 @@ function warnOnce(key: string, message: string, detail?: unknown): void {
   if (warned.has(key)) return
   warned.add(key)
   console.warn(message, detail ?? '')
+}
+
+/** 机制 2 的告警面：只静默掉失败的那一组，同一源的告警只打一次（每敲一个字都会重试） */
+function warnSourceFailed(source: MentionSource, error: unknown): void {
+  warnOnce(`source-failed:${source.key}`, `[copilot] @引用源「${source.title}」查询失败，已隐藏该组`, error)
 }
 
 /** 测试用：清掉告警去重表（否则跨用例只打一次） */
@@ -197,66 +201,28 @@ export function useMentionMenu({ text, caret, scope, sources, ime, onPick }: Use
   const guard = ime ?? ownIme
   const sourceList = useMemo(() => sources ?? buildMentionSources(scope), [sources, scope])
 
-  // 只认 `@`：`/` 命令菜单自带一组「禁用项」语义（无会话时 compact 置灰），仍由
-  // use-slash-menu 管；但两者共用同一个检测器、同一个按键仲裁入口（见 Composer）
-  const token = useMemo(() => {
-    const detected = detectMentionToken(text, caret)
-    return detected?.trigger === '@' ? detected : null
-  }, [text, caret])
+  // 只认 `@`（见 domain/mention 的 mentionTokenAt）：`/` 命令菜单自带一组「禁用项」
+  // 语义（无会话时 compact 置灰），仍由 use-slash-menu 管；但两者共用同一个检测器、
+  // 同一个按键仲裁入口（见 Composer）
+  const token = useMemo(() => mentionTokenAt(text, caret), [text, caret])
 
   /** Esc 关闭时记住的 token 签名：同一 token（同起点同查询词）不再自动弹，改字才重开 */
-  const signature = token ? `${token.start}:${token.query}` : null
+  const signature = mentionTokenSignature(token)
   const [dismissed, setDismissed] = useState<string | null>(null)
   const open = token !== null && signature !== dismissed
 
-  const [groups, setGroups] = useState<MentionGroup[]>([])
-  const [highlight, setHighlight] = useState<MentionHighlight | null>(null)
-  /** 第几代查询：迟到结果按它丢弃（机制 1） */
-  const generationRef = useRef(0)
   const query = token?.query ?? null
-
-  // 源列表走 ref 而不进 effect 依赖：调用方传字面量数组（`sources: [mySource]`）时
-  // 每次渲染都是新引用，依赖它就会「拉取 → setState → 重渲染 → 再拉取」无限循环
-  // （实测会把 jsdom 进程跑到 OOM）。源在会话期间本来就不变，首帧同步一次即可。
-  const sourcesRef = useRef(sourceList)
-
-  useEffect(() => {
-    sourcesRef.current = sourceList
-  }, [sourceList])
-
-  useEffect(() => {
-    if (!open || query === null) {
-      // 关掉时清空：再次打开必须从 pending 开始，不能先闪一眼上次的行
-      generationRef.current += 1
-      setGroups([])
-      setHighlight(null)
-      return
-    }
-    const generation = generationRef.current + 1
-    generationRef.current = generation
-    const controller = new AbortController()
-    const active = sourcesRef.current.filter((source) => source.trigger === '@')
-    setGroups(active.map((source) => ({ key: source.key, title: source.title, status: 'pending', items: [] })))
-    setHighlight(null)
-    for (const source of active) {
-      void source
-        .load({ query, signal: controller.signal })
-        .then((items) => {
-          // 竞态闸门：这一轮已不是最新查询，结果直接丢弃（机制 1）
-          if (generation !== generationRef.current) return
-          setGroups((prev) => prev.map((g) => (g.key === source.key ? { ...g, status: 'ready', items } : g)))
-        })
-        .catch((error: unknown) => {
-          if (generation !== generationRef.current) return
-          // abort 是我们自己发起的（查询词变了 / 菜单关了），不是故障
-          if (controller.signal.aborted) return
-          // 机制 2：只静默掉这一组，其余组照常
-          warnOnce(`source-failed:${source.key}`, `[copilot] @引用源「${source.title}」查询失败，已隐藏该组`, error)
-          setGroups((prev) => prev.filter((g) => g.key !== source.key))
-        })
-    }
-    return () => controller.abort()
-  }, [open, query])
+  const [highlight, setHighlight] = useState<MentionHighlight | null>(null)
+  /** 换查询/关闭时上一轮的行已经不存在，高亮跟着作废（下一轮由下面的 effect 落到第一行） */
+  const resetHighlight = useCallback(() => setHighlight(null), [])
+  // 分组视图与查询竞态（generation + AbortController）全在 use-mention-race
+  const groups = useMentionRace({
+    open,
+    query,
+    sources: sourceList,
+    onReset: resetHighlight,
+    onSourceFailed: warnSourceFailed,
+  })
 
   const options = useMemo(() => flattenMentionOptions(groups), [groups])
 

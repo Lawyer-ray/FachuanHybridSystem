@@ -20,28 +20,23 @@
  * `MultiAnswers` 是流式热路径上的 memo 边界（每个 delta 都会重渲），新增的请求
  * 状态/按钮/卡片一律留在本组件里，那条边界只多一个子节点。评审与合成互不依赖：
  * 刷新页面时若只有历史合成记录（没跑评审），综合结论卡照样要显示出来。
+ *
+ * 拆分记录：工具条右侧的三项设置（执行 / 模型 / 先评审）在 `SynthesisControls`；
+ * 本文件只留主按钮、取消、跑不了的提示与两张卡。
  */
 
 import type { SynthesisJob } from '../../adjudication-types'
-import { agentLabel } from '../../domain'
 
 import { useReviewActions } from './use-review-actions'
 import { ReviewSummaryCard } from './ReviewSummaryCard'
 import { SynthesisCard } from './SynthesisCard'
+import { SynthesisControls } from './SynthesisControls'
 
 /** 主操作：实心深色，视觉上必须压过右侧那排设置项（它是这一栏唯一花钱的按钮）。 */
 const PRIMARY_BUTTON_CLASS =
   'inline-flex flex-none items-center gap-1.5 rounded-md bg-foreground px-2.5 py-1.5 text-[12px] font-medium ' +
   'text-background shadow-sm transition-opacity hover:opacity-90 ' +
   'disabled:cursor-not-allowed disabled:opacity-50'
-
-/** 设置项外壳：把「标签 + 下拉」收成一个整体，避免裸 select 与裸文字混排。 */
-const FIELD_SHELL_CLASS =
-  'inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-1.5 py-0.5'
-
-const SELECT_CLASS =
-  'appearance-none bg-transparent pr-3.5 text-[12px] text-foreground outline-none ' +
-  'disabled:cursor-not-allowed disabled:opacity-60'
 
 /** 次要操作（取消）：描边，不与主按钮抢视觉。 */
 const SECONDARY_BUTTON_CLASS =
@@ -64,19 +59,6 @@ function progressLabel(job: SynthesisJob | null, submitting: boolean, cancelling
 }
 
 
-function Chevron() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 12 12"
-      className="pointer-events-none absolute right-1 size-3 text-muted-foreground"
-    >
-      <path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-
 function Sparkle() {
   return (
     <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5">
@@ -87,18 +69,6 @@ function Sparkle() {
       />
     </svg>
   )
-}
-
-/**
- * 不能跑综合的运行时：综合要求隔离运行（不读写该会话的历史），dsh 会把历史续写到
- * 磁盘且没有删除会话的接口，后端对它直接报错（见 ``dsh_backend`` 的 isolated 分支）。
- * 不放进下拉框，免得律师选了必然失败的一项。
- */
-const SYNTHESIS_UNSUPPORTED_KINDS = new Set(['dsh'])
-
-/** 「执行」下拉的选项：本轮各栏 + pi（去重，排掉不支持隔离运行的） */
-function synthesisKindOptions(agents: readonly string[]): string[] {
-  return [...new Set([...agents, 'pi'])].filter((kind) => !SYNTHESIS_UNSUPPORTED_KINDS.has(kind))
 }
 
 export function ReviewPanel({
@@ -161,70 +131,18 @@ export function ReviewPanel({
           </button>
         )}
 
-        {/* 右侧设置项：执行 agent / 模型 / 先评审。窄屏时整体换行到下一行。 */}
-        <div className="ml-auto flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          {/* 用哪个 agent 跑综合：选项来自本轮各栏 + pi。
-              选 agent 而不是"选模型"是有意的——agent 决定它能不能调工具去核引用。 */}
-          <label className={FIELD_SHELL_CLASS} title="用哪个 agent 运行时来生成综合结论">
-            <span className="text-[11px] text-muted-foreground">执行</span>
-            <span className="relative inline-flex items-center">
-              <select
-                data-testid="synthesis-kind"
-                value={actions.synthesisKind}
-                disabled={actions.synthesisRunning}
-                onChange={(event) => actions.setSynthesisKind(event.target.value)}
-                className={SELECT_CLASS}
-              >
-                {synthesisKindOptions(agents).map((kind) => (
-                  <option key={kind} value={kind}>
-                    {agentLabel(kind)}
-                  </option>
-                ))}
-              </select>
-              <Chevron />
-            </span>
-          </label>
-
-          {/* 模型清单跟随所选执行 agent（口径在后端 /agent/backends 的 models，见
-              use-review-actions 的 synthesisModelsFor）：换 agent 后原模型不能用就自动换。
-              留「自动」是为了允许"交给后端按本轮各栏解析"，但默认已选中具体模型。 */}
-          <label className={FIELD_SHELL_CLASS} title="用哪个模型生成综合结论；「自动」= 按本轮各栏的模型解析">
-            <span className="text-[11px] text-muted-foreground">模型</span>
-            <span className="relative inline-flex items-center">
-              <select
-                data-testid="synthesis-model"
-                value={actions.synthesisModel}
-                disabled={actions.synthesisRunning}
-                onChange={(event) => actions.setSynthesisModel(event.target.value)}
-                className={SELECT_CLASS}
-              >
-                <option value="">自动</option>
-                {(actions.synthesisModels ?? []).map((model) => (
-                  <option key={model} value={model}>
-                    {model}
-                  </option>
-                ))}
-              </select>
-              <Chevron />
-            </span>
-          </label>
-
-          <label
-            className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground"
-            title="先跑一轮 rubric 评审（5 栏 × judge，约 5 万 token），把得分与共识/分歧作为综合的取舍依据"
-          >
-            <input
-              type="checkbox"
-              data-testid="synthesis-with-review"
-              checked={actions.synthesisWithReview}
-              disabled={actions.synthesisRunning}
-              onChange={(event) => actions.setSynthesisWithReview(event.target.checked)}
-              className="size-3.5 accent-foreground"
-            />
-            先评审
-            <span className="text-[11px] text-muted-foreground/70">≈5 万 token</span>
-          </label>
-        </div>
+        <SynthesisControls
+          agents={agents}
+          kind={actions.synthesisKind}
+          onKindChange={actions.setSynthesisKind}
+          models={actions.synthesisModels}
+          model={actions.synthesisModel}
+          onModelChange={actions.setSynthesisModel}
+          withReview={actions.synthesisWithReview}
+          onWithReviewChange={actions.setSynthesisWithReview}
+          // 综合在跑：三项都不能改（本轮已开跑，改了只会与已提交的参数对不上）
+          disabled={actions.synthesisRunning}
+        />
       </div>
 
       {actions.synthesisBlockedReason && (

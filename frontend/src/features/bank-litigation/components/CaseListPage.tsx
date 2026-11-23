@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { AlertTriangle, ChevronRight, Gavel, RefreshCw } from 'lucide-react'
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
-import { StatusBadge, type Tone } from '@/components/shared/status-badge'
+import { StatusBadge, type Tone } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 
 import { useCases } from '../hooks/use-cases'

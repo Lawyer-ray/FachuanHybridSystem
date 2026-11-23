@@ -125,14 +125,6 @@ describe('同步按钮的调用目标', () => {
     expect(apiMock.syncAllSources).not.toHaveBeenCalled()
     expect(apiMock.syncSource).not.toHaveBeenCalled()
   })
-
-  it('短信档位点击不发任何同步请求', () => {
-    render(wrap(<Harness source="court_sms" />))
-    fireEvent.click(screen.getByRole('button', { name: /短信无需同步/ }))
-
-    expect(apiMock.syncAllSources).not.toHaveBeenCalled()
-    expect(apiMock.syncSource).not.toHaveBeenCalled()
-  })
 })
 
 describe('档位 → 同步目标映射表', () => {

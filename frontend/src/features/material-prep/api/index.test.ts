@@ -56,7 +56,7 @@ import {
   searchContracts,
   setPackStatusRemote,
   uploadPack,
-} from './api'
+} from './index'
 
 /** 按前缀取 mock 客户端（模块加载时四个客户端已按 prefix 建好） */
 function client(prefix: string) {

@@ -1,15 +1,14 @@
 // @vitest-environment jsdom
 /**
- * TurnStatsView 与 Composer 测试（jsdom）。
- *
- * TurnStatsView：流式中显示 ≈ tok/s、结束后显示精确 tokens 与平均速度、
- * 无数据时不渲染。Composer：Enter 发送、Shift+Enter 换行、IME 组合中不发送、
+ * Composer 测试（jsdom）：Enter 发送、Shift+Enter 换行、IME 组合中不发送、
  * `/` 命令菜单（技能补全 / compact 命令）、底栏上下文水位。
+ *
+ * TurnStatsView 的两组 describe 已拆到 `TurnStatsView.dom.test.tsx`（同名文件兜回归）。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, waitFor, within } from '@testing-library/react'
 import { act } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const copilotState = vi.hoisted(() => ({
   streaming: false,
@@ -21,6 +20,7 @@ const copilotState = vi.hoisted(() => ({
   messages: [] as unknown[],
   contextUsage: { used: null as number | null, total: null as number | null },
   compacting: false,
+  // ComposerFooter 会渲染 TurnStatsView，它读 turnStats（断言在 TurnStatsView.dom.test.tsx）
   turnStats: {
     firstDeltaAt: null as number | null,
     lastDeltaAt: null as number | null,
@@ -58,7 +58,6 @@ vi.mock('../api', () => ({
   fetchAgentSkills: skillsMock,
 }))
 
-import { TurnStatsView } from './TurnStatsView'
 import { Composer } from './Composer'
 
 /** Composer 带 react-query Provider 渲染（useQuery 技能清单依赖） */
@@ -110,95 +109,6 @@ beforeEach(() => {
     exactTokens: null,
     samples: [],
   }
-})
-
-afterEach(() => {
-  vi.useRealTimers()
-})
-
-describe('TurnStatsView（结束后）', () => {
-  it('无 doneAt 时不渲染', () => {
-    const { container } = render(<TurnStatsView />)
-    expect(container.textContent).toBe('')
-    container.remove()
-  })
-
-  it('显示精确 tokens 与平均速度、用时', () => {
-    copilotState.turnStats = {
-      firstDeltaAt: 1000,
-      lastDeltaAt: 3000,
-      doneAt: 4000,
-      estTokens: 120,
-      exactTokens: 150,
-      samples: [],
-    }
-    const { container } = render(<TurnStatsView />)
-    const text = container.textContent ?? ''
-    expect(text).toContain('150 tokens')
-    expect(text).toContain('平均')
-    expect(text).toContain('tok/s')
-    // 用时 3s（4000-1000）
-    expect(text).toContain('3.0s')
-    container.remove()
-  })
-
-  it('无精确计数时用估算值并加 ≈ 前缀', () => {
-    copilotState.turnStats = {
-      firstDeltaAt: 0,
-      lastDeltaAt: 2000,
-      doneAt: 2000,
-      estTokens: 80,
-      exactTokens: null,
-      samples: [],
-    }
-    const { container } = render(<TurnStatsView />)
-    expect(container.textContent).toContain('≈')
-    expect(container.textContent).toContain('80 tokens')
-    container.remove()
-  })
-
-  it('用时超过 100s 时不显示小数', () => {
-    copilotState.turnStats = {
-      firstDeltaAt: 0,
-      lastDeltaAt: 200_000,
-      doneAt: 200_000,
-      estTokens: 10,
-      exactTokens: 10,
-      samples: [],
-    }
-    const { container } = render(<TurnStatsView />)
-    expect(container.textContent).toContain('200s')
-    container.remove()
-  })
-})
-
-describe('TurnStatsView（流式中）', () => {
-  it('无数据时不渲染', () => {
-    copilotState.streaming = true
-    const { container } = render(<TurnStatsView />)
-    expect(container.textContent).toBe('')
-    container.remove()
-  })
-
-  it('有样本时以 250ms 刷新显示 ≈ tok/s', () => {
-    vi.useFakeTimers()
-    copilotState.streaming = true
-    const now = Date.now()
-    copilotState.turnStats = {
-      firstDeltaAt: now - 1000,
-      lastDeltaAt: now,
-      doneAt: null,
-      estTokens: 50,
-      exactTokens: null,
-      samples: [now - 1000, now - 500, now],
-    }
-    const { container } = render(<TurnStatsView />)
-    act(() => {
-      vi.advanceTimersByTime(300)
-    })
-    expect(container.textContent).toContain('tok/s')
-    container.remove()
-  })
 })
 
 describe('Composer', () => {

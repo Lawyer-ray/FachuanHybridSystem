@@ -3,7 +3,7 @@
  *
  * 前缀 DEMO_X3_*：合同条款草稿 / 模板下拉 / 利冲报告与录屏帧 /
  * 三处金额对比 / 一键修正 diff / 通知送达 / 利冲报告导出文件名。
- * `DEMO_X3_TERM_DRAFTS` 以 stages-demo.ts 的 DEMO_CONTRACT_TERMS 为初值。
+ * `DEMO_X3_TERM_DRAFTS` 以 `stages-demo/contract.ts` 的 DEMO_CONTRACT_TERMS 为初值。
  * 真实功能上线时整个文件删除即可。
  */
 

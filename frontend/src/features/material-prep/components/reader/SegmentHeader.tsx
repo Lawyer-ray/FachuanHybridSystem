@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { PencilLine, Split } from 'lucide-react'
-import { segRangeText } from '../../draft'
-import { reviewHintOf } from '../../draft/quality'
+import { reviewHintOf, segRangeText } from '../../draft'
 import type { Segment } from '../../types'
 import { cn } from '@/lib/utils'
 

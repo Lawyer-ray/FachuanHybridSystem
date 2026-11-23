@@ -25,13 +25,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useMediaQuery } from '@/hooks/use-media'
 import './login.css'
 import { socialAuthApi, SOCIAL_PROVIDERS_KEY } from './social-api'
-import {
-  buildLoginMethodGroups,
-  PASSWORD_METHOD_ID,
-  QR_METHOD_ID,
-  type LoginMethod,
-  type NonEmptyArray,
-} from './login-methods'
+import { buildLoginMethodGroups, PASSWORD_METHOD_ID, QR_METHOD_ID, type NonEmptyArray } from './login-methods'
+import type { LoginMethod } from './types'
 import { LoginMethodSwitch } from './components/LoginMethodSwitch'
 import { PasswordLoginForm } from './components/PasswordLoginForm'
 import { PasskeyLoginButton } from './components/PasskeyLoginButton'

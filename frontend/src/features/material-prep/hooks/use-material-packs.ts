@@ -2,6 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { deletePack, listMaterialPacks, renamePack, setPackStatusRemote, uploadPack } from '../api'
 import type { AssignInfo, PackStatus } from '../types'
 
+/**
+ * 材料包（manual_upload / client_upload 消息）的列表与 CRUD 动作。
+ *
+ * 文件名曾叫 `use-inbox`——里面一条收件箱逻辑都没有，全是材料包动作；而
+ * `inbox/hooks/use-inbox.ts` 才是收件箱列表与已读。两个同名文件分居两目录，
+ * 读代码的人每次都要先确认自己点开的是哪一个。
+ */
 export const PACKS_KEY = ['inbox', 'material-packs']
 
 export function useMaterialPacks() {
@@ -10,7 +17,7 @@ export function useMaterialPacks() {
     queryFn: listMaterialPacks,
     staleTime: 30_000,
     // 收件箱是低频变化的慢数据（材料只在上传/判卷时才变），切回窗口不必重拉——
-    // 有意偏离全站默认值（use-inbox.dom.test.tsx 对此行为有断言），勿随手删
+    // 有意偏离全站默认值（use-material-packs.dom.test.tsx 对此行为有断言），勿随手删
     refetchOnWindowFocus: false,
   })
 }

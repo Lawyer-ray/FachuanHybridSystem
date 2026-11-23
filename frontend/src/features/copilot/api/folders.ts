@@ -13,7 +13,9 @@ import type { CopilotScope } from '../types'
 /** 合同绑定文件夹的某一层条目（目录树懒加载数据源，非递归） */
 export interface FolderEntries {
   browsable: boolean
-  message: string | null
+  // 后端 `CaseFolderEntriesResponseSchema` 里是可选且可空：失败态才带 message，成功态整个字段缺失。
+  // 手抄成必填会让「后端改名/去字段」不再被 tsc 捕获（审计 P05-100）。
+  message?: string | null
   path_display: string
   subpath: string
   parent_subpath: string
@@ -94,7 +96,8 @@ export function loadScopeFolderRows(scope: CopilotScope): Promise<ScopeFolderRow
   if (cached) return cached
   const pending = (async (): Promise<ScopeFolderRows> => {
     const root = await fetchScopeFolderEntries(scope)
-    if (!root.browsable) return { browsable: false, message: root.message, folders: [], files: [] }
+    // `message` 在生成物里可选；这里收成 `null` 保持下游 `string | null` 语义不变。
+    if (!root.browsable) return { browsable: false, message: root.message ?? null, folders: [], files: [] }
     const subdirs = root.folders.slice(0, SCOPE_SUBDIR_SCAN)
     const deeper = await Promise.allSettled(subdirs.map((folder) => fetchScopeFolderEntries(scope, folder.subpath)))
     const files = root.files.map(({ name, subpath, size }) => ({ name, subpath, size }))

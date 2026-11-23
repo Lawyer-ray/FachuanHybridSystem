@@ -57,6 +57,10 @@ export function useComposerIntake({
     }
     window.addEventListener(COPILOT_PREFILL_EVENT, onPrefill)
     return () => window.removeEventListener(COPILOT_PREFILL_EVENT, onPrefill)
+    // 订阅只挂一次：重复执行会让同一次预填被处理两次（`setText` 里是追加语义，
+    // 律师会看到同一句话被贴了两遍）。
+    // setText 是本地 setState（稳定引用）、textareaRef 是 ref（稳定引用），
+    // autoGrow 只读 ref 不再依赖渲染值，三个都不需要进 deps。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 }

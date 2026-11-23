@@ -1,7 +1,7 @@
 import { fmtCNDate, partyCopyText } from '../../domain'
 import { safeHttpUrl } from '@/lib/url'
 import type { WorkbenchDeal } from '../../types'
-import { CopyButton } from '../DealSheetParts'
+import { CopyButton } from '../CopyButton'
 import { railFacts, railParties } from './detail-domain'
 import { KV, RailSection } from './ui'
 

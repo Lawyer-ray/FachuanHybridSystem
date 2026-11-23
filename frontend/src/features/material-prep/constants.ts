@@ -17,7 +17,6 @@ export const FIELD_LIB: InfoField[] = [
   { k: '备注', v: '', src: '', srcRef: null, ph: '随便写', ta: true },
 ]
 
-export const MANUAL_SOURCE_TYPE = 'manual_upload'
 
 /**
  * 上传体积上限 —— 必须与后端 `apps/message_hub/services/upload_policy.py` 同步。
@@ -58,6 +57,9 @@ export function formatMB(bytes: number): string {
 
 /** 桌面材料包列表的来源过滤：律师手动包 + 客户链接包（后端支持逗号分隔多值） */
 export const PACK_SOURCE_TYPES = 'manual_upload,client_upload'
+
+/** 「源下标 × 大数 + 页号」排序键的基数：段序按「源序 + 页序」比对时的合成键步长 */
+export const MAT_PAGE_KEY_STRIDE = 1_000_000
 
 /** 阅读器退场动画时长（对应 material-prep.css `.mp-reader.closing` 的 0.24s） */
 export const READER_CLOSE_MS = 240

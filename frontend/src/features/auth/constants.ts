@@ -43,6 +43,11 @@ export const SOCIAL_LOGIN_ERROR_TEXT: Record<SocialLoginErrorCode, string> = {
   provider_occupied: '你已绑定该平台的另一个账号，请先解绑再绑定新账号',
 }
 
+/** 发起跳转型社交登录失败时的兜底文案（登录页按钮组与绑定页单 Provider 面板共用）。
+ *  与 SOCIAL_LOGIN_ERROR_TEXT.unknown_provider 区分：那条是回调/授权码阶段的后端
+ *  错误码文案，这条是「点按钮时连授权会话都拿不到」的本地兜底。 */
+export const SOCIAL_REDIRECT_FAIL_TEXT = '该登录方式暂不可用，请稍后再试'
+
 /** 飞书扫二维码登录 SDK（官方固定 CDN 地址） */
 export const FEISHU_QR_SDK_URL =
   'https://lf-package-cn.feishucdn.com/obj/feishu-static/lark/passport/qrcode/LarkSSOSDKWebQRCode-1.0.3.js'

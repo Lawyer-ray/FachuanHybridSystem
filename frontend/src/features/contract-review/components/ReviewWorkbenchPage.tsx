@@ -20,6 +20,7 @@ import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { getContentVersion, getTaskStatus, listVersions } from '../api'
 import { RevisionList } from '../components/RevisionList'
+import { DEFAULT_REVIEW_INSTRUCTION } from '../constants'
 import { ReviewAssistant } from './ReviewAssistant'
 import { VersionChainButton, VersionChainPanel } from '../components/VersionChainPanel'
 import { progressText, revisedFileName } from '../domain'
@@ -123,7 +124,7 @@ export function ReviewWorkbenchPage() {
       text: rev.original,
       instruction: rev.reason
         ? `按这个依据改写：${rev.reason.slice(0, 120)}`
-        : '按泰国法审查这一条，我方是承租方',
+        : DEFAULT_REVIEW_INSTRUCTION,
       seq: promptSeq.current,
     })
   }, [])

@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Info, Link2, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
-import { StatusBadge } from '@/components/shared/status-badge'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/lib/format'
 import {

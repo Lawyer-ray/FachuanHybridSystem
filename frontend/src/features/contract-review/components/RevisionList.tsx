@@ -1,7 +1,7 @@
 import { Check, MapPin, X } from 'lucide-react'
 import { useState } from 'react'
 import { EmptyBlock } from '@/components/shared/AsyncState'
-import { StatusBadge, type Tone } from '@/components/shared/status-badge'
+import { StatusBadge, type Tone } from '@/components/shared/StatusBadge'
 import { cn } from '@/lib/utils'
 import { bucketRevisions, countBySeverity, severityLabel } from '../domain'
 import type { ReviewRevision, RevisionSeverity } from '../types'

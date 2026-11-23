@@ -102,8 +102,8 @@ export default defineConfig([
   {
     files: [
       'src/components/shared/AppNavbar.tsx', // -> @/features/workbench/components/NewProjectDialog
-      'src/features/workbench/components/deal-detail/nonlit/special/special-bits.tsx', // -> @/features/bank-litigation/components/stages/DetailDrawer
-      'src/features/workbench/components/deal-detail/PaymentPasteZone.tsx', // -> @/features/home/components/clipboard-file
+      // 2026-11-23（v27.24.1）：另两条豁免已失效——special-bits 现引 `@/components/shared/DetailDrawer`、
+      // PaymentPasteZone 现引 `@/lib/clipboard-file`（#677 已上提），因此从白名单删除。
     ],
     rules: {
       'no-restricted-imports': 'off',

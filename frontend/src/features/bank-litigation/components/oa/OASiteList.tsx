@@ -14,7 +14,7 @@
  * 后端没有任何站点时整表回落到 `DEMO_OA_SITES`。
  */
 
-import { StatusBadge } from '@/components/shared/status-badge'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 import { cn } from '@/lib/utils'
 
 import { SectionTitle, WorkCard } from '../ui'

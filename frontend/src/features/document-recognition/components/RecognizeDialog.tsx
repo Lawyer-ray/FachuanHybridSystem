@@ -1,24 +1,19 @@
 import { useEffect, useRef } from 'react'
-import { ExternalLink, FileText, Loader2, TriangleAlert } from 'lucide-react'
+import { FileText, Loader2, TriangleAlert } from 'lucide-react'
 
-import { patchRowWithOverride, selectedPendingRows, selectedTextRows, type CandidateRow } from '../domain'
+import { selectedPendingRows, selectedTextRows, type CandidateRow } from '../domain'
 import { useMediaUrlWithAuth } from '../hooks/use-media-url-with-auth'
 import { useRecognize } from '../hooks/use-recognize'
 import { useCandidateRows } from '../hooks/use-candidate-rows'
 import { useConfirmActions } from '../hooks/use-confirm-actions'
 import { useDialogWidthDrag, useSplitDrag } from '../hooks/use-split-drag'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { safeHttpUrl } from '@/lib/url'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
-import { CaseBindingSection } from './CaseBindingSection'
-import { DateCandidateList } from './DateCandidateList'
-import { PipelineBindingChip } from './PipelineBindingChip'
-import { DocumentPreview } from './DocumentPreview'
 import { RecognitionProgress } from './RecognitionProgress'
-import { RecognitionSummary } from './RecognitionSummary'
-import { StepCard } from './StepCard'
+import { RecognizeFooter } from './RecognizeFooter'
+import { RecognizeSplitPane } from './RecognizeSplitPane'
 
 interface Props {
   open: boolean
@@ -100,7 +95,6 @@ export function RecognizeDialog({ open, onClose, onSaved, file, taskId, textRows
   const hasPreview = Boolean(previewUrl) && !previewFailed
   // 分屏态 = 识别完成且有原文可预览；等待/错误/文字模式保持紧凑小窗
   const splitReady = contentReady && hasPreview
-  const fileUrl = previewUrl
 
   // 左栏宽度可拖拽（默认 52%，32–70%，localStorage 记忆）
   const [splitPct, startDragSplit, splitBodyRef, draggingSplit] = useSplitDrag()
@@ -176,123 +170,38 @@ export function RecognizeDialog({ open, onClose, onSaved, file, taskId, textRows
 
         {contentReady && (
           // lg 双栏：左文书原文（宽度可拖拽）/ 右确认步骤；窄屏单栏整体滚动
-          <div ref={splitBodyRef} className={cn('flex min-h-0 flex-1 pt-1 lg:overflow-hidden', resizing && 'pointer-events-none')}>
-            {hasPreview && (
-              <div
-                className={cn(
-                  'hidden min-w-0 flex-col lg:flex',
-                  draggingSplit && 'pointer-events-none',
-                )}
-                style={{ width: `${splitPct}%` }}
-              >
-                <DocumentPreview
-                  url={previewUrl}
-                  className={cn('min-h-0 flex-1', !draggingSplit && 'animate-in fade-in slide-in-from-left-2 duration-300')}
-                />
-              </div>
-            )}
-
-            {hasPreview && (
-              <div
-                role="separator"
-                aria-orientation="vertical"
-                aria-label="拖动调整原文宽度"
-                title="拖动调整宽度"
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  startDragSplit()
-                }}
-                className="group hidden w-[9px] flex-none cursor-col-resize items-center justify-center lg:flex"
-              >
-                <span
-                  className={cn(
-                    'h-full w-[3px] rounded-full transition-colors duration-150',
-                    draggingSplit ? 'bg-status-blue' : 'bg-transparent group-hover:bg-border',
-                  )}
-                />
-              </div>
-            )}
-
-            <div
-              className={cn(
-                'flex min-w-0 animate-in fade-in flex-col gap-3 duration-300 lg:min-h-0 lg:overflow-y-auto lg:pr-1',
-                !hasPreview && 'w-full',
-                hasPreview && 'flex-1 lg:pl-1.5',
-              )}
-            >
-              {isFileMode && task && recognition && (
-                <StepCard title="识别结果">
-                  <RecognitionSummary task={task} recognition={recognition} previewUrl={previewUrl} />
-                </StepCard>
-              )}
-
-              {/* 旁线（法院短信）不展示案件选择：案件/日志由短信侧绑定，
-                  日期写到哪份日历不能在同一张弹窗里被换掉 */}
-              {isFileMode && task && (
-                <StepCard step={isAttached ? undefined : 1} title="关联案件" muted>
-                  {isAttached ? (
-                    <PipelineBindingChip task={task} />
-                  ) : (
-                    <CaseBindingSection task={task} onBound={refresh} />
-                  )}
-                </StepCard>
-              )}
-
-              <StepCard
-                step={isFileMode ? (isAttached ? undefined : 2) : undefined}
-                title={isFileMode ? '确认关键日期' : '确认日期'}
-                trailing={
-                  rows.length > 0 ? (
-                    <span className="text-[11px] font-normal text-muted-foreground">
-                      {rows.filter((r) => r.status === 'confirmed').length}/{rows.length} 已确认
-                    </span>
-                  ) : undefined
-                }
-              >
-                <DateCandidateList
-                  rows={rows}
-                  interactive={isFileMode}
-                  busy={busy}
-                  onToggle={(key) => {
-                    const row = rows.find((r) => r.key === key)
-                    if (row) setOverrides((prev) => ({ ...prev, [key]: { checked: !row.checked } }))
-                  }}
-                  onPatch={(key, patch) => setOverrides((prev) => patchRowWithOverride(prev, key, patch))}
-                  onSkip={(row) => { void doSkip(row) }}
-                  onRevoke={(row) => { void doRevoke(row) }}
-                />
-                {rows.length > 0 && rows.every((r) => r.status !== 'pending') && (
-                  <span className="mt-1 block text-center text-[11.5px] text-status-green">全部处理完成</span>
-                )}
-              </StepCard>
-            </div>
-          </div>
+          <RecognizeSplitPane
+            bodyRef={splitBodyRef}
+            resizing={resizing}
+            hasPreview={hasPreview}
+            previewUrl={previewUrl}
+            splitPct={splitPct}
+            draggingSplit={draggingSplit}
+            onStartDragSplit={startDragSplit}
+            isFileMode={isFileMode}
+            isAttached={isAttached}
+            task={task}
+            recognition={recognition}
+            rows={rows}
+            busy={busy}
+            onBound={refresh}
+            setOverrides={setOverrides}
+            onSkip={(row) => { void doSkip(row) }}
+            onRevoke={(row) => { void doRevoke(row) }}
+          />
         )}
 
         {contentReady && (
-          <DialogFooter className="mt-3 shrink-0 gap-2 border-t border-border pt-3">
-            <span className="mr-auto text-[11px] text-muted-foreground">
-              {isFileMode && task && !task.binding?.success ? '未关联案件，将创建独立提醒' : ''}
-            </span>
-            {!hasPreview && fileUrl && (
-              <a
-                href={safeHttpUrl(fileUrl)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <ExternalLink className="h-3 w-3" />
-                查看文书
-              </a>
-            )}
-            <Button variant="outline" onClick={onClose} disabled={busy}>
-              关闭
-            </Button>
-            <Button onClick={() => { void doConfirm() }} disabled={busy || writableCount === 0} className={cn(busy && 'opacity-80')}>
-              {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              写入 {writableCount} 条提醒
-            </Button>
-          </DialogFooter>
+          <RecognizeFooter
+            isFileMode={isFileMode}
+            task={task}
+            hasPreview={hasPreview}
+            previewUrl={previewUrl}
+            busy={busy}
+            writableCount={writableCount}
+            onClose={onClose}
+            onConfirm={() => { void doConfirm() }}
+          />
         )}
 
         {/* 弹窗右缘宽度手柄：分屏态独占右缘全高，悬停显色 */}

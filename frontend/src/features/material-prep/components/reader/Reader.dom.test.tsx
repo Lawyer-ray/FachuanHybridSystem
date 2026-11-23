@@ -48,7 +48,9 @@ vi.mock('../../store', () => ({
     { getState: () => storeMock },
   ),
 }))
-vi.mock('../../draft', () => ({
+// 基于真实 barrel 打桩：组件跨多个子模块引 draft，逐个枚举会随 barrel 增长而漏项
+vi.mock('../../draft', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../draft')>()),
   // 按真实草稿计算未归类数（无类型且仍是默认名的段），否则 allClassified 判定失真
   countUnclassified: (d: { segs?: Array<{ t?: string }> }) =>
     (d?.segs ?? []).filter((x) => !x.t).length,

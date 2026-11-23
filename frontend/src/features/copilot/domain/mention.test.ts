@@ -19,6 +19,8 @@ import {
   makeMentionInsert,
   mentionOptionId,
   mentionRefBlock,
+  mentionTokenAt,
+  mentionTokenSignature,
   moveMentionHighlight,
   type MentionCandidate,
 } from './mention'
@@ -71,6 +73,41 @@ describe('detectMentionToken：谁该触发', () => {
   it('没有触发字符时返回 null', () => {
     expect(at('起诉状')).toBeNull()
     expect(at('')).toBeNull()
+  })
+})
+
+describe('mentionTokenAt：菜单只认 @', () => {
+  it('`@` token 原样返回', () => {
+    expect(mentionTokenAt('结合 @起诉', 6)).toEqual({ trigger: '@', query: '起诉', start: 3, end: 6 })
+  })
+
+  it('`/` token 不放行（命令菜单自带禁用项语义，仍归 use-slash-menu）', () => {
+    expect(mentionTokenAt('/compact', 8)).toBeNull()
+  })
+
+  it('没有 token 时返回 null', () => {
+    expect(mentionTokenAt('起诉状', 3)).toBeNull()
+  })
+})
+
+describe('mentionTokenSignature：Esc 只否掉当前这一个 token', () => {
+  it('同起点同查询词的签名相同（不改字就不重开）', () => {
+    const a = mentionTokenSignature({ trigger: '@', query: '起诉', start: 3, end: 6 })
+    const b = mentionTokenSignature({ trigger: '@', query: '起诉', start: 3, end: 8 })
+    expect(a).toBe(b)
+    expect(a).toBe('3:起诉')
+  })
+
+  it('改字或挪起点都会换签名（菜单重新自动弹出）', () => {
+    expect(mentionTokenSignature({ trigger: '@', query: '起诉', start: 3, end: 6 })).not.toBe(
+      mentionTokenSignature({ trigger: '@', query: '起诉状', start: 3, end: 7 }),
+    )
+    expect(mentionTokenSignature({ trigger: '@', query: '起诉', start: 4, end: 7 })).not.toBe('3:起诉')
+  })
+
+  it('无 token 时签名为 null（与空查询词的签名不同）', () => {
+    expect(mentionTokenSignature(null)).toBeNull()
+    expect(mentionTokenSignature({ trigger: '@', query: '', start: 0, end: 1 })).toBe('0:')
   })
 })
 

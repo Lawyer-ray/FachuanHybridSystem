@@ -137,13 +137,14 @@ export const useReader = create<ReaderState>((set, get) => ({
     set(resetState({ openId: null, detail: null, draft: null, status: 'idle', error: '' }))
   },
 
-  update: (fn) => {
+  update: (fn, immediate = false) => {
     const cur = get().draft
     if (!cur) return
     const next = fn(cur)
     if (next === cur) return
     set({ draft: next })
-    if (get().openId) scheduleSave(next, get().openId as number)?.catch(() => {})
+    const { openId } = get()
+    if (openId) scheduleSave(next, openId, immediate)?.catch(() => {})
   },
 
   setPickInfo: (i) => {
@@ -233,22 +234,15 @@ export const useReader = create<ReaderState>((set, get) => ({
 
   setInconsistencies: (list) => set({ inconsistencies: list }),
 
+  // 打标与归案立即落盘（走 update 的 immediate 参数）：曾被写成「update 排一次
+  // 防抖保存 + 这里再 scheduleSave(…, true) 一次」，第二次只是把计时器换掉，
+  // 第一次返回的 Promise 再也不 settle。
   setStatus: (s) => {
-    const { openId } = get()
-    get().update((d) => setPackStatus(d, s))
-    if (openId) {
-      const d = get().draft
-      if (d) scheduleSave(d, openId, true)?.catch(() => {})
-    }
+    get().update((d) => setPackStatus(d, s), true)
   },
 
   setAssign: (a) => {
-    const { openId } = get()
-    get().update((d) => setPackAssign(d, a))
-    if (openId) {
-      const d = get().draft
-      if (d) scheduleSave(d, openId, true)?.catch(() => {})
-    }
+    get().update((d) => setPackAssign(d, a), true)
   },
 
   renameMatInDraft: (mi, n) => {

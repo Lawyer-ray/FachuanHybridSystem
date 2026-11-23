@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { FileText, FolderKanban } from 'lucide-react'
 
-import { BADGE_TONE_CLS } from '@/components/shared/status-badge'
+import { BADGE_TONE_CLS } from '@/components/shared/StatusBadge'
 import { isLitigationType } from '@/lib/case-type'
 import { cn } from '@/lib/utils'
 import { groupProjects, projectRoute } from '../domain'

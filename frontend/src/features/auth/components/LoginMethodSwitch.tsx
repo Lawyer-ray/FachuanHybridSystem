@@ -5,7 +5,8 @@
  * 只有一个方式（账密）时不渲染，避免出现无意义的单选项。
  */
 import type { KeyboardEvent } from 'react'
-import type { LoginMethod, NonEmptyArray } from '../login-methods'
+import type { NonEmptyArray } from '../login-methods'
+import type { LoginMethod } from '../types'
 
 interface Props {
   /** 调用方只在 methods.length > 1 时渲染本组件；非空由类型保证（循环取模才有意义） */

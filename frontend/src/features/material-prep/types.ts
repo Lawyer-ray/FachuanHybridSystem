@@ -241,6 +241,21 @@ export interface DraftState {
   recognition?: RecognitionPrefs
 }
 
+/**
+ * 自动分段的可选解析引擎（勾选集合的元素）。
+ *
+ * 取值与后端 `cloud_backend` / `dual_engines` 的字符串逐字一致，也与
+ * `EngineName`（双引擎分歧数据里的引擎码）同一套拼写——两处若不一致，
+ * 「勾了 PaddleOCR-VL」与「分歧里出现 paddleocr_vl」就对不上。
+ *
+ * 定义在域根 types.ts 而不是 `components/reader/platform-selection.ts`：
+ * 阅读器会话契约（reader-state.ts）与 store 都在域根层，根层不该反向指向子目录。
+ */
+export type CloudEngine = EngineName
+
+/** 勾选的引擎集合。**空数组 = 自动容灾**（不勾任何引擎时的默认行为） */
+export type CloudSelection = CloudEngine[]
+
 /** 材料包级的识别成本选择（`DraftState.recognition`） */
 export interface RecognitionPrefs {
   /** fast_text = 电子页只抽文本层（不计费、无坐标）；layout = 电子页也上云（更准、更慢、按页计费） */

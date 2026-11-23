@@ -14,9 +14,9 @@
 import { useState } from 'react'
 import { MessageSquare, Pencil, Trash2 } from 'lucide-react'
 
-import { taskBadge } from '../../domain'
+import { formatSessionStamp, taskBadge } from '../../domain'
 import type { AgentSession } from '../../types'
-import { StatusBadge } from '@/components/shared/status-badge'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 
 /**
  * 子按钮隔离：双击与右键是**行级**手势，从按钮冒泡到行容器会叠加成
@@ -128,7 +128,7 @@ export function SessionRow({
       )}
       {!compact && (
         <span className="flex-none text-[11px] text-muted-foreground">
-          {session.updated_at.replace('T', ' ').slice(5, 16)}
+          {formatSessionStamp(session.updated_at)}
         </span>
       )}
       <span className="hidden flex-none gap-0.5 group-hover:flex">

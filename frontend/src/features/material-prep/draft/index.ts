@@ -1,9 +1,12 @@
 /**
  * 纯领域逻辑（不可变改 draft）的对外出口。
- * 按职责拆为 resolve / labels / segments / selection / auto-split / info-fields / state，
- * 消费方只从这里引（store.ts、reader/*），import 路径保持 `../draft` / `../../draft` 不变。
- * 例外：api.ts 引 ./draft/state 直连子模块——经 barrel 会因 resolve → ../api 的
- * 既有依赖形成 api ↔ draft 环（state 本身只依赖 types，直连无环）。
+ * 按职责拆为 resolve / initial / labels / segments / selection / auto-split / info-fields /
+ * state / quality / review / engine / md-suspects / detect-parties / party-lookup。
+ * 消费方只从这里引（store.ts、components/reader/*），import 路径保持 `../draft` /
+ * `../../draft` 不变。
+ *
+ * 唯一例外：api/inbox-packs.ts 引 ./draft/state 直连子模块——经 barrel 会因
+ * resolve → ../api 的既有依赖形成 api ↔ draft 环（state 本身只依赖 types，直连无环）。
  *
  * 只 re-export 当前有外部消费方的符号——barrel 表达的是本域的对外契约，
  * 不是把内部实现摊开。子模块内仍可使用的私有函数不必出现在这里。
@@ -58,10 +61,11 @@ export {
   removePages,
   mergeSegsIntoOne,
 } from './selection'
-export { blockKeyOf } from './block-keys'
+export { blockKeyOf, locateKeyOf } from './block-keys'
 export {
   readPageQuality,
   readInconsistencies,
+  inconsistencyKindOf,
   sortInconsistencies,
   graphicPagesOf,
   sparsePagesOf,
@@ -90,3 +94,10 @@ export {
 } from './engine'
 export { reviewItemsOf, reviewItemId, sortReviewItems, groupByPage } from './review'
 export type { ReviewItem, ReviewItemKind } from './review'
+export { diffSegments } from './text-diff'
+export { suggestionFor, suggestionsOf } from './engine-suggest'
+export type { EngineSuggestion } from './engine-suggest'
+export { findSuspects } from './md-suspects'
+export type { MdSuspect } from './md-suspects'
+export { applyDetectedParties } from './detect-parties'
+export { resolveParties } from './party-lookup'
