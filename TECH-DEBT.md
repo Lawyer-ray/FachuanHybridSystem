@@ -182,21 +182,17 @@ E4 `llm-privacy-guard` 偶发判红。四条本轮均未动代码。
 
 ## H. 新 P0（按优先级，全部已二轮证实）
 
-| # | 现象 | 证据 |
-|:-|:-|:-|
-| H1 | 会话 SSE 回放端点缺行级 ACL：任意登录用户可按 `session_id` 读他人会话事件流 | `apps/agent/api/chat_api.py:115` |
-| H2 | 全局搜索「收件箱」类别完全不过 ACL，可搜到他人收件箱主题与发件人 | `apps/core/api/search_api.py:94` |
-| H3 | 合同审查 LLM 异常被吞成空结果，任务仍标 `COMPLETED`（失败不可见） | `apps/contract_review/services/review/contract_reviewer.py:187` |
-| H4 | Redis broker 下 `cancel()` 只删 OrmQ 行 → 排队任务「取消」静默失效，调用方已置 CANCELLED 但任务照跑 | `apps/core/tasking/submission.py:75` |
-| H5 | 记忆 `promote_memory` 的 `get_or_create` 少 team/law_firm 维度 → 命中他团队/律所同行，越权回吐内容 | `apps/agent/services/memory/curation.py:156` |
-| H6 | `_persist_analysis` 先 `delete()` 再 `bulk_create()` 且无事务 → 中途失败该任务分段全丢 | `apps/pdf_splitting/services/split/service.py:1014` |
-| H7 | 凭证缓存把 `password` 置空，TTL 内缓存命中后仍被当登录凭证使用（自动登录用空密码） | `plugins/court_automation/token/cache_manager.py:165` |
-| H8 | 在 `EncryptedTextField` 列上做 `token__startswith=<明文前缀>` → 恒查不到，保全/一张网 Token 复用链路永久失效 | `plugins/court_automation/token/court_token_store_service.py:29` |
-| H9 | 询价 API 四个端点签名与适配器不符（`create_quote`/`credential_ids`/`aget_quote`）→ 全部必 500，且行级 ACL 参数根本没传到 service | `plugins/court_automation/preservation_quote/api_endpoint.py:104,155,248` |
+> 本轮已修掉其中 3 条（会话 SSE 越权 `chat_api.py:115`、收件箱搜索越权 `search_api.py:94`、
+> `_persist_analysis` 分段丢失 `split/service.py:1014`），下表是**仍未修**的。
 
-**为什么没本轮修**：H1/H2 同族（会话与收件箱「属主」口径要一起定）；H3/H4/H5 是**运行时语义变更**，需产品拍板
-（失败怎么展示 / 取消要不要真出队 / 多租户口径）；H6 要补「中途失败」回归测试；H7–H9 在 `backend/plugins` 子模块内，
-**子模块 commit/push/PR 与主仓指针更新均需用户明确点头**，本轮一步未动（`git submodule status` 仍 `256e260`）。
+| # | 现象 | 证据 | 为什么不本轮修 |
+|:-|:-|:-|:-|
+| H1 | 合同审查 LLM 异常被吞成空结果，任务仍标 `COMPLETED`（失败不可见） | `apps/contract_review/services/review/contract_reviewer.py:187` | 需产品定义「失败怎么展示」（`failed` vs 「完成了但内容为空」），前端也要跟着改 |
+| H2 | Redis broker 下 `cancel()` 只删 OrmQ 行 → 排队任务「取消」静默失效，调用方已置 CANCELLED 但任务照跑 | `apps/core/tasking/submission.py:75` | 是运行时语义变更：真出队（要处理已弹出/正在执行的竞态）还是只置协作标记，**要人拍板** |
+| H3 | 记忆 `promote_memory` 的 `get_or_create` 少 team/law_firm 维度 → 命中他团队/律所同行，越权回吐内容 | `apps/agent/services/memory/curation.py:156` | 多租户口径未定（同律所共享 vs 仅本人/本团队），错修会把同律所规则也挡掉 |
+| H4 | 凭证缓存把 `password` 置空，TTL 内缓存命中后仍被当登录凭证使用（自动登录用空密码） | `plugins/court_automation/token/cache_manager.py:165` | 在 `backend/plugins` 子模块内；子模块 commit 可做，但 **push / 子模块 PR / 主仓指针更新需用户授权** |
+| H5 | 在 `EncryptedTextField` 列上做 `token__startswith=<明文前缀>` → 恒查不到，保全/一张网 Token 复用链路永久失效 | `plugins/court_automation/token/court_token_store_service.py:29` | 同上；且「删 `token_prefix` 形参」vs「加明文前缀列（要迁移）」需拍板 |
+| H6 | 询价 API 四端点签名与适配器不符（`create_quote`/`credential_ids`/`aget_quote`）→ 全部必 500，且行级 ACL 参数根本没传到 service | `plugins/court_automation/preservation_quote/api_endpoint.py:104,155,248` | 同上（子模块）；修法牵扯「改适配层」vs「改前端契约」 |
 
 ## I. 新 P1（按 app 归档，逐条带 `file:line` 与修法）
 
