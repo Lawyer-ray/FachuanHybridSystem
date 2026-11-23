@@ -25,6 +25,7 @@ from apps.batch_printing.services.storage import BatchPrintStorage
 from apps.core.constants import LARGE_FILE_MAX_SIZE
 from apps.core.dependencies.core import build_task_submission_service
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.security.admin_access import is_admin_user
 from apps.core.services.storage_service import normalize_to_media_rel, sanitize_upload_filename, to_media_abs
 
 logger = logging.getLogger("apps.batch_printing")
@@ -47,8 +48,16 @@ class BatchPrintJobService:
         self._file_prepare_service = file_prepare_service
         self._print_executor_service = print_executor_service
 
-    def list_jobs(self, *, status: str = "", keyword: str = "") -> list[BatchPrintJob]:
+    def list_jobs(self, *, status: str = "", keyword: str = "", user: Any = None) -> list[BatchPrintJob]:
+        """任务列表。**非管理员只能看到自己创建的任务**。
+
+        历史坑（2026-11-23 二轮审计 G14）：签名原无 ``user``，查询也无任何属主过滤，
+        任意登录律师可列出/取消/删除**全所**批量打印任务（含文件名与错误信息）。
+        与 ``apps/image_rotation`` 已收敛的口径对齐：默认按 ``created_by`` 收敛，管理员放宽。
+        """
         queryset = BatchPrintJob.objects.select_related("created_by").order_by("-created_at")
+        if user is not None and not is_admin_user(user):
+            queryset = queryset.filter(created_by=user)
 
         normalized_status = status.strip()
         if normalized_status:
@@ -138,18 +147,28 @@ class BatchPrintJobService:
             job.delete()
             raise
 
-    def get_job(self, job_id: uuid.UUID) -> BatchPrintJob:
+    def get_job(self, job_id: uuid.UUID, *, user: Any = None) -> BatchPrintJob:
         try:
-            return (
+            job = (
                 BatchPrintJob.objects.select_related("created_by")
                 .prefetch_related("items__matched_rule", "items__target_preset")
                 .get(id=job_id)
             )
         except BatchPrintJob.DoesNotExist:
             raise NotFoundError(message="批量打印任务不存在", code="BATCH_PRINT_JOB_NOT_FOUND", errors={}) from None
+        self._ensure_owner(job, user)
+        return job
 
-    def request_cancel(self, *, job_id: uuid.UUID) -> BatchPrintJob:  # pragma: no cover
-        job = self.get_job(job_id)
+    @staticmethod
+    def _ensure_owner(job: BatchPrintJob, user: Any) -> None:
+        """非管理员访问他人任务一律按「不存在」处理（不泄露存在性）。"""
+        if user is None or is_admin_user(user):
+            return
+        if job.created_by_id != getattr(user, "id", None):
+            raise NotFoundError(message="批量打印任务不存在", code="BATCH_PRINT_JOB_NOT_FOUND", errors={})
+
+    def request_cancel(self, *, job_id: uuid.UUID, user: Any = None) -> BatchPrintJob:  # pragma: no cover
+        job = self.get_job(job_id, user=user)
         if job.status in {BatchPrintJobStatus.COMPLETED, BatchPrintJobStatus.FAILED, BatchPrintJobStatus.CANCELLED}:
             return job
 
@@ -171,8 +190,8 @@ class BatchPrintJobService:
         job.refresh_from_db()
         return job
 
-    def delete_job(self, *, job_id: uuid.UUID) -> None:
-        job = self.get_job(job_id)
+    def delete_job(self, *, job_id: uuid.UUID, user: Any = None) -> None:
+        job = self.get_job(job_id, user=user)
         if job.status in {BatchPrintJobStatus.PENDING, BatchPrintJobStatus.PROCESSING}:
             raise ValidationException(
                 message="请先等待任务结束或取消后再删除",

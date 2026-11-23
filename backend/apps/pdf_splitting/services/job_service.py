@@ -253,19 +253,34 @@ class PdfSplitJobService:
         if total_pages is not None:
             queryset = queryset.filter(total_pages=total_pages)
 
-        # ⚠️ 这里**刻意不按 created_by 过滤**。
+        # 属主收敛（2026-11-23 二轮审计 S17-01）。
         #
-        # 复用的是「这份文件识别出的结果」，不是「某人的私人物品」：
-        # 同一份材料包常由助理先跑一次、主办律师再来用；也有可能任务是用脚本/
-        # 管理后台跑的（created_by 为空）。按属主过滤会让这些场景全部 miss，
-        # 又退回「从零重跑 164 页」。
+        # 原实现「刻意不按 created_by 过滤」，理由是「助理先跑、主办律师再用」的复用场景。
+        # 但端点 `GET /pdf-splitting/reusable-job?source_name=&total_pages=` 是**无 body 的 GET**，
+        # API 层没有任何材料包归属校验，注释里那句「安全性由调用方保证」在真实调用点不成立：
+        # 知道文件名 + 页数就能拉到他人案件的 `segments[].content_md`（水平越权读）。
         #
-        # 安全性由调用方保证：只有能打开该材料包的人（即持有对应 message_id
-        # 读取权限的人）才会拿这个结果去用；本方法只返回 segments，不泄文件内容。
-        # 保留 user 参数供未来需要隔离的租户场景使用。
+        # 现在的口径（不改变前端契约，miss 就是 null → 前端照常新建任务）：
+        #   - 本人创建的任务 → 直接复用（保住了「同一个人刷新后不重跑」的主要收益）；
+        #   - 他人创建的任务 → 仅管理员可复用，其他人一律 miss（宁可不复用，不越权）。
+        # 代价：「助理先跑、主办再用」不再命中复用，会重跑一次；彻底解法是端点增加
+        # `message_id` 并校验材料包归属（需前端配合，记入 TECH-DEBT）。
+        latest = queryset.order_by("-created_at").first()
+        if latest is None or user is None:
+            return None
+        if latest.created_by_id == getattr(user, "id", None):
+            return latest
+        from apps.core.security.admin_access import is_admin_user
 
-        # 取最新的一份：同一文件可能被故意重跑过几次，律师要看的是最终结论
-        return queryset.order_by("-created_at").first()
+        if is_admin_user(user):
+            return latest
+        logger.info(
+            "find_reusable_job 跨属主命中已拒绝复用: job=%s source=%s requested_by=%s",
+            latest.id,
+            source_name,
+            getattr(user, "id", None),
+        )
+        return None
 
     def find_inflight_job(self, *, source_name: str, total_pages: int | None = None) -> PdfSplitJob | None:
         """找一份**正在进行中**的拆分任务，供前端接管轮询。
@@ -406,18 +421,25 @@ class PdfSplitJobService:
         # 对不上，必须按确认后的页区间从 pages.json 重建。
         storage.write_json(storage.segments_md_path, rebuild_confirmed_segments_md(storage, normalized))
 
-        task_id = build_task_submission_service().submit(
-            "apps.pdf_splitting.tasks.export_pdf_split_job",
-            args=[str(job.id)],
-            task_name=f"pdf_split_export_{job.id}",
-        )
         PdfSplitJob.objects.filter(id=job.id).update(
             status=PdfSplitJobStatus.EXPORTING,
             progress=0,
-            task_id=str(task_id),
             cancel_requested=False,
             error_message="",
         )
+
+        # 导出任务必须在**事务提交后**才派发（2026-11-23 二轮审计 G7）。
+        # 原实现把 submit() 写在 `@transaction.atomic` 内：django-q worker 是另一个进程，
+        # 可能在「旧段已删、新段未可见」时被唤醒 → 读到错位的分段 → 导出错包。
+        def _submit_export() -> None:
+            task_id = build_task_submission_service().submit(
+                "apps.pdf_splitting.tasks.export_pdf_split_job",
+                args=[str(job.id)],
+                task_name=f"pdf_split_export_{job.id}",
+            )
+            PdfSplitJob.objects.filter(id=job.id).update(task_id=str(task_id))
+
+        transaction.on_commit(_submit_export)
         job.refresh_from_db()
         return job
 
@@ -703,6 +725,15 @@ class PdfSplitJobService:
         valid_modes = {choice for choice, _label in PdfSplitMode.choices}
         if mode in valid_modes:
             return mode
+        # 非法**非空**值不能静默吃掉（2026-11-23 二轮审计 G8）：
+        # MCP docstring 曾教模型传 `by_page`（真值是 `page_split`），模型照抄即落非法值，
+        # 此处静默回落最贵的云端内容识别，用户无感却按页拆出了几十元的识别账单。
+        if mode:
+            logger.warning(
+                "非法 split_mode 已回落 content_analysis: value=%s（合法值：%s）",
+                value,
+                "/".join(sorted(valid_modes)),
+            )
         return PdfSplitMode.CONTENT_ANALYSIS
 
 

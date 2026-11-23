@@ -78,8 +78,15 @@ def move_material(material: FinalizedMaterial, target_code: str) -> None:
 
 
 def get_materials_for_contract(contract_id: int) -> Any:  # pragma: no cover
-    """获取合同的所有归档材料。"""
-    return FinalizedMaterial.objects.filter(contract_id=contract_id)
+    """获取合同的所有归档材料。
+
+    **必须返回已求值的 list**（2026-11-23 二轮审计 G16）：调用方
+    `archive_api.clear_all_archive_materials` 是 `async def`，把本函数包进
+    `sync_to_async` 后若返回 lazy QuerySet，真正触发 SQL 的会是 async 上下文里的
+    `for ... in materials`，生产环境没有 `DJANGO_ALLOW_ASYNC_UNSAFE` →
+    `SynchronousOnlyOperation` → 端点必然 500。
+    """
+    return list(FinalizedMaterial.objects.filter(contract_id=contract_id))
 
 
 def confirm_archive(contract_id: int) -> bool:

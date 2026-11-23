@@ -39,9 +39,6 @@ class CalendarFeedService:
 
     def fetch_feed_data(self, token: str) -> tuple[Any, list[Reminder]] | None:
         """验证 token 并查询提醒数据。返回 (user, reminders) 或 None（token 无效）。"""
-        from apps.cases.models import CaseAccessGrant, CaseAssignment
-        from apps.contracts.models import Contract, ContractAssignment
-
         try:
             feed_token = CalendarFeedToken.objects.select_related("user").get(token=token)
         except CalendarFeedToken.DoesNotExist:
@@ -53,29 +50,21 @@ class CalendarFeedService:
 
         user = feed_token.user
 
-        # 两次查询 + set 合并（比 union 更可靠）
-        assigned = set(CaseAssignment.objects.filter(lawyer=user).values_list("case_id", flat=True))
-        granted = set(CaseAccessGrant.objects.filter(grantee=user).values_list("case_id", flat=True))
-        user_case_ids = assigned | granted
-
-        # 合同可访问集合（与 ContractAccessPolicy 口径一致：直接指派 + 合同关联案件的办案成员）
-        contract_assigned = set(ContractAssignment.objects.filter(lawyer=user).values_list("contract_id", flat=True))
-        contract_via_case = set(Contract.objects.filter(cases__assignments__lawyer=user).values_list("id", flat=True))
-        user_contract_ids = contract_assigned | contract_via_case
-
         now = timezone.now()
         cutoff = now + timedelta(days=FEED_LOOKAHEAD_DAYS)
 
-        reminders = list(
-            Reminder.objects.select_related("contract", "case", "case_log", "case_log__case")
-            .filter(
-                Q(due_at__gte=now) & Q(due_at__lte=cutoff),
-                Q(case_id__in=user_case_ids)
-                | Q(case_id__isnull=True, contract_id__in=user_contract_ids)
-                | Q(case_id__isnull=True, contract_id__isnull=True),
-            )
-            .order_by("due_at", "id")
+        # 历史坑（2026-11-23 二轮审计 G17）：这里曾自建一条 OR 链，第三个分支
+        # `case_id IS NULL AND contract_id IS NULL` **没有任何属主约束** → 持 token 者可拉到
+        # 全所全局提醒，以及只绑 `case_log` 的提醒（其 case_id/contract_id 均为空）。
+        # 现在统一复用读范围唯一权威 `scope_reminders_for_context`，不再自建副本。
+        from apps.core.security.access_context import AccessContext
+        from apps.reminders.services.reminder_read_scope import scope_reminders_for_context
+
+        scoped = scope_reminders_for_context(
+            Reminder.objects.select_related("contract", "case", "case_log", "case_log__case"),
+            AccessContext(user=user, org_access=None, perm_open_access=False),
         )
+        reminders = list(scoped.filter(due_at__gte=now, due_at__lte=cutoff).order_by("due_at", "id"))
 
         return user, reminders
 
