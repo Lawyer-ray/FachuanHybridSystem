@@ -79,6 +79,8 @@ export function DetailDrawer({
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        // 焦点陷阱打开时会把焦点移到这里（见 hooks/use-focus-trap.ts）；-1 = 可编程聚焦但不进 Tab 序
+        tabIndex={-1}
         className={cn(
           'absolute top-0 right-0 bottom-0 flex h-full max-h-screen flex-col border-l border-border bg-card shadow-[-8px_0_32px_-12px_rgba(0,0,0,.18)]',
           'animate-[drawer-in_.2s_cubic-bezier(.16,1,.3,1)]',

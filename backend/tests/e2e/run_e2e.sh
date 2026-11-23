@@ -13,6 +13,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # E2E 测试使用 SQLite 文件数据库（避免 PostgreSQL 连接争用）
+# **必须同时设 DB_ENGINE**：settings.py:240 的默认值是 postgresql，只设 DATABASE_PATH
+# （settings.py:260 仅在 DB_ENGINE 为 sqlite* 时才读它）会被静默忽略，整套 e2e 会连到
+# PostgreSQL 的 test_fachuan_dev 上跑 —— 违反「禁止用真实数据库跑测试」的红线
+# （2026-11-24 端到端实测：teardown 报 `database "test_fachuan_dev" is being accessed`）。
+export DB_ENGINE=sqlite
 export DATABASE_PATH="$SCRIPT_DIR/e2e_test.sqlite3"
 export DJANGO_ALLOW_ASYNC_UNSAFE=true
 
