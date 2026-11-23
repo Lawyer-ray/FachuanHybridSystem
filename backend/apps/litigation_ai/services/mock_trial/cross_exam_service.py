@@ -19,7 +19,12 @@ class CrossExamService:  # pragma: no cover
         """加载案件证据列表."""
         from asgiref.sync import sync_to_async
 
-        raw = await sync_to_async(LitigationContextService.get_evidence_list_for_agent, thread_sensitive=True)(case_id)  # type: ignore[call-arg,arg-type]
+        # S23-03（2026-11-23 二轮审计）：`LitigationContextService.get_evidence_list_for_agent`
+        # 是**未绑定**方法（签名为 (self, case_id)），直接交给 sync_to_async 会把
+        # `case_id` 当成 `self` 传进去 → 一进质证模式必抛 TypeError。
+        # 这里显式绑定实例（若它是 classmethod/staticmethod，绑定也不会破坏调用）。
+        svc = LitigationContextService()
+        raw = await sync_to_async(svc.get_evidence_list_for_agent, thread_sensitive=True)(case_id)
         return raw or []
 
     async def examine_single(

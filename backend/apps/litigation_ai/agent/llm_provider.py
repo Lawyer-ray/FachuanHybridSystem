@@ -29,6 +29,8 @@ class AgentLLMAdapter:  # pragma: no cover
         self._llm_service = llm_service
         self._model = model
         self._temperature = temperature
+        #: `bind_tools` 绑定的工具面（S23-02）。ReAct 循环靠它拿到可用工具。
+        self._bound_tools: list[Any] = []
 
     @staticmethod
     def _normalize_messages(messages: list[Any]) -> list[dict[str, str]]:  # pragma: no cover
@@ -49,12 +51,35 @@ class AgentLLMAdapter:  # pragma: no cover
         return normalized
 
     def bind_tools(self, tools: list[Any]) -> AgentLLMAdapter:  # pragma: no cover
-        _ = tools
+        """记录工具列表。
+
+        S23-02（2026-11-23 二轮审计）：原实现 `_ = tools` 直接丢弃，
+        而 ReAct 循环依赖 `bind_tools` 让模型拿到工具面 —— 丢掉的后果是**第一轮就 break**，
+        表现为「AI 不使用任何工具，直接给一段空回答」。
+        本适配器底层 `_llm_service.chat` 不接受 tools 参数，因此在 `describe_tools`
+        里把工具面转成文字塞进 system prompt（能力等价，不改底层契约）。
+        """
+        self._bound_tools = list(tools or [])
         return self
 
+    def _describe_tools(self) -> str:
+        """把绑定的工具面转成一段给人/模型看的说明（S23-02）。"""
+        if not self._bound_tools:
+            return ""
+        lines = ["可用工具（ReAct：需要外部信息时必须调用其中某个工具，不要凭记忆回答）："]
+        for tool in self._bound_tools:
+            name = getattr(tool, "name", None) or getattr(tool, "__name__", None) or str(tool)
+            desc = getattr(tool, "description", "") or ""
+            lines.append(f"- {name}: {desc}".rstrip())
+        return "\n".join(lines)
+
     def invoke(self, messages: list[Any]) -> AgentLLMResponse:  # pragma: no cover
+        normalized = self._normalize_messages(messages)
+        tool_hint = self._describe_tools()
+        if tool_hint:
+            normalized = _inject_system_hint(normalized, tool_hint)
         llm_response = self._llm_service.chat(
-            messages=self._normalize_messages(messages),
+            messages=normalized,
             model=self._model,
             temperature=self._temperature,
         )
@@ -99,3 +124,12 @@ class LitigationLLMProvider:  # pragma: no cover
     ) -> AgentLLMAdapter:
         llm = self.create_llm(model=model, temperature=temperature)
         return llm.bind_tools(tools) if tools else llm
+
+
+def _inject_system_hint(messages: list[dict[str, str]], hint: str) -> list[dict[str, str]]:
+    """把工具面说明合并进 system 消息（没有 system 就在最前面插一条）。"""
+    for msg in messages:
+        if msg.get("role") == "system":
+            msg["content"] = (msg.get("content") or "") + "\n\n" + hint
+            return messages
+    return [{"role": "system", "content": hint}, *messages]

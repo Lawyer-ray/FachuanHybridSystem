@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import weakref
 
 from asgiref.sync import sync_to_async
 
@@ -13,20 +14,55 @@ from ...pi.shared_mcp import resolve_endpoint, shared_enabled
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_POOL_SIZE = 4
-MAX_POOL_SIZE = 32
+from .config import DEFAULT_POOL_SIZE, MAX_POOL_SIZE, resolve_pool_size
 
 _pool: PiProcessPool | None = None
-_pool_lock = asyncio.Lock()
+
+# 锁必须**按 event loop 懒建**（F5，2026-11-23 二轮审计）：
+# 模块级 `asyncio.Lock()` 在第一次 await 时绑定当时那个 loop，而
+# `subtask_runner` 用 `asyncio.run(...)` 每次新建 loop —— 第二次调用就会拿到
+# 绑定在旧 loop 上的锁，抛 "attached to a different loop"（或被判成未加锁）。
+_pool_locks: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+
+
+def _pool_lock_for_current_loop() -> asyncio.Lock:
+    loop = asyncio.get_running_loop()
+    lock = _pool_locks.get(loop)
+    if lock is None:
+        lock = asyncio.Lock()
+        _pool_locks[loop] = lock
+    return lock
+
+
+class _LoopScopedLock:
+    """兼容旧名 ``_pool_lock`` 的「按 loop 取锁」代理（真正的锁见 ``_pool_lock_for_current_loop``）。
+
+    `chat/__init__.py` 曾把 `_pool_lock` 写进 `__all__`（F7 待收敛），外部/测试有引用；
+    直接删会 ImportError。用这个代理即可保持名字可用，同时避免模块级锁绑定到第一个 loop（F5）。
+    """
+
+    def __init__(self) -> None:
+        self._held: asyncio.Lock | None = None
+
+    async def __aenter__(self) -> _LoopScopedLock:
+        lock = _pool_lock_for_current_loop()
+        await lock.acquire()
+        self._held = lock
+        return self
+
+    async def __aexit__(self, *_exc: object) -> bool:
+        if self._held is not None:
+            self._held.release()
+            self._held = None
+        return False
+
+
+_pool_lock = _LoopScopedLock()
 
 
 def _resolve_pool_size() -> int:
-    try:
-        raw = os.environ.get("FACHUAN_AGENT_POOL_SIZE", "")
-        size = int(raw) if raw.strip() else DEFAULT_POOL_SIZE
-    except ValueError:
-        size = DEFAULT_POOL_SIZE
-    return max(1, min(size, MAX_POOL_SIZE))
+    """保留旧入口名，实际逻辑在 `chat/config.resolve_pool_size`（单源）。"""
+    return resolve_pool_size()
 
 
 async def _resolve_model() -> str | None:
@@ -67,7 +103,7 @@ def _resolve_queue_timeout() -> float:
 async def get_pool() -> PiProcessPool:
     """进程级单例池（首次使用时按配置创建）。"""
     global _pool
-    async with _pool_lock:
+    async with _pool_lock_for_current_loop():
         if _pool is None:
             model = await _resolve_model()
             endpoint = None
@@ -95,7 +131,7 @@ async def get_pool() -> PiProcessPool:
 async def close_pool() -> None:
     """销毁池（进程退出 / 测试清理时调用）。"""
     global _pool
-    async with _pool_lock:
+    async with _pool_lock_for_current_loop():
         if _pool is not None:
             await _pool.close()
             _pool = None

@@ -26,6 +26,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import uuid
 from typing import Any
@@ -35,6 +36,10 @@ from django.utils import timezone
 
 from ..models import AgentQuestion, AgentSession
 from .event_bus import redis_cache_enabled
+
+#: 等待答案时轮询 Redis 的间隔（秒）。跨 worker 的答案只写 Redis，不会 set 本地 event，
+#: 因此必须周期轮询；0.2s 与 `approval/waiter.py` 同口径。
+_ANSWER_POLL_INTERVAL = 0.2
 
 logger = logging.getLogger(__name__)
 
@@ -345,19 +350,19 @@ async def _wait_answer(question_id: str, event: asyncio.Event, timeout: float) -
     """
 
     async def _poll() -> dict[str, Any]:
-        # 先查一次：可能答案比 register 更早到（前端重试/自动回答）
-        remote = _read_answer(question_id)
-        if remote is not None:
-            return remote
+        # F2（2026-11-23 二轮审计）：原实现只在进入时查一次 Redis，然后无条件 `event.wait()`。
+        # 但**跨 worker 的答案只写 Redis、不会 set 本进程的 event** → 答案已到仍判超时。
+        # 现改为「本地 event 快路径 + 0.2s 周期轮询 Redis」（与 approval/waiter 同口径）。
         while True:
-            await event.wait()
+            # 本地快路径：同进程等待者先取（避免与 Redis 读写竞态）
             local = await _waiter.take_result(question_id)
             if local is not None:
                 return local
             remote = _read_answer(question_id)
             if remote is not None:
                 return remote
-            # 事件被 set 但两边都没结果：等下一轮（不把 None 当成答案）
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(event.wait(), timeout=_ANSWER_POLL_INTERVAL)
             event.clear()
 
     return await asyncio.wait_for(_poll(), timeout=timeout)

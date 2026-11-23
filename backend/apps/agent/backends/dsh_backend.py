@@ -62,6 +62,8 @@ from deepseek_harness import DeepSeekHarness, DeepSeekHarnessConfig
 from deepseek_harness.errors import JsonRpcError, SdkProtocolError
 from deepseek_harness.models import Notification
 
+from .result_store import BoundedResultStore
+
 #: 审批接线是否完成。``False`` = 本栏**没有人工审批闸门**：``approval_requests``
 #: 从未传 ``True``，runtime 不发 ``approval/request`` 给我们，allow/deny 由 runtime
 #: 自带的 answerer 决定；高危调用的强制闸门在 MCP 服务端（``tool_approval_gate``）。
@@ -572,7 +574,7 @@ class DshBackend:
     _tool_names: dict[str, str]
 
     def __init__(self, pool: _HarnessPool | None = None) -> None:
-        self._results = {}
+        self._results = BoundedResultStore()
         self._tool_names = {}
         self._pool = pool if pool is not None else get_pool()
         self._executor = ThreadPoolExecutor(max_workers=_MAX_RUNNING_THREADS, thread_name_prefix="dsh-run")

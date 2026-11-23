@@ -72,13 +72,15 @@ _AUX_RATIO_ENV = "FACHUAN_AGENT_AUX_RATIO"
 
 
 def _total_slots() -> int:
-    """全机执行位总量。与 pool._resolve_pool_size 同源同默认。"""
-    try:
-        raw = os.environ.get("FACHUAN_AGENT_POOL_SIZE", "")
-        size = int(raw) if raw.strip() else 4
-    except ValueError:
-        size = 4
-    return max(1, min(size, 32))
+    """全机执行位总量。
+
+    F8（2026-11-23 二轮审计）：这里原先独立实现了 `FACHUAN_AGENT_POOL_SIZE` 的解析
+    （字面量 4/32），与 `pool._resolve_pool_size` 是两份代码，改一处就静默分叉。
+    现在统一走 `chat/config.resolve_pool_size` 单源。
+    """
+    from .config import resolve_pool_size
+
+    return resolve_pool_size()
 
 
 def aux_slots(total: int | None = None) -> int:

@@ -466,6 +466,12 @@ def _require_admin(user: Any | None) -> None:
     """
     from apps.core.security.admin_access import is_admin_user
 
+    if user is None:
+        # G4（2026-11-23 二轮审计）：身份没解析出来时原报错是「仅管理员可管理工作流模板」，
+        # 把「没有用户上下文」误报成「权限不足」，排查时会去查管理员配置而不是鉴权透传。
+        raise FachuanApiError(
+            "无用户上下文：MCP 调用需带 Authorization 透传（stdio 手工调用不继承律师身份），模板管理仅管理员可用"
+        )
     if not is_admin_user(user):
         raise FachuanApiError("仅管理员可管理工作流模板")
 
@@ -898,6 +904,14 @@ async def start_workflow_from_steps(
 
     # 启动工作流
     start_result = await start_workflow(template_slug, case_id)
+
+    if "error" in start_result:
+        # G4 第二半：创建与启动是两步、不在同一事务；启动失败时必须回收刚建的临时模板，
+        # 否则库里会持续堆积「临时工作流-YYYYmmddHHMMSS」这类孤儿模板。
+        from apps.workflow.models import WorkflowTemplate
+
+        await WorkflowTemplate.objects.filter(slug=template_slug).adelete()
+        logger.warning("临时工作流启动失败，已回收模板: slug=%s err=%s", template_slug, start_result.get("error"))
 
     return {
         **start_result,
