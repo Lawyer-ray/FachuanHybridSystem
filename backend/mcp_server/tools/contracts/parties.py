@@ -30,14 +30,20 @@ def get_client_related_items(client_id: int) -> dict[str, Any]:
     return client.get(f"/client/clients/{client_id}/related-items")  # type: ignore[no-any-return]
 
 
-def add_contract_party(contract_id: int, client_id: int, role: str = "principal") -> dict[str, Any]:
+def add_contract_party(contract_id: int, client_id: int, role: str = "PRINCIPAL") -> dict[str, Any]:
     """给合同添加当事人（已存在则更新其角色）。
 
     Args:
         contract_id: 合同 ID。
         client_id: 客户 ID。
-        role: 当事人角色，默认 ``principal``（委托人）；常见值还有
-            ``opposing``（对方）等，取值同后端 PartyRole 枚举。
+        role: 当事人角色，**必须用大写枚举值**：``PRINCIPAL``（委托人，默认）/
+            ``BENEFICIARY``（受益人）/ ``OPPOSING``（对方当事人）。
+
+    S11-12（2026-11-23 二轮审计）：原默认值是 ``role="principal"``、docstring 还
+    引导 ``opposing``，而后端 ``ContractPartyIn.role`` 是裸 str（无 choices 校验）、
+    服务层也不归一——小写值会原样落库；下游一律按大写比较（``ContractParty.save()``
+    的 PRINCIPAL 自动纠偏、``party.role == "PRINCIPAL"`` 判我方当事人），小写即等价于
+    标注错误 → 现在默认与 docstring 都改成与 ``PartyRole`` 逐字一致的大写枚举。
     """
     return client.post(  # type: ignore[no-any-return]
         f"/contracts/contracts/{contract_id}/parties",

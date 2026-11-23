@@ -427,12 +427,20 @@ from mcp_server.tools import (
     web_search,
 )
 
+#: 模块级 logger——下面四段条件导入就要用（它们失败时只能在这里说句话），
+#: 因此定义在所有 import 之后、工具注册常量之前。
+logger = logging.getLogger(__name__)
+
 # 条件导入：网上立案
 try:
     from mcp_server.tools import execute_court_filing, get_court_filing_case_info, get_court_filing_session
 
     _HAS_FILING = True
-except ImportError:
+except ImportError as exc:
+    # S17-05（2026-11-23 二轮审计）：原实现只写 `_HAS_FILING = False`、不记日志，
+    # 网上立案 3 个工具静默从 tools/list 消失，模型只得到 unknown tool，运维零线索 →
+    # 现在保留 exc 并记 WARNING（mcp_server logger 已单独配 INFO，见 logging.py）。
+    logger.warning("MCP 工具族「网上立案」未注册，该族工具从 tools/list 缺席：%s", exc)
     _HAS_FILING = False
 
 # 条件导入：诉讼保全
@@ -449,7 +457,9 @@ try:
     )
 
     _HAS_GUARANTEE = True
-except ImportError:
+except ImportError as exc:
+    # S17-05（2026-11-23 二轮审计）：同上，8 个保全工具不再静默缺席。
+    logger.warning("MCP 工具族「诉讼保全」未注册，该族工具从 tools/list 缺席：%s", exc)
     _HAS_GUARANTEE = False
 
 # 条件导入：财产保全询价
@@ -463,7 +473,9 @@ try:
     )
 
     _HAS_QUOTE = True
-except ImportError:
+except ImportError as exc:
+    # S17-05（2026-11-23 二轮审计）：同上，5 个询价工具不再静默缺席。
+    logger.warning("MCP 工具族「财产保全询价」未注册，该族工具从 tools/list 缺席：%s", exc)
     _HAS_QUOTE = False
 
 # 条件导入：东盟域外法查明（BARLC）
@@ -471,7 +483,9 @@ try:
     from mcp_server.tools import asean_law_countries, asean_law_read, asean_law_search, asean_law_verify
 
     _HAS_FOREIGN_LAW = True
-except ImportError:
+except ImportError as exc:
+    # S17-05（2026-11-23 二轮审计）：同上，东盟域外法 4 工具不再静默缺席。
+    logger.warning("MCP 工具族「东盟域外法查明」未注册，该族工具从 tools/list 缺席：%s", exc)
     _HAS_FOREIGN_LAW = False
 
 
@@ -535,8 +549,6 @@ def _tool_annotations(name: str) -> ToolAnnotations:
 #: 工具单次调用超过该毫秒数升 WARNING——pi 侧总超时 200s,30s 以上的调用
 #: 律师侧已经能明确感到「卡住了」,值得在日志里一眼可见(而非 grep INFO)。
 _SLOW_TOOL_MS = 30_000
-
-logger = logging.getLogger(__name__)
 
 
 def _log_tool_duration(name: str, started: float) -> None:

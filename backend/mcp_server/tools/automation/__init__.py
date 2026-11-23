@@ -1,7 +1,11 @@
 """自动化域 tools 导出"""
 
+import logging
+
 from mcp_server.tools.automation.auto_namer import auto_namer_process_by_path
 from mcp_server.tools.automation.captcha import get_captcha_image, submit_captcha_answer
+
+logger = logging.getLogger(__name__)
 
 try:
     from plugins.court_automation.filing.api_endpoint import router as _filing_router
@@ -9,7 +13,12 @@ try:
     from .court_filing import execute_court_filing, get_court_filing_case_info, get_court_filing_session
 
     _HAS_FILING = True
-except ImportError:
+except ImportError as exc:
+    # S01-10（2026-11-23 二轮审计）：原实现是裸 `except ImportError: _HAS_FILING = False`，
+    # 「插件没装 / playwright 等依赖缺失 / 内部符号改名」三种原因共用这一个出口且零日志，
+    # 整族工具静默从 tools/list 消失、运维无处归因。本层是唯一能看到真实异常的地方
+    # → 现在保留 exc 并记 WARNING（server.py 的 S17-05 同批改）。
+    logger.warning("MCP 工具族「网上立案」导入失败，该族工具不导出：%s", exc)
     _HAS_FILING = False
 
 try:
@@ -27,7 +36,9 @@ try:
     )
 
     _HAS_GUARANTEE = True
-except ImportError:
+except ImportError as exc:
+    # S01-10（2026-11-23 二轮审计）：同上，静默布尔量 → 保留 exc 记 WARNING。
+    logger.warning("MCP 工具族「诉讼保全」导入失败，该族工具不导出：%s", exc)
     _HAS_GUARANTEE = False
 
 from mcp_server.tools.automation.court_sms import (
@@ -67,7 +78,9 @@ try:
     )
 
     _HAS_QUOTE = True
-except ImportError:
+except ImportError as exc:
+    # S01-10（2026-11-23 二轮审计）：同上，静默布尔量 → 保留 exc 记 WARNING。
+    logger.warning("MCP 工具族「财产保全询价」导入失败，该族工具不导出：%s", exc)
     _HAS_QUOTE = False
 
 __all__ = [

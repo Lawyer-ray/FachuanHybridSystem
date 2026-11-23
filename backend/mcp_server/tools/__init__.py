@@ -1,5 +1,7 @@
 """MCP tools 顶层导出"""
 
+import logging
+
 from mcp_server.tools.automation import (
     assign_sms_case,
     auto_namer_process_by_path,
@@ -28,12 +30,18 @@ from mcp_server.tools.automation import (
     warm_up_cache,
 )
 
+logger = logging.getLogger(__name__)
+
 # 条件导入：网上立案
 try:
     from mcp_server.tools.automation import execute_court_filing, get_court_filing_case_info, get_court_filing_session
 
     _HAS_FILING = True
-except ImportError:
+except ImportError as exc:
+    # S01-10（2026-11-23 二轮审计）：原实现静默写布尔量、丢弃 exc，上游 automation 层
+    # 已失败时这里只剩「某个名字不存在」，真实原因（插件未装 / 依赖缺 / 改符号名）
+    # 两者无法区分 → 现在保留 exc 并记 WARNING。
+    logger.warning("MCP 工具族「网上立案」在上游 automation 导出中缺失：%s", exc)
     _HAS_FILING = False
 
 # 条件导入：诉讼保全
@@ -50,7 +58,9 @@ try:
     )
 
     _HAS_GUARANTEE = True
-except ImportError:
+except ImportError as exc:
+    # S01-10（2026-11-23 二轮审计）：同上，静默布尔量 → 保留 exc 记 WARNING。
+    logger.warning("MCP 工具族「诉讼保全」在上游 automation 导出中缺失：%s", exc)
     _HAS_GUARANTEE = False
 
 # 条件导入：财产保全询价
@@ -64,7 +74,9 @@ try:
     )
 
     _HAS_QUOTE = True
-except ImportError:
+except ImportError as exc:
+    # S01-10（2026-11-23 二轮审计）：同上，静默布尔量 → 保留 exc 记 WARNING。
+    logger.warning("MCP 工具族「财产保全询价」在上游 automation 导出中缺失：%s", exc)
     _HAS_QUOTE = False
 from mcp_server.tools.cases import (
     add_case_party,
@@ -374,8 +386,10 @@ try:
     )
 
     _HAS_MESSAGE_HUB = True
-except ImportError:
-    pass
+except ImportError as exc:
+    # S01-10（2026-11-23 二轮审计）：同型静默分支（原为 `except ImportError: pass`）。
+    # 信息中转站整族工具缺席时零日志 → 现在保留 exc 记 WARNING。
+    logger.warning("MCP 工具族「信息中转站」导入失败，该族工具不导出：%s", exc)
 from apps.workflow.mcp.workflow_tools import (
     approve_workflow_step,
     cancel_workflow,
@@ -503,8 +517,10 @@ from mcp_server.tools.web_search import fetch_url, web_search
 # server.py 自己的注册门控另有独立开关，这里的 try/except 只负责插件缺失时不炸。
 try:
     from mcp_server.tools.foreign_law import asean_law_countries, asean_law_read, asean_law_search, asean_law_verify
-except ImportError:  # pragma: no cover - 插件未安装时走此分支
-    pass
+except ImportError as exc:  # pragma: no cover - 插件未安装时走此分支
+    # S01-10（2026-11-23 二轮审计）：原实现是 `except ImportError: pass`，
+    # 域外法 4 工具静默缺席且零日志 → 现在保留 exc 记 WARNING。
+    logger.warning("MCP 工具族「东盟域外法查明」导入失败，该族工具不导出：%s", exc)
 
 __all__ = [
     # 案件
