@@ -332,9 +332,14 @@ class TestLargePdfPageTargeting:
 
         # 实测数值（不是估算的「通过率」）：报告里要能直接引用
         logger.info(
-            f"\n[验收3 实测] 总页数={body['total_pages']} 请求页=[7] "
-            f"返回页数={len(returned)} 页面图字节={total_bytes}B "
-            f"尺寸={width}x{height} 估算图像 token={estimated} strategy={body['strategy']!r}"
+            "\n[验收3 实测] 总页数=%s 请求页=[7] 返回页数=%s 页面图字节=%sB 尺寸=%sx%s 估算图像 token=%s strategy=%r",
+            body["total_pages"],
+            len(returned),
+            total_bytes,
+            width,
+            height,
+            estimated,
+            body["strategy"],
         )
 
         # 第 7 页有文字层 → 文本路径，零图、零字节、零视觉 token
@@ -364,10 +369,15 @@ class TestLargePdfPageTargeting:
         assert max(images[0]["width"], images[0]["height"]) <= MAX_EDGE_PX, "页图长边超过 1568px"
 
         logger.info(
-            f"\n[验收3 实测·扫描页] 总页数={body['total_pages']} 请求页=[7] 返回页数={len(returned)} "
-            f"页面图字节={images[0]['bytes']}B 尺寸={images[0]['width']}x{images[0]['height']} "
-            f"估算图像 token={_estimate_vision_tokens(images[0]['width'], images[0]['height'])} "
-            f"strategy={body['strategy']!r}"
+            "\n[验收3 实测·扫描页] 总页数=%s 请求页=[7] 返回页数=%s 页面图字节=%sB 尺寸=%sx%s "
+            "估算图像 token=%s strategy=%r",
+            body["total_pages"],
+            len(returned),
+            images[0]["bytes"],
+            images[0]["width"],
+            images[0]["height"],
+            _estimate_vision_tokens(images[0]["width"], images[0]["height"]),
+            body["strategy"],
         )
 
 
@@ -405,9 +415,13 @@ class TestOversizedImageDownscale:
         )
 
         logger.info(
-            f"\n[验收6 实测] 原图=8000x1200({len(source)}B) "
-            f"渲染后={page['width']}x{page['height']}({page['bytes']}B) "
-            f"非白像素占比={ratio:.2%} 估算图像 token={_estimate_vision_tokens(page['width'], page['height'])}"
+            "\n[验收6 实测] 原图=8000x1200(%sB) 渲染后=%sx%s(%sB) 非白像素占比=%.2f%% 估算图像 token=%s",
+            len(source),
+            page["width"],
+            page["height"],
+            page["bytes"],
+            ratio * 100,
+            _estimate_vision_tokens(page["width"], page["height"]),
         )
 
 
@@ -488,8 +502,10 @@ class TestEncryptedPdf:
             assert page["error"] == "encrypted", f"每页应带 encrypted 错误码，实际 {page['error']!r}"
 
         logger.info(
-            f"\n[验收4 实测] error={body['error']!r} 页条目数={len(body['pages_returned'])} "
-            f"页图字节合计={sum(p['bytes'] for p in body['pages_returned'])}"
+            "\n[验收4 实测] error=%r 页条目数=%s 页图字节合计=%s",
+            body["error"],
+            len(body["pages_returned"]),
+            sum(p["bytes"] for p in body["pages_returned"]),
         )
 
     def test_encrypted_pdf_content_endpoint_returns_bytes_not_empty(self) -> None:
