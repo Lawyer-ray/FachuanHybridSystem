@@ -21,6 +21,11 @@ class EvidenceChunk(models.Model):
     created_at: datetime = models.DateTimeField(auto_now_add=True)  # type: ignore[assignment]
     updated_at: datetime = models.DateTimeField(auto_now=True)  # type: ignore[assignment]
 
+    # 检索期相关性分：**不是数据库列**（不参与迁移）。由
+    # `EvidenceRAGService.retrieve/aretrieve` 在返回前从向量检索结果回填，
+    # 供 `EvidenceDigestService` 的 `relevance_score` 输出使用（见 S23-16）。
+    score: float
+
     class Meta:
         app_label = "litigation_ai"
         verbose_name = "证据片段"

@@ -91,6 +91,23 @@ class EvidenceRAGService:
             created,
         )
 
+    def _attach_scores(self, results: list[tuple[EvidenceChunk, float]]) -> list[EvidenceChunk]:
+        """过滤无文本 chunk，并把检索相关性分回填到 ``chunk.score``。
+
+        S23-16（2026-11-23 二轮审计）：原实现是
+        ``[chunk for chunk, _score in results if ...]``——把 ``store.search`` 的分数直接丢在
+        推导式里，调用方 ``EvidenceDigestService`` 读 ``getattr(chunk, "score", 0.0)``
+        恒得 0.0（``EvidenceChunk`` 也没有 score 列）。现在把分挂到 chunk 实例上，
+        只在本次检索结果内有效，不落库。
+        """
+        chunks: list[EvidenceChunk] = []
+        for chunk, score in results:
+            if not (chunk.text or "").strip():
+                continue
+            chunk.score = score
+            chunks.append(chunk)
+        return chunks
+
     def retrieve(self, query: str, evidence_item_ids: list[int], top_k: int = 5) -> list[EvidenceChunk]:
         embedding_service = EvidenceEmbeddingService()
         store = EvidenceVectorStoreService()
@@ -112,7 +129,7 @@ class EvidenceRAGService:
             store.upsert_embeddings(missing_ids, embs)
 
         results = store.search(query_emb, evidence_item_ids=evidence_item_ids, top_k=top_k)
-        return [chunk for chunk, _score in results if (chunk.text or "").strip()]
+        return self._attach_scores(results)
 
     async def aretrieve(self, query: str, evidence_item_ids: list[int], top_k: int = 5) -> list[EvidenceChunk]:
         """异步版本 — 检索相关证据片段."""
@@ -136,4 +153,4 @@ class EvidenceRAGService:
             await sync_to_async(store.upsert_embeddings)(missing_ids, embs)
 
         results = await sync_to_async(store.search)(query_vec, evidence_item_ids=evidence_item_ids, top_k=top_k)
-        return [chunk for chunk, _score in results if (chunk.text or "").strip()]
+        return self._attach_scores(results)
