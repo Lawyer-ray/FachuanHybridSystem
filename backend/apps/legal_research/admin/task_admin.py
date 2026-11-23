@@ -506,7 +506,10 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             append_choice(default_model, label=f"{default_model}（默认）")
 
         try:
-            models = ModelListService().get_cached_models()
+            # S45-03（2026-11-23 二轮审计）：`ModelListService` 没有 `get_cached_models`
+            # （只有 `get_result`/`get_models`/`aget_result`/`aget_models`），这行必抛
+            # AttributeError 被下面的 `except Exception` 吞掉 → 管理页**永远只显示默认模型**。
+            models = ModelListService().get_result().models
         except Exception:
             logger.exception("加载模型列表失败")
             return [(default_model or "Qwen/Qwen2.5-7B-Instruct", "默认模型")], True, "加载模型列表异常"

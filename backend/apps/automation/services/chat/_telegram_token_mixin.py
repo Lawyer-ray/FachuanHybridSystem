@@ -47,8 +47,13 @@ class TelegramTokenMixin:  # pragma: no cover
         return load_db_category_config(
             "get_telegram_category_configs",
             {
-                "chat_platforms.telegram.bot_token": "BOT_TOKEN",
-                "chat_platforms.telegram.supergroup_id": "SUPERGROUP_ID",
+                # S35-02（2026-11-23 二轮审计）：这里原本写的是 `chat_platforms.telegram.*`
+                # 这种「点号路径」，但 `get_category_configs` 返回的是**DB 键名**
+                # （`TELEGRAM_BOT_TOKEN` / `TELEGRAM_SUPERGROUP_ID`，见
+                # `apps/core/admin/_system_config_data/_feishu_configs.py:113-134`），
+                # 与飞书/钉钉两家的写法也不一致 → 映射恒为空，Telegram 通道永远「未配置」。
+                "TELEGRAM_BOT_TOKEN": "BOT_TOKEN",
+                "TELEGRAM_SUPERGROUP_ID": "SUPERGROUP_ID",
             },
             " Telegram ",
         )

@@ -314,6 +314,21 @@ class KeyPool:
         self._rpm_limit = max(0, int(rpm or 0))
         self._tpm_limit = max(0, int(tpm or 0))
 
+    def _prune_window(self, idx: int, now: float) -> None:
+        """丢掉 60 秒以前的样本。
+
+        S45-02（2026-11-23 二轮审计）：原实现只在 `_window_totals` 里修剪，而
+        `_over_limit` 在**没配 rpm/tpm** 时会提前 return → 修剪永不发生；
+        可 `acquire` 每次都无条件 append，于是 `_window[idx]` 随调用次数无界增长
+        （常驻进程跑一整天就是几十万条样本）。这里在 append 之前独立修剪，与限流配置无关。
+        """
+        window = self._window.get(idx)
+        if not window:
+            return
+        cutoff = now - 60.0
+        while window and window[0][0] < cutoff:
+            window.popleft()
+
     def _window_totals(self, idx: int, now: float) -> tuple[int, int]:
         """该 Key 最近 60 秒的 ``(请求数, tokens)``（顺手清掉过期样本）。"""
         window = self._window.get(idx)
@@ -414,6 +429,7 @@ class KeyPool:
                 if self.limit and self._active[idx] >= self.limit:
                     continue
                 self._active[idx] += 1
+                self._prune_window(idx, now)
                 self._window.setdefault(idx, deque()).append((now, 0))
                 over = self._over_limit(idx, now)
                 if over and not rate_limit_enforce():
@@ -431,6 +447,7 @@ class KeyPool:
                     if not ignore_shared and self.keys[idx] in shared:
                         continue
                     self._active[idx] += 1
+                    self._prune_window(idx, now)
                     self._window.setdefault(idx, deque()).append((now, 0))
                     return idx
             return None
