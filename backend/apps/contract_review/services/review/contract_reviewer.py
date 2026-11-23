@@ -194,8 +194,12 @@ class ContractReviewer:  # pragma: no cover
             )
             return _parse_revision_response(resp.content)
         except Exception:
+            # S27-03（2026-11-23 二轮审计）：这里原来 `return []` 把 LLM 失败**吞成空结果**，
+            # 上游 `review_service` 的「两项并行任务全失败就抛 ContractReviewError → 任务 FAILED」
+            # 那段兜底因此永不生效 → 任务被标成 COMPLETED，律师拿到一份**没有审查意见的成品**。
+            # 现在原样抛出，让上游按失败处理（部分失败仍会保留成功产物并把明细写进 error_message）。
             logger.exception("合同审查 LLM 调用失败")
-            return []
+            raise
 
     def generate_report(  # pragma: no cover
         self,
@@ -218,8 +222,9 @@ class ContractReviewer:  # pragma: no cover
             )
             return resp.content.strip()
         except Exception:
+            # S27-03：同上，不得把报告生成失败吞成空字符串后仍标 COMPLETED。
             logger.exception("评估报告生成失败")
-            return ""
+            raise
 
 
 def _parse_int(val: object) -> int:  # pragma: no cover

@@ -531,8 +531,10 @@ class TestContractReviewer:
         reviewer, mock_llm = self._make_reviewer()
         mock_llm.complete.side_effect = Exception("LLM down")
 
-        results = reviewer.review_contract(["text"], "party_a", "A", "B")
-        assert results == []
+        # S27-03（2026-11-23 二轮审计）：LLM 失败**不得**吞成空结果回传（那会让任务
+        # 被标 COMPLETED 而产出空的审查稿）；必须抛出，让上游标 FAILED。
+        with pytest.raises(Exception):
+            reviewer.review_contract(["text"], "party_a", "A", "B")
 
     def test_review_contract_empty_response(self):
         reviewer, mock_llm = self._make_reviewer()
@@ -540,6 +542,7 @@ class TestContractReviewer:
         mock_resp.content = "[]"
         mock_llm.complete.return_value = mock_resp
 
+        # 模型正常返回空数组是**合法的空结果**（不是失败），不应抛错。
         results = reviewer.review_contract(["text"], "party_a", "A", "B")
         assert results == []
 
@@ -556,8 +559,9 @@ class TestContractReviewer:
         reviewer, mock_llm = self._make_reviewer()
         mock_llm.complete.side_effect = Exception("LLM error")
 
-        report = reviewer.generate_report(["text"], "party_a", "A", "B")
-        assert report == ""
+        # S27-03：同上，报告生成失败必须抛出，不得返回空串后仍标 COMPLETED。
+        with pytest.raises(Exception):
+            reviewer.generate_report(["text"], "party_a", "A", "B")
 
     def test_parse_revision_response_markdown_block(self):
         from apps.contract_review.services.review.contract_reviewer import ContractReviewer
