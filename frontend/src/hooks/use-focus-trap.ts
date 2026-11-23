@@ -28,6 +28,13 @@ export function useFocusTrap(active: boolean, onClose: () => void) {
     const panel = panelRef.current
     const restoreTo = document.activeElement instanceof HTMLElement ? document.activeElement : null
 
+    // 打开即把焦点移进抽屉。不这么做键盘用户第一次 Tab 是"从背后页面跳进来"，
+    // 屏幕阅读器也不会宣布抽屉已打开（2026-11-24 端到端实测：Tab 圈定正确，
+    // 但打开瞬间 focusInsideOnOpen=false）。容器需要 tabIndex=-1 才能被 focus。
+    if (panel && !panel.contains(document.activeElement)) {
+      panel.focus({ preventScroll: true })
+    }
+
     const onTabKey = (e: KeyboardEvent) => {
       if (e.key !== 'Tab' || !panel) return
       // 焦点圈定：Tab / Shift+Tab 在抽屉内循环，不跑到背后的页面上
