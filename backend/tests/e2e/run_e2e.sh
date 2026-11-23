@@ -47,4 +47,14 @@ for arg in "$@"; do
 done
 
 cd "$BACKEND_DIR"
-exec .venv/bin/python -m pytest tests/e2e/ "${PYTEST_ARGS[@]}"
+
+# 解释器解析：优先 $PYTHON，其次仓库 .venv，最后退回 python3。
+# 原来硬编码 .venv/bin/python，在 git worktree（.venv 是 gitignored、不会检出）里会直接
+# `No such file or directory`，让人误以为是测试失败（2026-11-24 实测浪费了一轮排查）。
+PYTHON_BIN="${PYTHON:-$BACKEND_DIR/.venv/bin/python}"
+if [ ! -x "$PYTHON_BIN" ]; then
+  PYTHON_BIN="${PYTHON_FALLBACK:-python3}"
+  echo "▶ pre-e2e: $BACKEND_DIR/.venv/bin/python 不存在，改用 $PYTHON_BIN" >&2
+fi
+
+exec "$PYTHON_BIN" -m pytest tests/e2e/ "${PYTEST_ARGS[@]}"
