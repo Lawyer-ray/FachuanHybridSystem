@@ -196,8 +196,21 @@ class CauseOfActionAdmin(admin.ModelAdmin):  # pragma: no cover
         return super().changelist_view(request, extra_context=extra_context)
 
     def initialize_causes_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
-        """初始化案由数据视图"""
+        """初始化案由数据视图。
+
+        S33-05（2026-11-23 二轮审计）两处修正：
+        ① 这个 URL 只经 `admin_site.admin_view`（= `is_staff` 即可），但它是**写操作**，
+           必须再要 `change` 权限，否则任何 staff 都能重跑全量案由初始化；
+        ② 原实现 `with ThreadPoolExecutor(...) as executor: future.result(timeout=300)` ——
+           `__exit__` 会 `shutdown(wait=True)`，把超时语义整个抵消（请求照样阻塞到下完为止）。
+           改成显式 shutdown(wait=False)，超时就真的返回。
+        """
         import concurrent.futures
+
+        if not self.has_change_permission(request):
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied("初始化案由数据需要 change 权限")
 
         try:
             service = _get_initialization_service()
@@ -213,10 +226,17 @@ class CauseOfActionAdmin(admin.ModelAdmin):  # pragma: no cover
                 finally:
                     loop.close()
 
-            # 使用线程池执行器在独立线程中运行异步代码
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            # 使用线程池执行器在独立线程中运行异步代码。
+            # 注意：**不能**用 `with`（其 __exit__ 会 shutdown(wait=True)，把 timeout 抵消掉）。
+            executor = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="cause-init")
+            try:
                 future = executor.submit(run_async_init)
-                result = future.result(timeout=300)  # 5分钟超时
+                result = future.result(timeout=120)
+            except concurrent.futures.TimeoutError:
+                executor.shutdown(wait=False)  # 后台继续跑完，但请求先返回
+                raise
+            else:
+                executor.shutdown(wait=False)
 
             # 构建消息
             if result.success:
