@@ -644,7 +644,12 @@ def _meta_title(html: str) -> str:
         return soup.title.string.strip()
     for attr, key in _TITLE_META_KEYS:
         tag = soup.find("meta", attrs={attr: key})
-        content = (tag.get("content") or "").strip() if tag is not None else ""
+        # `tag.get("content")` 在 bs4 类型上可能是 str、list（多值属性）或 None；
+        # 旧代码直接 `.strip()`，多值时会 AttributeError（也是 mypy 唯一存量 error）。
+        raw_content = tag.get("content") if tag is not None else None
+        if isinstance(raw_content, list):
+            raw_content = " ".join(str(item) for item in raw_content)
+        content = str(raw_content or "").strip()
         if content:
             return content
     match = _MSG_TITLE_RE.search(html)

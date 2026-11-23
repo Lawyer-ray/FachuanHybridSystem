@@ -78,7 +78,8 @@ class InvoiceRecognitionService:
         finally:
             import shutil
 
-            shutil.rmtree(img_tmp_dir, ignore_errors=True)
+            if img_tmp_dir is not None:
+                shutil.rmtree(img_tmp_dir, ignore_errors=True)
 
     def _process_image(self, file_path: Path) -> str:
         return self._ocr.recognize(str(file_path))

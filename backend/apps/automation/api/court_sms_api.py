@@ -285,14 +285,23 @@ async def assign_case(
 
     sms = await sync_to_async(service.assign_case)(sms_id, payload.case_id)
 
+    # S46-01（2026-11-23 二轮审计）：这里在 `async def` 里懒加载 `sms.case`，
+    # 生产环境没有 DJANGO_ALLOW_ASYNC_UNSAFE → 成功路径必抛 SynchronousOnlyOperation（端点 500）。
+    # 把「取 case 的两个字段」放回同步线程里做。
+    case_payload = await sync_to_async(_case_brief)(sms)
+
     return CourtSMSAssignCaseOut(
         success=True,
-        data={
-            "id": sms.id,
-            "status": sms.status,
-            "case": {"id": sms.case.id, "name": sms.case.name} if sms.case else None,
-        },
+        data={"id": sms.id, "status": sms.status, "case": case_payload},
     )
+
+
+def _case_brief(sms: Any) -> dict[str, Any] | None:
+    """在同步上下文里读 `sms.case`（避免 async 懒加载）。"""
+    case = sms.case
+    if case is None:
+        return None
+    return {"id": case.id, "name": case.name}
 
 
 # ============================================================================

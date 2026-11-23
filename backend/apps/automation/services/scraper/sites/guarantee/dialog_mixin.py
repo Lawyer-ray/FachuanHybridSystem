@@ -108,7 +108,7 @@ class GuaranteeDialogMixin(  # pragma: no cover
             if target in {"applicant", "respondent"}:
                 step["party_type_selected"] = self._choose_party_type_in_dialog(defaults)
             selected = self._fill_dialog_select_fields(defaults, target)
-            dated = self._fill_dialog_date_fields()
+            dated = self._fill_dialog_date_fields(defaults)
             filled = self._fill_dialog_required_fields(defaults)
             playwright_filled = self._fill_dialog_fields_with_playwright(defaults, target)
             step["filled"] = [*selected, *dated, *filled, *playwright_filled]
