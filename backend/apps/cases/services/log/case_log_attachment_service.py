@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from django.core.files.uploadedfile import UploadedFile
-from django.db import transaction
+from django.db import DatabaseError, transaction
 
 from apps.cases.models import CaseLogAttachment
 from apps.cases.utils import validate_case_log_attachment
@@ -26,7 +26,7 @@ def _discard_written_files(attachments: list[CaseLogAttachment]) -> None:
             continue
         try:
             attachment.file.delete(save=False)
-        except Exception:
+        except (OSError, ValueError, AttributeError):
             logger.exception(
                 "回删日志附件文件失败",
                 extra={"attachment_id": attachment.pk, "file_path": attachment.file.name},
@@ -75,7 +75,7 @@ class CaseLogAttachmentService:
                 attempted.append(attachment)
                 attachment.save()
                 created.append(attachment)
-        except Exception:
+        except (DatabaseError, OSError, ValueError):
             _discard_written_files(attempted)
             raise
 
