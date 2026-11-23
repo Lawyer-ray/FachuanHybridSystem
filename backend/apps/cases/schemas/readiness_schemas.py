@@ -107,6 +107,8 @@ class ConflictHitOut(Schema):
     matched_client_name: str = ""
     matched_case_id: int | None = None
     matched_case_name: str = ""
+    #: 命中项指向的案件对提问者是否可见。不可见时上面两个字段被涤空（2026-11-23 G9 脱敏）。
+    matched_case_visible: bool = True
     reason: str = ""
     id_matched: bool = False
 

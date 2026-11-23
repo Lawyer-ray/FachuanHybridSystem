@@ -80,25 +80,20 @@ class TaskQueryService:
         return Task.objects.filter(id=task_id).first()
 
     def cancel_task(self, task_id: str) -> dict[str, Any]:
-        """Best-effort 取消任务。
+        """Best-effort 取消任务（转发给 ``TaskSubmissionService.cancel``）。
 
         - 排队中的任务从队列移除
         - 运行中的任务无法强制终止，调用方应使用协作式取消
+
+        S20-02（2026-11-23 二轮审计）：原实现与 ``TaskSubmissionService.cancel``
+        逐字重复（各自 ``OrmQ.delete()`` + ``Task`` 判定），两份都只看 OrmQ，
+        在 Redis broker 下“从队列移除”恒为 0。→ 现在只保留一份实现：
+        本方法转发给 ``TaskSubmissionService.cancel``（它已按 broker 类型如实返回
+        ``broker`` / ``dequeued``）；方法本身保留为兼容入口。
         """
-        from django_q.models import OrmQ, Task
+        from .submission import TaskSubmissionService
 
-        queue_deleted, _ = OrmQ.objects.filter(key=task_id).delete()
-        task = Task.objects.filter(id=task_id).first()
-
-        running = bool(task and task.started and not task.stopped)
-        finished = bool(task and task.stopped)
-        return {
-            "task_id": task_id,
-            "queue_deleted": int(queue_deleted),
-            "running": running,
-            "finished": finished,
-            "exists": task is not None,
-        }
+        return TaskSubmissionService().cancel(task_id)
 
 
 class ScheduleQueryService:

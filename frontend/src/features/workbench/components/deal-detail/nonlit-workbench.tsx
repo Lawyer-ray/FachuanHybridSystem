@@ -16,17 +16,12 @@
  * 读 500 行。判据是「一屏一文件」，不是机械切行；三屏共用的汇总小件（SectionHead
  * / StatStrip / StatCell）提到 nonlit/special/special-stat.tsx，避免复制成三份口径。
  *
- * 本文件保留**原有导出符号不变**（NonLitWorkbench / SpecialWorkbench /
- * SpecialPhaseWorkbench / CrossBorderWorkbench / AdvisorWorkbench 与四个 demo
- * 常量/图标）——NonLitDetailPage 与各 dom 测试 mock 的都是 `./nonlit-workbench`，
- * 换成别的模块路径会让 mock 边界静默失效。
+ * 本文件保留 re-export 与 `NonLitWorkbench` 分流——NonLitDetailPage 与各 dom 测试
+ * mock 的都是 `./nonlit-workbench`，换成别的模块路径会让 mock 边界静默失效。
  */
-
-import { FileText, GraduationCap, Scale } from 'lucide-react'
 
 import { AdvisorWorkbench } from './AdvisorWorkbench'
 import { CrossBorderWorkbench } from './CrossBorderWorkbench'
-import { SpecialPhaseWorkbench } from './SpecialPhaseWorkbench'
 
 export { AdvisorWorkbench } from './AdvisorWorkbench'
 export { CrossBorderWorkbench } from './CrossBorderWorkbench'
@@ -37,14 +32,3 @@ export function NonLitWorkbench({ caseType }: { caseType: string }) {
   if (caseType === 'advisor') return <AdvisorWorkbench />
   return <CrossBorderWorkbench />
 }
-
-/** 专项服务专用（有阶段树的那条） */
-export function SpecialWorkbench() {
-  return <SpecialPhaseWorkbench />
-}
-
-/** 供页面判断用：无阶段树时给专项工作台，有阶段树时也用同一个 */
-export const CROSS_BORDER_HINT = '跨境合同审查'
-export const FILE_ICON = FileText
-export const SCALE_ICON = Scale
-export const EDU_ICON = GraduationCap

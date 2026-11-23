@@ -18,9 +18,7 @@
 
 import { memo } from 'react'
 
-// 从子模块直引：`domain/index.ts` 的桶出口待随下一次域内改动一并补上
-// （本批只动栏头，不去改全域的 barrel）
-import { laneFactsBadge, laneFactsDetail, laneFactsOf } from '../domain/lane-facts'
+import { laneFactsBadge, laneFactsDetail, laneFactsOf } from '../domain'
 import type { ChatMessage } from '../types'
 
 export const LaneFactsBadge = memo(function LaneFactsBadge({ message }: { message: ChatMessage }) {

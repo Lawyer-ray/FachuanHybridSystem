@@ -84,7 +84,8 @@ export function FilingPanel() {
             stage={notifyStage}
             onSend={() => {
               setNotifyStage('sending')
-              void notify.execute().then(() => setNotifyStage('sent'))
+              // 通知失败时 execute() 会 resolve 成 ok:false —— 不能当成功回执，也不能让按钮卡在「发送中…」
+              void notify.execute().then((r) => setNotifyStage(r.ok ? 'sent' : 'idle'))
             }}
           />
         </div>
@@ -92,7 +93,8 @@ export function FilingPanel() {
         <FilingRail diffCount={diffCount} />
       </div>
 
-      <SignDrawer name={signOpen} onClose={() => setSignOpen(null)} />
+      {/* 签章抽屉常驻挂载，key 取当前文书：换一份就是换实例，放大态不会跟过来 */}
+      <SignDrawer key={signOpen ?? 'none'} name={signOpen} onClose={() => setSignOpen(null)} />
       <FilingFixPreviewDrawer
         open={diffOpen}
         running={autoFix.phase === 'running'}

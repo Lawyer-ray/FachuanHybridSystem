@@ -296,6 +296,16 @@ def update_reminder(request: Any, reminder_id: int, payload: ReminderUpdate) -> 
     )
     _ensure_reminder_writable(ctx, existing)
     data = schema_to_update_dict(payload)
+    # S42-18（2026-11-23 二轮审计）：上面只校验了**原**关联对象的访问权，而
+    # ReminderUpdate 允许改 contract_id / case_id / case_log_id，于是任何能改自己
+    # 提醒的人都能把提醒改挂到他人案件/合同（水平越权写）。现在新绑定目标也过同一道
+    # 访问校验（未传的字段不在 data 里，仍由上面按旧关联对象判定）。
+    _ensure_target_access(
+        ctx,
+        contract_id=data.get("contract_id"),
+        case_id=data.get("case_id"),
+        case_log_id=data.get("case_log_id"),
+    )
     return _get_reminder_service().update_reminder(reminder_id, data)
 
 

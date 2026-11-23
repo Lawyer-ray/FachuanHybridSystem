@@ -28,7 +28,7 @@ class FirstUserSetupService:
         """执行全部初始化。
 
         同步部分在调用方的事务内执行；
-        异步部分通过 daemon 线程在后台完成。
+        异步部分在事务**提交后**由 daemon 线程在后台完成（见 _run_deferred_init）。
         """
         self._create_default_law_firm(admin_user)
         self._init_system_config()
@@ -82,12 +82,24 @@ class FirstUserSetupService:
     # ------------------------------------------------------------------
 
     def _run_deferred_init(self) -> None:
-        """启动后台线程执行非关键初始化任务。"""
-        thread = threading.Thread(target=_deferred_worker, daemon=True, name="first-user-setup")
-        thread.start()
+        """事务提交后再启动后台线程执行非关键初始化任务。
+
+        S39-08（2026-11-23 二轮审计）：原实现直接 `thread.start()`，而本方法总是在
+        调用方 `@transaction.atomic` 内被调用（`AuthService.register` /
+        `auto_register_superadmin`）——线程用另一条连接在父事务提交**之前**就读写
+        文书库表：注册事务一旦回滚，已独立提交的 deferred 初始化留下「半个初始化」，
+        并且与父事务争锁。现在挂到 `transaction.on_commit`，只在事务真正提交后才起线程。
+        """
+        transaction.on_commit(_start_deferred_thread)
 
 
 # ↓↓ 由 FirstUserSetupService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _start_deferred_thread() -> None:
+    """启动 deferred 初始化 daemon 线程（由 on_commit 回调调用）。"""
+    thread = threading.Thread(target=_deferred_worker, daemon=True, name="first-user-setup")
+    thread.start()
+
+
 def _deferred_worker() -> None:
     """后台线程：创建文书模板目录和默认模板（文件夹+文书+绑定+代理事项规则）。"""
     try:

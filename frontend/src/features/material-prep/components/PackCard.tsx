@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react'
+import { memo } from 'react'
 import { FileText } from 'lucide-react'
 import type { InboxMessage } from '../types'
 import { friendlyTime } from '@/lib/format'
@@ -62,7 +62,7 @@ export const PackCard = memo(function PackCard({
   // 而不是 `segs - kinds.length`：类型功能已移除，types 对新数据恒为空，
   // 那个减法会把所有已改名的段都算成「未归类」。
   const restUnclassified = Math.max(0, pack.segs - pack.named)
-  const shown = useMemo(() => Math.max(1, Math.min(pack.mats || 1, 3)), [pack.mats])
+  const shown = Math.max(1, Math.min(pack.mats || 1, 3))
 
   return (
     <article

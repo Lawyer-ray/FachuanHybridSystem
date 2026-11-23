@@ -110,6 +110,21 @@ class CaseLogQueryService:
 
 
 # ↓↓ 由 CaseLogQueryService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def warm_reminder_cache_for_cases(cases: list[Case]) -> None:
+    """把一批（已 prefetch logs 的）案件里所有日志的提醒批量预热。
+
+    S29-02（2026-11-23 二轮审计）：`get_case_queryset()` 没有 prefetch 提醒，案件
+    列表/详情序列化时每条日志的 reminders / reminder_type / reminder_time 各自发一次
+    `Reminder.objects.filter(case_log_id=...)`（200 案 × 每条日志一次 ≈ 上千次额外查询）。
+    现在序列化前用一次批量导出写进 `_cached_exported_reminders`，序列化期零查询；
+    仍走 service 的导出（按 due_at, id 升序并带 reminder_type_label），响应形状不变。
+    """
+    logs: list[CaseLog] = []
+    for case in cases:
+        logs.extend(case.logs.all())
+    warm_reminder_cache(logs)
+
+
 def warm_reminder_cache(objs: list[CaseLog]) -> None:
     """把批量提醒结果写入对象的 _cached_exported_reminders（幂等，零额外查询时跳过）。"""
     if not objs:

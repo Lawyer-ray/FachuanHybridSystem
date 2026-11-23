@@ -71,11 +71,15 @@ class DocumentParsingToolAdmin(admin.ModelAdmin):  # pragma: no cover
         file_path = Path(settings.MEDIA_ROOT) / saved_name
 
         # 创建任务记录
+        # S41-20（2026-11-23 二轮审计）：Admin 上传路径建记录时**不传 created_by** →
+        # 归属列为 NULL，而 `record_ownership_q` 对 NULL 行放行（为「加归属字段前的存量行」设计）
+        # → 该解析记录的 raw_text/结果对全所可见（横向越权）。这里补上创建者。
         task = DocumentParsingTask.objects.create(  # type: ignore[misc]
             file_name=uploaded_file.name,
             file_path=str(file_path),
             file_size=uploaded_file.size,
             status=DocumentParsingTask.Status.PROCESSING,
+            created_by=getattr(request, "user", None),
         )
 
         # 将解析提交为后台任务，避免阻塞 Admin 请求（云端后端可能耗时 300s+）

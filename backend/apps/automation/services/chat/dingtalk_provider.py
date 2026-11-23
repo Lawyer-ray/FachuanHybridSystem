@@ -17,6 +17,7 @@ API文档参考：
 - DINGTALK.TIMEOUT: API请求超时时间（可选，默认30秒）
 """
 
+import json
 import logging
 from typing import Any
 
@@ -217,7 +218,9 @@ class DingtalkProvider(DingtalkTokenMixin, DingtalkFileMixin, ChatProvider):  # 
                 "robotCode": agent_id,
                 "chatIds": [chat_id],
                 "msgKey": "sampleText",
-                "msgParam": f'{{"content":"{message_text}"}}',
+                # S35-01（2026-11-23 二轮审计）：原实现用 f-string 手拼 JSON，
+                # 标题里带引号/换行/反斜杠就产生非法 JSON → 钉钉群通知必失败。
+                "msgParam": json.dumps({"content": message_text}, ensure_ascii=False),
             }
 
             logger.debug("发送钉钉消息请求: chat_id=%s", chat_id)

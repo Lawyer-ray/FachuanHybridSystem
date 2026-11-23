@@ -37,6 +37,19 @@ def _normalize_version(version: str) -> str:
     return re.sub(r"^V", "", version, flags=re.IGNORECASE)
 
 
+_DOC_EXT_PATTERN = re.compile(r"\.(docx?|doc)$", flags=re.IGNORECASE)
+
+
+def strip_doc_extension(name: str) -> str:
+    """去掉名字里的 .doc / .docx 扩展名。
+
+    S48-48（2026-11-23 二轮审计）：渲染文件名用的 doc_type 与版本号探测的匹配模式必须是
+    同一口径。原实现只有合同份剥扩展名、补充协议份不剥，`agreement_name` 带 `.docx` 时
+    `find_max_doc_version` 永远匹配不上 → max_version 恒 0 → 永远 V1 → 同日重生成覆盖旧文件。
+    """
+    return _DOC_EXT_PATTERN.sub("", name or "")
+
+
 def find_max_doc_version(*, names: Iterable[str], doc_type: str, case_name: str, date_str: str) -> int:
     """在既有文件名列表中探测「doc_type（case_name）V数字_日期.docx」的最大版本号。
 
@@ -56,7 +69,7 @@ def find_max_doc_version(*, names: Iterable[str], doc_type: str, case_name: str,
 
 
 def contract_docx_filename(*, template_name: str, contract_name: str, version: str = "V1") -> str:
-    template_prefix = re.sub(r"\.(docx?|doc)$", "", template_name or "合同", flags=re.IGNORECASE)
+    template_prefix = strip_doc_extension(template_name) or "合同"
     contract_display = contract_name or "未命名合同"
     return (
         FilenameTemplateService.render_generated_doc(
@@ -70,7 +83,7 @@ def contract_docx_filename(*, template_name: str, contract_name: str, version: s
 
 
 def supplementary_agreement_docx_filename(*, agreement_name: str, contract_name: str, version: str = "V1") -> str:
-    agreement_display = agreement_name or "补充协议"
+    agreement_display = strip_doc_extension(agreement_name) or "补充协议"
     contract_display = contract_name or "未命名合同"
     return (
         FilenameTemplateService.render_generated_doc(

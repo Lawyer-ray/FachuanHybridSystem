@@ -16,7 +16,13 @@ def get_fetcher(source_type: str) -> MessageFetcher:
     if source_type == SourceType.IMAP:
         return ImapFetcher()
 
-    if source_type == SourceType.MANUAL_UPLOAD:
+    # S42-01（2026-11-23 二轮审计）：原实现只给 MANUAL_UPLOAD 建了分支，客户链接上传
+    # （CLIENT_UPLOAD）落到最后的 `raise ValueError("未知来源类型")`，于是律师打开
+    # 「客户链接上传」产生的材料包、点任意附件预览/下载必 500。
+    # CLIENT_UPLOAD 与手动上传同构：附件已经由 `save_upload_files_as_metas` 落到本地
+    # media（`manual_upload_service.py`），`download_attachment` 只是按
+    # `attachments_meta[].local_path` 读回字节，没有任何 IMAP/网络拉取动作，故直接复用。
+    if source_type in (SourceType.MANUAL_UPLOAD, SourceType.CLIENT_UPLOAD):
         from apps.message_hub.services.manual_upload_service import ManualUploadFetcher
 
         return ManualUploadFetcher()

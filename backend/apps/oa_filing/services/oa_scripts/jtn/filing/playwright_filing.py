@@ -181,7 +181,9 @@ class PlaywrightFilingMixin:  # pragma: no cover
         await iframe.locator(f"xpath={_XPATH_SEARCH_BTN}").click()
         await asyncio.sleep(_AJAX_WAIT)
 
-        found = await self._try_select_client(page, iframe)
+        # S21-b-34（2026-11-23 二轮审计）：必须把 client 传下去，由 _try_select_client
+        # 按名称精确匹配结果行，而不是无差则取第一条
+        found = await self._try_select_client(page, iframe, client)
 
         if not found:
             logger.info("未找到客户 %s，进入创建流程", client.name)

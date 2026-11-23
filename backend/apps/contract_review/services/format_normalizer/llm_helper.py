@@ -13,6 +13,79 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+#: 一轮批量的段落数上限（再多 prompt 就长到容易超时/被截断）
+_BATCH_SIZE = 20
+
+#: 占位条目（LLM 少返 / 返回畸形）的置信度。必须 < 第二轮复审阈值 0.7，
+#: 让这个位置在 `analyze_document` 的第二轮被重新判一次，而不是当成正常结论落下去。
+_PLACEHOLDER_CONFIDENCE = 0.0
+
+
+def _placeholder(reason: str) -> dict[str, Any]:
+    """占位条目：层级按正文、置信度 0 强制进第二轮复审。"""
+    return {"level": 1, "prefix": "", "confidence": _PLACEHOLDER_CONFIDENCE, "reason": reason}
+
+
+def _coerce_int(value: Any) -> int | None:
+    """把 LLM 给的整数（int / float / 纯数字字符串）转成 int；转不动返回 None。"""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(float(value.strip()))
+        except ValueError:
+            return None
+    return None
+
+
+def _coerce_confidence(value: Any) -> float:
+    """置信度必须是数字才能和复审阈值比较；缺失/畸形一律按 0（= 需要复审）。"""
+    if isinstance(value, bool) or value is None:
+        return _PLACEHOLDER_CONFIDENCE
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return _PLACEHOLDER_CONFIDENCE
+
+
+def _normalize_item(item: Any) -> dict[str, Any]:
+    """把单个 LLM 条目规整成 ``{level:int, prefix:str, confidence:float, reason:str}``。
+
+    S27-10（2026-11-23 二轮审计）：原实现在 `_parse_response` 里只校验「外层是
+    list」，元素是字符串/数组、或 ``level`` 是字符串都原样交给下游——
+    ``r.get("confidence")`` 抛 AttributeError（宽 except 兜成整篇回落关键词规则）、
+    ``"400" if level < 2`` 抛 TypeError（整次规范化直接失败）。现在逐元素校验并转型。
+
+    形状不对时返回**占位条目而不是丢弃**：调用方按位置把结果对回段落，
+    少一个元素会让其后所有段落整体错位。
+    """
+    if not isinstance(item, dict):
+        return _placeholder("LLM返回元素不是对象")
+    level = _coerce_int(item.get("level"))
+    if level is None or not 0 <= level <= 2:
+        return _placeholder("LLM返回的level不可用")
+    prefix = item.get("prefix")
+    normalized: dict[str, Any] = {
+        "level": level,
+        "prefix": "" if prefix is None else str(prefix),
+        "confidence": _coerce_confidence(item.get("confidence")),
+        "reason": str(item.get("reason") or ""),
+    }
+    # index 只有第二轮（_refine_uncertain）按它回填，第一轮缺它不影响对位
+    index = _coerce_int(item.get("index"))
+    if index is not None:
+        normalized["index"] = index
+    return normalized
+
+
+def _normalize_items(items: list[Any]) -> list[dict[str, Any]]:
+    """逐个规整且**保持长度与顺序**（理由见 `_normalize_item` 的错位说明）。"""
+    return [_normalize_item(item) for item in items]
+
 
 class ContractStructureAnalyzer:  # pragma: no cover
     """合同结构分析器 - LLM 驱动"""
@@ -61,41 +134,82 @@ class ContractStructureAnalyzer:  # pragma: no cover
 
     def _analyze_batch(self, paragraphs: list[str]) -> list[dict[str, Any]]:  # pragma: no cover
         """一次性分析所有段落（LLM 失败时直接抛异常）"""
-        # 构建带编号的段落列表
-        numbered = []
-        for i, text in enumerate(paragraphs):
-            numbered.append(f"[{i}] {text}")
+        # 每段前面带 [i]：这是判定「哪条结果对应哪一段」的唯一依据
+        numbered = [f"[{i}] {text}" for i, text in enumerate(paragraphs)]
 
         # 分批处理（避免 prompt 过长导致超时）
-        batch_size = 20
+        # S27-09（2026-11-23 二轮审计）：原实现把每批结果按顺序盲拼、最后按总长度
+        # 补齐——只要某一批少返几条，其后所有段落整体前移（标题当正文、编号层级
+        # /缩进/加粗全篇串位），补齐又把缺的伪装成「正文」。现在逐批按 index 对位，
+        # 缺/错位的位置留占位并记 warning。
         all_results: list[dict[str, Any]] = []
 
-        for batch_start in range(0, len(paragraphs), batch_size):
-            batch = numbered[batch_start : batch_start + batch_size]
+        for batch_start in range(0, len(paragraphs), _BATCH_SIZE):
+            batch = numbered[batch_start : batch_start + _BATCH_SIZE]
             batch_results = self._call_llm(
                 "\n".join(batch),
                 round_num=1,
                 total_paragraphs=len(paragraphs),
             )
-            all_results.extend(batch_results)
+            all_results.extend(self._align_batch(batch_start, len(batch), batch_results))
 
-        # 补齐（如果 LLM 返回的数量不匹配）
-        while len(all_results) < len(paragraphs):
-            all_results.append({"level": 1, "prefix": "", "confidence": 0.3, "reason": "LLM未返回"})
+        return all_results
 
-        return all_results[: len(paragraphs)]
+    def _align_batch(
+        self, batch_start: int, batch_len: int, batch_results: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """把一批 LLM 结果按 ``index`` 对回该批的段落位置（绝对下标 = batch_start + 批内偏移）。
+
+        条目没带 index 时退化为「按返回顺序对应」——那正是 prompt 要求的作答顺序。
+        结果只影响本批：某一批少返几条，后面的批次仍从自己的 batch_start 起算，
+        不会像原来那样把错位传递到全篇。
+        """
+        aligned: list[dict[str, Any] | None] = [None] * batch_len
+        # 至少得有一条 index 落在本批窗口内，才敢按 index 对位：有的模型会对每批
+        # 重新从 0 编号，照 index 硬对会把整批判成越界、整批变成占位
+        by_index = any(
+            isinstance(item.get("index"), int) and 0 <= item["index"] - batch_start < batch_len
+            for item in batch_results
+        )
+        unusable = 0
+        for position, item in enumerate(batch_results):
+            absolute = item.get("index")
+            offset = absolute - batch_start if by_index and isinstance(absolute, int) else position
+            if 0 <= offset < batch_len and aligned[offset] is None:
+                aligned[offset] = item
+            else:
+                unusable += 1
+
+        missing = sum(1 for item in aligned if item is None)
+        if unusable or missing:
+            logger.warning(
+                "LLM 结构分析批次不齐：段落 [%d,%d) 返回 %d 条（按 index 对位=%s），错位/越界 %d 条，缺 %d 条"
+                "（缺的占位并进第二轮复审）",
+                batch_start,
+                batch_start + batch_len,
+                len(batch_results),
+                by_index,
+                unusable,
+                missing,
+            )
+        return [item if item is not None else _placeholder("LLM未返回该段落") for item in aligned]
 
     def _call_llm(  # pragma: no cover
         self, paragraphs_text: str, round_num: int = 1, total_paragraphs: int = 0
     ) -> list[dict[str, Any]]:
         """调用 LLM 分析段落"""
+        # 输入每段前缀 [i] 原样回填成 index：没有 index 就只能按返回顺序猜对位，
+        # 一旦某批少返几条，后面全部错位（S27-09）
         system_prompt = """你是合同文档格式分析专家。分析每个段落的层级和手动编号前缀。
 
 层级：0=一级标题(章节标题), 1=正文(条款内容), 2=子项(列表项)
 手动编号前缀：如"一、"、"（一）"、"1、"、"(1)"等，没有则返回""
 
+输入每一段前面都带一个 [编号]，请把该编号原样写进结果的 index 字段，
+且输入的每个编号都必须有一条结果，不许省略。
+
 严格按以下格式返回JSON数组，不要返回其他任何文字：
-[{"level":0,"prefix":"","confidence":0.9,"reason":"标题"}]"""
+[{"index":0,"level":0,"prefix":"","confidence":0.9,"reason":"标题"}]"""
 
         prompt = f"分析以下{total_paragraphs}个段落：\n\n{paragraphs_text}"
 
@@ -203,14 +317,19 @@ class ContractStructureAnalyzer:  # pragma: no cover
     # ── 响应解析 ─────────────────────────────────────────────
 
     def _parse_response(self, text: str) -> list[dict[str, Any]]:  # pragma: no cover
-        """解析 LLM 响应中的 JSON"""
+        """解析 LLM 响应中的 JSON。
+
+        S27-10（2026-11-23 二轮审计）：原实现只判「外层是 list」就原样返回，
+        元素类型/必填键一律不校验，非 dict 元素或字符串 level 会在下游炸掉。
+        现在每个出口都过一遍 `_normalize_items`。
+        """
         text = text.strip()
 
         # 尝试直接解析
         try:
             result = json.loads(text)
             if isinstance(result, list):
-                return result
+                return _normalize_items(result)
         except json.JSONDecodeError:
             pass
 
@@ -221,12 +340,12 @@ class ContractStructureAnalyzer:  # pragma: no cover
             try:
                 result = json.loads(text[start : end + 1])
                 if isinstance(result, list):
-                    return result
+                    return _normalize_items(result)
             except json.JSONDecodeError:
                 pass
 
         # 尝试逐行解析（某些 LLM 会返回每行一个 JSON）
-        results = []
+        results: list[Any] = []
         for line in text.split("\n"):
             line = line.strip()
             if line.startswith("{"):
@@ -236,7 +355,7 @@ class ContractStructureAnalyzer:  # pragma: no cover
                 except json.JSONDecodeError:
                     continue
         if results:
-            return results
+            return _normalize_items(results)
 
         logger.warning("LLM 响应解析失败: %s...", text[:200])
         return []

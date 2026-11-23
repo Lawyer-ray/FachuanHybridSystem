@@ -140,6 +140,15 @@ def execute_parse_document(
 
         pending = getattr(result, "pending_callback", None)
         if pending is not None:
+            # G18（2026-11-23 二轮审计）：回调靠 `metadata['callback_job_id']` 找回任务，
+            # 但 `bind_textin_job` 全仓零调用点 → 回调进来必 `task_not_found`，
+            # 任务永久停在 processing（进程内 PendingCallback 注册表跨 worker 不生效）。
+            # 这里补上落库绑定。
+            if callback_record_id and str(pending.provider).lower() == "textin":
+                from apps.document_parsing.services.callback_result_service import DocumentParsingCallbackResultService
+
+                DocumentParsingCallbackResultService().bind_textin_job(int(callback_record_id), str(pending.job_id))
+                logger.info("Textin 回调任务已绑定: record=%s job=%s", callback_record_id, pending.job_id)
             # 回调路径：worker 这里只负责把云端任务提交出去。不能回 success=True 的
             # 正常结果——hook 会把它当终态写成 completed（正文为空），回调再来就
             # 被幂等逻辑当成重复推送而丢弃。

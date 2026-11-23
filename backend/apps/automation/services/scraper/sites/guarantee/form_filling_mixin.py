@@ -247,10 +247,16 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
         candidates = [str(c).strip() for c in (cause_candidates or []) if str(c).strip()]
         if cause_name.strip() and cause_name.strip() not in candidates:
             candidates.insert(0, cause_name.strip())
-        if "买卖合同纠纷" not in candidates:
-            candidates.append("买卖合同纠纷")
 
-        search_terms = candidates[:3] if candidates else ["买卖合同纠纷"]
+        # S31-12（2026-11-23 二轮审计）：原实现把「买卖合同纠纷」硬编码成兜底案由，
+        # 真实案由对不上法院案由树时，第 6 次重试会把与本案件无关的「买卖合同纠纷」
+        # 点进法院表单（案由是保全必要性审查的基础字段）。现在不再注入兜底值：
+        # 匹配不到就返回 False，走本方法早已存在的「court_guarantee_cause_not_stable」失败路径。
+        if not candidates:
+            logger.warning("court_guarantee_cause_missing", extra={"cause_name": cause_name})
+            return False
+
+        search_terms = candidates[:3]
         for attempt in range(6):
             term = search_terms[attempt % len(search_terms)]
             reopened = self._reopen_and_search_dropdown_input(

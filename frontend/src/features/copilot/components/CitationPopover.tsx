@@ -24,7 +24,7 @@ import { Link } from 'react-router'
 
 import { bankLitigation, projectDetail } from '@/app/paths'
 
-import { pageSpanNote, type CitationKind, type CitationRef } from '../domain/knowledge'
+import { pageSpanNote, type CitationKind, type CitationRef } from '../domain'
 
 /** 卡片宽度：够放两行来源名 + 三行原文，又不至于在小栏里横着溢出 */
 const PANEL_WIDTH = 320

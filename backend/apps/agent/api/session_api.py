@@ -341,6 +341,16 @@ async def compact_session_context(request: Any, session_id: str) -> CompactOut: 
     session = await get_session_record(session_id=session_id, user_id=_user_id(request))
     if session is None:
         raise HttpError(404, "会话不存在")
+
+    # F1（2026-11-23 二轮审计）：压缩会起一个 pi 进程续写**同一份 session 文件**；
+    # 若该会话正在跑一轮对话，就变成两个进程同一 `--session-dir/--session-id` 互相覆盖
+    # → 会话损坏（`live_sessions.py` 自己就在注释里禁止这件事）。这里直接 409，
+    # 让前端提示「等当前回答结束再压缩」。
+    from ..services.live_sessions import get_live_registry
+
+    if await get_live_registry().is_live(session_id):
+        raise HttpError(409, "当前会话正在回答中，请等本轮结束后再压缩上下文")
+
     # 懒加载：测试经 compact_service 模块属性打桩 compact_session，
     # 顶层具名导入会在 import 时绑死真实函数，使桩静默失效。
     from ..services.compact_service import CompactBusyError, CompactNotNeededError, compact_session

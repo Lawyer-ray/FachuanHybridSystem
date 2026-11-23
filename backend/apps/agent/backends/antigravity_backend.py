@@ -107,6 +107,7 @@ from .antigravity_gateway import get_loopback_gateway
 from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, StreamFrame
 from .dsh_config import without_proxy_env
 from .gateway_cache import get_gateway_settings, resolve_gateway_target
+from .result_store import BoundedResultStore
 from .toolface import (
     SERVER_NAME,
     SESSION_HEADER,
@@ -557,7 +558,7 @@ class AntigravityBackend:
 
     def __init__(self) -> None:
         self.capabilities = backend_capabilities()
-        self._results = {}
+        self._results = BoundedResultStore()
 
     def result_for(self, run_id: str) -> AntigravityRunResult | None:
         """取某一轮的收尾事实；未跑过 / 本轮异常时为 ``None``。"""

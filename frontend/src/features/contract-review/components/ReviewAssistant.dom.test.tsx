@@ -4,6 +4,7 @@
  *
  * 右栏是「选中原文 → 指令 → 预览 → 插入」四段式的唯一落地处，契约：
  * - 无选区时明确说「只答不改」，点发送只提示不调接口；
+ * - 底部输入框两态都可打字（以前有选区时能聚焦、有光标却打不出字）；
  * - 有选区但指令空 → 提示填指令，不发请求；
  * - 生成改法调 suggestDirectEdit（归属用 contract_id=0，因为只调 LLM 不碰文件）；
  * - 采纳调 applyTaskEdit（归属用 task_id），applied=false 不当异常、只提示重框；
@@ -214,18 +215,52 @@ describe('ReviewAssistant', () => {
     await waitFor(() => expect(suggestDirectEdit).toHaveBeenCalledTimes(1))
   })
 
-  it('选区存在时点底部发送走 suggest；无选区时按 Enter 只提示不改文档', () => {
+  it('选区存在时点底部发送走 suggest', () => {
     render(<ReviewAssistant taskId="t1" selection={SEL} onApplied={vi.fn()} />)
     fireEvent.change(screen.getByPlaceholderText('例如：按泰国法审查这一条，我方是承租方'), { target: { value: '改一下' } })
     fireEvent.click(screen.getByLabelText('发送'))
     expect(suggestDirectEdit).toHaveBeenCalledTimes(1)
   })
 
-  it('无选区时底部输入框按 Enter 只提示，不发请求', () => {
-    render(<ReviewAssistant taskId="t1" selection="" onApplied={vi.fn()} />)
-    const bottomInput = screen.getByPlaceholderText('无选区时只能提问，不会改文档')
+  it('有选区时底部输入框能打字：与上方指令框共用同一个 instruction', () => {
+    // 旧实现 value={selection ? '' : instruction} + onChange 直接 return：能聚焦、有光标、
+    // 却打不出一个字。现在两处是同一份状态，一处写一处立刻看得到。
+    render(<ReviewAssistant taskId="t1" selection={SEL} onApplied={vi.fn()} />)
+    const bottomInput = screen.getByPlaceholderText('选中原文后下指令；无选区则直接提问') as HTMLInputElement
+    expect(bottomInput.disabled).toBe(false)
+
+    fireEvent.change(bottomInput, { target: { value: '付款节点改到开票后 30 天' } })
+
+    expect(bottomInput.value).toBe('付款节点改到开票后 30 天')
+    expect((screen.getByPlaceholderText('例如：按泰国法审查这一条，我方是承租方') as HTMLTextAreaElement).value).toBe(
+      '付款节点改到开票后 30 天',
+    )
+  })
+
+  it('有选区时底部输入框按 Enter 与发送键同义：真走 suggest，不弹「无选区」提示', async () => {
+    suggestDirectEdit.mockResolvedValue({ candidates: [], context_before: '', context_after: '' })
+    render(<ReviewAssistant taskId="t1" selection={SEL} onApplied={vi.fn()} />)
+    const bottomInput = screen.getByPlaceholderText('选中原文后下指令；无选区则直接提问')
+
+    fireEvent.change(bottomInput, { target: { value: '付款节点改到开票后 30 天' } })
     fireEvent.keyDown(bottomInput, { key: 'Enter' })
-    expect(toast.info).toHaveBeenCalled()
+
+    await waitFor(() => expect(suggestDirectEdit).toHaveBeenCalledTimes(1))
+    expect(suggestDirectEdit).toHaveBeenCalledWith(
+      expect.objectContaining({ selection: SEL, instruction: '付款节点改到开票后 30 天' }),
+    )
+    expect(toast.info).not.toHaveBeenCalled()
+  })
+
+  it('无选区时底部输入框能打字，Enter 仍只提示不改文档', () => {
+    render(<ReviewAssistant taskId="t1" selection="" onApplied={vi.fn()} />)
+    const bottomInput = screen.getByPlaceholderText('无选区时只能提问，不会改文档') as HTMLInputElement
+
+    fireEvent.change(bottomInput, { target: { value: '这份合同整体风险如何？' } })
+    expect(bottomInput.value).toBe('这份合同整体风险如何？')
+
+    fireEvent.keyDown(bottomInput, { key: 'Enter' })
+    expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('当前只支持'))
     expect(suggestDirectEdit).not.toHaveBeenCalled()
   })
 })

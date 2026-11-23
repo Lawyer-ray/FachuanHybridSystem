@@ -57,12 +57,24 @@ class WeChatWorkTokenMixin:  # pragma: no cover
                 message=f"无法加载企业微信配置: {e!s}", platform="wechat_work", errors={"original_error": str(e)}
             ) from e
 
-    def is_available(self) -> bool:  # pragma: no cover
-        """检查平台是否可用（至少需要 corp_id + agent_id + secret + default_owner_id）"""
+    def is_available_for_messaging(self) -> bool:  # pragma: no cover
+        """检查能否收发消息（corp_id + agent_id + secret）
+
+        S35-03（2026-11-23 二轮审计）：原实现的平台可用性判定把建群专用的
+        DEFAULT_OWNER_ID 也算进必需项，于是「没配默认群主」的部署连发消息/发文件/
+        查群信息都被拒，报错还指向已配好的三项。现在消息类操作只看这三项，
+        群主需求留给 create_chat（它有自己的 ChatCreationException）。
+        """
         for config_key in ["CORP_ID", "AGENT_ID", "SECRET"]:
             if not self.config.get(config_key):
                 logger.debug("企业微信配置缺失: %s", config_key)
                 return False
+        return True
+
+    def is_available(self) -> bool:  # pragma: no cover
+        """检查平台是否可用（消息三项 + default_owner_id：建群必须有群主）"""
+        if not self.is_available_for_messaging():
+            return False
         if not self.config.get("DEFAULT_OWNER_ID"):
             logger.debug("企业微信配置缺失: DEFAULT_OWNER_ID（建群必须指定群主）")
             return False

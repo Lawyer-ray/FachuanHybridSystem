@@ -15,32 +15,26 @@
  *
  * 本文件只留外壳（queries / mutations / 策展入口）；待确认区、新增表单、分组列表
  * 分别在 `memory/` 下，类型名等常量在 `memory/labels.ts`。
+ *
+ * 拆分记录：已生效记忆的分组列表在 `ActiveMemoryList`，策展入口提示在 `CuratePrompt`，
+ * 三个写入动作在 `use-memory-mutations`。
  */
 
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Brain } from 'lucide-react'
 
-import {
-  confirmMemories,
-  createMemory,
-  fetchMemoryScopes,
-  forgetMemory,
-  listMemories,
-} from '../../memory-api'
-import type { MemoryKind, MemoryScope } from '../../types'
-import { Button } from '@/components/ui/button'
+import { fetchMemoryScopes, listMemories } from '../../memory-api'
+import type { MemoryKind } from '../../types'
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { ActiveMemoryList } from './ActiveMemoryList'
+import { CuratePrompt } from './CuratePrompt'
 import { MemoryComposer } from './MemoryComposer'
-import { MemoryGroup } from './MemoryGroup'
 import { MemoryPromoteDialog } from './MemoryPromoteDialog'
 import { PendingMemorySection } from './PendingMemorySection'
-
-/** 已生效记忆的分组顺序：自己的 → 团队 → 律所（越往后越"别人的") */
-const ACTIVE_SCOPES: MemoryScope[] = ['lawyer', 'team', 'law_firm']
+import { useMemoryMutations } from './use-memory-mutations'
 
 export function MemoryDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const queryClient = useQueryClient()
   const [draft, setDraft] = useState('')
   const [draftKind, setDraftKind] = useState<MemoryKind>('preference')
   const [promoteOpen, setPromoteOpen] = useState(false)
@@ -59,32 +53,13 @@ export function MemoryDrawer({ open, onOpenChange }: { open: boolean; onOpenChan
     staleTime: 300_000,
   })
 
-  const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ['copilot', 'memory'] })
-  }
-
-  const createMutation = useMutation({
-    mutationFn: (payload: { content: string; kind: MemoryKind }) => createMemory(payload.content, payload.kind),
-    onSuccess: () => {
-      setDraft('')
-      invalidate()
-    },
-  })
-
-  const forgetMutation = useMutation({
-    mutationFn: (id: string) => forgetMemory(id),
-    onSuccess: invalidate,
-  })
-
-  const confirmMutation = useMutation({
-    mutationFn: (payload: { ids: string[]; accept: boolean }) => confirmMemories(payload.ids, payload.accept),
-    onSuccess: invalidate,
+  const { createMutation, forgetMutation, confirmMutation, invalidate } = useMemoryMutations({
+    onCreated: () => setDraft(''),
   })
 
   const all = memoriesQuery.data ?? []
   const pending = all.filter((m) => m.status === 'pending')
   const active = all.filter((m) => m.status === 'active')
-  const byScope = (scope: MemoryScope) => active.filter((m) => m.scope === scope)
 
   const canCurate =
     (scopesQuery.data?.law_firm.can_curate ?? false) || (scopesQuery.data?.teams.some((t) => t.can_curate) ?? false)
@@ -122,37 +97,14 @@ export function MemoryDrawer({ open, onOpenChange }: { open: boolean; onOpenChan
           />
 
           {/* 已生效：按作用域分组 */}
-          {ACTIVE_SCOPES.map((scope) => {
-            const items = byScope(scope)
-            // 团队/律所层为空且无可策展权限时不占位
-            if (items.length === 0 && scope !== 'lawyer') return null
-            return (
-              <MemoryGroup
-                key={scope}
-                scope={scope}
-                items={items}
-                loading={memoriesQuery.isLoading}
-                onForget={(id) => forgetMutation.mutate(id)}
-                forgetting={forgetMutation.isPending}
-              />
-            )
-          })}
+          <ActiveMemoryList
+            active={active}
+            loading={memoriesQuery.isLoading}
+            onForget={(id) => forgetMutation.mutate(id)}
+            forgetting={forgetMutation.isPending}
+          />
 
-          {canCurate && (
-            <div className="mt-5 rounded-[10px] border border-border bg-secondary/30 px-3 py-2.5">
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
-                你是本团队/律所的管理员，可以把成员的高频记忆提炼为团队级惯例（需改写脱敏，不会原样共享）。
-              </p>
-              <Button
-                size="sm"
-                variant="secondary"
-                className="mt-2 h-7 px-2.5 text-[11px]"
-                onClick={() => setPromoteOpen(true)}
-              >
-                提炼为团队惯例
-              </Button>
-            </div>
-          )}
+          {canCurate && <CuratePrompt onOpen={() => setPromoteOpen(true)} />}
 
           {memoriesQuery.isError && (
             <p className="mt-4 text-[12px] text-destructive">加载失败：{memoriesQuery.error.message}</p>

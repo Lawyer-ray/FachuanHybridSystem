@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildLoginMethodGroups, PASSWORD_METHOD_ID } from './login-methods'
-import type { SocialProviderInfo } from './social-api'
+import type { SocialProviderInfo } from './types'
 
 function provider(over: Partial<SocialProviderInfo>): SocialProviderInfo {
   return {

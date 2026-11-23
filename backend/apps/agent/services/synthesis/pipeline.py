@@ -238,9 +238,16 @@ def format_review(review: Review) -> str:
         line = (lane.one_line or "").strip()
         lines.append(f"- {lane.lane}{score}" + (f"｜{line}" if line else ""))
     for cluster in review.clusters:
-        lanes_in = "、".join(getattr(cluster, "lanes", []) or [])
-        if lanes_in:
-            lines.append(f"立场相同：{lanes_in}")
+        # F3（2026-11-23 二轮审计）：原写法 `getattr(cluster, "lanes", [])` 读的是一个
+        # **不存在**的字段（EquivalenceCluster 只有 member_ids/representative_id/tie），
+        # 于是「立场相同」那一行永远不输出且不报错——多答裁决最关键的可见信息静默消失。
+        members = "、".join(cluster.member_ids)
+        if not members:
+            continue
+        if cluster.tie:
+            lines.append(f"立场相同：{members}（无法判定代表，各说各的）")
+        else:
+            lines.append(f"立场相同：{members}")
     if review.unverified:
         lines.append("本轮评审提到但没核到的引用：" + "；".join(review.unverified))
     return "\n".join(lines)

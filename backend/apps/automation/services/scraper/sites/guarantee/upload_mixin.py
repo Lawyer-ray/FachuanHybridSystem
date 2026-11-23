@@ -110,10 +110,21 @@ def _pick_identity_files_from_map(
             if lawyer_name and lawyer_name in lw_name:
                 matched_lawyer = lw
                 break
-        if not matched_lawyer and lawyers:
+        if not matched_lawyer and lawyers and not lawyer_name:
+            # S31-13（2026-11-23 二轮审计）：标签里**带了律师姓名但没匹配上**时，
+            # 原实现会回落 `lawyers[0]` —— 把**别人的律师证/所函/授权委托书**传进法院表单
+            # （他人证件 + 无关材料上传到法院系统，既错又涉个人信息）。
+            # 现在只有「标签本身没写姓名」时才允许单律师回退；写了姓名但匹配不上就空手，
+            # 由上层按「缺材料」处理（比传错人安全）。
             matched_lawyer = lawyers[0]
 
         if not matched_lawyer:
+            if lawyer_name:
+                logger.warning(
+                    "担保上传：标签指定了律师但材料里找不到该律师，已跳过该槽位: label=%s lawyer=%s",
+                    label_text,
+                    lawyer_name,
+                )
             return []
         result = _paths_for(matched_lawyer, "律师证")
         result.extend(_paths_for(matched_lawyer, "所函", "授权委托书", "授权委托", "委托材料"))

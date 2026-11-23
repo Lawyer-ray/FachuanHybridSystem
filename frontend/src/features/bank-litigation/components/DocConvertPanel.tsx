@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Download, FileUp, Loader2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -48,7 +48,18 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
   const types = useTypeList()
   const kase = useCase(caseId)
   // 按案由自动匹配文书类型，律师可改。猜错不致命 —— 下拉框里永远能改。
+  // useCase 是异步的：首帧 data 必为 null，所以初始化器只能拿到兜底值；
+  // 真正的按案由匹配在下面 effect 里做一次，等 data 到了再选。
   const [mbid, setMbid] = useState(() => suggestMbid(kase.data?.cause_of_action))
+  /** 律师是否亲手选过文书类型：选过之后 data 刷新不再覆盖他的选择 */
+  const mbidPickedRef = useRef(false)
+  const causeOfAction = kase.data?.cause_of_action
+  useEffect(() => {
+    if (mbidPickedRef.current || causeOfAction == null) return
+    const suggestion = suggestMbid(causeOfAction)
+    // 推断不出（空串）时保留当前值，不把下拉框清空
+    if (suggestion) setMbid(suggestion)
+  }, [causeOfAction])
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   /** 转换记录条数（由 HistoryBlock 回传，顶部统计格用） */
@@ -159,7 +170,10 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
               <InsetBlock className="mt-1.5">
                 <select
                   value={mbid}
-                  onChange={(e) => setMbid(e.target.value)}
+                  onChange={(e) => {
+                    mbidPickedRef.current = true
+                    setMbid(e.target.value)
+                  }}
                   aria-label="文书类型"
                   className="w-full bg-transparent text-[12.5px] outline-none"
                 >

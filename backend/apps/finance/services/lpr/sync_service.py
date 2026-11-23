@@ -57,7 +57,7 @@ class LPRSyncService:
 
         try:
             lpr_data_list = self._fetch_with_playwright()
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError) as e:
             logger.error("[LPRSync] Fetch failed: %s", e)
             raise BusinessException(message=f"获取LPR数据失败: {e}", code="LPR_SYNC_FAILED")
 
@@ -141,12 +141,18 @@ class LPRSyncService:
             return None
         rate_5y = self._parse_rate(rate_5y_text)
         if rate_5y is None:
+            # S36-04（2026-11-23 二轮审计）：原实现在此把 1 年期利率当作 5 年期写入库
+            # （`rate_5y or rate_1y`，只留一条 warning），会以 is_auto_synced=True 的身份
+            # 落库成「合法利率」，与真值无法区分；5 年期以上贷款（房贷）计息随之偏低。
+            # 现在与 rate_1y 解析失败同口径：整行跳过，不入库。
             logger.warning(
-                "[LPRSync] 5年期利率解析失败，使用1年期利率替代: date=%s, rate_1y=%s",
+                "[LPRSync] 5年期利率解析失败，整行跳过: date=%s, rate_1y=%s, rate_5y_text=%s",
                 date_text,
                 rate_1y,
+                rate_5y_text,
             )
-        return LPRData(effective_date=effective_date, rate_1y=rate_1y, rate_5y=rate_5y or rate_1y)
+            return None
+        return LPRData(effective_date=effective_date, rate_1y=rate_1y, rate_5y=rate_5y)
 
     def _parse_date(self, date_text: str) -> date | None:
         """解析日期文本.
@@ -210,9 +216,15 @@ class LPRSyncService:
         updated_count = 0
         skipped_count = 0
 
-        with transaction.atomic():
-            for data in lpr_data_list:
-                try:
+        # S36-05（2026-11-23 二轮审计）：原实现用一个外层 `transaction.atomic()` 罩住整个循环，
+        # 循环内的宽捕获吞掉单行 DatabaseError。Django 的 update_or_create 内部用的是
+        # `atomic(savepoint=False)`，异常会直接把外层事务标成 needs_rollback；后续每行都只会
+        # 撞上 TransactionManagementError 被计入 skipped，最后外层 __exit__ 把已经写进去的行
+        # 全部回滚 —— 而返回的字典仍报 created/updated = N（sync_latest → sync_if_needed 还会
+        # 回报 synced=True）。现在每行一个独立事务：一行失败只回滚自己，计数与实际落库一致。
+        for data in lpr_data_list:
+            try:
+                with transaction.atomic():
                     obj, created = LPRRate.objects.update_or_create(
                         effective_date=data.effective_date,
                         defaults={
@@ -222,15 +234,15 @@ class LPRSyncService:
                             "is_auto_synced": True,
                         },
                     )
-                    if created:
-                        created_count += 1
-                        logger.info("[LPRSync] Created LPR record: %s", data.effective_date)
-                    else:
-                        updated_count += 1
-                        logger.info("[LPRSync] Updated LPR record: %s", data.effective_date)
-                except Exception as e:
-                    skipped_count += 1
-                    logger.warning("[LPRSync] Failed to save LPR data for %s: %s", data.effective_date, e)
+                if created:
+                    created_count += 1
+                    logger.info("[LPRSync] Created LPR record: %s", data.effective_date)
+                else:
+                    updated_count += 1
+                    logger.info("[LPRSync] Updated LPR record: %s", data.effective_date)
+            except Exception as e:
+                skipped_count += 1
+                logger.warning("[LPRSync] Failed to save LPR data for %s: %s", data.effective_date, e)
 
         result = {
             "created": created_count,
@@ -238,6 +250,8 @@ class LPRSyncService:
             "skipped": skipped_count,
             "total": len(lpr_data_list),
         }
+        if skipped_count:
+            logger.warning("[LPRSync] %s/%s 条 LPR 记录写入失败", skipped_count, len(lpr_data_list))
 
         logger.info("[LPRSync] Sync completed: %s", result)
         # 快照缓存失效：见 rate_service.get_rates_snapshot

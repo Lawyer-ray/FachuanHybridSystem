@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react'
 import { materialPrepDetail } from '@/app/paths'
 import { useNavigate, useParams } from 'react-router'
-import { useMaterialPacks } from '../hooks/use-inbox'
+import { useMaterialPacks } from '../hooks/use-material-packs'
 import { useReader } from '../store'
 import { isPackStage, stageToQuery } from '../stages'
 import { useDeskKeyboard } from '../hooks/use-desk-keyboard'

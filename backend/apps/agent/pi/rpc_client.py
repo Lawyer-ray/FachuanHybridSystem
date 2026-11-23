@@ -22,6 +22,7 @@ import logging
 import os
 import shutil
 import tempfile
+from collections import deque
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -273,7 +274,10 @@ class PiRpcSession:
         self._reader_task: asyncio.Task[None] | None = None
         self._stderr_task: asyncio.Task[None] | None = None
         self._events: asyncio.Queue[PiEvent | None] = asyncio.Queue()
-        self._pending: dict[str, asyncio.Future[dict[str, Any]]] = {}
+        # 双索引：pi 的 response 只回显 `command`（不回 id），两种键都要能命中。
+        # 同命令并发必须 FIFO 取首个未完成者，否则后者覆盖前者、先到者白等到超时（F4）。
+        self._pending_by_id: dict[str, asyncio.Future[dict[str, Any]]] = {}
+        self._pending_by_command: dict[str, deque[asyncio.Future[dict[str, Any]]]] = {}
         self._next_id = 0
         #: 本进程已开始的模型轮次数（pi 的 ``turn_start`` 事件计数）。pi 没有
         #: max-turns 开关，轮数上限由调用方据此判定并 ``abort``（见 ``pi_backend``）。
@@ -384,10 +388,11 @@ class PiRpcSession:
                 await proc.wait()
         finally:
             self._events.put_nowait(None)
-            for fut in self._pending.values():
+            for fut in list(self._pending_by_id.values()):
                 if not fut.done():
                     fut.set_exception(PiError("pi 进程已关闭"))
-            self._pending.clear()
+            self._pending_by_id.clear()
+            self._pending_by_command.clear()
 
     async def __aenter__(self) -> PiRpcSession:
         await self.start()
@@ -482,11 +487,11 @@ class PiRpcSession:
             # 按 id 匹配会永远落空 → prompt() 等到超时，前端表现为「(无内容)」。
             # 优先按 id 匹配，退化按 command 匹配。
             cmd_id = record.get("id")
-            fut = self._pending.pop(str(cmd_id), None) if cmd_id is not None else None
+            fut = self._pending_by_id.pop(str(cmd_id), None) if cmd_id is not None else None
             if fut is None:
                 command = record.get("command")
                 if command is not None:
-                    fut = self._pending.pop(str(command), None)
+                    fut = self._pop_next_for_command(str(command))
             if fut is not None and not fut.done():
                 fut.set_result(record)
             else:
@@ -503,6 +508,25 @@ class PiRpcSession:
 
     # ── 命令 ────────────────────────────────────────────────────────────────
 
+    def _pop_next_for_command(self, command: str) -> asyncio.Future[dict[str, Any]] | None:
+        """按 command 取**首个未完成**的 future（FIFO），并把它的 id 索引一并清掉。"""
+        queue = self._pending_by_command.get(command)
+        if not queue:
+            return None
+        while queue:
+            fut = queue.popleft()
+            if fut.done():
+                continue
+            for cmd_id, candidate in list(self._pending_by_id.items()):
+                if candidate is fut:
+                    self._pending_by_id.pop(cmd_id, None)
+                    break
+            if not queue:
+                self._pending_by_command.pop(command, None)
+            return fut
+        self._pending_by_command.pop(command, None)
+        return None
+
     async def _send(self, payload: dict[str, Any], *, timeout: float | None = None) -> dict[str, Any]:
         """发一条 RPC 命令并等响应。
 
@@ -516,20 +540,25 @@ class PiRpcSession:
         cmd_id = str(self._next_id)
         payload["id"] = cmd_id
         fut: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
-        self._pending[cmd_id] = fut
-        # pi 的 response 只回 command，不回 id；同时用 command 做键，两边都能匹配
+        self._pending_by_id[cmd_id] = fut
+        # pi 的 response 只回 command，不回 id；command 键用 FIFO 队列，支持同命令并发
         command = payload.get("type")
         if isinstance(command, str):
-            self._pending[command] = fut
+            self._pending_by_command.setdefault(command, deque()).append(fut)
         proc.stdin.write(json.dumps(payload, ensure_ascii=False).encode("utf-8") + b"\n")
         await proc.stdin.drain()
         effective_timeout = self._command_timeout if timeout is None else timeout
         try:
             return await asyncio.wait_for(fut, timeout=effective_timeout)
         finally:
-            self._pending.pop(cmd_id, None)
+            self._pending_by_id.pop(cmd_id, None)
             if isinstance(command, str):
-                self._pending.pop(command, None)
+                queue = self._pending_by_command.get(command)
+                if queue is not None:
+                    with contextlib.suppress(ValueError):
+                        queue.remove(fut)
+                    if not queue:
+                        self._pending_by_command.pop(command, None)
 
     async def prompt(self, message: str) -> None:
         """发送一条 prompt。返回只代表「已接受」，不代表跑完。"""

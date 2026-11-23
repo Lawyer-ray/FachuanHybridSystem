@@ -18,6 +18,111 @@ from docx.oxml.ns import qn
 logger = logging.getLogger(__name__)
 
 
+#: OOXML 规定 `w:pPr` / `w:rPr` 的子元素**顺序**（Word 会按 schema 校验，顺序错会被忽略甚至判损坏）。
+#: S27-08（2026-11-23 二轮审计）：原实现一律 `append`，编号（`w:numPr`）落到 `w:spacing`/`w:ind`
+#: 之后、加粗（`w:b`）落到字号（`w:sz`/`w:szCs`）之后 —— 都是反序，Word 侧表现为「格式没生效」。
+_PPR_ORDER = (
+    "pStyle",
+    "keepNext",
+    "keepLines",
+    "pageBreakBefore",
+    "framePr",
+    "widowControl",
+    "numPr",
+    "suppressLineNumbers",
+    "pBdr",
+    "shd",
+    "tabs",
+    "suppressAutoHyphens",
+    "kinsoku",
+    "wordWrap",
+    "overflowPunct",
+    "topLinePunct",
+    "autoSpaceDE",
+    "autoSpaceDN",
+    "bidi",
+    "adjustRightInd",
+    "snapToGrid",
+    "spacing",
+    "ind",
+    "contextualSpacing",
+    "mirrorIndents",
+    "suppressOverlap",
+    "jc",
+    "textDirection",
+    "textAlignment",
+    "textboxTightWrap",
+    "outlineLvl",
+    "divId",
+    "cnfStyle",
+    "rPr",
+    "sectPr",
+    "pPrChange",
+)
+_RPR_ORDER = (
+    "rStyle",
+    "rFonts",
+    "b",
+    "bCs",
+    "i",
+    "iCs",
+    "caps",
+    "smallCaps",
+    "strike",
+    "dstrike",
+    "outline",
+    "shadow",
+    "emboss",
+    "imprint",
+    "noProof",
+    "snapToGrid",
+    "vanish",
+    "webHidden",
+    "color",
+    "spacing",
+    "w",
+    "kern",
+    "position",
+    "sz",
+    "szCs",
+    "highlight",
+    "u",
+    "effect",
+    "bdr",
+    "shd",
+    "fitText",
+    "vertAlign",
+    "rtl",
+    "cs",
+    "em",
+    "lang",
+    "eastAsianLayout",
+    "specVanish",
+    "oMath",
+)
+
+
+def _append_in_schema_order(parent: Any, element: Any) -> None:
+    """按 OOXML schema 顺序把 `element` 插到 `parent` 中（顺序表见 `_PPR_ORDER` / `_RPR_ORDER`）。"""
+    tag = element.tag.split("}")[-1]
+    order = _PPR_ORDER if parent.tag.endswith("}pPr") else _RPR_ORDER
+    try:
+        rank = order.index(tag)
+    except ValueError:  # 未登记的元素保持原行为
+        parent.append(element)
+        return
+    for pos, child in enumerate(list(parent)):
+        child_tag = child.tag.split("}")[-1]
+        try:
+            child_rank = order.index(child_tag)
+        except ValueError:
+            continue
+        if child_rank > rank:
+            parent.insert(pos, element)
+            return
+    parent.append(element)
+
+
 class DocxFormatNormalizer:  # pragma: no cover
     """合同格式规范化器 - LLM 驱动"""
 
@@ -127,8 +232,8 @@ class DocxFormatNormalizer:  # pragma: no cover
         # 2. 编号定义
         self._copy_numbering_from_reference()
 
-        # 3. 页眉页脚
-        self._copy_header_footer()
+        # 3. 页眉页脚（返回失败项数，失败必须冒到日志顶层，见 S27-13）
+        header_footer_failed = self._copy_header_footer()
 
         # 4. 获取参考文档的格式模板
         ref_body = self._get_ref_format("body")
@@ -141,7 +246,17 @@ class DocxFormatNormalizer:  # pragma: no cover
                 continue
             self._apply_reference_format(para, i, ref_body, ref_h0, ref_num_id)
 
-        logger.debug("参考文档格式复制完成")
+        if header_footer_failed:
+            # S27-13（2026-11-23 二轮审计）：原实现把页眉/页脚的复制失败降级成
+            # debug 日志（生产环境看不到），normalize() 继续 save()、任务照样标
+            # 「已完成」—— 产物静默丢掉律所抬头/页码，而这是用户最直接能看出的
+            # 交付缺陷。现在失败一律 warning，并在这里汇总一次。
+            logger.warning(
+                "参考文档格式已套用，但有 %d 处页眉/页脚复制失败（产物可能缺抬头/页码）",
+                header_footer_failed,
+            )
+        else:
+            logger.debug("参考文档格式复制完成")
 
     def _get_ref_format(self, role: str) -> dict[str, Any]:  # pragma: no cover
         """从参考文档提取指定角色的格式模板"""
@@ -219,7 +334,7 @@ class DocxFormatNormalizer:  # pragma: no cover
         spacing.set(qn("w:lineRule"), "auto")
         spacing.set(qn("w:before"), "0")
         spacing.set(qn("w:after"), "0")
-        pPr.append(spacing)
+        _append_in_schema_order(pPr, spacing)
 
         # 获取层级（LLM 优先，fallback 到规则）
         level = self._get_level(para, index)
@@ -228,7 +343,7 @@ class DocxFormatNormalizer:  # pragma: no cover
         ind = OxmlElement("w:ind")
         ind.set(qn("w:left"), "0")
         ind.set(qn("w:firstLine"), "400" if level < 2 else "402")
-        pPr.append(ind)
+        _append_in_schema_order(pPr, ind)
 
         # 编号
         numPr = OxmlElement("w:numPr")
@@ -238,7 +353,7 @@ class DocxFormatNormalizer:  # pragma: no cover
         numId_el = OxmlElement("w:numId")
         numId_el.set(qn("w:val"), num_id)
         numPr.append(numId_el)
-        pPr.append(numPr)
+        _append_in_schema_order(pPr, numPr)
 
         # 剥离手动编号（LLM 返回的 prefix 或 fallback 规则）
         self._strip_prefix(para, index)
@@ -276,11 +391,11 @@ class DocxFormatNormalizer:  # pragma: no cover
             if "sz" in ref_fmt:
                 sz = OxmlElement("w:sz")
                 sz.set(qn("w:val"), ref_fmt["sz"])
-                rPr.append(sz)
+                _append_in_schema_order(rPr, sz)
             if "szCs" in ref_fmt:
                 szCs = OxmlElement("w:szCs")
                 szCs.set(qn("w:val"), ref_fmt["szCs"])
-                rPr.append(szCs)
+                _append_in_schema_order(rPr, szCs)
 
             # 加粗
             if override_bold or ref_fmt.get("bold"):
@@ -519,10 +634,11 @@ class DocxFormatNormalizer:  # pragma: no cover
 
     # ── 页眉页脚 ─────────────────────────────────────────────
 
-    def _copy_header_footer(self) -> None:  # pragma: no cover
-        """从参考文档复制页眉页脚（含页码域代码）"""
+    def _copy_header_footer(self) -> int:  # pragma: no cover
+        """从参考文档复制页眉页脚（含页码域代码）。返回失败项数（0 = 全部成功）"""
         assert self.ref_doc is not None and self.doc is not None
 
+        header_footer_failed = 0
         for ref_sec, doc_sec in zip(self.ref_doc.sections, self.doc.sections):
             # ── 页眉 ──
             try:
@@ -542,7 +658,9 @@ class DocxFormatNormalizer:  # pragma: no cover
                             new_p.append(etree.fromstring(etree.tostring(ref_run._element)))
                         doc_header._element.append(new_p)
             except Exception as e:
-                logger.debug("页眉复制跳过: %s", e)
+                # S27-13：失败不能只写 debug——页眉丢了就是交付缺陷，必须 warning
+                header_footer_failed += 1
+                logger.warning("页眉复制失败（该节页眉未套用参考文档格式）: %s", e)
 
             # ── 页脚 ──
             try:
@@ -566,7 +684,11 @@ class DocxFormatNormalizer:  # pragma: no cover
                         self._clear_footer(doc_footer)
                         logger.debug("页脚：已清空")
             except Exception as e:
-                logger.debug("页脚复制跳过: %s", e)
+                # S27-13：同页眉，失败必须 warning
+                header_footer_failed += 1
+                logger.warning("页脚复制失败（该节页脚未套用参考文档格式）: %s", e)
+
+        return header_footer_failed
 
     def _clear_footer(self, footer: Any) -> None:  # pragma: no cover
         """清空页脚内容"""
@@ -596,7 +718,7 @@ class DocxFormatNormalizer:  # pragma: no cover
             pPr = OxmlElement("w:pPr")
             jc = OxmlElement("w:jc")
             jc.set(qn("w:val"), "center")
-            pPr.append(jc)
+            _append_in_schema_order(pPr, jc)
             para.append(pPr)
 
         def _make_rPr() -> Any:  # pragma: no cover
@@ -696,7 +818,7 @@ class DocxFormatNormalizer:  # pragma: no cover
             spacing.set(qn("w:lineRule"), "auto")
             spacing.set(qn("w:before"), "0")
             spacing.set(qn("w:after"), "0")
-            pPr.append(spacing)
+            _append_in_schema_order(pPr, spacing)
 
             # 层级
             level = self._get_level(para, i)
@@ -705,7 +827,7 @@ class DocxFormatNormalizer:  # pragma: no cover
             ind = OxmlElement("w:ind")
             ind.set(qn("w:left"), "0")
             ind.set(qn("w:firstLine"), "400" if level < 2 else "402")
-            pPr.append(ind)
+            _append_in_schema_order(pPr, ind)
 
             # 编号
             numPr = OxmlElement("w:numPr")
@@ -715,7 +837,7 @@ class DocxFormatNormalizer:  # pragma: no cover
             numId_el = OxmlElement("w:numId")
             numId_el.set(qn("w:val"), num_id)
             numPr.append(numId_el)
-            pPr.append(numPr)
+            _append_in_schema_order(pPr, numPr)
 
             # 剥离前缀
             self._strip_prefix(para, i)
@@ -736,10 +858,10 @@ class DocxFormatNormalizer:  # pragma: no cover
 
                 sz = OxmlElement("w:sz")
                 sz.set(qn("w:val"), "24")
-                rPr.append(sz)
+                _append_in_schema_order(rPr, sz)
                 szCs = OxmlElement("w:szCs")
                 szCs.set(qn("w:val"), "24")
-                rPr.append(szCs)
+                _append_in_schema_order(rPr, szCs)
 
                 if level == 0:
                     if rPr.find(qn("w:b")) is None:
@@ -802,13 +924,13 @@ class DocxFormatNormalizer:  # pragma: no cover
             ind = OxmlElement("w:ind")
             ind.set(qn("w:left"), "0")
             ind.set(qn("w:firstLine"), first_line)
-            pPr.append(ind)
+            _append_in_schema_order(pPr, ind)
             lvl.append(pPr)
 
             rPr = OxmlElement("w:rPr")
             rFonts = OxmlElement("w:rFonts")
             rFonts.set(qn("w:hint"), "eastAsia")
-            rPr.append(rFonts)
+            _append_in_schema_order(rPr, rFonts)
             lvl.append(rPr)
 
             abstractNum.append(lvl)

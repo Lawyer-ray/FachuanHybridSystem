@@ -23,17 +23,25 @@ def _safe_save_task(task: ScraperTask) -> None:  # pragma: no cover
     """
     安全地保存任务状态
 
+    S31-05（2026-11-23 二轮审计）：原实现先 ``connection.close()`` 再 save。若 execute()
+    被包在 transaction.atomic() 里（pytest-django 的 django_db、或将来 admin/usecase 包事务），
+    atomic 块内 close() 会置 needs_rollback，随后的 save() 抛 TransactionManagementError，
+    而这里正好把它吞成 warning → 任务终态（status/result/finished_at）静默不落库。
+    现在改用 close_old_connections()：它在 atomic 块内不会真关连接，同时保留
+    「保存前确保连接可用」的原意；保存失败日志也从 warning 升到 error。
+
     Args:
         task: 爬虫任务对象
     """
     try:
-        from django.db import connection
+        from django.db import close_old_connections
 
         # 确保数据库连接是干净的（避免线程间共享连接的问题）
-        connection.close()
+        close_old_connections()
         task.save()
     except Exception as e:
-        logger.warning("保存任务状态时出错: %s", e, exc_info=True)
+        # 不抛出：调用点分别在 execute() 主流程开头与 finally 里，抛出去会顶掉原异常。
+        logger.exception("保存任务状态时出错（任务状态可能未落库）: task_id=%s, 错误: %s", task.pk, e)
 
 
 def is_playwright_available() -> bool:

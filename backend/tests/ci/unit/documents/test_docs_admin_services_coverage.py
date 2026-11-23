@@ -7,14 +7,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-try:
-    from plugins import has_message_hub_plugin
-
-    _HAS_MH = has_message_hub_plugin()
-except ImportError:
-    _HAS_MH = False
-
-pytestmark = pytest.mark.skipif(not _HAS_MH, reason="message_hub plugin not installed")
+# S01-12（2026-11-23 二轮审计）：原实现在模块级用
+# `has_message_hub_plugin()` 给整份文件上 `pytestmark = skipif(...)` → CI 无 plugins
+# 子模块时 11 个测试类全部停掉，而其中 10 个（documents/reminders/contracts/…）
+# 与 message_hub 无关。现在删掉探测与 pytestmark：本文件全部被测对象都在 core apps，
+# 包括末尾的 TestMessageHub（只 import `apps.message_hub`；plugins 里留的只是
+# 法院系统适配器，见 plugins/__init__.py:155-161）。
 
 
 # --- document_template_admin ---
@@ -151,9 +149,12 @@ class TestDocumentsAdmin:
 
 class TestPlaceholders:
     def test_archive_init(self):
-        from apps.documents.services.placeholders.archive import __init__ as archive_init
+        # S01-12（2026-11-23 二轮审计）：原实现为 `assert archive_init is not None or True`，
+        # 恒真且只验证模块可导入；现在断言归档占位符服务的注册名与关键占位符。
+        from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        assert archive_init is not None or True  # __init__.py may be empty
+        assert ArchivePlaceholderService.name == "archive_placeholder_service"
+        assert "结案归档材料" in ArchivePlaceholderService.placeholder_keys
 
 
 # --- reminder_admin ---

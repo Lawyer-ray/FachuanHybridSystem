@@ -19,6 +19,18 @@ export function appendTicket(url: string, ticket: string): string {
   return `${url}${sep}ticket=${encodeURIComponent(ticket)}`
 }
 
+/**
+ * URL 上是否带上了票据——即「换票是否成功」。
+ *
+ * 判据与 `withDownloadTicket` 的失败契约绑定：换票失败时它原样返回**不带**
+ * `?ticket=` 的 url，所以这里只认拼好的形态。收在这里是为了让 `ticket=`
+ * 这个字面量只有一处，调用方（document-recognition 的 media URL hook 等）
+ * 不各写一份 `includes('ticket=')` 而慢慢与 appendTicket 的拼法脱钩。
+ */
+export function hasTicket(url: string): boolean {
+  return url.includes('ticket=')
+}
+
 /** 移除 URL 上的票据参数（日志 / 展示用，避免票据进日志） */
 export function stripTicket(url: string): string {
   return url.replace(/([?&])ticket=[^&]*(&|$)/, (_m, lead: string, tail: string) => (tail ? lead : ''))

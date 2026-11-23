@@ -119,7 +119,15 @@ async def replay_sse_events(
     """P2-1 SSE 断线重连：回放 last_event_id 之后的事件。
 
     前端断线重连时先调此端点取缺失事件再续 SSE。Redis 不可用返回空。
+
+    S16-01（2026-11-23 二轮审计）：原实现直接 `replay_events(session_id, ...)`，
+    **没有任何行级校验** —— 任意登录用户拿到 session_id 就能读走他人会话的事件流
+    （含提问原文与工具入参）。与同文件其它端点对齐：一律先按 `user_id` 取会话，
+    取不到按 404 处理（不泄露会话是否存在）。
     """
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
     return replay_events(session_id, last_event_id)
 
 

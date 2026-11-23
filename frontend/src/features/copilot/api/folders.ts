@@ -9,17 +9,7 @@
 import { api } from '@/lib/api'
 
 import type { CopilotScope } from '../types'
-
-/** 合同绑定文件夹的某一层条目（目录树懒加载数据源，非递归） */
-export interface FolderEntries {
-  browsable: boolean
-  message: string | null
-  path_display: string
-  subpath: string
-  parent_subpath: string
-  folders: { name: string; subpath: string }[]
-  files: { name: string; subpath: string; size: number; modified_at: string }[]
-}
+import type { FolderEntries } from './folder-types'
 
 /**
  * 合同绑定文件夹某一层。`signal` 供 `@` 引用源的中断（查询词变了就 abort 上一轮）。
@@ -94,7 +84,8 @@ export function loadScopeFolderRows(scope: CopilotScope): Promise<ScopeFolderRow
   if (cached) return cached
   const pending = (async (): Promise<ScopeFolderRows> => {
     const root = await fetchScopeFolderEntries(scope)
-    if (!root.browsable) return { browsable: false, message: root.message, folders: [], files: [] }
+    // `message` 在生成物里可选；这里收成 `null` 保持下游 `string | null` 语义不变。
+    if (!root.browsable) return { browsable: false, message: root.message ?? null, folders: [], files: [] }
     const subdirs = root.folders.slice(0, SCOPE_SUBDIR_SCAN)
     const deeper = await Promise.allSettled(subdirs.map((folder) => fetchScopeFolderEntries(scope, folder.subpath)))
     const files = root.files.map(({ name, subpath, size }) => ({ name, subpath, size }))

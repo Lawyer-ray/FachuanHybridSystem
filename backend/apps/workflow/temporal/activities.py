@@ -64,15 +64,26 @@ async def record_step(
             "status": status,
             "output_data": output_data,
             "error_message": error_message or "",
-            "started_at": timezone.now() if status == StepExecution.Status.RUNNING else None,
+            # 历史坑（2026-11-23 二轮审计 G2）：原写法是
+            #   "started_at": now() if RUNNING else None
+            # 结果每次推进到 success/failed 都把开始时间抹成 None，`Meta.ordering=["started_at"]`
+            # 下步骤排序场塌；同时 `attempts` 只要 not created 就 +1（同状态重复上报也算一次尝试）。
             "finished_at": timezone.now()
             if status in (StepExecution.Status.SUCCESS, StepExecution.Status.FAILED)
             else None,
         },
     )
-    if not created:
-        step_exec.attempts = (step_exec.attempts or 0) + 1
-        await step_exec.asave(update_fields=["attempts"])
+    updates: list[str] = []
+    if status == StepExecution.Status.RUNNING:
+        # 只在「首次」或「非 running → running」时写开始时间，不覆盖已有值
+        if created or (not step_exec.started_at):
+            step_exec.started_at = timezone.now()
+            updates.append("started_at")
+        if not created:
+            step_exec.attempts = (step_exec.attempts or 0) + 1
+            updates.append("attempts")
+    if updates:
+        await step_exec.asave(update_fields=updates)
 
 
 @activity.defn
@@ -206,6 +217,13 @@ async def suggest_arrangement(summary: dict) -> list[dict]:
                 text = text[4:]
         return json.loads(text.strip())  # type: ignore[no-any-return]
     except (json.JSONDecodeError, IndexError):
+        # S47-27（2026-11-23 二轮审计）：原实现静默回退，事故不留痕。
+        # 兜底载荷维持原状（结果形状已被 tests/ci/unit/workflow/temporal/test_activities.py#TestSuggestArrangement
+        # 锁死，改值需先改测试），但至少把解析失败与模型输出片段记下来。
+        logger.warning(
+            "suggest_arrangement LLM 回复不是合法 JSON，回退为空排列建议: output=%r",
+            result[:200],
+        )
         return [{"id": 0, "name": "解析失败", "reason": result}]
 
 
@@ -382,6 +400,12 @@ async def review_complaint_quality(draft: dict, summary: dict) -> dict:
                 text = text[4:]
         return json.loads(text.strip())  # type: ignore[no-any-return]
     except (json.JSONDecodeError, IndexError):
+        # S47-27（2026-11-23 二轮审计）：同 suggest_arrangement，兜底值
+        # （score: 70）仍待改成「不伪造」，但解析失败必留 warning 底。
+        logger.warning(
+            "review_complaint_quality LLM 回复不是合法 JSON，回退为默认评分: output=%r",
+            result[:200],
+        )
         return {"score": 70, "issues": ["解析失败"], "suggestions": [result]}
 
 
@@ -768,5 +792,35 @@ async def execute_mcp_tool(mcp_tool_name: str, kwargs: dict) -> dict:
     if fn is None:
         raise ValueError(f"未知 MCP 工具: {mcp_tool_name}")
 
-    result = await asyncio.to_thread(fn, **kwargs)
+    # 按目标工具签名过滤 kwargs（2026-11-23 二轮审计 G5）：
+    # `workflows._build_mcp_kwargs` 无条件注入 `case_id`，而大量 MCP 工具（模板/流程管理类）
+    # 签名里根本没有 `case_id` → `fn(**kwargs)` 直接 TypeError，整个 run failed，
+    # 错误还被包成通用失败看不出原因。这里只丢多余键，并留痕。
+    accepted_kwargs = _filter_kwargs_by_signature(fn, kwargs)
+    result = await asyncio.to_thread(fn, **accepted_kwargs)
     return result if isinstance(result, dict) else {"data": result}
+
+
+def _filter_kwargs_by_signature(fn: Any, kwargs: dict) -> dict:
+    """只保留目标 callable 能接受的键（支持 **kwargs 时全部保留）。"""
+    import inspect
+
+    try:
+        signature = inspect.signature(fn)
+    except (TypeError, ValueError):  # 内置/装饰器不暴露签名时不做过滤
+        return kwargs
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in signature.parameters.values()):
+        return kwargs
+    allowed = {
+        name
+        for name, p in signature.parameters.items()
+        if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+    }
+    dropped = sorted(set(kwargs) - allowed)
+    if dropped:
+        logger.debug("execute_mcp_tool 丢弃工具不接受的入参 tool=%s dropped=%s", mcp_tool_name_for_logging(fn), dropped)
+    return {k: v for k, v in kwargs.items() if k in allowed}
+
+
+def mcp_tool_name_for_logging(fn: Any) -> str:
+    return str(getattr(fn, "__name__", fn))

@@ -29,7 +29,8 @@ vi.mock('sonner', () => {
   return { toast }
 })
 
-import { socialBindingsApi, type BoundAccount, type SocialProviderInfo } from './social-api'
+import { socialBindingsApi } from './social-api'
+import type { BoundAccount, SocialProviderInfo } from './types'
 import { toast } from 'sonner'
 
 import { BindingsPanel } from './BindingsPanel'

@@ -15,6 +15,7 @@ from typing import Any
 
 from PIL import Image
 
+from ..transform.angles import to_pil_angle
 from .confidence_filter import ConfidenceFilter
 from .preprocessor import ENHANCED_CONFIG, ImagePreprocessor, PreprocessConfig
 
@@ -113,16 +114,20 @@ class RenameOCRChannel:
             return None
 
     def _rotate_image(self, image_data: bytes, rotation: int) -> bytes:
-        """按指定角度旋转图片"""
-        if rotation == 0:
+        """按指定角度旋转图片
+
+        入参 rotation 用的是界面/ONNX 的**顺时针**语义（见 transform/angles.py 文件头）。
+        S27-19（2026-11-23 二轮审计）：原实现把这顺时针角直接喂给 `PIL.Image.rotate`
+        （正值 = 逆时针），90°/270° 因此反向旋转 → 识别文本方向错 → 日期/金额提取错；
+        且负角（ONNX 的 -90/-270）也从未归一。现在统一走 to_pil_angle 做唯一转换。
+        """
+        pil_angle = to_pil_angle(rotation)
+        if pil_angle == 0:
             return image_data
 
         img = Image.open(io.BytesIO(image_data))
         original_format = img.format or "PNG"
-
-        # PIL rotate() 正值 = 逆时针（与训练时 prepare_data.py 的 rotate(angle) 一致）
-        if rotation != 0:
-            img = img.rotate(rotation, expand=True)
+        img = img.rotate(pil_angle, expand=True)
 
         buf = io.BytesIO()
         save_format = original_format.upper()

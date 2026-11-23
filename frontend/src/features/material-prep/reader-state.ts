@@ -1,6 +1,7 @@
-import type { CloudEngine, CloudSelection } from './components/reader/platform-selection'
 import type {
   AssignInfo,
+  CloudEngine,
+  CloudSelection,
   DraftState,
   Inconsistency,
   InboxMessageDetail,
@@ -73,8 +74,14 @@ export interface ReaderState {
   close: () => void
   /** 全局重置（登出时调用）：清空阅读器全部状态并释放缓存，丢弃未落盘的防抖保存 */
   resetAll: () => void
-  /** 不可变更新 draft，并防抖保存到后端 */
-  update: (fn: (d: DraftState) => DraftState) => void
+  /**
+   * 不可变更新 draft，并保存到后端。
+   *
+   * `immediate` 跳过 450ms 防抖（打标 / 归案这类「一次点击定终身」的改动，
+   * 不能被防抖窗口拖后）。保存只在这里排一次：调用方再用返回的草稿补一次
+   * `scheduleSave` 会把计时器换掉，而第一次返回的 Promise 再也不会 settle。
+   */
+  update: (fn: (d: DraftState) => DraftState, immediate?: boolean) => void
   setPickInfo: (i: number) => void
   /** 删除信息字段（含取字态 pickInfo 下标同步校正） */
   removeInfo: (di: number) => void

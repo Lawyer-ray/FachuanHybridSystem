@@ -47,7 +47,11 @@ def get_category_configs(category: str) -> dict[str, Any]:
         result: dict[str, Any] = service.get_category_configs(category)
         return result
     except Exception as e:
-        logger.debug("从 SystemConfig 批量获取 %s 配置失败: %s", category, e)
+        # S38-10（2026-11-23 二轮审计）：原实现只在 debug 级留一行，DB 故障/表缺行
+        # 与「没配置」在调用方看来都是空配置（飞书/企微/钉钉/Telegram 集成因此
+        # 静默失效，运维只看到「未配置 app_id」）。→ 现在升到 warning 并带堆栈。
+        # 返回形状保持 {}：调用方在 apps/automation，改成 None/异常会破对外契约。
+        logger.warning("从 SystemConfig 批量获取 %s 配置失败: %s", category, e, exc_info=True)
         return {}
 
 
@@ -88,7 +92,9 @@ def get_system_config_value(key: str, default: Any | None = None) -> Any:
         service = SystemConfigService()
         return service.get_value(key, default=default if default is not None else "")
     except Exception as e:
-        logger.debug("从 SystemConfig 获取配置 %s 失败: %s", key, e)
+        # S38-10（2026-11-23 二轮审计）：同 get_category_configs —— debug 级日志让
+        # DB 故障退化成「配置缺失」，现在升到 warning 并带堆栈；返回值仍是 default。
+        logger.warning("从 SystemConfig 获取配置 %s 失败: %s", key, e, exc_info=True)
         return default
 
 

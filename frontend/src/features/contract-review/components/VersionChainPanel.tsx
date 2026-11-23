@@ -1,6 +1,7 @@
 import { GitBranch } from 'lucide-react'
 import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
-import { StatusBadge, type Tone } from '@/components/shared/status-badge'
+import { StatusBadge } from '@/components/shared/StatusBadge'
+import type { Tone } from '@/lib/tone'
 import type { DocumentVersion, VersionKind } from '../types'
 
 /**

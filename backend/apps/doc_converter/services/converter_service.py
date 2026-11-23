@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,8 @@ logger = logging.getLogger("apps.doc_converter")
 class DocConverterService:
     MAX_FILE_SIZE = LARGE_FILE_MAX_SIZE
     ALLOWED_EXTENSIONS = {".doc"}
+    # 剪贴板暂存目录名（固定目录覆盖写：file-url 是路径引用，粘贴方按路径读文件）
+    CLIPBOARD_DIR_NAME = "fachuan_clipboard"
 
     @transaction.atomic
     def create_job(
@@ -118,6 +121,61 @@ class DocConverterService:
         except DocConverterItem.DoesNotExist:
             raise NotFoundError(message="转换项不存在", code="DOC_CONVERTER_ITEM_NOT_FOUND", errors={}) from None
 
+    def delete_job(self, *, job_id: uuid.UUID, user: Any = None) -> None:  # pragma: no cover
+        """删除任务及其所有文件。
+
+        S03-01（2026-11-23 二轮审计）：原实现在 API 函数体内直接 `job.delete()`，
+        ORM 写落在接口层。现在收敛到服务；文件清理仍由 `signals.py` 的
+        post_delete 处理器在事务提交后完成。
+        """
+        job = self.get_job(job_id, user=user)
+        job.delete()
+
+    def stage_items_for_clipboard(
+        self,
+        *,
+        job_id: uuid.UUID,
+        item_ids: list[uuid.UUID],
+        user: Any = None,
+    ) -> list[Path]:  # pragma: no cover
+        """把已转换文件按「原名.docx」复制到剪贴板暂存目录，返回可落板的路径列表。
+
+        产物物理文件是 UUID 命名（下载端点靠响应头改名），而粘贴方读的是路径
+        basename，所以必须先按原文件名复制一份。
+
+        S03-01（2026-11-23 二轮审计）：原来属主校验、目录创建、批量
+        `shutil.copyfile` 全写在 API 函数体内，且 `shutil.copyfile` 无异常处理——
+        一个文件失败即整请求 500、已复制的半成品留在暂存目录，`converted_file.path`
+        还把接口层绑死在本地存储后端。现在：属主校验与文件 IO 全在本服务，
+        逐个文件读 FieldFile 写入（不依赖本地绝对路径），单个失败只记 warning 跳过。
+        """
+        self.get_job(job_id, user=user)
+
+        # file-url 是路径引用：粘贴方按路径读文件，临时副本不能删（用固定目录覆盖写，
+        # 量小、重启由系统清理；不用 TemporaryDirectory——出 with 即删会导致粘贴 404）
+        tmp = Path(tempfile.gettempdir()) / self.CLIPBOARD_DIR_NAME
+        tmp.mkdir(parents=True, exist_ok=True)
+
+        paths: list[Path] = []
+        for item_id in item_ids:
+            item = self.get_item(job_id=job_id, item_id=item_id)
+            if item.status != DocConverterJobStatus.COMPLETED or not item.converted_file:
+                continue
+            named = tmp / (Path(item.original_name).stem + ".docx")
+            try:
+                with item.converted_file.open("rb") as src, named.open("wb") as dst:
+                    shutil.copyfileobj(src, dst)
+            except OSError:
+                logger.warning(
+                    "剪贴板暂存复制失败（跳过该文件）: item=%s name=%s",
+                    item.id,
+                    item.original_name,
+                    exc_info=True,
+                )
+                continue
+            paths.append(named)
+        return paths
+
     def request_cancel(self, *, job_id: uuid.UUID, user: Any = None) -> DocConverterJob:  # pragma: no cover
         job = self.get_job(job_id, user=user)
         if job.status in {
@@ -135,8 +193,11 @@ class DocConverterService:
                 logger.exception("doc_converter_cancel_failed: job=%s task=%s", job.id, job.task_id)
 
         updates: dict[str, Any] = {"cancel_requested": True}
+        # S20-01（2026-11-23 二轮审计）：原来用「没在跑」当作「已取消」，但 Redis broker 下
+        # 排队中的任务既不在 OrmQ 里、也还没有 Task 行，于是「没在跑」= True 而任务照常执行。
+        # 现在只认 `dequeued`（= 确认出队成功或已结束），否则只置 `cancel_requested` 让业务侧协作取消。
         can_mark_cancelled = job.status == DocConverterJobStatus.PENDING and (
-            not job.task_id or bool(cancel_result.get("queue_deleted")) or not bool(cancel_result.get("running"))
+            not job.task_id or bool(cancel_result.get("dequeued"))
         )
         if can_mark_cancelled:
             updates.update(status=DocConverterJobStatus.CANCELLED, finished_at=timezone.now())

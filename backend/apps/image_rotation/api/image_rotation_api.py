@@ -7,6 +7,7 @@ import base64
 import json
 import logging
 import time
+import weakref
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -27,8 +28,25 @@ router = Router(tags=["图片旋转"], auth=JWTOrSessionAuth())
 _ALLOWED_IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"})
 _MAX_UPLOAD_SIZE = 20 * 1024 * 1024  # 20MB
 
-# Module-level semaphore to limit concurrent image processing threads
-_IMAGE_SEM = asyncio.Semaphore(8)
+# 并发上限（每进程）：uvicorn 四 worker 时总配额是 4×8，不是全局 8
+_IMAGE_MAX_CONCURRENCY = 8
+# S27-16（2026-11-23 二轮审计）：原实现是模块级 `_IMAGE_SEM = asyncio.Semaphore(8)`，
+# 首个事件循环上争夺后即绑定该 loop——pytest-asyncio（每用例一个新 loop）或
+# `asyncio.run()` 驱动的调用会报 "... is bound to a different event loop"（500）。
+# 现在按当前事件循环惰性取一份信号量（每 loop 一个），语义不变。
+_IMAGE_SEM_BY_LOOP: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore] = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def _image_sem() -> asyncio.Semaphore:
+    """取当前事件循环对应的图片处理信号量（每 loop 一份，详见上方 S27-16）。"""
+    loop = asyncio.get_running_loop()
+    sem = _IMAGE_SEM_BY_LOOP.get(loop)
+    if sem is None:
+        sem = asyncio.Semaphore(_IMAGE_MAX_CONCURRENCY)
+        _IMAGE_SEM_BY_LOOP[loop] = sem
+    return sem
 
 
 def _validate_image_file(file_obj: UploadedFile) -> None:
@@ -139,7 +157,7 @@ async def detect_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma:
     total_start = time.perf_counter()
 
     async def _process_image(img: dict[str, Any]) -> dict[str, Any]:
-        async with _IMAGE_SEM:
+        async with _image_sem():
             try:
                 image_bytes = _decode_image_data(img.get("data", ""))
                 t0 = time.perf_counter()
@@ -192,7 +210,7 @@ async def extract_text(request: HttpRequest) -> dict[str, Any]:  # pragma: no co
         ocr = ServiceLocator.get_ocr_service()
 
     async def _extract_one(img: dict[str, Any]) -> dict[str, Any]:
-        async with _IMAGE_SEM:
+        async with _image_sem():
             try:
                 image_bytes = _decode_image_data(img.get("data", ""))
                 # thread_sensitive=False：外层 Semaphore(8)+gather 的并发才有意义；

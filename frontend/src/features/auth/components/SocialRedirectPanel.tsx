@@ -5,35 +5,21 @@
  * 授权后由后端 302 回 /social-callback。绑定页一个面板只放一个 Provider，
  * 自带操作指引；登录页多 Provider 堆叠走 SocialRedirectGroup。
  */
-import { useState } from 'react'
-
-import { errMessage } from '@/lib/errors'
-import type { SocialProviderInfo, SocialSession } from '../social-api'
-import { socialAuthApi } from '../social-api'
+import { useSocialRedirect, type CreateSession } from '../hooks/use-social-redirect'
 import { spacedBrand } from '../social-format'
+import type { SocialProviderInfo } from '../types'
 import { BRAND_MARKS } from './brand-marks'
 
 interface Props {
   provider: SocialProviderInfo
   /** 授权会话来源：登录页用默认（登录 session），绑定页传 bind-session */
-  createSession?: (provider: string) => Promise<SocialSession>
+  createSession?: CreateSession
 }
 
 export function SocialRedirectPanel({ provider, createSession }: Props) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  const start = async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const session = await (createSession ?? socialAuthApi.createSession)(provider.name)
-      window.location.href = session.goto
-    } catch (err) {
-      setLoading(false)
-      setError(errMessage(err, '该登录方式暂不可用，请稍后再试'))
-    }
-  }
+  const { pendingName, error, start } = useSocialRedirect(createSession)
+  // 单 Provider 面板：pending 只看「有人在跳转」，名字不必细分
+  const loading = pendingName !== ''
 
   // 从模块级常量表取值（不是 render 里新建组件），引用稳定，不会触发重挂载
   const Mark = BRAND_MARKS[provider.name]
@@ -44,7 +30,7 @@ export function SocialRedirectPanel({ provider, createSession }: Props) {
         type="button"
         className={`fc-btn${Mark ? ' fc-btn--brand' : ''}`}
         disabled={loading}
-        onClick={() => void start()}
+        onClick={() => void start(provider.name)}
       >
         {loading ? (
           '正在跳转…'

@@ -257,7 +257,15 @@ class EvidenceAdminService:
         return updated, page_count, error_msg
 
     def recount_pages(self, list_id: int) -> dict[str, Any]:  # pragma: no cover
-        """重新识别证据清单中所有 PDF 文件的页数"""
+        """重新识别证据清单中所有 PDF 文件的页数，并按新页数重排页码区间
+
+        S37-06（2026-11-23 二轮审计）：原实现只把新的 ``page_count`` 写回明细、
+        只改 ``EvidenceList.total_pages``，既不重算明细的 ``page_start``/``page_end``，
+        也不顺移后续清单 → 清单/目录页码与本清单合并后 PDF 的实际页码错位。
+        现在重识别后走与合并链路（``EvidenceMergeUseCase.merge``）同一套页码重算：
+        先 ``calculate_page_ranges`` 重排本清单，再 ``update_subsequent_lists_pages``
+        顺移 order 更大的后续清单；返回的 ``total_pages`` 改为重算后的权威值。
+        """
         from apps.evidence.models import EvidenceList
 
         evidence_list = EvidenceList.objects.prefetch_related("items").get(pk=list_id)
@@ -265,17 +273,15 @@ class EvidenceAdminService:
 
         updated = 0
         errors: list[Any] = []
-        total_pages = 0
 
         for item in items:
-            item_updated, item_pages, item_error = self._recount_item_pages(item)
+            item_updated, _item_pages, item_error = self._recount_item_pages(item)
             updated += item_updated
-            total_pages += item_pages
             if item_error:
                 errors.append(item_error)
 
-        if evidence_list.total_pages != total_pages:
-            evidence_list.total_pages = total_pages
-            evidence_list.save(update_fields=["total_pages"])
+        self.evidence_service.calculate_page_ranges(list_id)
+        self.evidence_service.update_subsequent_lists_pages(evidence_list.case_id, evidence_list.order + 1)
 
-        return {"updated": updated, "total_pages": total_pages, "errors": errors}
+        evidence_list.refresh_from_db()
+        return {"updated": updated, "total_pages": evidence_list.total_pages, "errors": errors}

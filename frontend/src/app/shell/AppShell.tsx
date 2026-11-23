@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { PageErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { CopilotPanelLazy, PanelBackdropLazy, preloadAllRoutes, preloadRoute, whenIdle } from '../preload'
+import { CopilotPanelLazy, preloadAllRoutes, preloadRoute, whenIdle } from '../preload'
 import { assistant, assistantSession, isAssistantPath } from '../paths'
 import { RouteFallback } from './route-fallback'
 import { useCopilotShell } from './use-copilot-shell'
@@ -60,7 +60,6 @@ export function AppShell() {
   const {
     copilotOpen,
     copilotMounted,
-    copilotBackdropEnabled,
     effectiveDocked,
     isXlUp,
     toggleCopilot,
@@ -89,11 +88,14 @@ export function AppShell() {
         searchOpen={searchOpen}
         onSearchOpenChange={setSearchOpen}
       />
-      {copilotBackdropEnabled && copilotPanelVisible && (
-        <Suspense fallback={null}>
-          <PanelBackdropLazy open={copilotOpen} onClose={toggleCopilot} />
-        </Suspense>
-      )}
+      {/*
+        AI 助手没有压暗遮罩（故此处不渲染 PanelBackdrop）：它是常驻侧边栏，
+        不是模态对话框。遮罩只会造成两个问题——点页面任何地方（包括右栏的
+        合同文件）先命中遮罩、触发 onClose 把刚打开的助手收回去；律师也看不到
+        被遮的合同内容，而那恰好是他要对照着改的对象。收起走面板自己的关闭
+        按钮与 ⌘J。曾经用「dock 或详情页豁免」去猜哪些页面不需要遮，但答案是
+        全都不需要。
+      */}
       {copilotPanelVisible && (
         <Suspense fallback={null}>
           <CopilotPanelLazy

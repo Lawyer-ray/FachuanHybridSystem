@@ -8,6 +8,7 @@ from typing import Any
 from django.db import transaction
 from django.db.models import QuerySet
 
+from apps.cases.domain.party_status import is_defendant_side, is_plaintiff_side
 from apps.cases.models import CaseParty
 from apps.cases.schemas.party_schemas import CasePartyUpdate
 from apps.core.config.business_config import business_config
@@ -95,20 +96,14 @@ class CasePartyMutationService:
         new_status_config = business_config.is_legal_status_valid_for_case_type(legal_status, None)
         if not new_status_config:
             return
-        # 获取新诉讼地位的标签用于日志
-        new_group = legal_status
-        opposing_groups = {
-            "plaintiff_side": "defendant_side",
-            "defendant_side": "plaintiff_side",
-            "appellant_side": "appellee_side",
-            "appellee_side": "appellant_side",
-            "applicant_side": "respondent_side",
-            "respondent_side": "applicant_side",
-            "criminal_defendant_side": "criminal_victim_side",
-            "criminal_victim_side": "criminal_defendant_side",
-        }
-        opposing_group = opposing_groups.get(new_group)
-        if not opposing_group:
+        # 阵营判定必须走唯一权威（`apps/cases/domain/party_status.py`）。
+        # 历史坑：本文件曾自建 `{"plaintiff_side": "defendant_side", ...}` 映射表，
+        # 键用的是并不存在的 `*_side` 值（`LegalStatus` 真值是 `plaintiff/defendant/...`），
+        # `get()` 恒 None → 整段冲突校验从未执行过。改回权威判定后中文历史值也一并覆盖。
+        new_is_plaintiff_side = is_plaintiff_side(legal_status)
+        new_is_defendant_side = is_defendant_side(legal_status)
+        new_criminal_role = _criminal_opposing_role(legal_status)
+        if not (new_is_plaintiff_side or new_is_defendant_side or new_criminal_role):
             return
         our_party_statuses = list(
             parties_qs.filter(client__is_our_client=True)
@@ -117,7 +112,10 @@ class CasePartyMutationService:
         )
         for existing_status, client_name in our_party_statuses:
             existing_in_opposing = (
-                existing_status in opposing_groups and opposing_groups.get(existing_status) == new_group
+                (new_is_plaintiff_side and is_defendant_side(existing_status))
+                or (new_is_defendant_side and is_plaintiff_side(existing_status))
+                # 刑事：被告人 ↔ 被害人 是对立阵营（`party_status` 的民事分侧不覆盖这一对）
+                or (bool(new_criminal_role) and str(existing_status or "").strip() == new_criminal_role)
             )
             if existing_in_opposing:
                 new_status_label = business_config.get_legal_status_label(legal_status)
@@ -274,3 +272,19 @@ class CasePartyMutationService:
             return True
         self.repo.create_party(case=case, client_id=client_id, legal_status=legal_status)
         return True
+
+
+#: 刑事案件的「对立阵营」：被告人 ↔ 被害人（含早期中文录入）。
+_CRIMINAL_OPPOSING: dict[str, str] = {
+    "criminal_defendant": "victim",
+    "victim": "criminal_defendant",
+    "刑事被告人": "victim",
+    "被告人": "victim",
+    "被害人": "criminal_defendant",
+    "victim_side": "criminal_defendant",
+}
+
+
+def _criminal_opposing_role(status: object) -> str | None:
+    """返回该刑事地位的对立角色（非刑事地位返回 None）。"""
+    return _CRIMINAL_OPPOSING.get(str(status or "").strip())

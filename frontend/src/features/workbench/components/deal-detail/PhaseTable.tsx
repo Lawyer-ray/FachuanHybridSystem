@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 
 import { cn } from '@/lib/utils'
+import { ROW_CLICK_DELAY_MS } from '../../constants'
 import { deliverableStateLabel, phaseMetaText, phaseStateLabel } from './special-phase-state'
 import {
   flattenTree,
@@ -128,8 +129,8 @@ function PhaseRows({
    * `if (closest('[data-rename]')) return` 把名字上的点击全放过去了，结果
    * **点是阶段名就不折叠**（律师直觉上一定会点名）。
    *
-   * 现在用 220ms 延时区分：单击→折叠；期间来了第二次 click（双击）→撤销折叠，
-   * 交给 dblclick 去进改名态。延迟阈值取系统双击间隔的常见值，短于它不显迟钝。
+   * 现在用 ROW_CLICK_DELAY_MS 延时区分：单击→折叠；期间来了第二次 click（双击）
+   * →撤销折叠，交给 dblclick 去进改名态。
    */
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onRowClick = (e: MouseEvent<HTMLTableRowElement>) => {
@@ -147,7 +148,7 @@ function PhaseRows({
     clickTimer.current = setTimeout(() => {
       clickTimer.current = null
       onToggle()
-    }, 220)
+    }, ROW_CLICK_DELAY_MS)
   }
   useEffect(
     () => () => {

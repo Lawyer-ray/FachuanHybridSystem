@@ -6,10 +6,8 @@ import type {
   BundleMat,
   DraftState,
   InboxMessageDetail,
-  PageKey,
-  Segment,
 } from '../types'
-import { nextSegId } from './seg-id'
+import { initialSegments } from './initial'
 
 /**
  * 附件 → 源素材解析（本目录唯一含副作用模块：PDF 需载入文档取页数）。
@@ -56,15 +54,6 @@ export async function resolveMats(msg: InboxMessageDetail): Promise<BundleMat[]>
 /** 附件展示名：优先自定义名，其次原始名（仅本模块使用） */
 function effectiveFileName(att: AttachmentMeta): string {
   return att.custom_filename?.trim() || att.original_filename || att.filename
-}
-
-/** 每个源素材默认一整段，覆盖其全部页 */
-export function initialSegments(mats: BundleMat[]): Segment[] {
-  return mats.map((m, mi) => {
-    const refs: PageKey[] = []
-    for (let p = 1; p <= m.pages; p++) refs.push({ mi, p })
-    return { id: nextSegId(), t: '', fn: m.n, refs, manual: false }
-  })
 }
 
 /** 初始草稿：每个附件一段，右栏默认只记委托人 + 对方当事人 */

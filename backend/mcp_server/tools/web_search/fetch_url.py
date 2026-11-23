@@ -283,6 +283,10 @@ _REDIRECT_PATTERNS = (
 )
 
 
+#: 真正的 meta refresh 标记：`<meta http-equiv="refresh" content="0;url=...">`
+_META_REFRESH_RE = re.compile(r"""<meta[^>]+http-equiv\s*=\s*["']?refresh""", re.IGNORECASE)
+
+
 #: 搜狗自家的域名。命中即意味着「没解析出原文地址」——详见
 #: ``fetch_url`` 里的 ``unresolved_redirect`` 分支。
 _SOGOU_HOST_RE = re.compile(r"(^|\.)sogou\.com$", re.IGNORECASE)
@@ -292,15 +296,28 @@ def _is_sogou_host(host: str | None) -> bool:
     return bool(host) and _SOGOU_HOST_RE.search(host or "") is not None
 
 
-def _resolve_sogou_redirect(html: str) -> str | None:
+def _resolve_sogou_redirect(html: str, *, page_url: str = "") -> str | None:
     """从搜狗跳转页里抽出真实目标 URL；不是跳转页则返回 None。
 
     抽出的串必须是完整 http(s) 地址——搜狗 /link 跳转页一律绝对地址,
     不满足的一律当 JS 噪声丢弃(相对地址在旧实现里会因无 hostname 被
     fail-closed 误报 blocked_target,不如在源头就不认)。
+
+    S02-02（2026-11-23 二轮审计）：原实现对**任意网页**生效 —— 普通文章页里只要出现
+    一次 ``http-equiv`` 与一个 ``URL=``（模板/编辑器/统计脚本里极常见），就会被误判成
+    「跳转页」，静默把另一份文档当成结果返回（``ok=true`` 但内容是错的）。
+    现在加两道前置：①带 ``page_url`` 时先要求 host 是搜狗；②``http-equiv`` 分支要求页面
+    确实含 ``<meta ... http-equiv="refresh"``。
     """
+    if page_url:
+        host = urlparse(page_url).hostname or ""
+        if not _SOGOU_HOST_RE.search(host):
+            return None
+    looks_like_meta_refresh = _META_REFRESH_RE.search(html) is not None
     for marker, pattern in _REDIRECT_PATTERNS:
         if marker not in html:
+            continue
+        if marker == "http-equiv" and not looks_like_meta_refresh:
             continue
         match = pattern.search(html)
         if match and match.group(1).startswith(("http://", "https://")):
@@ -644,7 +661,12 @@ def _meta_title(html: str) -> str:
         return soup.title.string.strip()
     for attr, key in _TITLE_META_KEYS:
         tag = soup.find("meta", attrs={attr: key})
-        content = (tag.get("content") or "").strip() if tag is not None else ""
+        # `tag.get("content")` 在 bs4 类型上可能是 str、list（多值属性）或 None；
+        # 旧代码直接 `.strip()`，多值时会 AttributeError（也是 mypy 唯一存量 error）。
+        raw_content = tag.get("content") if tag is not None else None
+        if isinstance(raw_content, list):
+            raw_content = " ".join(str(item) for item in raw_content)
+        content = str(raw_content or "").strip()
         if content:
             return content
     match = _MSG_TITLE_RE.search(html)
@@ -890,7 +912,7 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
             html = _decode_body(data, charset)
 
             # 搜狗跳转页：抽真实地址再抓一次（真实地址同样过 SSRF 检查）
-            real_url = _resolve_sogou_redirect(html)
+            real_url = _resolve_sogou_redirect(html, page_url=current)
             if real_url and real_url != current:
                 resolved_real_target = True
                 if _host_is_internal(urlparse(real_url).hostname or ""):

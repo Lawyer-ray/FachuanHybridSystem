@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 
-import { findSuspects, type MdSuspect } from '../../draft/md-suspects'
-import { locateKeyOf } from '../../draft/block-keys'
+import { findSuspects, locateKeyOf, type MdSuspect } from '../../draft'
 import type { Segment } from '../../types'
 import { cn } from '@/lib/utils'
 

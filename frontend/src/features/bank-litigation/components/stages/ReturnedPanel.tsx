@@ -143,7 +143,10 @@ export function ReturnedPanel() {
         }}
       />
 
+      {/* 归案向导常驻挂载，key 取当前邮件：换一封就是换实例，上一封搜过的案件、
+          选中的候选与槽位都不会跟过来（否则「确认归案」会拿上一封的选择提交） */}
       <AssignDrawer
+        key={assignSubject ?? 'none'}
         subject={assignSubject}
         onClose={() => setAssignSubject(null)}
         assign={assignManual}

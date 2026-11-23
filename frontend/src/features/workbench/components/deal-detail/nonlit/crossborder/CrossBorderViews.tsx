@@ -7,7 +7,7 @@
  * 点清单会联动高亮正文与法条；原文卡是**真文件**，只看不改，不参与联动。
  */
 
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 
 import { DEMO_NL2_REVIEW_PROGRESS, DEMO_TH_CONTRACT_REVISIONS } from '../../demo-nonlit'
 import { Card } from '../../ui'
@@ -50,8 +50,6 @@ export function CrossBorderViews({ lawVerified }: { lawVerified: boolean }) {
   const [tabId, setTabId] = useState('all')
   const [decided, setDecided] = useState<Record<string, 'accept' | 'reject'>>({})
 
-  const pick = useCallback((id: string) => setPicked(id), [])
-
   return (
     <>
       <div className="mt-[18px]">
@@ -61,10 +59,10 @@ export function CrossBorderViews({ lawVerified }: { lawVerified: boolean }) {
         <ContractOfficeCard />
       </div>
       <div className="mt-[18px]">
-        <BilingualContractCard focusRev={picked} onPickRev={pick} />
+        <BilingualContractCard focusRev={picked} onPickRev={setPicked} />
       </div>
       <div className="mt-[18px]">
-        <LawGateCard active={lawVerified} onPickRev={pick} />
+        <LawGateCard active={lawVerified} onPickRev={setPicked} />
       </div>
       <div className="mt-[18px]">
         <RevisionBoard tabId={tabId} onPickTab={setTabId} picked={picked} onPick={setPicked} />
@@ -74,7 +72,7 @@ export function CrossBorderViews({ lawVerified }: { lawVerified: boolean }) {
           decided={decided}
           onDecide={(id, verdict) => setDecided((v) => ({ ...v, [id]: verdict }))}
           onReset={() => setDecided({})}
-          onPickRev={pick}
+          onPickRev={setPicked}
         />
       </div>
     </>

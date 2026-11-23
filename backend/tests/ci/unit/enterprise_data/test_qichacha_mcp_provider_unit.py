@@ -149,23 +149,31 @@ class TestGetCompanyProfile:
 
 class TestRiskMethods:
     def test_risk_type_routes_tool(self, provider):
+        """G6（2026-11-23 二轮审计）：风险类别是**中文四值**，对应工具列表在
+        `_RISK_TYPE_TOOLS` 里；一个类别会打多个工具并合并结果。"""
         payload = {"风险信息": [{"title": "失信记录"}]}
         call_tool = _stub_client(provider, "risk", _transport_result(payload))
 
-        response = provider.get_company_risks(company_id="id-3", risk_type="executed")
+        response = provider.get_company_risks(company_id="id-3", risk_type="自身风险")
 
-        assert call_tool.call_args.kwargs == {
-            "tool_name": "get_judgment_debtor_info",
-            "arguments": {"searchKey": "id-3"},
-        }
-        assert response.data["risk_type"] == "executed"
-        assert response.data["items"][0]["title"] == "失信记录"
-        assert response.data["items"][0]["risk_type"] == "executed"
+        called_tools = [c.kwargs["tool_name"] for c in call_tool.call_args_list]
+        assert called_tools == ["get_dishonest_info", "get_judgment_debtor_info", "get_administrative_penalty"]
+        assert call_tool.call_args_list[0].kwargs["arguments"] == {"searchKey": "id-3"}
+        assert response.data["risk_type"] == "自身风险"
+        assert response.tool == "get_dishonest_info、get_judgment_debtor_info、get_administrative_penalty"
 
-    def test_unknown_risk_type_falls_back_to_dishonest(self, provider):
-        call_tool = _stub_client(provider, "risk", _transport_result({"风险信息": []}))
-        provider.get_company_risks(company_id="id-4", risk_type="weird")
-        assert call_tool.call_args.kwargs["tool_name"] == "get_dishonest_info"
+    def test_unknown_risk_type_raises(self, provider):
+        """未登记的风险类别**必须显式报错**，不许静默回落最贵的默认工具
+        （原实现四种中文风险全部只查「失信被执行人」，用户看不出错）。"""
+        _stub_client(provider, "risk", _transport_result({"风险信息": []}))
+        with pytest.raises(ValidationException, match="不支持的风险类型"):
+            provider.get_company_risks(company_id="id-4", risk_type="weird")
+
+    def test_english_slug_is_rejected(self, provider):
+        """英文 slug（历史键）同样算非法值——中文才是唯一口径。"""
+        _stub_client(provider, "risk", _transport_result({"风险信息": []}))
+        with pytest.raises(ValidationException):
+            provider.get_company_risks(company_id="id-4", risk_type="executed")
 
 
 class TestShareholdersAndPersonnel:

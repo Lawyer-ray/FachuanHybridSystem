@@ -128,7 +128,8 @@ export function ReaderColumns({
   return (
     <div className="relative flex min-h-0 flex-1 bg-[#f1f1f3]">
       {narrow && (railOpen || metaOpen) && (
-        // 窄屏遮罩：仅 pointer 点按关闭，键盘用户走面板内显式关闭（aria-hidden 不入 tab 序）。
+        // 窄屏遮罩：只接 pointer 点按（aria-hidden 不入 tab 序，键盘焦点到不了这里）。
+        // 键盘用户的关闭出口是工具条上的「材料」/「信息」按钮（见 ReaderToolbar 的 narrow 分支）。
         // absolute 相对三栏主体行（relative）：阅读器右缘已为并排助手收进来，
         // fixed 会把遮罩铺满整个视口、连助手底下的区域也压暗
         <div aria-hidden className="absolute inset-0 z-30 bg-black/20" onClick={onCollapsePanels} />

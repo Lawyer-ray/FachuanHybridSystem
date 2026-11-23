@@ -26,15 +26,6 @@ class ContractAccessRepo:
     def has_case_assignment_access(self, *, contract_id: int, user_id: int) -> bool:  # pragma: no cover
         return Contract.objects.filter(id=contract_id, cases__assignments__lawyer_id=user_id).exists()
 
-    async def ahas_assignment_access(self, *, contract_id: int, lawyer_ids: Iterable[int]) -> bool:  # pragma: no cover
-        lawyer_ids_list = list(lawyer_ids)
-        if not lawyer_ids_list:
-            return False
-        return await ContractAssignment.objects.filter(contract_id=contract_id, lawyer_id__in=lawyer_ids_list).aexists()
-
-    async def ahas_case_assignment_access(self, *, contract_id: int, user_id: int) -> bool:  # pragma: no cover
-        return await Contract.objects.filter(id=contract_id, cases__assignments__lawyer_id=user_id).aexists()
-
 
 class ContractAccessPolicy(OrgAllowedLawyersMixin):
     def __init__(self, contract_access_repo: ContractAccessRepo | None = None) -> None:
@@ -121,39 +112,23 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
         perm_open_access: bool = False,
         contract: Contract | None = None,
     ) -> bool:  # pragma: no cover
-        """Async version of has_access using afilter/aexists to avoid blocking the event loop."""
-        if perm_open_access:
-            return True
-        if not user or not getattr(user, "is_authenticated", False):
-            return False
-        if getattr(user, "is_admin", False):
-            # 安全审计：管理员不再跨律所全放行，按律所收敛（与同步版同口径）
-            law_firm_id = getattr(user, "law_firm_id", None)
-            if law_firm_id is None:
-                return True
-            return await sync_to_async(self._admin_firm_contract_access)(
-                contract_id=contract_id, law_firm_id=law_firm_id
+        """Async 版 ``has_access``：**同一个实现**，不在异步侧另写一份分支。
+
+        S13-18（2026-11-23 二轮审计）：原实现把 ``has_access`` 的分支顺序、判定
+        表达式、管理员律所收敛逐行镜像了一遍（只把 repo 调用换成 ``aexists``），任何
+        权限口径改动都要改两处，漏一处就是「列表可见、详情 403」这类同步/异步漂移。
+        现在直接复用同步实现（``sync_to_async`` 保证不在事件循环里做 IO），口径只有
+        一份。
+        """
+        return bool(
+            await sync_to_async(self.has_access)(
+                contract_id,
+                user,
+                org_access,
+                perm_open_access=perm_open_access,
+                contract=contract,
             )
-
-        user_id = getattr(user, "id", None)
-        allowed_lawyers = self.get_allowed_lawyer_ids(user, org_access)
-
-        if contract is not None:
-            if allowed_lawyers and await contract.assignments.filter(lawyer_id__in=list(allowed_lawyers)).aexists():
-                return True
-            if user_id and await contract.cases.filter(assignments__lawyer_id=user_id).aexists():
-                return True
-            return False
-
-        if await self.contract_access_repo.ahas_assignment_access(contract_id=contract_id, lawyer_ids=allowed_lawyers):
-            return True
-
-        if user_id and await self.contract_access_repo.ahas_case_assignment_access(
-            contract_id=contract_id, user_id=user_id
-        ):
-            return True
-
-        return False
+        )
 
     async def aensure_access(
         self,

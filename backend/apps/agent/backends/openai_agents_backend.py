@@ -116,6 +116,7 @@ from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContex
 from .dsh_config import without_proxy_env
 from .gateway_cache import GatewaySettings, get_gateway_settings, resolve_gateway_target, settings_from_provider
 from .mcp_session_pool import PooledMCPServer, get_mcp_session_pool
+from .result_store import BoundedResultStore
 from .toolface import SERVER_NAME, endpoint_from_env, port_open, shared_enabled
 
 logger = logging.getLogger(__name__)
@@ -578,7 +579,7 @@ class OpenAiAgentsBackend:
 
     def __init__(self) -> None:
         self.capabilities = backend_capabilities()
-        self._results = {}
+        self._results = BoundedResultStore()
         self._tool_names = {}
 
     def result_for(self, run_id: str) -> OpenAiAgentsRunResult | None:

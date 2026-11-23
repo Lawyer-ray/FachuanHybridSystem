@@ -1,4 +1,5 @@
 import type { DraftState, PageKey, PdfSplitSegmentSuggestion, Segment } from '../types'
+import { MAT_PAGE_KEY_STRIDE } from '../constants'
 import { nextSegId } from './seg-id'
 
 /**
@@ -67,8 +68,8 @@ function replaceMatSegments(d: DraftState, mi: number, proposed: Segment[]): Dra
   const segs = d.segs.filter((seg) => !seg.refs.every((ref) => ref.mi === mi))
   segs.push(...proposed)
   segs.sort((a, b) => {
-    const pageA = Math.min(...a.refs.map((ref) => ref.mi * 1_000_000 + ref.p))
-    const pageB = Math.min(...b.refs.map((ref) => ref.mi * 1_000_000 + ref.p))
+    const pageA = Math.min(...a.refs.map((ref) => ref.mi * MAT_PAGE_KEY_STRIDE + ref.p))
+    const pageB = Math.min(...b.refs.map((ref) => ref.mi * MAT_PAGE_KEY_STRIDE + ref.p))
     return pageA - pageB
   })
   return { ...d, segs }

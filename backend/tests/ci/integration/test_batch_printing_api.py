@@ -130,8 +130,14 @@ def test_batch_printing_job_endpoints_expose_full_contract(
     captured: dict[str, object] = {}
 
     class _StubJobService:
-        def list_jobs(self, *, status: str = "", keyword: str = "") -> list[object]:
-            captured["list"] = {"status": status, "keyword": keyword}
+        def list_jobs(self, *, status: str = "", keyword: str = "", user=None) -> list[object]:
+            # user 是 IDOR 收敛后新增的属主参数（见 apps/batch_printing/services/job/job_service.py
+            # 的 list_jobs(user=...)）：stub 必须接住，否则端点直接 500（曾是 CI 红点）。
+            captured["list"] = {
+                "status": status,
+                "keyword": keyword,
+                "user_authenticated": bool(getattr(user, "is_authenticated", False)),
+            }
             return [object()]
 
         def create_job(self, *, files, created_by=None):
@@ -139,16 +145,19 @@ def test_batch_printing_job_endpoints_expose_full_contract(
             captured["created_by_authenticated"] = bool(getattr(created_by, "is_authenticated", False))
             return SimpleNamespace(id=job_id, status="pending")
 
-        def get_job(self, job_id_value):
+        def get_job(self, job_id_value, *, user=None):
             captured["detail_job_id"] = str(job_id_value)
+            captured["detail_user_authenticated"] = bool(getattr(user, "is_authenticated", False))
             return object()
 
-        def request_cancel(self, *, job_id):
+        def request_cancel(self, *, job_id, user=None):
             captured["cancel_job_id"] = str(job_id)
+            captured["cancel_user_authenticated"] = bool(getattr(user, "is_authenticated", False))
             return SimpleNamespace(id=job_id, status="cancelled")
 
-        def delete_job(self, *, job_id):
+        def delete_job(self, *, job_id, user=None):
             captured["delete_job_id"] = str(job_id)
+            captured["delete_user_authenticated"] = bool(getattr(user, "is_authenticated", False))
 
         def build_job_summary_payload(self, *, job) -> dict[str, object]:
             return {
@@ -208,7 +217,11 @@ def test_batch_printing_job_endpoints_expose_full_contract(
     listed_jobs = list_jobs_response.json()
     assert len(listed_jobs) == 1
     assert listed_jobs[0]["job_id"] == str(job_id)
-    assert captured["list"] == {"status": "processing", "keyword": "归档"}
+    assert captured["list"] == {
+        "status": "processing",
+        "keyword": "归档",
+        "user_authenticated": True,
+    }
 
     upload = SimpleUploadedFile("归档材料.pdf", b"%PDF-1.4\n", content_type="application/pdf")
     create_job_response = authenticated_client.post(

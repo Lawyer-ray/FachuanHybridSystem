@@ -41,7 +41,8 @@ from .citation_check import extract_case_refs, extract_statute_refs
 #: 一次最多综合几栏。与多答运行时的 ``MAX_ANSWERS``（``services/chat/multi.py``）
 #: 同值——**不 import 它**：那会把后端注册与 Django 模型拖进这个纯函数模块，
 #: 让单测必须先起 Django。两处不同值会让「选满」时的综合静默少取一栏。
-MAX_CANDIDATES = 5
+# 单源：与 multi.MAX_ANSWERS 同一个常量（F8）
+from .config import MAX_ANSWERS as MAX_CANDIDATES
 
 #: 模型没在 metadata 里留下模型名时，来源头写这个——**不猜**（猜出来的是假来源）。
 UNKNOWN_MODEL_LABEL = "未标注模型"

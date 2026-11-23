@@ -96,8 +96,11 @@ export function NewProjectDialog({
 
         <div className="flex flex-col gap-4 pt-1">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-medium">项目名称</label>
+            <label htmlFor="new-project-name" className="text-[12px] font-medium">
+              项目名称
+            </label>
             <Input
+              id="new-project-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={tpl ? `例：${tpl.their[0]?.name}${tpl.cause}` : '例：某某银行诉某某金融借款合同纠纷'}

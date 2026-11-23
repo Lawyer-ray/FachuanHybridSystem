@@ -6,19 +6,10 @@
  * 扫码型（embedded_qr）独立成一个「扫码登录」标签页。以后接入新的
  * redirect 型（微软设备码）/ 扫码型（微信）登录只需后端加配置，前端不用改。
  */
-import type { SocialProviderInfo } from './social-api'
+import type { LoginMethod, LoginMethodKind, SocialProviderInfo } from './types'
 
-/** 渲染形态：账密表单 / 内嵌二维码 / 整页跳转授权 */
-export type LoginMethodKind = 'password' | 'embedded_qr' | 'redirect'
-
-export interface LoginMethod {
-  /** `password` / `qr`（模式级）或 Provider 名（如 `feishu`） */
-  id: string
-  kind: LoginMethodKind
-  label: string
-  /** 账密与「扫码登录」标签页没有对应的 Provider */
-  provider: SocialProviderInfo | null
-}
+/** LoginMethod / LoginMethodKind 定义在 `types.ts`，此处 re-export 保持既有 import 路径 */
+export type { LoginMethod, LoginMethodKind }
 
 export const PASSWORD_METHOD_ID = 'password'
 export const QR_METHOD_ID = 'qr'

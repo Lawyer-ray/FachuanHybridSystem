@@ -35,6 +35,15 @@ import { addDays, evaluateGate } from './special-liquidation-model'
 const STATUS_TEXT: Record<DrawerPhase['status'], string> = { done: '已完成', doing: '进行中', todo: '未开始' }
 const STATUS_TONE: Record<DrawerPhase['status'], Tone> = { done: 'green', doing: 'blue', todo: 'neutral' }
 
+/**
+ * 交付物清单的一行：`name` 是展示名（可能已被改名），`baseName` 是演示数据里的原名。
+ *
+ * 改名只改展示名，**定位一律按原名**：`docPatches` 的键、删除与重起草的匹配都走
+ * `baseName`。三处口径必须一致——此前它们全用展示名，改过一次名之后键就对不上
+ * 原名：再改名不生效、删除与重起草也找不到自己的行（只有「已删除 N 份」计数在变）。
+ */
+type BoardDoc = DrawerDoc & { baseName: string }
+
 /** 演示数据 → 抽屉用的阶段（负责人取自甘特图的同一份分配） */
 function toDrawerPhases(rows: typeof DEMO_NONLIT_PHASES): DrawerPhase[] {
   const ownerOf = new Map(DEMO_NL1_GANTT.map((g) => [g.phaseId, g.owner]))
@@ -57,19 +66,20 @@ export function SpecialPhaseBoard({ initialPhaseId, phaseFocus = 0 }: { initialP
     setSeenFocus(phaseFocus)
     if (initialPhaseId) setOpenPhaseId(initialPhaseId)
   }
-  const [openDoc, setOpenDoc] = useState<DrawerDoc | null>(null)
+  const [openDoc, setOpenDoc] = useState<BoardDoc | null>(null)
 
   const gate = evaluateGate(DEMO_NL1_GATE_RULES)
   /** 当前阶段 = 第一个未完成的阶段（推进的对象） */
   const current = phases.find((p) => p.status === 'doing') ?? phases.find((p) => p.status === 'todo') ?? null
   const nextPhase = current ? (phases[phases.findIndex((p) => p.id === current.id) + 1] ?? null) : null
 
-  const docs = useMemo(
+  const docs = useMemo<BoardDoc[]>(
     () =>
       phases.flatMap((p) =>
         p.deliverables.map((d) => ({
           ...d,
           name: docPatches[`${p.id}:${d.name}`] ?? d.name,
+          baseName: d.name,
           phaseId: p.id,
           phaseName: p.name,
           phaseSeq: p.seq,
@@ -103,26 +113,27 @@ export function SpecialPhaseBoard({ initialPhaseId, phaseFocus = 0 }: { initialP
 
   /* ---------------- 交付物动作 ---------------- */
 
-  const patchDoc = (doc: DrawerDoc, next: string) => setDocPatches((v) => ({ ...v, [`${doc.phaseId}:${doc.name}`]: next }))
+  const patchDoc = (doc: BoardDoc, next: string) =>
+    setDocPatches((v) => ({ ...v, [`${doc.phaseId}:${doc.baseName}`]: next }))
 
-  const renameDoc = (doc: DrawerDoc, next: string) => {
+  const renameDoc = (doc: BoardDoc, next: string) => {
     patchDoc(doc, next)
     setOpenDoc({ ...doc, name: next })
     toast.success(`已重命名为《${next}》`)
   }
 
-  const deleteDoc = (doc: DrawerDoc) => {
-    setRemovedDocs((v) => [...v, `${doc.phaseId}:${doc.name}`])
-    setPhases((v) => v.map((p) => (p.id === doc.phaseId ? { ...p, deliverables: p.deliverables.filter((d) => d.name !== doc.name) } : p)))
+  const deleteDoc = (doc: BoardDoc) => {
+    setRemovedDocs((v) => [...v, `${doc.phaseId}:${doc.baseName}`])
+    setPhases((v) => v.map((p) => (p.id === doc.phaseId ? { ...p, deliverables: p.deliverables.filter((d) => d.name !== doc.baseName) } : p)))
     setOpenDoc(null)
     toast.success(`《${doc.name}》已移入回收站`, { description: '版本历史一并归档，30 天内可恢复' })
   }
 
-  const redraftDoc = (doc: DrawerDoc) => {
+  const redraftDoc = (doc: BoardDoc) => {
     setPhases((v) =>
       v.map((p) =>
         p.id === doc.phaseId
-          ? { ...p, deliverables: p.deliverables.map((d) => (d.name === doc.name ? { ...d, status: 'drafting' } : d)) }
+          ? { ...p, deliverables: p.deliverables.map((d) => (d.name === doc.baseName ? { ...d, status: 'drafting' } : d)) }
           : p,
       ),
     )
@@ -260,7 +271,7 @@ export function SpecialPhaseBoard({ initialPhaseId, phaseFocus = 0 }: { initialP
         <div className="mt-2.5 flex flex-col overflow-hidden rounded-[9px] border border-border-light bg-background">
           {docs.map((d) => (
             <button
-              key={`${d.phaseId}:${d.name}`}
+              key={`${d.phaseId}:${d.baseName}`}
               type="button"
               onClick={() => setOpenDoc(d)}
               className="flex items-center gap-2.5 border-b border-border-light px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-secondary/40"

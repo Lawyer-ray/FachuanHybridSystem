@@ -4,7 +4,9 @@
  *
  * 这一步的界面上有两处「会出错就白干」的地方，必须钉住：
  * - **文书类型默认值按案由自动匹配**，但律师能改；下拉框只列「起诉状」分类，
- *   该分类为空时才回落到全部分类。
+ *   该分类为空时才回落到全部分类。案件详情是异步的（首帧 data 必为 null），
+ *   所以自动匹配必须在 data 到达后补做，且不能抢律师手动改过的选择。
+ *   相关用例：按案由自动匹配类型（含「返回空串不能清空选择」）。
  * - **转换会真的触发浏览器下载**：文件名必须是「要素式-<原名去扩展>.docx」，
  *   并且从 blob 生成 objectURL。命名错会让律师拿到一堆分不清的文件。
  *
@@ -26,8 +28,25 @@ vi.mock('../api', async (importOriginal) => {
 
 vi.mock('../hooks/use-cases', () => ({ useCase: vi.fn() }))
 
+/**
+ * 真实 suggestMbid 认不出案由时也会回落一个具体 mbid（见 utils.ts），拿不到空串；
+ * 这里留一个可注入的返回值，专门钉「建议为空时不能把下拉框清空」。
+ */
+const suggestOverride = vi.hoisted(() => ({ value: null as string | null }))
+
+vi.mock('../utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils')>()
+  return {
+    ...actual,
+    suggestMbid: vi.fn((cause: string | null | undefined) =>
+      suggestOverride.value ?? actual.suggestMbid(cause),
+    ),
+  }
+})
+
 import { convertToElemental, listConvertRecords, listMbidTypes } from '../api'
 import { useCase } from '../hooks/use-cases'
+import { suggestMbid } from '../utils'
 import { DEMO_CONVERT_LOG, DEMO_CONVERT_MAPPING_DETAIL, DEMO_CONVERT_PREVIEW } from './demo-data'
 import { DocConvertPanel } from './DocConvertPanel'
 
@@ -35,6 +54,7 @@ const listTypesMock = vi.mocked(listMbidTypes)
 const convertMock = vi.mocked(convertToElemental)
 const listRecordsMock = vi.mocked(listConvertRecords)
 const useCaseMock = vi.mocked(useCase)
+const suggestMbidMock = vi.mocked(suggestMbid)
 
 /** 默认的文书类型清单：起诉状分类里两个模板，另有一个非起诉状分类 */
 function typesFixture() {
@@ -86,6 +106,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  suggestOverride.value = null
 })
 
 describe('DocConvertPanel · 文书类型加载', () => {
@@ -158,6 +179,97 @@ describe('DocConvertPanel · 按案由自动匹配类型', () => {
 
     fireEvent.change(select, { target: { value: 'mjjdqsz' } })
     expect(select.value).toBe('mjjdqsz')
+  })
+
+  it('案件数据异步到达后自动选中该案由对应的 mbid（首帧 data 必为 null）', async () => {
+    // 详情还没回来：下拉框只能拿兜底值，不是按案由匹配的结果
+    useCaseMock.mockReturnValue({
+      loading: true,
+      error: null,
+      data: null,
+      reload: vi.fn(),
+    } as never)
+    const { rerender } = render(<DocConvertPanel caseId={406} />)
+    const select = (await screen.findByLabelText('文书类型')) as HTMLSelectElement
+    expect(select.value).toBe('jrjkqsz')
+
+    useCaseMock.mockReturnValue({
+      loading: false,
+      error: null,
+      data: { cause_of_action: '民间借贷纠纷' },
+      reload: vi.fn(),
+    } as never)
+    rerender(<DocConvertPanel caseId={406} />)
+
+    await waitFor(() => expect(select.value).toBe('mjjdqsz'))
+  })
+
+  it('律师在 data 到达前手动改过，data 到达也不覆盖他的选择', async () => {
+    useCaseMock.mockReturnValue({
+      loading: true,
+      error: null,
+      data: null,
+      reload: vi.fn(),
+    } as never)
+    const { rerender } = render(<DocConvertPanel caseId={406} />)
+    const select = (await screen.findByLabelText('文书类型')) as HTMLSelectElement
+
+    fireEvent.change(select, { target: { value: 'mjjdqsz' } })
+
+    // data 到达，案由本会建议 jrjkqsz —— 但律师已亲手选过，不能被抢回去
+    useCaseMock.mockReturnValue({
+      loading: false,
+      error: null,
+      data: { cause_of_action: '金融借款合同纠纷' },
+      reload: vi.fn(),
+    } as never)
+    rerender(<DocConvertPanel caseId={406} />)
+
+    expect(select.value).toBe('mjjdqsz')
+  })
+
+  it('律师手动改过之后，案件数据刷新（reload）不覆盖他的选择', async () => {
+    const { rerender } = render(<DocConvertPanel caseId={406} />)
+    const select = (await screen.findByLabelText('文书类型')) as HTMLSelectElement
+    expect(select.value).toBe('jrjkqsz')
+
+    fireEvent.change(select, { target: { value: 'mjjdqsz' } })
+
+    // 详情重拉：新对象、案由文案微调（同样建议 jrjkqsz）—— 不能抢回
+    useCaseMock.mockReturnValue({
+      loading: false,
+      error: null,
+      data: { cause_of_action: '金融借款' },
+      reload: vi.fn(),
+    } as never)
+    rerender(<DocConvertPanel caseId={406} />)
+
+    expect(select.value).toBe('mjjdqsz')
+  })
+
+  it('suggestMbid 返回空串时保留原选择，不把下拉框清空', async () => {
+    useCaseMock.mockReturnValue({
+      loading: true,
+      error: null,
+      data: null,
+      reload: vi.fn(),
+    } as never)
+    const { rerender } = render(<DocConvertPanel caseId={406} />)
+    const select = (await screen.findByLabelText('文书类型')) as HTMLSelectElement
+    expect(select.value).toBe('jrjkqsz')
+
+    suggestOverride.value = ''
+    useCaseMock.mockReturnValue({
+      loading: false,
+      error: null,
+      data: { cause_of_action: '说不清的案由' },
+      reload: vi.fn(),
+    } as never)
+    rerender(<DocConvertPanel caseId={406} />)
+
+    // 确认 effect 确实按到达的案由算过建议，只是空建议不采用
+    await waitFor(() => expect(suggestMbidMock).toHaveBeenCalledWith('说不清的案由'))
+    expect(select.value).toBe('jrjkqsz')
   })
 })
 

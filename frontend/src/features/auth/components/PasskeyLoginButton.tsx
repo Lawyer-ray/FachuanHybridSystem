@@ -15,17 +15,11 @@ import { useNavigate } from 'react-router'
 import { errMessage } from '@/lib/errors'
 import { useAuth } from '../store'
 import { passkeyApi } from '../passkey-api'
-import { credentialToAssertionJSON, toRequestOptions } from '../passkey-coding'
-
-/** WebAuthn + 平台认证器（Touch ID / Windows Hello）双条件可用才展示入口 */
-async function platformAuthenticatorAvailable(): Promise<boolean> {
-  if (typeof window === 'undefined' || !window.PublicKeyCredential) return false
-  try {
-    return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
-  } catch {
-    return false
-  }
-}
+import {
+  credentialToAssertionJSON,
+  platformAuthenticatorAvailable,
+  toRequestOptions,
+} from '../passkey-coding'
 
 export function PasskeyLoginButton() {
   const navigate = useNavigate()

@@ -257,7 +257,8 @@ class ArchiveLearningService:
         导出格式为 JSON：``{archive_category: {archive_item_code: [keyword, ...]}}``，
         commit + push 后其他用户 pull 即可享用学习成果。
 
-        导出时会合并数据文件中的已有规则，避免丢失之前导出的规则。
+        导出时会合并数据文件中的已有规则，避免丢失之前导出的规则；合并来源读取
+        失败时**直接报错**（不写文件），见下方 S49-28 注释。
 
         Returns:
             {"path": 文件路径, "rule_count": 规则数, "category_count": 分类数}
@@ -280,24 +281,34 @@ class ArchiveLearningService:
             grouped[cat][code].append(kw)
 
         # 合并数据文件中已有的规则（避免丢失之前导出的规则）
-        try:
-            from apps.contracts.services.contract.integrations.archive_classifier import _load_learned_rules_from_json
+        #
+        # S49-28（2026-11-23 二轮审计）：原实现是 ``try: ... except ImportError: pass``
+        # ——一旦 ``_load_learned_rules_from_json`` 改名/移走（或 archive_classifier
+        # 模块级 import 失败），合并就被静默跳过，紧接着的 ``replace`` 会用只含 DB 规则
+        # 的内容覆盖数据文件，历史导出的规则就此丢失，返回值看不出任何异常。导出是人工
+        # 触发的操作：宁可报错不写，也不能写坏——所以现在不再吞 ImportError。
+        from apps.contracts.services.contract.integrations.archive_classifier import _load_learned_rules_from_json
 
-            existing_rules = _load_learned_rules_from_json()
-            for cat, code_map in existing_rules.items():
-                if cat not in grouped:
-                    grouped[cat] = {}
-                for code, keywords in code_map.items():
-                    if code not in grouped[cat]:
-                        grouped[cat][code] = []
-                    # 只追加 DB 中没有的关键词
-                    existing = set(grouped[cat][code])
-                    for kw in keywords:
-                        if kw not in existing:
-                            grouped[cat][code].append(kw)
-                            existing.add(kw)
-        except ImportError:
-            pass
+        existing_rules = _load_learned_rules_from_json()
+        merged_existing_count = 0
+        for cat, code_map in existing_rules.items():
+            if cat not in grouped:
+                grouped[cat] = {}
+            for code, keywords in code_map.items():
+                if code not in grouped[cat]:
+                    grouped[cat][code] = []
+                # 只追加 DB 中没有的关键词
+                existing = set(grouped[cat][code])
+                for kw in keywords:
+                    if kw not in existing:
+                        grouped[cat][code].append(kw)
+                        existing.add(kw)
+                        merged_existing_count += 1
+
+        logger.info(
+            "archive_rules_merge_source",
+            extra={"db_rule_count": len(db_rules), "merged_existing_rule_count": merged_existing_count},
+        )
 
         # 生成 JSON（json.dumps 会自动转义引号/换行/Unicode，数据不会被
         # 解释为代码，从根上消除原 f-string 拼接 Python 源码的注入面）

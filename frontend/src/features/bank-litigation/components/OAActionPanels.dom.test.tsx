@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 /**
- * OA 盖章 / 归档面板单测（jsdom）。
+ * OA 盖章面板单测（jsdom）。
+ *
+ * 归档那一半已迁到 ArchiveChecklistPanel（OAActionPanels 的旧同名导出已删除），
+ * 本文件只覆盖盖章形态。
  *
  * 这里有一条**业务前提**必须钉住：入参是 file_path，后端按文件目录反查合同绑定。
  * 反查不到就说明这份文件不属于任何委托 —— 那时提交会失败在很晚的阶段（OA 已经动了）。
@@ -37,7 +40,7 @@ vi.mock('../hooks/use-auto-run', async (importOriginal) => {
   return { ...actual, ...autoRun }
 })
 
-import { lookupArchiveContract, lookupStampContract } from '../api'
+import { lookupStampContract } from '../api'
 import {
   DEMO_OA_SEALS,
   DEMO_OA_SEAL_RULES,
@@ -45,10 +48,9 @@ import {
   DEMO_STAMP_FAILURES,
   DEMO_STAMP_HISTORY,
 } from './demo-data'
-import { OAArchivePanel, OAStampPanel } from './OAActionPanels'
+import { OAStampPanel } from './OAActionPanels'
 
 const lookupStampMock = vi.mocked(lookupStampContract)
-const lookupArchiveMock = vi.mocked(lookupArchiveContract)
 
 /** 一个 idle 状态的假 AutoRun */
 function idleRun() {
@@ -72,22 +74,13 @@ beforeEach(() => {
     contract_name: '某某买卖合同',
     oa_case_number: 'OA-2026-0001',
   } as never)
-  lookupArchiveMock.mockResolvedValue({
-    contract_name: '某某买卖合同',
-    oa_case_number: null,
-  } as never)
 })
 
 describe('OAActionPanel · 说明与初始状态', () => {
-  it('盖章与归档展示各自的标题、verb 与提示', () => {
-    const { unmount } = render(<OAStampPanel />)
+  it('盖章展示标题、verb 与提示', () => {
+    render(<OAStampPanel />)
     expect(screen.getByText('OA 盖章')).toBeTruthy()
     expect(screen.getByRole('button', { name: /申请盖章/ })).toBeTruthy()
-    unmount()
-
-    render(<OAArchivePanel />)
-    expect(screen.getByText('OA 归档')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /提交归档/ })).toBeTruthy()
   })
 
   it('没填路径时两个按钮都不可点，统计格写「未填」', () => {
@@ -97,15 +90,10 @@ describe('OAActionPanel · 说明与初始状态', () => {
     expect(screen.getByText('未填')).toBeTruthy()
   })
 
-  it('盖章只接受一行路径，归档接受多行（占位文案不同）', () => {
-    const { unmount } = render(<OAStampPanel />)
+  it('盖章只接受一行路径（占位文案与 2 行高）', () => {
+    render(<OAStampPanel />)
     expect(pathInput().placeholder).toContain('文件绝对路径')
     expect(pathInput().rows).toBe(2)
-    unmount()
-
-    render(<OAArchivePanel />)
-    expect(pathInput().placeholder).toContain('每行一个')
-    expect(pathInput().rows).toBe(4)
   })
 
   it('填了路径但还没反查时，提交按钮仍禁用并提示先反查', () => {
@@ -119,7 +107,7 @@ describe('OAActionPanel · 说明与初始状态', () => {
   })
 
   it('多行空白被过滤，只算非空行（空行不应该被当成一个路径去反查）', () => {
-    render(<OAArchivePanel />)
+    render(<OAStampPanel />)
     fireEvent.change(pathInput(), { target: { value: '/a.pdf\n\n  \n/b.pdf' } })
     expect(screen.getByText('2 个')).toBeTruthy()
   })
@@ -133,7 +121,7 @@ describe('OAActionPanel · 反查合同', () => {
 
     await waitFor(() => expect(screen.getByText('已识别到合同')).toBeTruthy())
     expect(lookupStampMock).toHaveBeenCalledWith({ file_path: '/case/起诉状.pdf', site_name: '' })
-    // 合同名在「合同」键值行与归档说明里都可能出现，用 allBy
+    // 合同名在「合同」键值行与右栏「所属合同」里都可能出现，用 allBy
     expect(screen.getAllByText('某某买卖合同').length).toBeGreaterThan(0)
     expect(screen.getAllByText('OA-2026-0001').length).toBeGreaterThan(0)
 
@@ -144,23 +132,12 @@ describe('OAActionPanel · 反查合同', () => {
   })
 
   it('OA 尚未生成案号时写「（OA 尚未生成案号）」，不留空白', async () => {
-    render(<OAArchivePanel />)
+    lookupStampMock.mockResolvedValue({ contract_name: '某某买卖合同', oa_case_number: null } as never)
+    render(<OAStampPanel />)
     fireEvent.change(pathInput(), { target: { value: '/case/判决书.pdf' } })
     fireEvent.click(screen.getByRole('button', { name: /反查合同/ }))
 
     await waitFor(() => expect(screen.getByText('（OA 尚未生成案号）')).toBeTruthy())
-  })
-
-  it('归档反查把路径包成数组（接口形状是 file_paths）', async () => {
-    render(<OAArchivePanel />)
-    fireEvent.change(pathInput(), { target: { value: '/case/判决书.pdf' } })
-    fireEvent.click(screen.getByRole('button', { name: /反查合同/ }))
-
-    await waitFor(() => expect(lookupArchiveMock).toHaveBeenCalled())
-    expect(lookupArchiveMock).toHaveBeenCalledWith({
-      file_paths: ['/case/判决书.pdf'],
-      site_name: '',
-    })
   })
 
   it('反查失败：显示后端原话与常见原因，提交维持禁用', async () => {
@@ -220,14 +197,14 @@ describe('OAActionPanel · 反查合同', () => {
 describe('OAActionPanel · 提交', () => {
   it('反查通过后点提交，把路径列表交给 run', async () => {
     const run = vi.fn().mockResolvedValue(undefined)
-    autoRun.useOAArchive.mockReturnValue({ ...idleRun(), run } as never)
+    autoRun.useOAStamp.mockReturnValue({ ...idleRun(), run } as never)
 
-    render(<OAArchivePanel />)
+    render(<OAStampPanel />)
     fireEvent.change(pathInput(), { target: { value: '/a.pdf\n/b.pdf' } })
     fireEvent.click(screen.getByRole('button', { name: /反查合同/ }))
     await waitFor(() => expect(screen.getByText('已识别到合同')).toBeTruthy())
 
-    fireEvent.click(screen.getByRole('button', { name: /提交归档/ }))
+    fireEvent.click(screen.getByRole('button', { name: /申请盖章/ }))
     await waitFor(() => expect(run).toHaveBeenCalledWith(['/a.pdf', '/b.pdf']))
   })
 
@@ -252,6 +229,34 @@ describe('OAActionPanel · 提交', () => {
     } as never)
     render(<OAStampPanel />)
     expect((screen.getByRole('button', { name: /执行中…/ }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('OAActionPanel · 会话状态胶囊', () => {
+  it('后端 status 原样展示，语气取共享映射（in_progress 算进行中）', () => {
+    autoRun.useOAStamp.mockReturnValue({
+      ...idleRun(),
+      state: { phase: 'running', session: null, status: 'in_progress', error: null, ticks: 1 },
+    } as never)
+
+    render(<OAStampPanel />)
+    expect(screen.getByText('会话状态')).toBeTruthy()
+    expect(screen.getByText('in_progress').className).toContain('text-status-blue')
+  })
+
+  it('失败摆后端原话、超时指向 OA 确认（不是立案结果块的文案）', () => {
+    autoRun.useOAStamp.mockReturnValue({
+      ...idleRun(),
+      state: { phase: 'timeout', session: null, status: 'running', error: '最后一次查询失败', ticks: 9 },
+    } as never)
+
+    render(<OAStampPanel />)
+    expect(screen.getByText('最后一次查询失败')).toBeTruthy()
+    expect(screen.getByText(/等待超过 15 分钟仍未结束/)).toBeTruthy()
+    expect(screen.getByText(/请到 OA 里确认结果/)).toBeTruthy()
+    // 本面板不套「<动作>失败：」前缀，也不说「回本页刷新」——文案归自己管
+    expect(screen.queryByText(/申请盖章失败：/)).toBeNull()
+    expect(screen.queryByText(/回本页刷新/)).toBeNull()
   })
 })
 
@@ -316,14 +321,5 @@ describe('OAActionPanel · 侧栏（仅盖章）', () => {
     const auto = DEMO_STAMP_FAILURES.filter((f) => f.autoRetry).length
     expect(screen.getAllByText('自动重试')).toHaveLength(auto)
     expect(screen.getAllByText('需人工')).toHaveLength(DEMO_STAMP_FAILURES.length - auto)
-  })
-
-  it('归档面板不渲染盖章专属区块（预设 / 印章库 / 记录 / 失败原因）', () => {
-    render(<OAArchivePanel />)
-    expect(screen.queryByText('批量盖章预设')).toBeNull()
-    expect(screen.queryByText('可用印章')).toBeNull()
-    expect(screen.queryByText('盖章记录')).toBeNull()
-    expect(screen.queryByText('常见失败原因')).toBeNull()
-    expect(screen.queryByText('盖章流程')).toBeNull()
   })
 })

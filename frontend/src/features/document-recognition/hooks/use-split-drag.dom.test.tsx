@@ -3,7 +3,9 @@
  * useSplitDrag / useDialogWidthDrag 测试（jsdom）。
  *
  * 纯函数部分（initialSplitPct / initialDialogWidth）覆盖记忆值的合法性判定；
- * 拖拽部分覆盖拖拽期间的辅助样式复位与百分比映射。
+ * 拖拽部分覆盖辅助样式复位、百分比/像素映射，以及「拖拽中零 setState」：
+ * move 只改容器/对话框上的 CSS 变量（--split-w / --dr-dialog-w），
+ * 返回的宽度与渲染次数在鼠标松开前一动不动，松手才一次性提交并落盘。
  */
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -88,6 +90,7 @@ describe('useSplitDrag', () => {
   afterEach(() => {
     document.body.style.userSelect = ''
     document.body.style.cursor = ''
+    vi.restoreAllMocks()
   })
 
   it('初始不处于拖拽态', () => {
@@ -161,7 +164,44 @@ describe('useSplitDrag', () => {
     div.remove()
   })
 
-  it('拖拽中移动鼠标按容器宽度换算百分比并夹在范围内', () => {
+  it('拖拽中移动鼠标只改容器上的 --split-w，不 setState；松手才提交最后一次 move 的值', () => {
+    // 「零 setState」的可验证形式：拖拽中返回的 pct 与渲染次数都不动，
+    // 宽度只体现在容器上的 CSS 变量（消费方 width: var(--split-w, <pct>%)）
+    let renders = 0
+    const { result } = renderHook(() => {
+      renders++
+      return useSplitDrag()
+    })
+    const div = document.createElement('div')
+    document.body.appendChild(div)
+    ;(result.current[2] as { current: HTMLDivElement | null }).current = div
+
+    act(() => {
+      result.current[1]()
+    })
+    const committed = result.current[0]
+    const rendersBeforeMove = renders
+
+    // 容器宽 1000（见 beforeEach），两次拖拽：x=400 → 40%，x=650 → 65%
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 400 }))
+    })
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 650 }))
+    })
+
+    expect(renders).toBe(rendersBeforeMove)
+    expect(result.current[0]).toBe(committed)
+    expect(div.style.getPropertyValue('--split-w')).toBe('65%')
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup'))
+    })
+    expect(result.current[0]).toBeCloseTo(65)
+    div.remove()
+  })
+
+  it('拖拽中换算的百分比同样夹在 MIN/MAX 范围内', () => {
     const { result } = renderHook(() => useSplitDrag())
     const div = document.createElement('div')
     document.body.appendChild(div)
@@ -170,22 +210,50 @@ describe('useSplitDrag', () => {
     act(() => {
       result.current[1]()
     })
-    // 容器宽 1000，鼠标 x=900 → 90%，应被夹到 MAX_SPLIT_PCT
+    // x=900 → 90%，夹到上限
     act(() => {
       window.dispatchEvent(new MouseEvent('mousemove', { clientX: 900 }))
     })
-    expect(result.current[0]).toBeLessThanOrEqual(MAX_SPLIT_PCT)
-    expect(result.current[0]).toBeGreaterThanOrEqual(MIN_SPLIT_PCT)
+    expect(div.style.getPropertyValue('--split-w')).toBe(`${MAX_SPLIT_PCT}%`)
 
-    // 鼠标 x=10 → 1%，夹到下限
+    // x=10 → 1%，夹到下限
     act(() => {
       window.dispatchEvent(new MouseEvent('mousemove', { clientX: 10 }))
     })
-    expect(result.current[0]).toBeGreaterThanOrEqual(MIN_SPLIT_PCT)
+    expect(div.style.getPropertyValue('--split-w')).toBe(`${MIN_SPLIT_PCT}%`)
 
     act(() => {
       window.dispatchEvent(new MouseEvent('mouseup'))
     })
+    expect(result.current[0]).toBe(MIN_SPLIT_PCT)
+    div.remove()
+  })
+
+  it('拖拽过程不写 localStorage，松手只写一次', () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+    const writes = () => setItem.mock.calls.filter(([key]) => key === SPLIT_PCT_KEY)
+    const { result } = renderHook(() => useSplitDrag())
+    const div = document.createElement('div')
+    document.body.appendChild(div)
+    ;(result.current[2] as { current: HTMLDivElement | null }).current = div
+
+    act(() => {
+      result.current[1]()
+    })
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 400 }))
+    })
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 650 }))
+    })
+    expect(writes()).toHaveLength(0)
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup'))
+    })
+    expect(writes()).toHaveLength(1)
+    const [write] = writes()
+    expect(write?.[1]).toBe('65')
     div.remove()
   })
 
@@ -244,35 +312,45 @@ describe('useDialogWidthDrag', () => {
     dialog.remove()
   })
 
-  it('拖拽移动按位移更新宽度并钳在最小值之上', () => {
-    const { result } = renderHook(() => useDialogWidthDrag())
+  it('拖拽中移动鼠标只改对话框上的 --dr-dialog-w，不 setState；松手才提交宽度', () => {
+    localStorage.setItem(DIALOG_WIDTH_KEY, '1000')
+    let renders = 0
+    const { result } = renderHook(() => {
+      renders++
+      return useDialogWidthDrag()
+    })
     const dialog = document.createElement('div')
     dialog.setAttribute('role', 'dialog')
     Object.defineProperty(dialog, 'getBoundingClientRect', {
       configurable: true,
-      value: () => ({ width: 800, top: 0, left: 0, right: 0, bottom: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) }),
+      value: () => ({ width: 1000, top: 0, left: 0, right: 0, bottom: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) }),
     })
     document.body.appendChild(dialog)
 
     act(() => {
       result.current[1]({ preventDefault: vi.fn(), clientX: 500, currentTarget: dialog })
     })
+    const rendersBeforeMove = renders
 
     act(() => {
       window.dispatchEvent(new MouseEvent('mousemove', { clientX: 700 }))
     })
-    // 800 + (700-500) = 1000
+    // 1000 + (700-500) = 1200：拖拽中 state 不变，只有 CSS 变量变
+    expect(renders).toBe(rendersBeforeMove)
     expect(result.current[0]).toBe(1000)
+    expect(dialog.style.getPropertyValue('--dr-dialog-w')).toBe('1200px')
 
-    // 往左拖到极小 → 钳到 MIN_DIALOG_WIDTH
+    // 往左拖到极小 → 钳到 MIN_DIALOG_WIDTH（拖拽中的变量也夹）
     act(() => {
       window.dispatchEvent(new MouseEvent('mousemove', { clientX: -5000 }))
     })
-    expect(result.current[0]).toBe(MIN_DIALOG_WIDTH)
+    expect(result.current[0]).toBe(1000)
+    expect(dialog.style.getPropertyValue('--dr-dialog-w')).toBe(`${MIN_DIALOG_WIDTH}px`)
 
     act(() => {
       window.dispatchEvent(new MouseEvent('mouseup'))
     })
+    expect(result.current[0]).toBe(MIN_DIALOG_WIDTH)
     expect(result.current[2]).toBe(false)
     dialog.remove()
   })
@@ -327,11 +405,14 @@ describe('useDialogWidthDrag', () => {
     act(() => {
       window.dispatchEvent(new MouseEvent('mousemove', { clientX: 200 }))
     })
-    expect(result.current[0]).toBe(MIN_DIALOG_WIDTH + 100)
+    // 拖拽中不提交：无记忆宽度时仍是 null（宽度由 CSS 默认兜底），松手才提交
+    expect(result.current[0]).toBeNull()
 
     act(() => {
       window.dispatchEvent(new MouseEvent('mouseup'))
     })
+    // 起始宽 MIN_DIALOG_WIDTH + 位移 100
+    expect(result.current[0]).toBe(MIN_DIALOG_WIDTH + 100)
     el.remove()
   })
 

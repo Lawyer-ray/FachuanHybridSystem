@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from asgiref.sync import sync_to_async
+from django.db.models import QuerySet
 from django.http import FileResponse, Http404
 from ninja import File, Form, Router
 from ninja.files import UploadedFile
@@ -43,6 +44,37 @@ def _get_court_sms_service() -> Any:
     from apps.core.dependencies.automation_sms_entry import build_court_sms_service_ctx
 
     return build_court_sms_service_ctx()
+
+
+def _to_list_out(rows: list[Any]) -> list[CourtSMSListOut]:
+    """把一页 CourtSMS 行转成列表 schema（含 ORM 查询，必须在同步上下文执行）。"""
+    return [CourtSMSListOut.from_model(row) for row in rows]
+
+
+class CourtSMSListPagination(PageNumberPagination):
+    """短信列表分页器：在 SQL 里切片，只把当前页的行转成 schema。
+
+    S46-03（2026-11-23 二轮审计）：原实现让视图先把过滤后的**全表** QuerySet 逐行
+    from_model 成 list，再交给 Ninja 在内存里切片——每页请求都做「全表扫描 + 全量对象
+    构造 + 全量 prefetch」，只返回 20 条。现在视图直接返回惰性 QuerySet，本分页器在
+    SQL 层 LIMIT/OFFSET + COUNT，并只为当前页的行构造响应对象。响应仍是
+    {items, count}，与前端既有契约一致。
+    """
+
+    async def apaginate_queryset(self, queryset: Any, pagination: Any, request: Any, **params: Any) -> Any:
+        page_size = self._get_page_size(pagination.page_size)
+        offset = (pagination.page - 1) * page_size
+
+        if isinstance(queryset, QuerySet):
+            # 与 ninja 自身对 QuerySet 的处理一致：async for 才能把切片下推到 SQL
+            page_rows = [obj async for obj in queryset[offset : offset + page_size]]
+            count = await queryset.acount()
+        else:
+            page_rows = list(queryset[offset : offset + page_size])
+            count = len(queryset)
+
+        items = await sync_to_async(_to_list_out)(page_rows)
+        return {self.items_attribute: items, "count": count}
 
 
 def _sms_access_context(request: Any) -> tuple[Any, Any]:
@@ -223,7 +255,7 @@ async def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:  # pra
 
 
 @router.get("/court-sms", response=list[CourtSMSListOut])
-@paginate(PageNumberPagination, page_size=20)
+@paginate(CourtSMSListPagination, page_size=20)
 async def list_sms(  # pragma: no cover
     request: Any,
     status: str | None = None,
@@ -232,7 +264,7 @@ async def list_sms(  # pragma: no cover
     has_case: bool | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
-) -> list[CourtSMSListOut]:
+) -> Any:
     """
     查询短信列表
 
@@ -249,8 +281,10 @@ async def list_sms(  # pragma: no cover
     user, org_access = await _resolve_access()
 
     @sync_to_async
-    def _list() -> list[CourtSMSListOut]:
-        sms_qs = service.list_sms(
+    def _list() -> Any:
+        # 返回惰性 QuerySet：切片与 count 由 CourtSMSListPagination 下推到 SQL，
+        # 只对当前页的 20 行调用 from_model（S46-03）。
+        return service.list_sms(
             status=status,
             status_group=status_group,
             sms_type=sms_type,
@@ -260,7 +294,6 @@ async def list_sms(  # pragma: no cover
             user=user,
             org_access=org_access,
         )
-        return [CourtSMSListOut.from_model(s) for s in sms_qs]
 
     return await _list()
 
@@ -285,14 +318,23 @@ async def assign_case(
 
     sms = await sync_to_async(service.assign_case)(sms_id, payload.case_id)
 
+    # S46-01（2026-11-23 二轮审计）：这里在 `async def` 里懒加载 `sms.case`，
+    # 生产环境没有 DJANGO_ALLOW_ASYNC_UNSAFE → 成功路径必抛 SynchronousOnlyOperation（端点 500）。
+    # 把「取 case 的两个字段」放回同步线程里做。
+    case_payload = await sync_to_async(_case_brief)(sms)
+
     return CourtSMSAssignCaseOut(
         success=True,
-        data={
-            "id": sms.id,
-            "status": sms.status,
-            "case": {"id": sms.case.id, "name": sms.case.name} if sms.case else None,
-        },
+        data={"id": sms.id, "status": sms.status, "case": case_payload},
     )
+
+
+def _case_brief(sms: Any) -> dict[str, Any] | None:
+    """在同步上下文里读 `sms.case`（避免 async 懒加载）。"""
+    case = sms.case
+    if case is None:
+        return None
+    return {"id": case.id, "name": case.name}
 
 
 # ============================================================================

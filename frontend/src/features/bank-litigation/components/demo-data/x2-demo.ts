@@ -2,7 +2,8 @@
  * 演示数据 · I. X2 · ③ 缺件 / ⑤ 回扫 的细节数据
  *
  * 前缀 DEMO_X2_*：只给 GapPanel / ReturnedPanel 用。
- * 与 stages-demo.ts 里的 DEMO_GAP_* / DEMO_RETURNED_* 是同一批演示数据的
+ * 与 `stages-demo/gap.ts` / `stages-demo/returned.ts` 里的 DEMO_GAP_* /
+ * DEMO_RETURNED_* 是同一批演示数据的
  * **下钻层**：那边是「一行一条」，这里是「这一行的沟通过程、附件、配置」。
  * GapSource / GapTimelineEvent / ScanMailboxConfig / AssignCandidate /
  * MailAttachment / ClaimFilter 这几个共享类型见 `types.ts`。

@@ -474,11 +474,17 @@ class TestArchiveQueryService:
         assert result is None
 
     def test_get_materials_for_contract(self, db):
+        """G16（2026-11-23 二轮审计）：必须返回**已求值的 list**。
+
+        调用方是 `async def` 端点，包在 `sync_to_async` 里；若返回 lazy QuerySet，
+        真正触发 SQL 的是 async 上下文里的 `for ... in materials` → 生产必 500。
+        """
         from apps.contracts.services.archive.archive_query_service import get_materials_for_contract
 
         c = ContractFactory()
         result = get_materials_for_contract(c.pk)
-        assert result.count() == 0
+        assert isinstance(result, list), "必须是 list，不能在 async 上下文里迭代 lazy QuerySet"
+        assert result == []
 
     def test_get_material_or_none(self, db):
         from apps.contracts.services.archive.archive_query_service import get_material_or_none

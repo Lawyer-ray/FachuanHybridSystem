@@ -222,7 +222,10 @@ async def llm_options(request: HttpRequest) -> dict[str, Any]:  # pragma: no cov
                 "models_error": model_result.error_message,
             }
         except Exception:
-            logger.debug("探测 openai_compatible 后端可用性失败（已忽略，不展示该后端）", exc_info=True)
+            # S01-07（2026-11-23 二轮审计）：原实现把探测异常记成 logger.debug 后整条后端消失
+            # （前端只看到「没有在线模型」，日志里一个字都没有）→ 现在提为 warning + exc_info，
+            # 「后端列表少了在线模型」必经告警面；降级行为本身不变（仍不展示该后端）。
+            logger.warning("探测 openai_compatible 后端可用性失败（已忽略，不展示该后端）", exc_info=True)
             return None
 
     jobs: list[Any] = []

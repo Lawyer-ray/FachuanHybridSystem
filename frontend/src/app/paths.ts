@@ -127,6 +127,18 @@ export function isAssistantPath(pathname: string): boolean {
   return pathname === ROUTES.assistant || pathname.startsWith(`${ROUTES.assistant}/`)
 }
 
+/**
+ * 这个 pathname 是不是「项目/合同详情页」——`/projects/<id>` 及其一切子路径
+ * （`/projects/393`、`/projects/393/review/<taskId>`…）。
+ *
+ * 与 isAssistantPath 同理收在这里：壳层用它决定面板是否强制并排（详情页三栏
+ * 并置，悬浮面板会盖住右栏合同）。判据必须跟 projectDetail 一起改，散在各处
+ * 手写正则的话，路由一改名就静默失效。
+ */
+export function isProjectDetailPath(pathname: string): boolean {
+  return /^\/projects\/[^/]+/.test(pathname)
+}
+
 /** 设置页（系统状态 + 账号绑定） */
 export function settings(): string {
   return ROUTES.settings

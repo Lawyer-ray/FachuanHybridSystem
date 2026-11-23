@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Wallet } from 'lucide-react'
 
+import { materialPrep } from '@/app/paths'
 import { CardHead } from '@/components/shared/CardHead'
 import { PANEL } from '@/components/shared/panel-styles'
 import { errMessage } from '@/lib/errors'
@@ -81,7 +82,7 @@ export function PendingIntakeCard({ bare = false }: { bare?: boolean } = {}) {
                 // 采纳系统建议：直接写入，不再二次确认
                 onConfirm={() => confirm.mutate({ id: intake.id })}
                 onChange={() => setPickerFor(intake)}
-                onDetail={() => void navigate(`/material-prep?message=${intake.inbox_message_id}`)}
+                onDetail={() => void navigate(`${materialPrep()}?message=${intake.inbox_message_id}`)}
               />
             </div>
           ))}

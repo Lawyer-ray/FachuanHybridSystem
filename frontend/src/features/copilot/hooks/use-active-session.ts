@@ -48,6 +48,9 @@ export function useActiveSession(): ActiveSessionInfo {
   // 恢复上次会话的历史（StrictMode 双挂载幂等：同 id 重拉无害）
   useEffect(() => {
     void switchSession(sessionId)
+    // 只在**挂载时**取一次 sessionId：它是「上次打开的是哪个会话」的快照，之后
+    // 跟着 sessionId 变化重跑就是每切一次会话再多拉一次历史（切换本身已经拉过）。
+    // switchSession 是 zustand 稳定引用，不进 deps 不会取到旧闭包。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -68,6 +71,9 @@ export function useActiveSession(): ActiveSessionInfo {
     }
     window.addEventListener(COPILOT_LAUNCH_EVENT, onLaunch)
     return () => window.removeEventListener(COPILOT_LAUNCH_EVENT, onLaunch)
+    // 事件订阅只能挂一次：重复执行会二次 consume pending 启动上下文（第二个宿主
+    // 拿到一个已经被取走的 context，表现为「点了 AI 助手但没进案件」）。
+    // enterContext 是 zustand 稳定引用，不随渲染变。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

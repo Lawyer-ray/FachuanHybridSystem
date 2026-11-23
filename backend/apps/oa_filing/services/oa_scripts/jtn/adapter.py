@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from decimal import Decimal
 from typing import Any
 
 from django.apps import apps as django_apps
@@ -134,6 +135,19 @@ def map_which_side_value(legal_status: str, stage: str) -> str:
             return "01"
         return sorted(options)[0]
     return "01"
+
+
+def format_contract_amount(amount: Decimal | None) -> str:
+    """合同固定/前期律师费 → OA 立案「合同金额」文本（两位小数，未填才留空）。
+
+    S21-b-13（2026-11-23 二轮审计）：原实现是 `str(int(amount))`，把角分直接截断
+    （Decimal("5000.50") → "5000"，OA 侧合同金额少 0.5 元、财务对账对不上），
+    且 `if amount` 对 Decimal("0.00") 为假会把 0 元合同传成空串 → 现在按
+    DecimalField(decimal_places=2) 的规范形式输出，0 元合同传 "0.00"。
+    """
+    if amount is None:
+        return ""
+    return f"{amount:.2f}"
 
 
 def map_case_contact(clients: list[Any]) -> tuple[str, str]:
@@ -419,7 +433,7 @@ class JTNAdapter(
             is_free="N",
             start_date=str(contract.start_date) if contract.start_date else "",
             end_date=str(contract.end_date) if contract.end_date else "",
-            amount=str(int(contract.fixed_amount)) if contract.fixed_amount else "",
+            amount=format_contract_amount(contract.fixed_amount),
             stamp_count=stamp_count,
             attachment_paths=attachment_paths,
         )

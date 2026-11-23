@@ -7,13 +7,11 @@ from dataclasses import dataclass, field
 
 import pytest
 
-try:
-    from plugins import has_court_login_plugin
-
-    _HAS_LOGIN = has_court_login_plugin()
-except ImportError:
-    _HAS_LOGIN = False
-
+# S20-06（2026-11-23 二轮审计）：原实现用模块级 `try: has_court_login_plugin() ...
+# pytestmark = skipif(not _HAS_LOGIN)` 给整份文件上门控 → CI 无 plugins 子模块时
+# 161 行全跳过。现在删掉探测与 pytestmark：本文件被测对象全部来自 core apps
+# （captcha_recognizer / court_sms_recommendation_service / file_prepare_service /
+# documents.smart_fill.service），没有一个需要 court_login 插件。
 from apps.automation.services.scraper.core.captcha_recognizer import CaptchaRecognizer
 from apps.automation.services.sms.court_sms_recommendation_service import (
     _COURT_NAME_PATTERN,
@@ -28,8 +26,6 @@ from apps.documents.services.smart_fill.service import (
     PlaceholderResult,
     SmartFillResult,
 )
-
-pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
 
 class TestRecommendationResult:
@@ -82,8 +78,18 @@ class TestYearCourtPrefixPattern:
         assert _YEAR_COURT_PREFIX_PATTERN.search("普通文本") is None
 
 
+@pytest.mark.skipif(
+    CaptchaRecognizer is None,
+    reason="court_login 插件未安装：captcha_recognizer 是插件 stub，缺插件时降级为 None",
+)
 class TestCaptchaRecognizer:
-    """CaptchaRecognizer 抽象接口测试。"""
+    """CaptchaRecognizer 抽象接口测试。
+
+    S20-06 删掉了整份文件的 `skipif(not _HAS_LOGIN)`（其余被测对象确实都来自 core apps，
+    不需要插件）。但**本类是例外**：`CaptchaRecognizer` 来自
+    `automation/services/scraper/core/captcha_recognizer.py`，那是 `plugins.court_automation.login`
+    的 stub，缺插件时降级为 None。所以门控收窄到本类，而不是恢复整文件的 skip。
+    """
 
     def test_abstract_methods(self) -> None:
         """验证抽象方法存在。"""
@@ -93,7 +99,7 @@ class TestCaptchaRecognizer:
     def test_cannot_instantiate(self) -> None:
         """不能直接实例化抽象类。"""
         with pytest.raises(TypeError):
-            CaptchaRecognizer()
+            CaptchaRecognizer()  # type: ignore[abstract]  # 故意实例化抽象类，断言 TypeError
 
 
 class TestSmartFillResult:

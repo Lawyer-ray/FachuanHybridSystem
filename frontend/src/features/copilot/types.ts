@@ -223,7 +223,7 @@ export interface ChatMessage extends ToolRunState {
    * 律师引入多答就是为了**比较效果**：栏头不写模型，看到几份不同意见却分不清
    * 哪份是谁答的，比较就失去意义。
    *
-   * 两条来源：本地发送时取自本轮指定（`store/turn.ts` 建气泡那一刻就带上——
+   * 两条来源：本地发送时取自本轮指定（`store/turn-send.ts` 建气泡那一刻就带上——
    * 后端事件里没有 model 字段）；历史回放取自 `metadata.model`（后端在流结束时
    * 落库的实际模型）。未指定 / 旧数据时 undefined，栏头只显示 agent 名。
    */

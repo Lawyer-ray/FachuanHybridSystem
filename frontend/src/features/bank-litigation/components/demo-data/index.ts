@@ -2,7 +2,8 @@
  * 立案工作台 · 演示数据（**仅用于录屏/演示，不参与真实业务**）
  *
  * ═══ 这是演示数据的唯一入口（barrel） ═══
- * 数据实体按业务域拆在同目录下的 `*-demo.ts` 里，本文件只做统一再导出：
+ * 数据实体按业务域拆在同目录下的 `*-demo.ts` 里（六阶段那组体量大，拆在
+ * `stages-demo/` 目录里按阶段一文件），本文件只做统一再导出：
  * 使用方继续 `from '../demo-data'` / `from './demo-data'` 即可，不需要关心
  * 某个常量落在哪个模块。
  *
@@ -112,30 +113,6 @@ export {
   type CourtMaterialRow,
   type CourtSubmitHistoryRow,
 } from './court-demo'
-
-// E. 整包拆分 UI
-export {
-  DEMO_BUNDLE_CAPABILITIES,
-  DEMO_BUNDLE_FAQ,
-  DEMO_BUNDLE_RULES,
-  DEMO_BUNDLE_SEGMENT_DETAIL,
-  DEMO_BUNDLE_SPLIT_RECORDS,
-  type BundleSegmentDetail,
-  type BundleSplitRecord,
-} from './bundle-demo'
-
-// F. 起诉条件（就绪度）
-export {
-  DEMO_READINESS_CHECK_BASIS,
-  DEMO_READINESS_FILES,
-  DEMO_READINESS_HISTORY,
-  DEMO_READINESS_PEERS,
-  DEMO_READINESS_SLOT_META,
-  type ReadinessFileRow,
-  type ReadinessHistoryRow,
-  type ReadinessPeerRow,
-  type ReadinessSlotMeta,
-} from './readiness-demo'
 
 // G. 单案诉讼线 · 六阶段（① 收案 → ② 读懂 → ③ 缺件 → ④ 文书 → ⑤ 回扫 → ⑥ 校验）
 export {

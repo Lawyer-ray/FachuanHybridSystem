@@ -306,7 +306,14 @@ def find_inflight_pdf_split_job(
 
     返回 null 表示没有进行中的（前端照常新建）。
     """
-    job = PdfSplitJobService().find_inflight_job(source_name=source_name, total_pages=total_pages)
+    # S31-02（2026-11-23 二轮审计）：原实现不传 user，服务侧也不按 created_by 过滤，
+    # 于是知道对方的文件名 + 页数就能拉到他人任务的 payload（含已落库的 content_md）。
+    # 现在与 find_reusable_job / get_job 同口径：只认自己的任务（管理员全量）。
+    job = PdfSplitJobService().find_inflight_job(
+        source_name=source_name,
+        total_pages=total_pages,
+        user=_request_user(request),
+    )
     if job is None:
         return None
     return PdfSplitJobOut(**PdfSplitJobService().build_job_payload(job))

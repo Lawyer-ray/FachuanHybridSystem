@@ -15,6 +15,10 @@ from django.utils.html import format_html, format_html_join
 from apps.documents.models import TemplateAuditLog
 
 
+# S18-b-03（2026-11-23 二轮审计）：原实现只有一个裸类定义——既没有 @admin.register，
+# 也没有被 apps/documents/admin/__init__.py 导入，于是 signals 一直在写 TemplateAuditLog，
+# Admin 里却没有任何入口（模板改动无可追溯界面）。现在在此注册 + 在包 __init__ 导入。
+@admin.register(TemplateAuditLog)
 class TemplateAuditLogAdmin(admin.ModelAdmin):  # pragma: no cover
     """
     模板审计日志管理
@@ -40,7 +44,9 @@ class TemplateAuditLogAdmin(admin.ModelAdmin):  # pragma: no cover
 
     search_fields = (
         "object_repr",
-        "user__name",
+        # 2026-11-23：原写 "user__name"，但 Lawyer 上没有 name 字段（只有 real_name）——
+        # admin 一搜索就 FieldError → 500。tests/ci/unit/test_admin_field_references.py 抓的就是这个。
+        "user__real_name",
     )
 
     readonly_fields = (

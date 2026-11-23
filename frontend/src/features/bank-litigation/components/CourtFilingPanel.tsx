@@ -11,14 +11,16 @@ import { CourtPlatform } from './court/CourtPlatform'
 import { FieldMappingTable } from './court/FieldMappingTable'
 import { MaterialList } from './court/MaterialList'
 import { SubmitHistory } from './court/SubmitHistory'
-import { PHASE_META, SessionResult, pillTone } from './filing-session'
+import { PHASE_META, pillTone } from './constants'
+import { SessionResult } from './filing-session-result'
 import type { FilingEngine, FilingType } from '../types'
 import { fmtMoney } from '../utils'
 
 /**
  * 一张网在线立案面板（`CourtFilingPanel`）。
- * 律所 OA 那一半在 `oa/OAFilingPanel.tsx`（当年按文件行数红线拆出去的），
- * 两侧共用件在 `filing-session.tsx`。
+ * 律所 OA 那一半的旧实现 `oa/OAFilingPanel.tsx` 已于 v27.24.1 删除（无生产挂载点，
+ * 只有自己的测试引用），立案入口现只有一张网这一条。
+ * 两侧共用件在 `filing-session-result.tsx`（结果块）与 `constants.ts`（阶段文案）。
  *
  * ═══ 两条链路的共同形状 ═══
  * 提交 → 后台线程跑浏览器自动化（Playwright）→ 前端轮询会话状态 → 终态停。

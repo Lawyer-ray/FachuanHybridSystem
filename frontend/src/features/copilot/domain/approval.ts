@@ -6,7 +6,7 @@
  * 且不允许任何调用方自己写死秒数。
  */
 
-import type { Tone } from '@/components/shared/status-badge'
+import type { Tone } from '@/lib/tone'
 
 import type { PendingApproval, PendingApprovalItem } from '../types'
 

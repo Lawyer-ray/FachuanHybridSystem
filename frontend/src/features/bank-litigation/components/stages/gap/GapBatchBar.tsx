@@ -72,9 +72,11 @@ export function GapBatchBar({
             disabled={checkedOpen.length === 0 || batchRunning}
             onClick={() => {
               setBatchNote('')
-              void batchRemind.execute().then(() =>
-                setBatchNote(`已批量催办 ${checkedOpen.length} 项：${checkedOpen.join('、')}`),
-              )
+              // 回执只在 execute() 报 ok 时给 —— 失败不出「已批量催办」
+              void batchRemind.execute().then((r) => {
+                if (!r.ok) return
+                setBatchNote(`已批量催办 ${checkedOpen.length} 项：${checkedOpen.join('、')}`)
+              })
             }}
           >
             {batchRemind.phase === 'running' ? '催办中…' : '批量催办'}
@@ -84,9 +86,11 @@ export function GapBatchBar({
             disabled={checkedOpen.length === 0 || batchRunning}
             onClick={() => {
               setBatchNote('')
-              void batchReceive.execute().then(() =>
-                setBatchNote(`已批量标记已收 ${checkedOpen.length} 项：${checkedOpen.join('、')}`),
-              )
+              // 回执只在 execute() 报 ok 时给 —— 失败不出「已批量标记已收」
+              void batchReceive.execute().then((r) => {
+                if (!r.ok) return
+                setBatchNote(`已批量标记已收 ${checkedOpen.length} 项：${checkedOpen.join('、')}`)
+              })
             }}
           >
             {batchReceive.phase === 'running' ? '处理中…' : '批量标记已收'}

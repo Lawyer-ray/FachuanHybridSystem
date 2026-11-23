@@ -1,5 +1,22 @@
 """
 Django settings for apiSystem project.
+
+## 本文件放什么 / 不放什么
+
+只放 Django 强制要求「必须在单一 settings 模块里求值」的东西：`INSTALLED_APPS` /
+`MIDDLEWARE` 清单、数据库三方言与连接池组装、`LOGGING`，以及各分区最终赋值。
+
+S10-01（2026-11-23 二轮审计）：审计称本文件「941 行、承载全部配置」，前半属实、
+后半不成立——「怎么算」已经外置到 `apps/core/config/django_runtime.py`
+（`resolve_security_config` / `resolve_cors_and_csrf` / `resolve_q_cluster` /
+`resolve_channel_layers` / `resolve_rate_limit` / `resolve_cache_redis_url` /
+`resolve_channel_redis_url` / `resolve_web_worker_count` /
+`resolve_contract_folder_browse_roots` / `resolve_perm_open_access` /
+`validate_runtime_topology`，本文件只剩 22 处 `resolve_*()` 调用）。
+
+新增配置时的分工：环境变量读取、默认值、校验、派生计算写进 `django_runtime.py`；
+本文件只保留一行赋值，不要把逻辑写回来。本文档标记的目的就是让“第 941 行还能放什么”
+有明确答案：只放 Django 必需的声明式赋值。
 """
 
 import os

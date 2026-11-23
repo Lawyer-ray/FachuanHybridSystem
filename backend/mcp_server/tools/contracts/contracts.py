@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, get_args
 
 from pydantic import Field
 
@@ -215,11 +215,41 @@ def create_contract(
     return client.post("/contracts/contracts", json=body, params=params)  # type: ignore[no-any-return]
 
 
+#: ``_FeeModeL`` 的取值集合——词典型入口（下面两个函数）预检用，不另抄一份枚举。
+_FEE_MODE_VALUES: frozenset[str] = frozenset(get_args(_FeeModeL))
+
+
+def _reject_unknown_fee_mode(contract_data: dict[str, Any]) -> None:
+    """词典型入口的 fee_mode 护栏（发请求前挡住大小写/拼错）。
+
+    S11-13（2026-11-23 二轮审计）：`create_contract_with_cases` / `update_contract`
+    的 `contract_data` 是裸 dict，MCP schema 里没有 enum；而后端
+    `ContractValidator.validate_fee_mode` 只在 fee_mode **恰好等于大写枚举值**时才
+    做金额校验（`validators.get(fee_mode)` 取不到就当无校验放过），于是模型按小写
+    习惯传 `fee_mode="fixed"` 会既绕过金额校验、又把非法枚举值落库。→ 现在这里
+    把它挡成 ValueError（`_t` 会转成 ToolError，文案直达模型自纠）。
+
+    ``representation_stages`` 不在此重复校验：后端 ``ContractValidator.validate_stages``
+    已在 create/update 两条链路上都拒中文值。
+    """
+    fee_mode = contract_data.get("fee_mode")
+    if fee_mode is None:
+        return
+    # isinstance 先挡非字符串：list/dict 进 set 成员判断会抛 TypeError，
+    # 而只有 ValueError 才会被 ``_t`` 翻成带文案的 ToolError。
+    if not isinstance(fee_mode, str) or fee_mode not in _FEE_MODE_VALUES:
+        raise ValueError(
+            f"fee_mode 必须是大写枚举值 {sorted(_FEE_MODE_VALUES)}，收到：{fee_mode!r}"
+            "（后端只在大写枚举下才校验金额，写错大小写会绕过校验并落库）"
+        )
+
+
 def create_contract_with_cases(
     contract_data: dict[str, Any],
     cases: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """创建合同并同时关联案件。contract_data 为合同字段（name、case_type、lawyer_ids 等）；cases 为案件列表（每项含 case_type、client_name 等）。"""
+    """创建合同并同时关联案件。contract_data 为合同字段（name、case_type、lawyer_ids 等，fee_mode 用大写枚举）；cases 为案件列表（每项含 case_type、client_name 等）。"""
+    _reject_unknown_fee_mode(contract_data)
     payload: dict[str, Any] = {**contract_data, "cases": cases}
     return client.post("/contracts/contracts/full", json=payload)  # type: ignore[no-any-return]
 
@@ -230,7 +260,8 @@ def update_contract(
     sync_cases: bool = False,
     confirm_finance: bool = False,
 ) -> dict[str, Any]:
-    """更新合同信息。contract_data 为需要修改的字段；sync_cases 为 True 时同步更新关联案件；confirm_finance 为 True 时确认财务变动。"""
+    """更新合同信息。contract_data 为需要修改的字段（fee_mode 用大写枚举）；sync_cases 为 True 时同步更新关联案件；confirm_finance 为 True 时确认财务变动。"""
+    _reject_unknown_fee_mode(contract_data)
     params: dict[str, Any] = {}
     if sync_cases:
         params["sync_cases"] = sync_cases

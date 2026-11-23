@@ -103,12 +103,25 @@ def search_contracts(
     return [SearchResultItem(id=c.id, title=c.name or "", subtitle="", case_type=c.case_type) for c in qs]
 
 
-def search_inbox(q: str, limit: int) -> list[SearchResultItem]:
+def search_inbox(
+    q: str, limit: int, *, user: Any = None, org_access: dict[str, Any] | None = None
+) -> list[SearchResultItem]:
+    """收件箱检索。
+
+    S23-01（2026-11-23 二轮审计）：原实现没有任何归属过滤 —— 任意登录律师都能在
+    全局搜索里搜到**他人邮箱**的主题与发件人。现在按「凭证属主」收敛：
+    能看到自己凭证下的邮件；没有凭证归属的（全所共享来源）保持全员可见；
+    管理员不过滤（保持排障能力）。
+    """
+    from apps.core.security.admin_access import is_admin_user
     from apps.message_hub.models import InboxMessage
 
     qs: QuerySet = InboxMessage.objects.filter(Q(subject__icontains=q) | Q(sender__icontains=q)).order_by(
         "-received_at"
-    )[:limit]
+    )
+    if user is not None and not is_admin_user(user):
+        qs = qs.filter(Q(source__credential__lawyer=user) | Q(source__credential__isnull=True) | Q(source__isnull=True))
+    qs = qs[:limit]
     return [
         SearchResultItem(
             id=m.id,

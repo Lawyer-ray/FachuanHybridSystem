@@ -124,6 +124,7 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
     1. 解析该律师在对应承运商下的扫码会话
     2. 无可用会话 → 转入「等待登录」并释放 worker（不再死等扫码）
     3. 有会话 → 加锁串行执行；期间若发现登录失效，同样转「等待登录」
+    4. 拿不到会话锁（同一账号已有任务在跑）→ 同样转「等待登录」而非 FAILED
     """
     session = resolve_session(task)
 
@@ -151,14 +152,6 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
         from apps.express_query.services.browser_query.sf_query_handler import ExpressLoginRequired as SfLoginRequired
 
         browser_service = ExpressBrowserQueryService()
-        coro = browser_service.query_and_save_pdf(
-            carrier_type=task.carrier_type,
-            tracking_number=task.tracking_number,
-            output_pdf=tmp_pdf_path,
-            profile_key=profile_key,
-            # 无人值守：未登录立刻返回，而不是死等 300s 占满 worker
-            allow_interactive_login=False,
-        )
 
         # 浏览器的启动与关闭由 query_and_save_pdf 用 async with 自包含，
         # 保证在同一个 asyncio.run() 生命周期内完成。
@@ -166,13 +159,29 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
         # asyncio.run() 收尾的 shutdown_asyncgens 会永久阻塞，任务卡在“查询中”。
         #
         # Django-Q2 worker 没有运行中的事件循环，直接用 asyncio.run()
+        #
+        # 协程在锁内创建：拿不到锁直接返回时不会留下未被 await 的协程对象
         with session_lock(session):
+            coro = browser_service.query_and_save_pdf(
+                carrier_type=task.carrier_type,
+                tracking_number=task.tracking_number,
+                output_pdf=tmp_pdf_path,
+                profile_key=profile_key,
+                # 无人值守：未登录立刻返回，而不是死等 300s 占满 worker
+                allow_interactive_login=False,
+            )
             try:
                 final_url = asyncio.run(coro)
             except (EmsLoginRequired, SfLoginRequired) as exc:
                 _handle_login_required(task, session, str(exc))
                 return
         pdf_content = tmp_pdf_path.read_bytes()
+    except SessionUnavailableError as exc:
+        # S39-04（2026-11-23 二轮审计）：原实现让 SessionUnavailableError 直接冒泡到
+        # 两个入口的宽捕获，任务被写成 FAILED，与 session_lock 文档
+        # 「拿不到锁直接抛错，由调用方把任务转入等待」相悖 → 现在就地捕获并转等待登录。
+        _handle_session_unavailable(task, session, str(exc))
+        return
     finally:
         tmp_pdf_path.unlink(missing_ok=True)
 
@@ -201,6 +210,22 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
         ]
     )
     logger.info("快递查询任务执行成功", extra={"task_id": task.id})
+
+
+def _handle_session_unavailable(task: ExpressQueryTask, session: object, reason: str) -> None:
+    """同一会话正在被其他任务使用：不判失败，转「等待登录」等下一次重试。
+
+    会话本身没有失效，因此不改会话状态（不能 mark_login_expired，否则会把
+    正在被别的任务正常使用的登录态打成 EXPIRED）；只把任务停在等待态，
+    让人在任务列表里稍后重试。
+    """
+    task.status = ExpressQueryTaskStatus.WAITING_LOGIN
+    task.error_message = reason
+    task.save(update_fields=["status", "error_message", "updated_at"])
+    logger.info(
+        "会话被占用，任务转入等待登录",
+        extra={"task_id": task.id, "session_id": getattr(session, "id", None), "reason": reason},
+    )
 
 
 def _handle_login_required(task: ExpressQueryTask, session: object, reason: str) -> None:

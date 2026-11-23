@@ -282,11 +282,12 @@ class TestBuildPlaintiffAgentPayload:
         assignments_mock = MagicMock()
         assignments_mock.select_related.return_value = mock_select_related
         case = SimpleNamespace(assignments=assignments_mock)
-        result = _build_plaintiff_agent_payload(
-            case=case, requester_id=None, fallback_party={"name": "原告", "phone": "12000000000"}
-        )
-        assert result["party_type"] == "agent"
-        assert result["name"] == "原告"
+        # S11-23（2026-11-23 二轮审计）：无代理律师时不再把 fallback 名字当委托代理人递交法院，
+        # 改为 fail-closed 阻断（原断言锁的是缺陷行为）。
+        with pytest.raises(ValueError, match="未找到案件代理律师"):
+            _build_plaintiff_agent_payload(
+                case=case, requester_id=None, fallback_party={"name": "原告", "phone": "12000000000"}
+            )
 
     def test_lawyer_from_requester(self):
         from plugins.court_automation.guarantee.helpers import _build_plaintiff_agent_payload

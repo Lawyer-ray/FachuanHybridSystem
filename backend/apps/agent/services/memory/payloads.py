@@ -85,7 +85,11 @@ def list_memories_payload(
     queryset = queryset.annotate(is_superseded=Exists(AgentMemory.objects.filter(supersedes=OuterRef("pk"))))
     bounded = max(1, min(limit, 300))
     start = max(0, offset)
-    ordered = queryset.order_by("-created_at", "id")
+    # S47-06（2026-11-23 二轮审计）：原实现没带 ``select_related``，而 ``memory_to_dict``
+    # 逐行解引用 ``source_session`` 与 ``confirmed_by`` 两个外键 → 每行多 2 条 SQL
+    # （一页 300 行最多 +600 查询，面板/抽屉打开明显变慢）。两个外键都是 ``null=True``，
+    # 预取对空值无副作用。
+    ordered = queryset.select_related("source_session", "confirmed_by").order_by("-created_at", "id")
     return [memory_to_dict(m) for m in ordered[start : start + bounded]]
 
 

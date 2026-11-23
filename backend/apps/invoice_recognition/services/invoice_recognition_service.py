@@ -78,7 +78,8 @@ class InvoiceRecognitionService:
         finally:
             import shutil
 
-            shutil.rmtree(img_tmp_dir, ignore_errors=True)
+            if img_tmp_dir is not None:
+                shutil.rmtree(img_tmp_dir, ignore_errors=True)
 
     def _process_image(self, file_path: Path) -> str:
         return self._ocr.recognize(str(file_path))
@@ -198,7 +199,12 @@ class InvoiceRecognitionService:
             if record is not None:
                 records.append(record)
 
-        task.status = InvoiceRecognitionTaskStatus.COMPLETED
+        # S40-02（2026-11-23 二轮审计）：原实现无条件写 COMPLETED，一批文件全部扩展名
+        # 非法/超限或全部识别异常时任务仍显示「已完成、finished_at 已填」，前端凭
+        # task.status == completed 会认定「发票已识别入库」→ 现在按记录结果回算：
+        # 一条都没成功就写 FAILED，否则（含未传入文件、无可写记录）保持 COMPLETED。
+        all_failed = bool(records) and not any(r.status == InvoiceRecordStatus.SUCCESS for r in records)
+        task.status = InvoiceRecognitionTaskStatus.FAILED if all_failed else InvoiceRecognitionTaskStatus.COMPLETED
         task.finished_at = timezone.now()
         task.save(update_fields=["status", "finished_at"])
 

@@ -103,7 +103,10 @@ class PlaceholderUsageService:
             return {str(k).strip() for k in keys if str(k).strip()}
         except Exception:
             logger.exception("extract_placeholders_by_docxtpl_failed", extra={"file_path": file_path})
-            return set()
+            # S19-08（2026-11-23 二轮审计）：原实现失败也返回 set()，而 set() 会被
+            # `_extract_template_placeholders` 当作「解析成功且无占位符」，于是 python-docx
+            # 兜底永远跑不到（None = 本解析器不可用）。现在失败返回 None，让兜底解析器接上。
+            return None
 
     def _extract_by_python_docx(self, file_path: str) -> set[str]:
         if _DocxDocument is None:

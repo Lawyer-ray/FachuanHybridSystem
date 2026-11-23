@@ -132,23 +132,6 @@ export function NonLitDetailPage() {
     [tree, special, openPreview],
   )
 
-  /** 右栏事实卡的完整入参（未预览 / 退到左栏底部两处都要用） */
-  const railProps = {
-    deadlines,
-    today: d.today,
-    contactGroups: contacts,
-    team: deal?.team ?? [],
-    deal: deal!,
-    moneyRows: money,
-    onOpenFile: openPreview,
-    onReviewFile: (f: { subpath: string; name: string }) => setReviewTarget(f),
-    onAddDue: () => soonToast('新增期限'),
-    onAddPayment: () => setPayOpen(true),
-    onOpenInvoices: () => setInvoiceOpen(true),
-    // 发票关联/解除改了合同的开票金额：刷新合同（统计格、收款徽标、案件卡的钱）
-    onMoneyChanged: () => (deal ? refetchContractAndCases(qc, deal.id) : undefined),
-  }
-
   /**
    * 点右栏派生目录 → 展开该目录里第一份可预览的文件。
    *
@@ -184,6 +167,23 @@ export function NonLitDetailPage() {
   }
   if (d.error || !deal) {
     return <DetailError error={d.error ?? '项目不存在'} onRetry={() => d.refetch()} />
+  }
+
+  /** 右栏事实卡的完整入参（未预览 / 退到左栏底部两处都要用）；deal 由上一行守卫收窄为非空 */
+  const railProps = {
+    deadlines,
+    today: d.today,
+    contactGroups: contacts,
+    team: deal.team,
+    deal,
+    moneyRows: money,
+    onOpenFile: openPreview,
+    onReviewFile: (f: { subpath: string; name: string }) => setReviewTarget(f),
+    onAddDue: () => soonToast('新增期限'),
+    onAddPayment: () => setPayOpen(true),
+    onOpenInvoices: () => setInvoiceOpen(true),
+    // 发票关联/解除改了合同的开票金额：刷新合同（统计格、收款徽标、案件卡的钱）
+    onMoneyChanged: () => refetchContractAndCases(qc, deal.id),
   }
 
   return (

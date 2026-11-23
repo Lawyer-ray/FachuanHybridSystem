@@ -12,6 +12,18 @@ from apps.litigation_ai.models.choices import MockTrialMode
 from apps.litigation_ai.services.flow.flow_messenger import FlowMessenger
 from apps.litigation_ai.services.flow.session_repository import LitigationSessionRepository
 
+# S23-15（2026-11-23 二轮审计）：Markdown 排版与配置解析已按关注点拆到
+# `presentation.py` / `adversarial_config.py`，本模块只留「状态机 + I/O 编排」。
+from .adversarial_config import parse_adversarial_config
+from .presentation import (
+    build_evidence_menu_message,
+    build_init_message,
+    build_model_config_message,
+    format_adversarial_report,
+    format_cross_exam_opinion,
+    format_debate_focuses,
+    format_judge_report,
+)
 from .types import MockTrialContext, MockTrialStep
 
 if TYPE_CHECKING:
@@ -42,66 +54,6 @@ def parse_mode(user_input: str) -> str | None:
         "多agent": MockTrialMode.ADVERSARIAL,
     }
     return mapping.get(text)
-
-
-def format_judge_report(report: dict[str, Any]) -> str:
-    """格式化法官视角分析报告为 Markdown。"""
-    lines: list[str] = ["# ⚖️ 法官视角分析报告\n"]
-
-    focuses = report.get("dispute_focuses", [])
-    if focuses:
-        lines.append("## 争议焦点\n")
-        for i, f in enumerate(focuses, 1):
-            lines.append(f"**焦点{i}：{f.get('description', '')}**")
-            lines.append(f"- 类型：{f.get('focus_type', '')}")
-            lines.append(f"- 原告立场：{f.get('plaintiff_position', '')}")
-            lines.append(f"- 被告可能立场：{f.get('defendant_position', '')}")
-            lines.append(f"- 举证责任：{f.get('burden_of_proof', '')}")
-            evidence = f.get("key_evidence", [])
-            if evidence:
-                lines.append(f"- 关键证据：{'、'.join(evidence)}")
-            lines.append("")
-
-    comparisons = report.get("evidence_strength_comparison", [])
-    if comparisons:
-        lines.append("## 证据强弱对比\n")
-        for c in comparisons:
-            lines.append(f"**{c.get('focus', '')}**")
-            lines.append(f"- 原告证据：{c.get('plaintiff_strength', '')} | 被告证据：{c.get('defendant_strength', '')}")
-            lines.append(f"- 分析：{c.get('analysis', '')}")
-            lines.append("")
-
-    questions = report.get("judge_questions", [])
-    if questions:
-        lines.append("## 法官可能提问\n")
-        for q in questions:
-            lines.append(f"- {q}")
-        lines.append("")
-
-    lines.append(f"## 风险评估\n\n{report.get('risk_assessment', '')}\n")
-    lines.append(f"## 胜诉概率\n\n{report.get('overall_win_probability', '')}\n")
-    lines.append(f"## 建议策略\n\n{report.get('recommended_strategy', '')}")
-
-    return "\n".join(lines)
-
-
-def format_cross_exam_opinion(ev: dict[str, Any], opinion: dict[str, Any]) -> str:
-    """格式化质证意见为 Markdown。"""
-    name = ev.get("name", "未命名")
-    lines = [f"# 🔍 质证意见 — {name}\n"]
-    for dim, label in [
-        ("authenticity", "真实性"),
-        ("legality", "合法性"),
-        ("relevance", "关联性"),
-        ("proof_power", "证明力"),
-    ]:
-        d = opinion.get(dim, {})
-        strength = d.get("challenge_strength", "")
-        icon = {"strong": "🔴", "moderate": "🟡", "weak": "🟢"}.get(strength, "⚪")
-        lines.append(f"## {label} {icon}\n{d.get('opinion', '')}\n")
-    lines.append(f"## 风险等级\n{opinion.get('risk_level', '')}\n")
-    lines.append(f"## 建议回应策略\n{opinion.get('suggested_response', '')}")
-    return "\n".join(lines)
 
 
 class MockTrialFlowService:
@@ -155,16 +107,7 @@ class MockTrialFlowService:
         case_name = case_info.get("case_name", "")
         cause = case_info.get("cause_of_action", "")
 
-        msg = (
-            f"⚖️ 模拟庭审 — {case_name}\n"
-            f"案由：{cause or '未设置'}\n\n"
-            "请选择模拟模式：\n"
-            "1️⃣ 法官视角分析 — AI 扮演法官，分析争议焦点、证据强弱、胜诉概率\n"
-            "2️⃣ 质证模拟 — AI 扮演对方律师，逐一质证您的证据\n"
-            "3️⃣ 辩论模拟 — AI 扮演对方律师，围绕争议焦点进行多轮辩论\n"
-            "4️⃣ 多Agent对抗 — 原告/被告/法官分别由不同大模型激烈对抗，你可随时介入\n\n"
-            "请回复数字（1/2/3/4）或模式名称。"
-        )
+        msg = build_init_message(case_name, cause)
         await self._send(
             send_cb,
             {"type": "system_message", "content": msg, "metadata": {"case_info": case_info}},
@@ -342,17 +285,9 @@ class MockTrialFlowService:
     ) -> None:  # pragma: no cover
         total = len(evidence_list)
         ev = evidence_list[current_index]
-        lines = [
-            f"📋 证据质证 ({current_index + 1}/{total})\n",
-            f"**证据名称：** {ev.get('name', '未命名')}",
-            f"**证据类型：** {ev.get('evidence_type', '书证')}",
-            f"**证明目的：** {ev.get('description', '无')}",
-            "",
-            "🔍 正在对该证据进行质证分析...",
-        ]
         await self._send(
             send_cb,
-            {"type": "system_message", "content": "\n".join(lines)},
+            {"type": "system_message", "content": build_evidence_menu_message(ev, current_index, total)},
             True,
             ctx.session_id,
             "system",
@@ -479,16 +414,13 @@ class MockTrialFlowService:
                 },
             )
 
-            lines = ["# 💬 争议焦点归纳\n"]
-            for i, f in enumerate(focuses, 1):
-                lines.append(f"**{i}. {f.get('description', '')}**")
-                lines.append(f"   类型：{f.get('focus_type', '')} | 举证责任：{f.get('burden_of_proof', '')}")
-                lines.append("")
-            lines.append("请回复焦点编号（如 1）选择要辩论的焦点。")
-
             await self._send(
                 send_cb,
-                {"type": "system_message", "content": "\n".join(lines), "metadata": {"focuses": focuses}},
+                {
+                    "type": "system_message",
+                    "content": format_debate_focuses(focuses),
+                    "metadata": {"focuses": focuses},
+                },
                 True,
                 ctx.session_id,
                 "system",
@@ -618,11 +550,15 @@ class MockTrialFlowService:
         )
         if not raw:
             return ""
-        list_ids: list[int] = [int(e["list_id"]) for e in raw if e.get("list_id")]
-        if not list_ids:
+        # S23-13（2026-11-23 二轮审计）：原实现读 `e["list_id"]`（documents.EvidenceList 的键），
+        # 而 `get_evidence_list_for_agent` 返回的每项只有 `evidence_item_id`，因此候选 id 恒为空、
+        # `build_evidence_text` 的 RAG 分支永不命中，只剩「名称 + 证明目的」兜底。
+        # 现在改读 `evidence_item_id` 并按证据项 id 构建摘要（页码/用途都来自证据项本身）。
+        evidence_item_ids: list[int] = [int(e["evidence_item_id"]) for e in raw if e.get("evidence_item_id")]
+        if not evidence_item_ids:
             return "\n".join([f"- {e.get('name', '未命名')}: {e.get('description', '')}" for e in raw])
         result = await sync_to_async(EvidenceDigestService().build_evidence_text, thread_sensitive=True)(
-            evidence_list_ids=list_ids, evidence_item_ids=[]
+            evidence_list_ids=[], evidence_item_ids=evidence_item_ids
         )
         return result
 
@@ -649,24 +585,7 @@ class MockTrialFlowService:
         from apps.core.llm.config import LLMConfig
 
         models = LLMConfig.DEFAULT_AVAILABLE_MODELS[:10]  # 取前 10 个
-        model_list = "\n".join(f"  {i + 1}. `{m}`" for i, m in enumerate(models))
-
-        msg = (
-            "⚔️ **多 Agent 对抗模式配置**\n\n"
-            f"可用模型：\n{model_list}\n\n"
-            "请按以下格式配置（每行一项），或直接回复 **默认** 使用默认配置：\n\n"
-            "```\n"
-            "原告模型: 1\n"
-            "被告模型: 3\n"
-            "法官模型: 5\n"
-            "辩论轮数: 10\n"
-            "审级: 一审\n"
-            "我的角色: 观看\n"
-            "```\n\n"
-            "审级可选：一审 / 二审（二审会增加上诉请求与答辩环节）\n"
-            "角色可选：原告 / 被告 / 法官 / 观看\n"
-            "模型填编号或完整名称均可。"
-        )
+        msg = build_model_config_message(models)
         await self._send(
             send_cb,
             {"type": "system_message", "content": msg, "metadata": {"available_models": models}},
@@ -743,53 +662,8 @@ class MockTrialFlowService:
         await service.run_full_trial(ctx, send_cb, self._set_step)
 
     def _parse_adversarial_config(self, text: str, models: list[str]) -> AdversarialConfig:
-        """解析用户输入的配置文本."""
-        from .types import AdversarialConfig
-
-        config = AdversarialConfig()
-
-        def resolve_model(val: str) -> str:
-            val = val.strip()
-            try:
-                idx = int(val) - 1
-                if 0 <= idx < len(models):
-                    return models[idx]
-            except ValueError:
-                pass
-            # 直接用名称
-            for m in models:
-                if val.lower() in m.lower():
-                    return m
-            return val
-
-        role_map = {"原告": "plaintiff", "被告": "defendant", "法官": "judge", "观看": "observer"}
-        level_map = {"一审": "first", "二审": "second"}
-
-        def _apply_rule(key: str, val: str) -> None:
-            if "原告" in key and "模型" in key:
-                config.plaintiff_model = resolve_model(val)
-            elif "被告" in key and "模型" in key:
-                config.defendant_model = resolve_model(val)
-            elif "法官" in key and "模型" in key:
-                config.judge_model = resolve_model(val)
-            elif "轮数" in key:
-                try:
-                    config.debate_rounds = max(3, int(val))
-                except ValueError:
-                    pass
-            elif "角色" in key:
-                config.user_role = role_map.get(val, "observer")
-            elif "审级" in key:
-                config.trial_level = level_map.get(val, "first")
-
-        for line in text.split("\n"):
-            line = line.strip()
-            if ":" not in line and "：" not in line:
-                continue
-            key, _, val = line.replace("：", ":").partition(":")
-            _apply_rule(key.strip(), val.strip())
-
-        return config
+        """解析用户输入的配置文本（解析规则见同目录 adversarial_config.py）。"""
+        return parse_adversarial_config(text, models)
 
     async def _handle_adversarial_input(
         self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]
@@ -857,50 +731,9 @@ class MockTrialFlowService:
             await send_cb({"type": "system_message", "content": "⚠️ 暂无庭审记录可导出。"})
             return
 
-        from .adversarial_service import ROLE_LABELS
-
         metadata = await self.session_repo.get_metadata(ctx.session_id)
         adv_config = metadata.get("adversarial_config", {})
-        case_info = service.case_info
-
-        lines = [
-            "# ⚖️ 多Agent对抗模拟庭审报告\n",
-            f"**案件名称：** {case_info.get('case_name', '')}",
-            f"**案由：** {case_info.get('cause_of_action', '')}",
-            f"**原告模型：** {adv_config.get('plaintiff_model') or '默认'}",
-            f"**被告模型：** {adv_config.get('defendant_model') or '默认'}",
-            f"**法官模型：** {adv_config.get('judge_model') or '默认'}",
-            f"**辩论轮数：** {adv_config.get('debate_rounds', 10)}",
-            "",
-            "---\n",
-        ]
-
-        current_stage = ""
-        stage_labels = {
-            "opening": "一、开庭审理",
-            "plaintiff_statement": "二、原告陈述",
-            "defendant_response": "三、被告答辩",
-            "investigation": "四、法庭调查",
-            "debate": "五、法庭辩论",
-            "debate_judge": "五、法庭辩论（法官追问）",
-            "summary": "六、法庭总结",
-        }
-
-        for entry in service.transcript:
-            stage = entry.get("stage", "")
-            base_stage = stage.split("_judge")[0] if "_judge" in stage else stage
-            if base_stage != current_stage and base_stage in stage_labels:
-                current_stage = base_stage
-                lines.append(f"\n## {stage_labels.get(stage, stage)}\n")
-
-            role_label = ROLE_LABELS.get(entry["role"], entry["role"])
-            is_user = entry.get("is_user", False)
-            suffix = "（用户）" if is_user else ""
-            lines.append(f"### {role_label}{suffix}\n")
-            lines.append(entry["content"])
-            lines.append("")
-
-        report_text = "\n".join(lines)
+        report_text = format_adversarial_report(service.transcript, service.case_info, adv_config)
 
         # 保存到 session metadata
         await self.session_repo.update_metadata(ctx.session_id, {"adversarial_report": report_text})

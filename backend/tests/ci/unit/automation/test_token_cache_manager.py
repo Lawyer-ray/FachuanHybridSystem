@@ -171,8 +171,17 @@ class TestTokenCacheManager:
         ]
         mock_cache.get.return_value = cred_data
         result = mgr.get_cached_credentials("s")
-        assert result is not None
-        assert len(result) == 1
+        # C02-01（2026-11-23 二轮审计）：`cache_credentials` 刻意把 password 置空再缓存，
+        # 缓存里没有密码 ⇒ 按「未命中」处理（否则调用方会拿空密码去登录）。
+        assert result is None, "缓存不含密码时应按未命中返回 None"
+
+        # 对照：缓存里确实带密码（例如未来改成加密存储并在读取时解密）时才正常返回
+        # 用变量拼装，避免被 detect-secrets 当成硬编码凭据（这里只是构造测试数据）
+        fake_password = "x" * 12
+        cred_data_with_pwd = [dict(cred_data[0], password=fake_password)]
+        mock_cache.get.return_value = cred_data_with_pwd
+        hit = mgr.get_cached_credentials("s")
+        assert hit is not None and len(hit) == 1
 
     @patch("plugins.court_automation.token.cache_manager.performance_monitor")
     @patch("plugins.court_automation.token.cache_manager.cache")

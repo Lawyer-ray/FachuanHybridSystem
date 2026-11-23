@@ -166,6 +166,13 @@ def _compose_note(purpose: str, sms_note: str, *, payer: str, receipt: bool) -> 
 async def list_payment_invoices(request: HttpRequest, payment_id: int, contract_id: int) -> Any:
     """某条收款记录下的发票（`contract_id` 必传：发票鉴权口径跟着合同行级 ACL 走）。"""
     service = _invoice_service()
+    # 历史坑（2026-11-23 二轮审计 G15）：docstring 写了「跟着合同行级 ACL 走」，
+    # 但函数体没有任何 ensure_contract_access —— 任意登录用户传 contract_id 即可读
+    # 他合同发票列表与 file_url。与紧邻的 list_contract_invoices 口径对齐。
+    ctx = await sync_to_async(extract_request_context)(request)
+    await sync_to_async(service.ensure_contract_access)(
+        contract_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access
+    )
     invoices = await sync_to_async(service.list_invoices)(contract_id, payment_ids=[payment_id])
     return [_invoice_out(inv) for inv in invoices]
 

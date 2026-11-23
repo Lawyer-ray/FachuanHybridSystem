@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { errMessage } from '@/lib/errors'
-import { useDeletePack, useJudgePack } from '../hooks/use-inbox'
+import { useDeletePack, useJudgePack } from '../hooks/use-material-packs'
 import { PACK_LEAVE_REMOVAL_MS } from '../constants'
 import type { InboxMessage } from '../types'
 

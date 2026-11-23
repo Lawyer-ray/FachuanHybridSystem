@@ -2,9 +2,10 @@
  * 收件箱 API 封装单测（node 环境）。
  *
  * 重点不是「能发出请求」，而是**参数怎么拼**：
- * - source 档位是后端 source_type 的多值串，'all' 必须**不传**该参数
- *   （传空串会被后端当成一个来源过滤，结果集变空——这类 bug 在页面上
- *   表现为「切换分类后什么都没了」，很难一眼看出来）；
+ * - source 档位是后端 source_type 的多值串，'all' 必须**显式传**外来来源白名单
+ *   （省略该参数会让后端返回全表，把材料包一起捞进来；传空串则会被后端
+ *   当成一个来源过滤，结果集变空——这类 bug 在页面上表现为「切换分类后
+ *   什么都没了」，很难一眼看出来）；
  * - unread_only 用 'true' 字符串；
  * - search 去空白后为空则不传。
  */
@@ -41,7 +42,6 @@ function paramsOf(n = 0): Record<string, string> {
 beforeEach(() => {
   clients.made.length = 0
   vi.resetModules()
-  clients.made.length = 0
 })
 
 describe('listInbox', () => {

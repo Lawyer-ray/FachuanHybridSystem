@@ -6,34 +6,18 @@
  * 图标 + 短名，provider 少于 4 个时不喧宾夺主）——共享一条「或使用以下方式登录」
  * 分割线与错误位。跳转进行中禁用全部按钮，避免连点双跳。
  */
-import { useState } from 'react'
-
-import { errMessage } from '@/lib/errors'
-import type { SocialProviderInfo, SocialSession } from '../social-api'
-import { socialAuthApi } from '../social-api'
+import { useSocialRedirect, type CreateSession } from '../hooks/use-social-redirect'
+import type { SocialProviderInfo } from '../types'
 import { BRAND_MARKS } from './brand-marks'
 
 interface Props {
   providers: SocialProviderInfo[]
   /** 授权会话来源：默认登录 session（绑定页不走本组件） */
-  createSession?: (provider: string) => Promise<SocialSession>
+  createSession?: CreateSession
 }
 
 export function SocialRedirectGroup({ providers, createSession }: Props) {
-  const [pendingName, setPendingName] = useState('')
-  const [error, setError] = useState('')
-
-  const start = async (provider: SocialProviderInfo) => {
-    setPendingName(provider.name)
-    setError('')
-    try {
-      const session = await (createSession ?? socialAuthApi.createSession)(provider.name)
-      window.location.href = session.goto
-    } catch (err) {
-      setPendingName('')
-      setError(errMessage(err, '该登录方式暂不可用，请稍后再试'))
-    }
-  }
+  const { pendingName, error, start } = useSocialRedirect(createSession)
 
   return (
     <div className="fc-social">
@@ -50,7 +34,7 @@ export function SocialRedirectGroup({ providers, createSession }: Props) {
               type="button"
               className={`fc-btn fc-btn--compact${Mark ? ' fc-btn--brand' : ''}`}
               disabled={pendingName !== ''}
-              onClick={() => void start(provider)}
+              onClick={() => void start(provider.name)}
             >
               {pending ? (
                 '跳转中…'

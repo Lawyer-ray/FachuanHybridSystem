@@ -1026,14 +1026,14 @@ class TestBuildPlaintiffAgentPayload:
         assert result["law_firm"] == "律所A"
 
     def test_no_lawyer_uses_fallback(self):
+        """S11-23（2026-11-23 二轮审计）：无代理律师 → fail-closed，不再回落 fallback 名字。"""
         case = MagicMock()
         case.assignments.select_related.return_value.order_by.return_value.first.return_value = None
 
         with patch("apps.organization.models.Lawyer") as mock_cls:
             mock_cls.objects.select_related.return_value.filter.return_value.first.return_value = None
-            result = self._fn_import()(case=case, requester_id=None, fallback_party={"name": "张三", "phone": "139"})
-        assert result["name"] == "张三"
-        assert result["party_type"] == "agent"
+            with pytest.raises(ValueError, match="未找到案件代理律师"):
+                self._fn_import()(case=case, requester_id=None, fallback_party={"name": "张三", "phone": "139"})
 
     def test_lawyer_from_assignment(self):
         case = MagicMock()
@@ -1056,13 +1056,14 @@ class TestBuildPlaintiffAgentPayload:
         assert result["name"] == "律师B"
 
     def test_empty_fallback_name(self):
+        """S11-23：fallback 名字为空时**更**不该编一个「张三」递交给法院，同样 fail-closed。"""
         case = MagicMock()
         case.assignments.select_related.return_value.order_by.return_value.first.return_value = None
 
         with patch("apps.organization.models.Lawyer") as mock_cls:
             mock_cls.objects.select_related.return_value.filter.return_value.first.return_value = None
-            result = self._fn_import()(case=case, requester_id=None, fallback_party={"name": "", "phone": ""})
-        assert result["name"] == "张三"
+            with pytest.raises(ValueError, match="未找到案件代理律师"):
+                self._fn_import()(case=case, requester_id=None, fallback_party={"name": "", "phone": ""})
 
 
 # ---------------------------------------------------------------------------

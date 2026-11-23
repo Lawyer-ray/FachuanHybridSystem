@@ -8,7 +8,7 @@
  * （靠 ownerId + subpath 定位），而同一 id 的文书可能在不同案件下同号。
  */
 
-import type { MentionInsert } from '../domain/mention'
+import type { MentionInsert } from '../domain'
 import type { CopilotState } from '../types'
 import type { Slice } from './slice'
 

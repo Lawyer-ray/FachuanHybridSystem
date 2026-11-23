@@ -204,107 +204,132 @@ interface BundledSegment {
   segmentRef: string
 }
 
-/**
- * 执行归案。
- *
- * @param opts.target       existing 追加已有案件 / new 新建
- * @param opts.caseId       target=existing 时必填
- * @param opts.caseName     target=new 时的案件名
- * @param opts.messageId    材料包消息 id：取原始附件字节，并作为归案溯源 `source_message_id`
- * @param opts.parties      { our, their } —— 建当事人用
- * @param opts.segments     [{ name, partIndex, pageStart, pageEnd, segmentRef }]
- * @param opts.sources      材料包的来源素材（BundleMat[]）：给出时按每份素材的
- *                          `pages` 判断「该段是否覆盖整份」，覆盖就省掉切分往返
- */
-export async function assignPack(opts: {
+/** 归案的全部入参 */
+export interface AssignPackOptions {
+  /** 材料包消息 id：取原始附件字节，并作为归案溯源 `source_message_id` */
   messageId: number
+  /** existing 追加已有案件 / new 新建 */
   target: 'existing' | 'new'
+  /** target=existing 时必填 */
   caseId?: number
+  /** target=new 时的案件名 */
   caseName?: string
   court?: string
   cause?: string
   targetAmount?: string
+  /** { our, their } —— 建当事人用 */
   parties: { our: string; their: string }
+  /** [{ name, partIndex, pageStart, pageEnd, segmentRef }] */
   segments: BundledSegment[]
+  /**
+   * 材料包的来源素材（BundleMat[]）：给出时按每份素材的 `pages` 判断
+   * 「该段是否覆盖整份」，覆盖就省掉切分往返
+   */
   sources?: BundleMat[]
-}): Promise<AssignResult> {
-  let caseId = opts.caseId ?? 0
-  let caseName: string
-  let contractId: number | null = null
+}
 
-  if (opts.target === 'new') {
-    const me = await currentLawyerId()
+/** 建案三步的产物：绑段要的定位键，以及结果里要回报的合同 id 与案件名 */
+interface CreatedCase {
+  caseId: number
+  caseName: string
+  contractId: number | null
+}
 
-    // ① 客户：委托人（我方）+ 对方当事人
-    const ourId = opts.parties.our ? await ensureClient({ name: opts.parties.our, isOur: true }) : null
-    const theirIds: number[] = []
-    for (const n of opts.parties.their.split(/[、,，]/).map((x) => x.trim()).filter(Boolean)) {
-      const id = await ensureClient({ name: n, isOur: false })
-      if (id) theirIds.push(id)
-    }
-
-    // ② 合同（委托关系）—— 失败不阻断
-    try {
-      const c = await contractsApi
-        .post('contracts/full', {
-          json: {
-            name: `${opts.caseName ?? '新材料'}·委托合同`,
-            case_type: ASSIGN_CASE_TYPE,
-            status: 'active',
-            start_date: new Date().toISOString().slice(0, 10),
-            // ⚠️ 必须给代理阶段：不给的话详情页显示
-            //    「合同没有勾选代理阶段，也还没有立案的程序」，
-            //    左栏的程序节点条也画不出来。
-            representation_stages: ASSIGN_CONTRACT_STAGES,
-            lawyer_ids: [me],
-            fee_mode: ASSIGN_CONTRACT_FEE_MODE,
-            fixed_amount: ASSIGN_CONTRACT_FIXED_AMOUNT,
-            parties: ourId ? [{ client_id: ourId, role: 'PRINCIPAL' }] : [],
-            cases: [],
-          },
-        })
-        .json<{ id?: number }>()
-      contractId = c?.id != null ? Number(c.id) : null
-    } catch {
-      /* 合同建不出来也能归案，只是 OA 立案用不了 */
-    }
-
-    // ③ 案件：一次建齐 案件 + 当事人 + 主办律师 + 管辖法院
-    const created = await casesApi
-      .post('cases/full', {
-        json: {
-          case: {
-            name: opts.caseName ?? '新材料归案案件',
-            case_type: ASSIGN_CASE_TYPE,
-            status: 'active',
-            current_stage: 'first_trial',
-            cause_of_action: opts.cause ?? '',
-            target_amount: opts.targetAmount ?? null,
-          },
-          parties: [
-            ...(ourId ? [{ client_id: ourId, legal_status: 'plaintiff' }] : []),
-            ...theirIds.map((id) => ({ client_id: id, legal_status: 'defendant' })),
-          ],
-          assignments: [{ lawyer_id: me }],
-          supervising_authorities: opts.court
-            ? [{ name: opts.court, authority_type: 'trial' }]
-            : [],
-          logs: [],
-          case_numbers: [],
-        },
-      })
-      .json<{ id?: number; name?: string }>()
-    caseId = Number(created?.id)
-    caseName = created?.name ?? (opts.caseName ?? '')
-    if (!Number.isFinite(caseId)) throw new Error('建案失败：后端未返回案件 id')
-  } else {
+/**
+ * 归案的第 ①②③ 段：客户（委托人 + 对方）→ 合同 → 案件。
+ *
+ * 三步串成一条链是因为后一步要用前一步的 id（当事人挂客户、案件挂当事人），
+ * 不能并发。合同失败**不阻断**归案：只是 OA 立案用不了，材料照样落得下去。
+ * `target='existing'` 时一步都不建，只按 id 取回案件名（结果里要回报）。
+ */
+async function createCaseForAssign(
+  opts: Pick<AssignPackOptions, 'target' | 'caseId' | 'caseName' | 'court' | 'cause' | 'targetAmount' | 'parties'>,
+): Promise<CreatedCase> {
+  if (opts.target !== 'new') {
+    const caseId = opts.caseId ?? 0
     const c = await casesApi.get(`cases/${caseId}`).json<{ name?: string }>()
-    caseName = c?.name ?? ''
+    return { caseId, caseName: c?.name ?? '', contractId: null }
   }
 
-  // ④ 把分段绑成材料：**每段上传它自己那几页的 PDF**
-  //    同一来源素材会被多个分段读到（切页输入），所以按 partIndex 缓存原始字节，
-  //    一份 164 页的卷宗只下载一次。逐段串行处理即可（切分很快），不引并发。
+  let contractId: number | null = null
+  const me = await currentLawyerId()
+
+  // ① 客户：委托人（我方）+ 对方当事人
+  const ourId = opts.parties.our ? await ensureClient({ name: opts.parties.our, isOur: true }) : null
+  const theirIds: number[] = []
+  for (const n of opts.parties.their.split(/[、,，]/).map((x) => x.trim()).filter(Boolean)) {
+    const id = await ensureClient({ name: n, isOur: false })
+    if (id) theirIds.push(id)
+  }
+
+  // ② 合同（委托关系）—— 失败不阻断
+  try {
+    const c = await contractsApi
+      .post('contracts/full', {
+        json: {
+          name: `${opts.caseName ?? '新材料'}·委托合同`,
+          case_type: ASSIGN_CASE_TYPE,
+          status: 'active',
+          start_date: new Date().toISOString().slice(0, 10),
+          // ⚠️ 必须给代理阶段：不给的话详情页显示
+          //    「合同没有勾选代理阶段，也还没有立案的程序」，
+          //    左栏的程序节点条也画不出来。
+          representation_stages: ASSIGN_CONTRACT_STAGES,
+          lawyer_ids: [me],
+          fee_mode: ASSIGN_CONTRACT_FEE_MODE,
+          fixed_amount: ASSIGN_CONTRACT_FIXED_AMOUNT,
+          parties: ourId ? [{ client_id: ourId, role: 'PRINCIPAL' }] : [],
+          cases: [],
+        },
+      })
+      .json<{ id?: number }>()
+    contractId = c?.id != null ? Number(c.id) : null
+  } catch {
+    /* 合同建不出来也能归案，只是 OA 立案用不了 */
+  }
+
+  // ③ 案件：一次建齐 案件 + 当事人 + 主办律师 + 管辖法院
+  const created = await casesApi
+    .post('cases/full', {
+      json: {
+        case: {
+          name: opts.caseName ?? '新材料归案案件',
+          case_type: ASSIGN_CASE_TYPE,
+          status: 'active',
+          current_stage: 'first_trial',
+          cause_of_action: opts.cause ?? '',
+          target_amount: opts.targetAmount ?? null,
+        },
+        parties: [
+          ...(ourId ? [{ client_id: ourId, legal_status: 'plaintiff' }] : []),
+          ...theirIds.map((id) => ({ client_id: id, legal_status: 'defendant' })),
+        ],
+        assignments: [{ lawyer_id: me }],
+        supervising_authorities: opts.court
+          ? [{ name: opts.court, authority_type: 'trial' }]
+          : [],
+        logs: [],
+        case_numbers: [],
+      },
+    })
+    .json<{ id?: number; name?: string }>()
+  const caseId = Number(created?.id)
+  if (!Number.isFinite(caseId)) throw new Error('建案失败：后端未返回案件 id')
+  return { caseId, caseName: created?.name ?? (opts.caseName ?? ''), contractId }
+}
+
+/**
+ * 归案的第 ④ 段：把分段绑成案件材料——**每段上传它自己那几页的 PDF**。
+ *
+ * 同一来源素材会被多个分段读到（切页输入），所以按 partIndex 缓存原始字节，
+ * 一份 164 页的卷宗只下载一次。逐段串行处理即可（切分很快），不引并发。
+ * 单段出问题只影响自己：取不到字节就跳过、上传拿不到附件 id 就跳过、
+ * 绑定请求失败继续下一份（已绑上的不回滚）。
+ */
+async function bindSegments(
+  opts: Pick<AssignPackOptions, 'messageId' | 'segments' | 'sources'>,
+  caseId: number,
+): Promise<{ boundCount: number; unsplitCount: number }> {
   const sourceCache = new Map<number, Blob | null>()
   const sourceByPart = new Map((opts.sources ?? []).map((mat) => [mat.partIndex, mat]))
   let boundCount = 0
@@ -337,6 +362,18 @@ export async function assignPack(opts: {
       /* 单份失败继续下一份 */
     }
   }
+  return { boundCount, unsplitCount }
+}
+
+/**
+ * 执行归案：建案（①②③）→ 绑段（④）→ 报降级。
+ *
+ * 前三段在 `createCaseForAssign`、第四段在 `bindSegments`，这里只排次序；
+ * 唯一留在编排层的判断是「有降级要提示」——它属于整次归案的收尾，不是绑段本身。
+ */
+export async function assignPack(opts: AssignPackOptions): Promise<AssignResult> {
+  const { caseId, caseName, contractId } = await createCaseForAssign(opts)
+  const { boundCount, unsplitCount } = await bindSegments(opts, caseId)
 
   // 降级是静默的（材料照样绑上），但律师得知道有几份点开还是整卷——
   // 否则「为什么这份证据也有 164 页」只能靠猜。

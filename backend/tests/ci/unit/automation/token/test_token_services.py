@@ -114,8 +114,9 @@ class TestTokenCacheManager:
             }
         ]
         result = self.manager.get_cached_credentials("site1")
-        assert result is not None
-        assert len(result) == 1
+        # C02-01（2026-11-23 二轮审计）：缓存刻意不含密码 ⇒ 按未命中返回 None
+        # （否则调用方会拿空密码去登录，被法院站点当成「密码错误」）。
+        assert result is None, "缓存不含密码时应按未命中返回 None"
 
     @patch("plugins.court_automation.token.cache_manager.cache")
     @patch("plugins.court_automation.token.cache_manager.performance_monitor")

@@ -19,28 +19,12 @@ export type InboxDetail = components['schemas']['InboxMessageDetailOut']
 /** 单个附件元信息 */
 export type InboxAttachment = components['schemas']['AttachmentMeta']
 
-/** 标记已读接口的返回 */
-export interface ReadStateResult {
-  ok: boolean
-  message_id: number
-  is_read: boolean
-  read_at: string | null
-}
+/** 标记已读接口的返回（生成物 ReadStateOut） */
+export type ReadStateResult = components['schemas']['ReadStateOut']
 
-/** 转材料包接口的返回：pack_id 即新生成（或已存在）的材料包消息 id */
-export interface ConvertResult {
-  ok: boolean
-  message_id: number
-  pack_id: number
-}
+/** 转材料包接口的返回（生成物 ConvertOut）：pack_id 即新生成（或已存在）的材料包消息 id */
+export type ConvertResult = components['schemas']['ConvertOut']
 
-/**
- * 来源筛选（左侧筛选条）。
- *
- * 值是后端 source_type 的多值串（逗号分隔），后端 list_messages 已支持多值。
- * `pack` 把律师手动包与客户链接包合成一档：对律师而言它们都是「当事人交来的材料」，
- * 没必要在收件箱里分成两行。
- */
 /**
  * 收件箱的来源筛选档位。
  *

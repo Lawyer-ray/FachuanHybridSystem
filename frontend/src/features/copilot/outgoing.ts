@@ -48,7 +48,7 @@ export function resetUploadReceipts(): void {
  * 上传在途/收尾的状态落点（uploadingAttachments/pendingFiles）由调用方
  * store.send 负责；本模块只做纯出站组装。
  *
- * **待发 `@` 引用由调用方传进来**（`store/turn.ts` 读 `pendingMentions` 后下发）：
+ * **待发 `@` 引用由调用方传进来**（`store/turn-send.ts` 读 `pendingMentions` 后下发）：
  * 本模块不 import store。`store/index.ts` 顶层就 import 了本模块的
  * `resetUploadReceipts`，反向引用会形成 store → outgoing → store 的模块初始化环
  * （`useCopilot` 在环里可能是未初始化绑定），惰性 import 只是把问题推到运行期。

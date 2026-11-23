@@ -174,7 +174,10 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
 
     def send_message(self, chat_id: str, content: MessageContent) -> ChatResult:  # pragma: no cover
         """发送消息到群聊"""
-        if not self.is_available():
+        # S35-03（2026-11-23 二轮审计）：原实现用 is_available() 卡这里，把建群专用的
+        # DEFAULT_OWNER_ID 也算成发消息的必需项 → 没配默认群主的部署连发消息都被拒，
+        # 报错还指向已配好的 CORP_ID/AGENT_ID/SECRET。现在只看消息三项。
+        if not self.is_available_for_messaging():
             raise ConfigurationException(
                 message=_("企业微信配置不完整，无法发送消息"),
                 platform="wechat_work",
@@ -239,7 +242,8 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
 
     def get_chat_info(self, chat_id: str) -> ChatResult:  # pragma: no cover
         """获取群聊信息"""
-        if not self.is_available():
+        # S35-03（2026-11-23 二轮审计）：同上——查群信息也不需要 DEFAULT_OWNER_ID。
+        if not self.is_available_for_messaging():
             raise ConfigurationException(
                 message=_("企业微信配置不完整，无法获取群聊信息"),
                 platform="wechat_work",

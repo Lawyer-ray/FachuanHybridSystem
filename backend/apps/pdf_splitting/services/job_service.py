@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import pymupdf as fitz
-from django.core.files.base import ContentFile
+from django.core.files import File
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.utils import timezone
@@ -152,7 +152,10 @@ class PdfSplitJobService:
                 resolved_path = self._validate_local_pdf_path(source_path or "")
                 original_name = resolved_path.name
                 original_abs_path = resolved_path.as_posix()
-                storage.save_overwrite(storage.source_pdf_path, ContentFile(resolved_path.read_bytes()))
+                # S17-04（2026-11-23 二轮审计）：本地路径分支同样不再 `read_bytes()`
+                # 整份读进内存，改为以只读文件对象流式落盘（storage 内部 chunked 写）。
+                with resolved_path.open("rb") as local_fh:
+                    storage.save_overwrite(storage.source_pdf_path, File(local_fh))
                 source_type = PdfSplitSourceType.LOCAL_PATH
 
             total_pages = self._validate_pdf_file(storage.source_pdf_path)
@@ -253,21 +256,38 @@ class PdfSplitJobService:
         if total_pages is not None:
             queryset = queryset.filter(total_pages=total_pages)
 
-        # ⚠️ 这里**刻意不按 created_by 过滤**。
+        # 属主收敛（2026-11-23 二轮审计 S17-01）。
         #
-        # 复用的是「这份文件识别出的结果」，不是「某人的私人物品」：
-        # 同一份材料包常由助理先跑一次、主办律师再来用；也有可能任务是用脚本/
-        # 管理后台跑的（created_by 为空）。按属主过滤会让这些场景全部 miss，
-        # 又退回「从零重跑 164 页」。
+        # 原实现「刻意不按 created_by 过滤」，理由是「助理先跑、主办律师再用」的复用场景。
+        # 但端点 `GET /pdf-splitting/reusable-job?source_name=&total_pages=` 是**无 body 的 GET**，
+        # API 层没有任何材料包归属校验，注释里那句「安全性由调用方保证」在真实调用点不成立：
+        # 知道文件名 + 页数就能拉到他人案件的 `segments[].content_md`（水平越权读）。
         #
-        # 安全性由调用方保证：只有能打开该材料包的人（即持有对应 message_id
-        # 读取权限的人）才会拿这个结果去用；本方法只返回 segments，不泄文件内容。
-        # 保留 user 参数供未来需要隔离的租户场景使用。
+        # 现在的口径（不改变前端契约，miss 就是 null → 前端照常新建任务）：
+        #   - 本人创建的任务 → 直接复用（保住了「同一个人刷新后不重跑」的主要收益）；
+        #   - 他人创建的任务 → 仅管理员可复用，其他人一律 miss（宁可不复用，不越权）。
+        # 代价：「助理先跑、主办再用」不再命中复用，会重跑一次；彻底解法是端点增加
+        # `message_id` 并校验材料包归属（需前端配合，记入 TECH-DEBT）。
+        latest = queryset.order_by("-created_at").first()
+        if latest is None or user is None:
+            return None
+        if latest.created_by_id == getattr(user, "id", None):
+            return latest
+        from apps.core.security.admin_access import is_admin_user
 
-        # 取最新的一份：同一文件可能被故意重跑过几次，律师要看的是最终结论
-        return queryset.order_by("-created_at").first()
+        if is_admin_user(user):
+            return latest
+        logger.info(
+            "find_reusable_job 跨属主命中已拒绝复用: job=%s source=%s requested_by=%s",
+            latest.id,
+            source_name,
+            getattr(user, "id", None),
+        )
+        return None
 
-    def find_inflight_job(self, *, source_name: str, total_pages: int | None = None) -> PdfSplitJob | None:
+    def find_inflight_job(
+        self, *, source_name: str, total_pages: int | None = None, user: Any = None
+    ) -> PdfSplitJob | None:
         """找一份**正在进行中**的拆分任务，供前端接管轮询。
 
         ## 为什么需要它
@@ -282,10 +302,24 @@ class PdfSplitJobService:
         1. `source_original_name` 相同；
         2. `status` 在 pending / processing（还没出结果的那些）；
         3. 未发起取消（已按取消的马上就会变成 cancelled，接管它只会白转圈）；
-        4. 传了 `total_pages` 才校验页数（同 `find_reusable_job`）。
+        4. 传了 `total_pages` 才校验页数（同 `find_reusable_job`）；
+        5. 传入 `user` 时只看自己的任务（管理员全量）。
 
-        不按 `created_by` 过滤，理由同 `find_reusable_job`：共用的是「这份文件的
-        识别进度」。返回 None 表示没有进行中的任务，调用方照常新建。
+        ## 属主收敛（S31-02，2026-11-23 二轮审计）
+
+        原实现「不按 `created_by` 过滤」，理由是「共用的是这份文件的识别进度」。
+        但端点 `GET /pdf-splitting/inflight-job?source_name=&total_pages=` 是**无 body
+        的 GET**，「助手先跑、主办接管」这个理由换来的代价是：知道文件名（就是律师
+        自己给材料包的命名）+ 可选页数，就能拿到他人任务 payload 里的
+        `summary_payload` 与**已落库分段的 `content_md` 正文**（水平越权读，
+        隔壁 `find_reusable_job` 已按 S17-01 修好，本条没跟上）。
+
+        口径取 `get_job` 的写法（`user` 缺省 None ⇒ 不过滤，传入则收敛），而不是
+        `find_reusable_job` 的 fail-closed：本方法的既有调用方与单测都按「不带 user」
+        调用，fail-closed 会让它们全部变成 miss。端点层已固定传 user，越权面在
+        真实入口上已堵住；要彻底收紧成 fail-closed 需同步改测试，留给后续轮次。
+
+        返回 None 表示没有进行中的任务，调用方照常新建。
         """
         if not source_name:
             return None
@@ -297,6 +331,11 @@ class PdfSplitJobService:
         )
         if total_pages is not None:
             queryset = queryset.filter(total_pages=total_pages)
+        if user is not None:
+            from apps.core.security.admin_access import is_admin_user
+
+            if not is_admin_user(user):
+                queryset = queryset.filter(created_by=user)
         return queryset.order_by("-created_at").first()
 
     def get_job(self, job_id: uuid.UUID, user: Any = None) -> PdfSplitJob:
@@ -406,18 +445,25 @@ class PdfSplitJobService:
         # 对不上，必须按确认后的页区间从 pages.json 重建。
         storage.write_json(storage.segments_md_path, rebuild_confirmed_segments_md(storage, normalized))
 
-        task_id = build_task_submission_service().submit(
-            "apps.pdf_splitting.tasks.export_pdf_split_job",
-            args=[str(job.id)],
-            task_name=f"pdf_split_export_{job.id}",
-        )
         PdfSplitJob.objects.filter(id=job.id).update(
             status=PdfSplitJobStatus.EXPORTING,
             progress=0,
-            task_id=str(task_id),
             cancel_requested=False,
             error_message="",
         )
+
+        # 导出任务必须在**事务提交后**才派发（2026-11-23 二轮审计 G7）。
+        # 原实现把 submit() 写在 `@transaction.atomic` 内：django-q worker 是另一个进程，
+        # 可能在「旧段已删、新段未可见」时被唤醒 → 读到错位的分段 → 导出错包。
+        def _submit_export() -> None:
+            task_id = build_task_submission_service().submit(
+                "apps.pdf_splitting.tasks.export_pdf_split_job",
+                args=[str(job.id)],
+                task_name=f"pdf_split_export_{job.id}",
+            )
+            PdfSplitJob.objects.filter(id=job.id).update(task_id=str(task_id))
+
+        transaction.on_commit(_submit_export)
         job.refresh_from_db()
         return job
 
@@ -434,8 +480,11 @@ class PdfSplitJobService:
                 logger.exception("pdf_split_cancel_failed", extra={"job_id": str(job.id), "task_id": job.task_id})
 
         updates: dict[str, Any] = {"cancel_requested": True}
+        # S20-01（2026-11-23 二轮审计）：原来用「没在跑」当作「已取消」，但 Redis broker 下
+        # 排队中的任务既不在 OrmQ 里、也还没有 Task 行，于是「没在跑」= True 而任务照常执行。
+        # 现在只认 `dequeued`（= 确认出队成功或已结束），否则只置 `cancel_requested` 让业务侧协作取消。
         can_mark_cancelled = job.status == PdfSplitJobStatus.PENDING and (
-            not job.task_id or bool(cancel_result.get("queue_deleted")) or not bool(cancel_result.get("running"))
+            not job.task_id or bool(cancel_result.get("dequeued"))
         )
         if can_mark_cancelled:
             updates.update(status=PdfSplitJobStatus.CANCELLED, finished_at=timezone.now())
@@ -576,7 +625,6 @@ class PdfSplitJobService:
 
     def _save_uploaded_pdf(self, file: UploadedFile, target_path: Path) -> str:
         from django.conf import settings
-        from django.core.files.base import ContentFile
         from django.core.files.storage import default_storage
 
         file_name = file.name or "upload.pdf"
@@ -593,8 +641,13 @@ class PdfSplitJobService:
             )
         media_root = Path(settings.MEDIA_ROOT)
         rel_path = target_path.relative_to(media_root).as_posix()
-        content = file.read()
-        default_storage.save(rel_path, ContentFile(content))
+        # S17-04（2026-11-23 二轮审计）：原实现 `content = file.read()` 把整份 PDF 读成
+        # bytes，再交给 `ContentFile(content)` 复制一层 BytesIO，峰值≈文件大小的 2 倍
+        # （上限 1 GiB 时单请求 2 GiB RSS，两三个并发上传就能 OOM 掉 web worker）。
+        # 现在把 UploadedFile 直接交给 storage：`FileSystemStorage._save` 走
+        # `content.chunks()` 分块写盘（TemporaryUploadedFile 更会走 `file_move_safe`
+        # 直接移动临时文件），内存只剩单个 chunk，落盘字节逐字节不变。
+        default_storage.save(rel_path, file)
         return sanitize_upload_filename(file_name)
 
     def _validate_local_pdf_path(self, source_path: str) -> Path:
@@ -703,6 +756,15 @@ class PdfSplitJobService:
         valid_modes = {choice for choice, _label in PdfSplitMode.choices}
         if mode in valid_modes:
             return mode
+        # 非法**非空**值不能静默吃掉（2026-11-23 二轮审计 G8）：
+        # MCP docstring 曾教模型传 `by_page`（真值是 `page_split`），模型照抄即落非法值，
+        # 此处静默回落最贵的云端内容识别，用户无感却按页拆出了几十元的识别账单。
+        if mode:
+            logger.warning(
+                "非法 split_mode 已回落 content_analysis: value=%s（合法值：%s）",
+                value,
+                "/".join(sorted(valid_modes)),
+            )
         return PdfSplitMode.CONTENT_ANALYSIS
 
 

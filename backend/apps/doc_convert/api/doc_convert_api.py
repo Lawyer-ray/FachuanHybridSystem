@@ -237,7 +237,11 @@ def download_convert_record(request: HttpRequest, record_id: int) -> FileRespons
 
 @router.delete("/records/{record_id}", summary="删除转换记录")
 def delete_convert_record(request: HttpRequest, record_id: int) -> dict[str, str]:  # pragma: no cover
-    """删除单条转换记录（产物文件随信号清理）。"""
-    record = DocConvertRecordService().get_record(record_id, user=_request_user(request))
-    record.delete()
+    """删除单条转换记录（产物文件随信号清理）。
+
+    S29-10（2026-11-23 二轮审计）：原实现在 API 层先 ``get_record`` 取实例、再自己
+    ``record.delete()`` —— 删除绕过服务层（四层架构门禁只机揃 queryset 写法，实例方法
+    抓不到）。现在只调 ``DocConvertRecordService.delete_record``（内部完成属主校验 + 删除）。
+    """
+    DocConvertRecordService().delete_record(record_id, user=_request_user(request))
     return {"status": "deleted"}

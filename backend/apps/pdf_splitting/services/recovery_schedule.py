@@ -56,7 +56,7 @@ def run_watchdog() -> dict[str, object]:
 
     try:
         result = job_recovery.sweep_stale_jobs()
-    except Exception:
+    except Exception as exc:
         logger.exception("pdf_split_watchdog_failed")
         return {"error": "sweep_failed"}
 
@@ -72,6 +72,10 @@ def register_watchdog_schedule() -> None:
 
     与 `core/tasking/cleanup_tasks._register_schedules` 同一套路：
     已存在则跳过，不重复建、也不覆盖用户改过的间隔。
+
+    S17-02（2026-11-23 二轮审计）：`allow_startup_db` 守卫**不在本函数内**，而在唯一
+    调用点 `apps/pdf_splitting/apps.py::ready → _register_watchdog`（`with allow_startup_db():`）。
+    本函数只负责「调度表已就绪时幂等注册」；失败统一转成 WARNING 不外抛（见下方 except）。
     """
     try:
         from apps.core.tasking import ScheduleQueryService
@@ -85,6 +89,17 @@ def register_watchdog_schedule() -> None:
             minutes=WATCHDOG_INTERVAL_MINUTES,
         )
         logger.info("已注册定时任务: %s（每 %d 分钟）", WATCHDOG_SCHEDULE_NAME, WATCHDOG_INTERVAL_MINUTES)
-    except Exception:
-        # app ready 阶段数据库可能未就绪（首次 migrate / 容器刚起），下次启动会再试
-        logger.debug("pdf_split 看门狗调度注册跳过（未就绪）", exc_info=True)
+    except Exception as exc:
+        # app ready 阶段数据库可能未就绪（首次 migrate / 容器刚起），下次启动会再试。
+        #
+        # S18-b-01（2026-11-23 二轮审计）：这里原为 `logger.debug`，而生产 `apps.*`
+        # 的日志级别是 INFO——「看门狗没进调度表」于是在日志里一个字都没有（它才是
+        # 真正吃掉异常的那一层，apps.py 外层的 except 根本轮不到）。现在提为
+        # warning + exc_info：不影响「不冒泡到 ready()」的取舍，但失败必经告警面。
+        # 不打异常栈（同 apps.py 的理由：ready() 阶段无 DB 时会被 CI 的 mypy fail-closed 门禁误判）。
+        logger.warning(
+            "pdf_split 看门狗调度注册跳过（数据库未就绪或调度表异常）: %s（%s: %s）",
+            "recovery_schedule",
+            type(exc).__name__,
+            exc,
+        )

@@ -22,6 +22,7 @@ from ninja import Router
 
 from apps.cases.schemas import CaseCreateFull, CaseIn, CaseOut, CaseUpdate
 from apps.cases.services import CaseService
+from apps.cases.services.log.case_log_query_service import warm_reminder_cache_for_cases
 from apps.core.dto.request_context import extract_request_context
 
 router = Router()
@@ -76,6 +77,10 @@ async def search_cases(  # pragma: no cover
                 perm_open_access=ctx.perm_open_access,
             )
         )
+        # S29-02（2026-11-23 二轮审计）：原实现序列化时每条日志的 reminders /
+        # reminder_type / reminder_time 各发一次 Reminder 查询（200 案 × 每条日志
+        # ≈ 上千次）→ 现在序列化前一次批量预热，序列化期零查询。
+        warm_reminder_cache_for_cases(cases)
         return [_serialize_case(c) for c in cases]
 
     return await sync_to_async(_do)()
@@ -128,6 +133,10 @@ async def list_cases(  # pragma: no cover
             )
             sliced = qs[bounded_offset : bounded_offset + effective_limit] if effective_limit is not None else qs
             raw = list(sliced)
+        # S29-02（2026-11-23 二轮审计）：原实现序列化时每条日志的 reminders /
+        # reminder_type / reminder_time 各发一次 Reminder 查询（200 案 × 每条日志
+        # ≈ 上千次）→ 现在序列化前一次批量预热，序列化期零查询。
+        warm_reminder_cache_for_cases(raw)
         return [_serialize_case(c) for c in raw]
 
     return await sync_to_async(_do)()
@@ -184,6 +193,9 @@ async def get_case(request: HttpRequest, case_id: int) -> dict[str, Any]:  # pra
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
         )
+        # S29-02（2026-11-23 二轮审计）：原实现单案详情同样按日志数发提醒查询
+        # → 现在序列化前一次批量预热。
+        warm_reminder_cache_for_cases([case])
         return _serialize_case(case)
 
     return await sync_to_async(_get)()

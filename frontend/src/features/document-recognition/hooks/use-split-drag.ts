@@ -30,26 +30,39 @@ function attachDragListeners(onMove: (e: MouseEvent) => void, onUp: () => void):
 
 /**
  * 分屏左栏宽度拖拽：返回 [宽度%, 开始拖拽, 容器 ref, 是否拖拽中]。
+ *
+ * **拖拽中零 setState**：百分比只写 ref + 容器上的 `--split-w` CSS 变量（消费方用
+ * `width: var(--split-w, <pct>%)` 绑定，变量缺省时回落到已提交的 pct），松手才提交
+ * state 并落盘一次。一次拖动会发上百个 mousemove（beginDrag 还同时挂 mouse/pointer，
+ * 每帧两次），逐次 setState 等于拖拽期间整棵子树每帧重渲染。
+ *
  * 拖拽中 iframe 事件穿透的规避由调用方用 dragging 标记配 pointer-events-none。
  */
 export function useSplitDrag(): [number, () => void, RefObject<HTMLDivElement | null>, boolean] {
   const [pct, setPct] = useState(initialSplitPct)
   const [dragging, setDragging] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
+  // 最新宽度（onMove 写、onUp 读）：落盘不能放在 setPct 的 updater 里——
+  // updater 必须是纯函数，StrictMode / 并发渲染会重放它，等于写两次 localStorage；
+  // 而 onUp 里读 state 闭包又会拿到拖拽开始时的旧值。
+  const latestPct = useRef(pct)
 
   useEffect(() => {
     if (!dragging) return
     const onMove = (e: MouseEvent) => {
-      const rect = bodyRef.current?.getBoundingClientRect()
-      if (!rect || rect.width === 0) return
-      setPct(clampSplit(((e.clientX - rect.left) / rect.width) * 100))
+      const el = bodyRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      if (rect.width === 0) return
+      const next = clampSplit(((e.clientX - rect.left) / rect.width) * 100)
+      latestPct.current = next
+      // 只改 CSS 变量：宽度当场生效，但 React 一次都不渲染
+      el.style.setProperty('--split-w', `${next}%`)
     }
     const onUp = () => {
       setDragging(false)
-      setPct((p) => {
-        localStorage.setItem(SPLIT_PCT_KEY, String(Math.round(p)))
-        return p
-      })
+      setPct(latestPct.current)
+      localStorage.setItem(SPLIT_PCT_KEY, String(Math.round(latestPct.current)))
     }
     return attachDragListeners(onMove, onUp)
   }, [dragging])
@@ -64,12 +77,18 @@ export function useSplitDrag(): [number, () => void, RefObject<HTMLDivElement | 
 /** 弹窗整体宽度拖拽（px，右缘手柄向右拉变宽）：范围 [MIN_DIALOG_WIDTH, 视口-32px]，localStorage 记忆。
  *  默认 null = 走 CSS 自适应宽（min(95vw, 视口-48px)，接近网页边缘）——用户只需调小，不必先调大。
  *  返回的是「派生有效宽度」：存储的期望宽度不随窗口缩放被改写（反复拉宽变窄不丢），
- *  仅在渲染时钳到当前视口内。 */
+ *  仅在渲染时钳到当前视口内。
+ *  拖拽中同样零 setState：只改对话框元素上的 `--dr-dialog-w`（消费方 RecognizeDialog
+ *  用 `lg:w-(--dr-dialog-w)` 绑定），松手才提交 state 并落盘一次。 */
 export function useDialogWidthDrag(): [number | null, (e: { preventDefault: () => void; clientX: number; currentTarget: EventTarget & HTMLElement }) => void, boolean] {
   const [width, setWidth] = useState<number | null>(initialDialogWidth)
   const [dragging, setDragging] = useState(false)
   const [viewportW, setViewportW] = useState(() => window.innerWidth)
   const startRef = useRef({ x: 0, w: 0 })
+  // 同上：落盘读 ref 而不是在 setWidth 的 updater 里写 localStorage
+  const latestWidth = useRef(width)
+  // 拖拽中直改它的 `--dr-dialog-w`（startDrag 时记下，onMove 写）
+  const dialogRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     const onResize = () => setViewportW(window.innerWidth)
@@ -81,20 +100,23 @@ export function useDialogWidthDrag(): [number | null, (e: { preventDefault: () =
     if (!dragging) return
     const onMove = (e: MouseEvent) => {
       const maxW = window.innerWidth - 32
-      setWidth(Math.min(maxW, Math.max(MIN_DIALOG_WIDTH, startRef.current.w + (e.clientX - startRef.current.x))))
+      const next = Math.min(maxW, Math.max(MIN_DIALOG_WIDTH, startRef.current.w + (e.clientX - startRef.current.x)))
+      latestWidth.current = next
+      // 只改 CSS 变量：弹窗宽度当场跟上，但 React 一次都不渲染
+      dialogRef.current?.style.setProperty('--dr-dialog-w', `${next}px`)
     }
     const onUp = () => {
       setDragging(false)
-      setWidth((w) => {
-        if (w != null) localStorage.setItem(DIALOG_WIDTH_KEY, String(Math.round(w)))
-        return w
-      })
+      setWidth(latestWidth.current)
+      const w = latestWidth.current
+      if (w != null) localStorage.setItem(DIALOG_WIDTH_KEY, String(Math.round(w)))
     }
     return attachDragListeners(onMove, onUp)
   }, [dragging])
 
   const startDrag = useCallback((e: { preventDefault: () => void; clientX: number; currentTarget: EventTarget & HTMLElement }) => {
-    const dialog = e.currentTarget.closest('[role="dialog"]')
+    const dialog = e.currentTarget.closest<HTMLElement>('[role="dialog"]')
+    dialogRef.current = dialog
     startRef.current = { x: e.clientX, w: dialog?.getBoundingClientRect().width ?? MIN_DIALOG_WIDTH }
     e.preventDefault()
     setDragging(true)

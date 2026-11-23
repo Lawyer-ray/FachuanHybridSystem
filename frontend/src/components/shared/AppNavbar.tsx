@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { LogOut, Menu, Plus, Search, Sparkles, User } from 'lucide-react'
 
+import { loginPath, materialPrep, projectList, ROUTES, settings } from '@/app/paths'
 import { useAuth, type User as AuthUser } from '@/features/auth'
 import { api } from '@/lib/api'
 import { resetAllClientState } from '@/lib/reset-client-state'
@@ -25,7 +26,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { GlobalSearch } from '@/features/search'
-import { NewProjectDialog } from '@/features/workbench/components/NewProjectDialog'
+import { NewProjectDialog } from '@/features/workbench'
 
 /**
  * 全局顶层导航（全站唯一一套，由 App 的 AppShell 渲染一次、跨页面常驻）。
@@ -133,7 +134,7 @@ export function AppNavbar({
     // 材料草稿等 localStorage 残留
     void resetAllClientState(() => queryClient.clear())
     // react-router 的 navigate 返回 void | Promise<void>，这里 fire-and-forget
-    void navigate('/login', { replace: true })
+    void navigate(loginPath(), { replace: true })
     onLogout?.()
   }
 
@@ -150,7 +151,7 @@ export function AppNavbar({
 
       {/* 品牌：产品名（点击回首页）。字标统一由 BrandMark 出，客户上传页也用它，
           保证对外门面与登录后的观感一致 */}
-      <Link to="/" className="flex flex-none items-center pr-1.5 no-underline">
+      <Link to={ROUTES.home} className="flex flex-none items-center pr-1.5 no-underline">
         <BrandMark />
       </Link>
 
@@ -159,21 +160,27 @@ export function AppNavbar({
           menuOpen ? 'flex' : 'max-[760px]:hidden'
         } md:flex`}
       >
-        <NavLink to="/" label="首页" active={navPath === '/'} onSelect={selectNav} onPrefetch={onPrefetch} />
+        <NavLink
+          to={ROUTES.home}
+          label="首页"
+          active={navPath === ROUTES.home}
+          onSelect={selectNav}
+          onPrefetch={onPrefetch}
+        />
         {/* 「收件箱」与「材料预处理」已合并为一个入口：它们是同一条流水线的前后两段
             （收件箱 → 拆包 → 归案），并排两个按钮看不出先后关系。现在阶段在页内切换，
             navPath 同时覆盖 /inbox 这个旧前缀，让前转期间不会两个入口都不高亮。 */}
         <NavLink
-          to="/material-prep"
+          to={materialPrep()}
           label="预处理"
-          active={navPath.startsWith('/material-prep') || navPath.startsWith('/inbox')}
+          active={navPath.startsWith(ROUTES.materialPrep) || navPath.startsWith(ROUTES.inbox)}
           onSelect={selectNav}
           onPrefetch={onPrefetch}
         />
         <NavLink
-          to="/projects"
+          to={projectList()}
           label="项目"
-          active={navPath.startsWith('/projects')}
+          active={navPath.startsWith(ROUTES.projects)}
           onSelect={selectNav}
           onPrefetch={onPrefetch}
         />
@@ -234,7 +241,7 @@ export function AppNavbar({
             {user?.username || '我的账号'}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => { void navigate('/settings') }}>设置</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { void navigate(settings()) }}>设置</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={() => setLogoutOpen(true)}>
             <LogOut className="h-3.5 w-3.5" />

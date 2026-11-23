@@ -127,7 +127,8 @@ export function ClaimedMailCard({
                 <Pill tone={isAuto ? 'green' : kind === 'ignored' ? 'neutral' : 'yellow'}>{m.matchedCase}</Pill>
                 <span className="text-[10px] tabular-nums text-muted-foreground">{m.at}</span>
                 {kind === 'manual' ? (
-                  /* 行本身是「打开邮件抽屉」，这里要拦住冒泡，只开归案弹窗 */
+                  /* 行本身是「打开邮件抽屉」，这里要拦住鼠标点击的冒泡，只开归案弹窗；
+                     键盘（Enter/Space）由 ClickableRow 按事件源拦，不用在这里管 */
                   <span onClick={(e) => e.stopPropagation()}>
                     <ActionButton sm onClick={() => onAssign(m.subject)}>
                       <Search className="size-3" />

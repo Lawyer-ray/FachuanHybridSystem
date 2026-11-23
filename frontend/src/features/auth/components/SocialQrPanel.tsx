@@ -13,8 +13,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 
 import { errMessage } from '@/lib/errors'
-import { socialAuthApi, type SocialProviderInfo, type SocialSession } from '../social-api'
+import { socialAuthApi } from '../social-api'
 import { FEISHU_QR_SDK_URL } from '../constants'
+import type { SocialProviderInfo, SocialSession } from '../types'
 
 /** QRLogin 实例暴露的校验方法 */
 interface QrLoginInstance {

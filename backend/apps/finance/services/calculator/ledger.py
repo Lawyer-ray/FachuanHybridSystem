@@ -124,6 +124,13 @@ def process_payment(sim: Simulation, rec: PaymentRecord) -> None:
             if remaining_amt <= 0:
                 break
             if key == "principal":
+                # S36-02（2026-11-23 二轮审计）：原实现在这里直接 break，把提前还款全额
+                # 当作「未到期本金」冲减 sim.balance；但 sim.balance **包含**已到期未还的
+                # principal_lots（欠付本金不减 balance，见 simulation.py 的 shortfall 分支），
+                # 于是这些批次既被算作已还、又继续被 accrue() 按日计罚息/违约金。
+                # 现在先冲抵已到期未还的本金批次（pay_toward 内部同时减 lot.amount 与
+                # sim.balance），只有剩下的部分才是真正意义上的提前还款。
+                remaining_amt -= pay_toward(sim, "principal", remaining_amt, rec.payment_date, alloc)
                 break
             consumed = pay_toward(sim, key, remaining_amt, rec.payment_date, alloc)
             remaining_amt -= consumed

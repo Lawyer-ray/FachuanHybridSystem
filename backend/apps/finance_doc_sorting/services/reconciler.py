@@ -156,8 +156,22 @@ class ReconcilerService:
             logger.warning("JSON 解析失败: %s", text[:200])
             return StatementInfo()
 
+        # S01-01（2026-11-23 二轮审计）：原实现不校验 json.loads 的形状，LLM 返回
+        # `[...]` / `"..."` / `null` 时下一行 data.get 直接 AttributeError，又被上层
+        # 宽捕获会静默吞成空 StatementInfo（「全字段未知」且无任何提示）。
+        if not isinstance(data, dict):
+            logger.warning("LLM 返回的 JSON 不是对象（实际 %s），已按空对账单处理", type(data).__name__)
+            return StatementInfo()
+
+        raw_items = data.get("line_items")
+        if raw_items is not None and not isinstance(raw_items, list):
+            logger.warning("LLM 返回的 line_items 不是数组（实际 %s），已按空明细处理", type(raw_items).__name__)
+            raw_items = []
+
         items: list[LineItem] = []
-        for item in data.get("line_items") or []:
+        for item in raw_items or []:
+            if not isinstance(item, dict):
+                continue
             items.append(
                 LineItem(
                     date=_normalize_date(item.get("date")),
@@ -169,7 +183,10 @@ class ReconcilerService:
         return StatementInfo(
             month=data.get("month", ""),
             total_amount=_to_float(data.get("total_amount")),
-            signed=bool(data.get("signed", False)),
+            # S01-01（2026-11-23 二轮审计）：原实现是 bool(data.get("signed", False))，
+            # 字符串 "false" 是真值 → 未签名对账单被判为已签名（归档缺「未签名」标注、
+            # unsigned_statements 少一条）。现在交给 _to_bool 按语义归一。
+            signed=_to_bool(data.get("signed", False)),
             line_items=items,
         )
 
@@ -433,6 +450,18 @@ def _normalize_date(val: Any) -> str | None:
     if len(digits) == 8:
         return digits
     return None
+
+
+# ↓↓ 由 ReconcilerService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _to_bool(val: Any) -> bool:
+    """把 LLM 常见的布尔写法（true/"false"/1/是）归一成 bool（S01-01）。"""
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.strip().lower() in {"true", "yes", "1", "是", "有", "已签名"}
+    if isinstance(val, int | float):
+        return val != 0
+    return bool(val)
 
 
 # ↓↓ 由 ReconcilerService 下沉的模块级纯函数（四层架构静态方法棘轮）

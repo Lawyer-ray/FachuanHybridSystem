@@ -42,7 +42,11 @@ def check_gsxt_report_email(task_id: int, company_name: str) -> None:
         from django.core.files.base import ContentFile
         from django.core.files.storage import default_storage
 
-        default_storage.save(rel_path, ContentFile(pdf_bytes))
+        # S05-01（2026-11-23 二轮审计）：原实现丢掉 save() 的返回值，用请求名回写
+        # file_path。同名文件已存在时 FileSystemStorage 会自动改名（追加随机后缀），
+        # 回写的却是旧名 → 证件记录默默指向上一份旧报告，新报告成孤儿文件。
+        # 现在以实际保存名回写。
+        saved_path = default_storage.save(rel_path, ContentFile(pdf_bytes))
 
         identity_doc_service_cls = import_module(
             "apps.client.services.client_identity_doc_service"
@@ -50,7 +54,7 @@ def check_gsxt_report_email(task_id: int, company_name: str) -> None:
         identity_doc_service_cls().upsert_identity_doc_file(
             client_id=client.pk,
             doc_type="business_license",
-            file_path=str(rel_path),
+            file_path=str(saved_path),
         )
 
         task.status = GsxtReportStatus.SUCCESS

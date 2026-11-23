@@ -4,6 +4,8 @@ import { useLocation } from 'react-router'
 import { useMediaQuery } from '@/hooks/use-media'
 import { COPILOT_LAUNCH_EVENT } from '@/features/copilot/launch'
 
+import { isProjectDetailPath } from '../paths'
+
 /**
  * 壳层的两层全局浮层状态：AI 助手面板（⌘J，常驻侧栏）与 ⌘K 全局检索（模态弹窗）。
  *
@@ -11,31 +13,29 @@ import { COPILOT_LAUNCH_EVENT } from '@/features/copilot/launch'
  * 动画、并排偏好与互斥联动——它们跟路由一点关系都没有（壳层只是 `Outlet`
  * 的容器），却把「壳层为什么长这样」的注释挤到看不见。
  *
- * 状态归口：所有打开路径（快捷键 / 导航栏按钮 / 业务页「AI 助手」按钮 /
- * localStorage 恢复）都汇到这里，互斥用状态联动实现，不在各个回调里互相关停
- * ——否则必漏一条路径。
+ * 状态归口：所有打开路径（快捷键 / 导航栏按钮 / 业务页「AI 助手」按钮）都汇到
+ * 这里，互斥用状态联动实现，不在各个回调里互相关停——否则必漏一条路径。
  */
 
-const COPILOT_OPEN_KEY = 'copilot:open'
 const COPILOT_DOCK_KEY = 'copilot:dock'
 
 export function useCopilotShell() {
   const { pathname } = useLocation()
 
   /**
-   * AI 助手面板开关：展开状态跨会话记忆（localStorage），首次展开才加载 chunk。
+   * AI 助手面板开关：**展开态不持久化**——每次进来都从收起态开始，首次展开才
+   * 加载 chunk。
    *
    * ⚠️ 默认收起。
    * 合同复审页（/projects/:id/review/:taskId）自己带一个「法穿 AI 助手」右栏，
    * 全局面板再展开就会出现**两个 AI 助手并排**，律师不知道该跟哪个说话。
-   * 所以这里不再从 localStorage 恢复展开态 —— 要开就自己按 ⌘J，
-   * 不复用上一次会话的选择（上次开着不代表这次也要开着）。
+   * 所以既不从 localStorage 恢复展开态 —— 要开就自己按 ⌘J，不复用上一次会话的
+   * 选择（上次开着不代表这次也要开着）；也不写：一个只写不读的键，在后来者
+   * 眼里就是「这里会记住展开态」的谎话。
    */
   const [copilotOpen, setCopilotOpen] = useState(false)
   // 滑出动画期间保持挂载：收起时先播 animate-out，240ms 后再卸载（与面板
   // duration-200 对齐留余量）。重新展开会取消定时器，无缝回到 animate-in。
-  // 背景压暗遮罩（PanelBackdrop）同理跟 copilotMounted 走，这样收起时它的
-  // fade-out 能和面板滑出同步播完。
   const [copilotMounted, setCopilotMounted] = useState(copilotOpen)
   useEffect(() => {
     if (copilotOpen) {
@@ -46,14 +46,7 @@ export function useCopilotShell() {
     return () => clearTimeout(timer)
   }, [copilotOpen])
   const toggleCopilot = () => {
-    setCopilotOpen((v) => {
-      try {
-        localStorage.setItem(COPILOT_OPEN_KEY, v ? '0' : '1')
-      } catch {
-        /* 忽略持久化失败 */
-      }
-      return !v
-    })
+    setCopilotOpen((v) => !v)
   }
 
   // 并排模式：宽屏（≥1280）下面板不再悬浮覆盖，主内容区让出右侧等宽
@@ -91,22 +84,8 @@ export function useCopilotShell() {
    * 那个切换按钮，详情页就永远退回悬浮、又盖住合同，用户还得再点一次。
    * 详情页的布局是确定的（三栏并置），不该用全局偏好去覆盖它。
    */
-  const onDetailRoute = /^\/projects\/[^/]+/.test(pathname)
+  const onDetailRoute = isProjectDetailPath(pathname)
   const effectiveDocked = copilotOpen && isXlUp && (onDetailRoute || copilotDock)
-
-  /**
-   * AI 助手**永不渲染压暗遮罩**。
-   *
-   * 它是常驻侧边栏，不是模态对话框——遮罩的存在只会造成两个问题：
-   * 1. 点页面任何地方（包括右栏的合同文件）都会先命中遮罩，触发 onClose
-   *    把刚打开的助手收回去，表现为「点合同助手就缩回去了」；
-   * 2. 律师看不到被遮的合同内容，而这恰好是他要对照着改的对象。
-   *
-   * 历史：曾经用 `copilotDocked || /^\/projects\//` 做豁免，但豁免条件本身
-   * 就是拿"哪些页面不该被遮"去猜"哪些页面不需要遮"——而答案是**全都不需要**。
-   * 收起走面板自己的关闭按钮与 ⌘J，不靠点遮罩。
-   */
-  const copilotBackdropEnabled = false
 
   // ⌘K 全局检索面板开关：状态收在壳层（与 copilotOpen 同层），⌘K 快捷键、
   // 导航栏检索按钮、弹窗自身关闭（Esc / 点遮罩 / 选中跳转）三条路径都汇到这里。
@@ -115,16 +94,10 @@ export function useCopilotShell() {
   // ⌘K 检索（模态弹窗）与 ⌘J AI 助手（常驻侧栏）两层全局浮层互斥：任意一层
   // 展开即收起另一层。此前两层各自独立开关，先 ⌘K 再 ⌘J 会弹窗、侧栏与双重
   // 压暗遮罩同屏叠加。用状态联动而非在各个开关回调里互相关停，所有打开
-  // 路径（快捷键 / 导航栏按钮 / localStorage 恢复）都被覆盖，不会漏。
-  // 联动收起面板时同步写持久化，与用户手动收起（⌘J / 点遮罩）同一语义。
+  // 路径（快捷键 / 导航栏按钮 / 业务页打开按钮）都被覆盖，不会漏。
   useEffect(() => {
     if (!searchOpen) return
     setCopilotOpen(false)
-    try {
-      localStorage.setItem(COPILOT_OPEN_KEY, '0')
-    } catch {
-      /* 忽略持久化失败 */
-    }
   }, [searchOpen])
   useEffect(() => {
     if (!copilotOpen) return
@@ -147,15 +120,9 @@ export function useCopilotShell() {
 
   // 业务页的「AI 助手」按钮（案件/合同详情页）：只负责开面板（含 chunk
   // 加载），业务上下文由 copilot 域自己的监听（CopilotPanel 挂载时）消费。
-  // 打开时同步写持久化，与 ⌘J 手动打开同一语义。
   useEffect(() => {
     const onLaunch = () => {
       setCopilotOpen(true)
-      try {
-        localStorage.setItem(COPILOT_OPEN_KEY, '1')
-      } catch {
-        /* 忽略持久化失败 */
-      }
     }
     window.addEventListener(COPILOT_LAUNCH_EVENT, onLaunch)
     return () => window.removeEventListener(COPILOT_LAUNCH_EVENT, onLaunch)
@@ -177,7 +144,6 @@ export function useCopilotShell() {
   return {
     copilotOpen,
     copilotMounted,
-    copilotBackdropEnabled,
     effectiveDocked,
     isXlUp,
     toggleCopilot,

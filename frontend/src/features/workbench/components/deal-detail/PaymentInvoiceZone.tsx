@@ -49,9 +49,11 @@ export function PaymentInvoiceZone({
   const fileRef = useRef<HTMLInputElement | null>(null)
 
   const saved = paymentId != null
+  /** 未保存的收款没有 id：键与请求同取 0（`enabled: saved` 把它挡在请求之外，不会真的去查 0） */
+  const savedPaymentId = paymentId ?? 0
   const paymentInvoicesQ = useQuery({
-    queryKey: PAYMENT_INVOICES_KEY(paymentId ?? 0),
-    queryFn: () => listPaymentInvoices(paymentId as number, contractId),
+    queryKey: PAYMENT_INVOICES_KEY(savedPaymentId),
+    queryFn: () => listPaymentInvoices(savedPaymentId, contractId),
     enabled: saved,
     staleTime: 30_000,
   })

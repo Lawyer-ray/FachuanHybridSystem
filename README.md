@@ -139,7 +139,7 @@ FachuanHybridSystem/
 │   ├── mcp_server/      MCP 工具面（423 个工具，server.py 统一注册）
 │   ├── apiSystem/       Django 配置与路由装配
 │   ├── tests/           1411 个测试文件（unit / integration / property / structure）
-│   └── plugins/         git 子模块（FachuanPlugins）
+│   └── plugins/         git 子模块（FachuanPlugins，**内部仓库，不对外提供**）
 ├── frontend/src/
 │   ├── app/             路由表 · 路径常量 · 壳层（唯一权威，禁止手拼路径）
 │   └── features/        11 个 feature（material-prep / bank-litigation / copilot / …）
@@ -181,6 +181,10 @@ make ci-full        # 完整 CI（需 PostgreSQL：+ pytest + 覆盖率）
 ## 部署方式
 
 代码**免费开源**（非商业许可 + ≤10 人机构免费商用例外，见[许可证](#许可证)），你可以自行下载、自行部署，功能与付费部署完全一致。详见 **[INSTALL.md](INSTALL.md)**。
+
+> **范围说明（`backend/plugins` 子模块）**：该子模块是**内部仓库，不对外提供**，也不随本仓库对外分发——
+> 公开克隆不会拿到它，且没有它的访问权限。不提供时相关**高级功能静默降级**，主流程与本文档描述的功能不受影响；
+> 不要把本仓库的公开分发理解成包含该子模块。详见 **[INSTALL.md](INSTALL.md)**。
 
 不想折腾环境（依赖版本、模型接通、数据库迁移、法院平台对接）的，作者提供**一对一定制部署服务**：
 

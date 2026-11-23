@@ -1,10 +1,8 @@
-"""documents.models.evidence 补充覆盖测试（避免模型冲突，仅测试纯逻辑）。"""
+"""evidence 模型属性覆盖测试（直接调用 apps.evidence.models 的真实 property）。"""
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, PropertyMock, patch
-
-import pytest
+from typing import Any
 
 # ── MergeStatus / ListType ────────────────────────────────────────
 
@@ -19,145 +17,103 @@ class TestMergeStatus:
 
 
 class TestEvidenceListProperties:
-    """Test EvidenceList property logic via mocked instances."""
+    """EvidenceList 的 end_page / page_range_display / order_range_display。
+
+    S01-13（2026-11-23 二轮审计）：原实现把 property 的公式抄成局部变量再断言那个
+    局部变量（MagicMock 只用来存一个数字，`end_page` 是本地变量）→ 生产 property
+    被删/改错也全绿；现在构造不落库的 EvidenceList 实例，直接读真实 property。
+    """
 
     def test_end_page_zero_total(self):
-        # end_page: if total_pages == 0 => start_page
-        el = MagicMock()
-        el.total_pages = 0
-        start_page = 1
-        # Simulate end_page logic: start_page + total_pages - 1 when > 0
-        end_page = start_page if el.total_pages == 0 else start_page + el.total_pages - 1
-        assert end_page == 1
+        from apps.evidence.models.evidence import EvidenceList
+
+        el = EvidenceList(total_pages=0)
+        el.__dict__["_cached_start_page"] = 1
+        assert el.end_page == 1
 
     def test_end_page_nonzero_total(self):
-        start_page = 5
-        total_pages = 10
-        end_page = start_page if total_pages == 0 else start_page + total_pages - 1
-        assert end_page == 14
+        from apps.evidence.models.evidence import EvidenceList
+
+        el = EvidenceList(total_pages=10)
+        el.__dict__["_cached_start_page"] = 5
+        assert el.end_page == 14
 
     def test_page_range_display_zero_pages(self):
-        total_pages = 0
-        start_page = 1
-        end_page = start_page if total_pages == 0 else start_page + total_pages - 1
-        display = "" if total_pages == 0 else f"{start_page}-{end_page}"
-        assert display == ""
+        from apps.evidence.models.evidence import EvidenceList
+
+        el = EvidenceList(total_pages=0)
+        assert el.page_range_display == ""
 
     def test_page_range_display_nonzero(self):
-        total_pages = 5
-        start_page = 1
-        end_page = start_page + total_pages - 1
-        display = "" if total_pages == 0 else f"{start_page}-{end_page}"
-        assert display == "1-5"
+        from apps.evidence.models.evidence import EvidenceList
+
+        el = EvidenceList(total_pages=5)
+        el.__dict__["_cached_start_page"] = 1
+        assert el.page_range_display == "1-5"
+
+    @staticmethod
+    def _annotated_list(item_count: int) -> Any:
+        """不落库的清单实例 + 列表页 queryset annotation 的 item_count。"""
+        from apps.evidence.models.evidence import EvidenceList
+
+        el: Any = EvidenceList()
+        el.item_count = item_count
+        return el
 
     def test_order_range_display_no_items(self):
-        item_count = 0
-        start_order = 1
-        if item_count == 0:
-            display = "-"
-        else:
-            end_order = start_order + item_count - 1
-            display = str(start_order) if start_order == end_order else f"{start_order}-{end_order}"
-        assert display == "-"
+        assert self._annotated_list(item_count=0).order_range_display == "-"
 
     def test_order_range_display_single_item(self):
-        item_count = 1
-        start_order = 3
-        end_order = start_order + item_count - 1
-        display = str(start_order) if start_order == end_order else f"{start_order}-{end_order}"
-        assert display == "3"
+        el: Any = self._annotated_list(item_count=1)
+        el.__dict__["_cached_start_order"] = 3
+        assert el.order_range_display == "3"
 
     def test_order_range_display_multiple_items(self):
-        item_count = 5
-        start_order = 1
-        end_order = start_order + item_count - 1
-        display = str(start_order) if start_order == end_order else f"{start_order}-{end_order}"
-        assert display == "1-5"
+        el: Any = self._annotated_list(item_count=5)
+        el.__dict__["_cached_start_order"] = 1
+        assert el.order_range_display == "1-5"
 
 
 class TestEvidenceItemProperties:
-    """Test EvidenceItem property logic via mocked instances."""
+    """EvidenceItem 的 page_range_display / file_size_display。
+
+    S01-13：同上——原来重写的是测试里的公式，现在真调用模型 property。
+    """
 
     def test_page_range_display_none_pages(self):
-        page_start = None
-        page_end = None
-        if page_start is None or page_end is None:
-            display = "-"
-        elif page_start == page_end:
-            display = str(page_start)
-        else:
-            display = f"{page_start}-{page_end}"
-        assert display == "-"
+        from apps.evidence.models.evidence import EvidenceItem
+
+        assert EvidenceItem(page_start=None, page_end=None).page_range_display == "-"
 
     def test_page_range_display_same_page(self):
-        page_start = 5
-        page_end = 5
-        if page_start is None or page_end is None:
-            display = "-"
-        elif page_start == page_end:
-            display = str(page_start)
-        else:
-            display = f"{page_start}-{page_end}"
-        assert display == "5"
+        from apps.evidence.models.evidence import EvidenceItem
+
+        assert EvidenceItem(page_start=5, page_end=5).page_range_display == "5"
 
     def test_page_range_display_range(self):
-        page_start = 1
-        page_end = 10
-        if page_start is None or page_end is None:
-            display = "-"
-        elif page_start == page_end:
-            display = str(page_start)
-        else:
-            display = f"{page_start}-{page_end}"
-        assert display == "1-10"
+        from apps.evidence.models.evidence import EvidenceItem
+
+        assert EvidenceItem(page_start=1, page_end=10).page_range_display == "1-10"
 
     def test_file_size_display_zero(self):
-        file_size = 0
-        if file_size == 0:
-            display = "-"
-        elif file_size < 1024:
-            display = f"{file_size} B"
-        elif file_size < 1024 * 1024:
-            display = f"{file_size / 1024:.1f} KB"
-        else:
-            display = f"{file_size / (1024 * 1024):.1f} MB"
-        assert display == "-"
+        from apps.evidence.models.evidence import EvidenceItem
+
+        assert EvidenceItem(file_size=0).file_size_display == "-"
 
     def test_file_size_display_bytes(self):
-        file_size = 500
-        if file_size == 0:
-            display = "-"
-        elif file_size < 1024:
-            display = f"{file_size} B"
-        elif file_size < 1024 * 1024:
-            display = f"{file_size / 1024:.1f} KB"
-        else:
-            display = f"{file_size / (1024 * 1024):.1f} MB"
-        assert display == "500 B"
+        from apps.evidence.models.evidence import EvidenceItem
+
+        assert EvidenceItem(file_size=500).file_size_display == "500 B"
 
     def test_file_size_display_kb(self):
-        file_size = 1024 * 5
-        if file_size == 0:
-            display = "-"
-        elif file_size < 1024:
-            display = f"{file_size} B"
-        elif file_size < 1024 * 1024:
-            display = f"{file_size / 1024:.1f} KB"
-        else:
-            display = f"{file_size / (1024 * 1024):.1f} MB"
-        assert "KB" in display
+        from apps.evidence.models.evidence import EvidenceItem
+
+        assert EvidenceItem(file_size=5 * 1024).file_size_display == "5.0 KB"
 
     def test_file_size_display_mb(self):
-        file_size = 1024 * 1024 * 3
-        if file_size == 0:
-            display = "-"
-        elif file_size < 1024:
-            display = f"{file_size} B"
-        elif file_size < 1024 * 1024:
-            display = f"{file_size / 1024:.1f} KB"
-        else:
-            display = f"{file_size / (1024 * 1024):.1f} MB"
-        assert "MB" in display
+        from apps.evidence.models.evidence import EvidenceItem
+
+        assert EvidenceItem(file_size=3 * 1024 * 1024).file_size_display == "3.0 MB"
 
 
 class TestEvidenceStrMethods:

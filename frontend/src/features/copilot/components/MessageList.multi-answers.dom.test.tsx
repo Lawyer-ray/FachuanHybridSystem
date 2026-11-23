@@ -102,7 +102,7 @@ describe('MessageList：多答并排', () => {
           capabilities: { approval: false },
         },
       ],
-    } as never)
+    })
     renderWithMessages([
       { id: 'a1', role: 'assistant', content: '主答正文', agentKind: 'pi' },
       { id: 'a2', role: 'assistant', content: '次答正文', agentKind: 'dsh' },

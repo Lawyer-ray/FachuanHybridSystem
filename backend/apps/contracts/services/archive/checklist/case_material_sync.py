@@ -7,6 +7,8 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from django.db import transaction
+
 from apps.contracts.models import Contract
 from apps.contracts.models.finalized_material import FinalizedMaterial, MaterialCategory
 from apps.core.exceptions import ValidationException
@@ -344,8 +346,16 @@ def reset_and_resync_case_materials(
         ).only("id", "file_path", "archive_item_code")
     )
 
-    deleted_files: list[str] = []
+    # S49-15（2026-11-23 二轮审计）：原实现「先把文件 unlink、再删行」，且两层调用
+    # 方（api / admin）都没有事务——中途抛错就停在「文件与行都已没了」的不可恢复
+    # 中间态（连原来有哪些文件都无从得知）。现在 DB 是权威：行删除在同一事务内
+    # 完成，物理文件推迟到行提交之后再删（删文件失败只留孤寡文件，不丢数据）。
+    deleted_count = len(materials_to_delete)
+    mat_ids = [m.id for m in materials_to_delete]
+    with transaction.atomic():
+        FinalizedMaterial.objects.filter(id__in=mat_ids).delete()
 
+    deleted_files: list[str] = []
     for mat in materials_to_delete:
         if not mat.file_path:
             continue
@@ -366,10 +376,6 @@ def reset_and_resync_case_materials(
                 )
             except OSError as e:
                 logger.warning("重置同步：删除归档文件失败 %s: %s", mat.file_path, e)
-
-    deleted_count = len(materials_to_delete)
-    mat_ids = [m.id for m in materials_to_delete]
-    FinalizedMaterial.objects.filter(id__in=mat_ids).delete()
 
     logger.info(
         "重置同步：已删除 %d 个归档材料 (codes=%s)",

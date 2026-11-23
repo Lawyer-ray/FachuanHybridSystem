@@ -1,17 +1,17 @@
-import { materialPrepDetail } from '@/app/paths'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { FolderKanban, Landmark, Mail, Paperclip, Search, Users } from 'lucide-react'
+import { useNavigate } from 'react-router'
+import { Search } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { EmptyBlock } from '@/components/shared/AsyncState'
-import { BADGE_TONE_CLS } from '@/components/shared/status-badge'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { cn } from '@/lib/utils'
 import { CATEGORY_ORDER, runSearch } from '../api'
-import { orderProjectHits, projectRoute } from '../domain'
+import { CATEGORIES, DEBOUNCE_MS, GLOBAL_SEARCH_KEY } from '../categories'
+import { orderProjectHits } from '../domain'
 import type { CategoryKey, Hit } from '../types'
-import { PANEL_BADGE_CLS, ProjectHits } from './ProjectHits'
+import { HitRow } from './HitRow'
+import { ProjectHits } from './ProjectHits'
 
 /**
  * 全局检索（⌘K）。
@@ -25,40 +25,6 @@ const EMPTY_HITS: Hit[] = []
 
 /** 两类引导态文案的排版：只覆盖间距与字号，居中/灰色由 EmptyBlock 定 */
 const HINT_CLS = 'px-3 py-8 text-[12.5px]'
-
-/**
- * 各类别 → 展示名 / 图标 / 点击后的去处。
- *
- * to 只对**已存在**的路由给出；返回 undefined 的类别（当事人 / 法院短信 /
- * 联系人）点选时由调用方弹提示——硬链到不存在的页会命中 App.tsx 的通配
- * 重定向、静默跳回首页，比明确说"还没做"更糟。
- *
- * projects（项目 = 委托合同，案件挂在合同下）：合同与案件融合展示，
- * 跳转一律走 domain.projectRoute（单条 `/projects/:id`，诉讼/非诉由详情页
- * 内部按 lit 选左栏；案件带 #case-<id> 锚点滚到该案）。
- *
- * 注：不要在这里按诉讼/非诉拼不同 URL——`/projects/:id/nonlit` 已不存在，
- * 拼出来会落到 App.tsx 的 `*` 通配重定向、静默跳回首页。
- *
- * clients 对外叫「当事人」：后端 Client 表装的是所有当事人（我方 + 对方），
- * 叫「客户」会让人以为只有我方委托人。
- */
-const CATEGORIES: Record<CategoryKey, { label: string; icon: typeof Users; to?: (hit: Hit) => string | undefined }> = {
-  projects: { label: '项目', icon: FolderKanban, to: (h) => projectRoute(h) },
-  clients: { label: '当事人', icon: Users },
-  inbox: { label: '收件箱', icon: Mail, to: (h) => materialPrepDetail(h.id) },
-  court_sms: { label: '法院短信', icon: Landmark },
-  contacts: { label: '联系人', icon: Paperclip },
-}
-
-/** 当事人我方/对方徽章文案（side 来自后端 Client.is_our_client） */
-const SIDE_LABEL = { ours: '我方', opposing: '对方' } as const
-
-/** 输入防抖间隔（ms）：输入即搜，但请求攒一撮再发，避免每次按键都重排结果列表 */
-const DEBOUNCE_MS = 250
-
-/** 全局检索 query key 前缀（本组件独用，完整 key 为 [前缀, 检索词]） */
-const GLOBAL_SEARCH_KEY = 'global-search'
 
 export function GlobalSearch({
   open,
@@ -232,7 +198,6 @@ export function GlobalSearch({
           )}
           {CATEGORY_ORDER.filter((c) => groups.has(c)).map((cat) => {
             const meta = CATEGORIES[cat]
-            const Icon = meta.icon
             const catHits = groups.get(cat) ?? []
             // projects 单独走分组渲染（合同作组头、案件挂其下），与其余平铺类别不同构
             if (cat === 'projects') {
@@ -250,46 +215,17 @@ export function GlobalSearch({
             return (
               <div key={cat} className="mb-1.5 last:mb-0">
                 <div className="px-2 py-1 text-[10.5px] font-semibold text-muted-foreground">{meta.label}</div>
-                {catHits.map((h) => {
-                  const idx = flat.indexOf(h)
-                  const to = meta.to?.(h)
-                  const Row = (
-                    <>
-                      <Icon className="h-3.5 w-3.5 flex-none text-muted-foreground" />
-                      <span className="min-w-0 flex-1 truncate text-[12.5px]">{h.title}</span>
-                      {h.side && <SideBadge side={h.side} />}
-                      {h.subtitle && (
-                        <span className="max-w-[140px] flex-none truncate text-[10.5px] text-muted-foreground">{h.subtitle}</span>
-                      )}
-                    </>
-                  )
-                  return to ? (
-                    <Link
-                      key={`${cat}-${h.id}`}
-                      to={to}
-                      onClick={() => onOpenChange(false)}
-                      className={cn(
-                        'flex w-full items-center gap-2.5 rounded-[7px] px-2 py-[7px] no-underline transition-colors',
-                        idx === cursor ? 'bg-secondary text-foreground' : 'text-secondary-foreground hover:bg-secondary/60',
-                      )}
-                    >
-                      {Row}
-                    </Link>
-                  ) : (
-                    <button
-                      key={`${cat}-${h.id}`}
-                      type="button"
-                      onClick={() => pick(h)}
-                      className={cn(
-                        'flex w-full items-center gap-2.5 rounded-[7px] px-2 py-[7px] text-left text-secondary-foreground transition-colors',
-                        idx === cursor ? 'bg-secondary' : 'hover:bg-secondary/60',
-                      )}
-                    >
-                      {Row}
-                      <span className="flex-none text-[10px] text-muted-foreground">未建页</span>
-                    </button>
-                  )
-                })}
+                {catHits.map((h) => (
+                  <HitRow
+                    key={`${cat}-${h.id}`}
+                    hit={h}
+                    category={meta}
+                    to={meta.to?.(h)}
+                    active={flat.indexOf(h) === cursor}
+                    onOpenChange={onOpenChange}
+                    onPick={pick}
+                  />
+                ))}
               </div>
             )
           })}
@@ -303,24 +239,6 @@ export function GlobalSearch({
         </div>
       </DialogContent>
     </Dialog>
-  )
-}
-
-/**
- * 当事人我方/对方徽章：我方实底、对方描边——同一面板里筛选标签已用「实底=选中 /
- * 描边=未选」这套视觉词汇，复用它让「我方」一眼跳出来，又不引入新颜色。
- * 形状取 ProjectHits 的 PANEL_BADGE_CLS，描边色取 BADGE_TONE_CLS.neutral（与「非诉」同款）。
- */
-function SideBadge({ side }: { side: 'ours' | 'opposing' }) {
-  return (
-    <span
-      className={cn(
-        PANEL_BADGE_CLS,
-        side === 'ours' ? 'bg-foreground text-background' : BADGE_TONE_CLS.neutral,
-      )}
-    >
-      {SIDE_LABEL[side]}
-    </span>
   )
 }
 

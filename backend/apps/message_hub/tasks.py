@@ -166,5 +166,21 @@ def _register_schedule() -> None:  # pragma: no cover
         if updates:
             existing.save(update_fields=updates)
             logger.info("已校正定时任务: %s（更新 %s）", TASK_NAME, ", ".join(updates))
-    except Exception:
-        logger.debug("定时任务注册跳过（未就绪）")
+    except Exception as exc:
+        # S42-05（2026-11-23 二轮审计）：原来是 `logger.debug`，而生产 `apps.*` 的日志级别是
+        # INFO（apps/core/infrastructure/logging.py），这一行永远被过滤掉。调度行没落库时
+        # `sync_all_sources` 没有第二个调用方（手动按钮走 `POST /sources/sync-all`），
+        # 自动同步会永久静默失效且零告警 —— 所以必须提到 warning。
+        #
+        # **但不打异常栈（刻意不用 exc_info=True）**：本函数在 `apps.py:ready()` 里被调用，
+        # 任何「没有数据库」的 django.setup() 都会走到这里（CI 的 mypy 全量扫描、只读诊断命令、
+        # 容器初始化早期）。exc_info 会向 stderr 打 `Traceback (most recent call last)`，
+        # 而 CI 的 mypy fail-closed 门禁正是 grep 这个字样判「mypy 崩了」→ 误判为红
+        # （2026-11-23 实测：backend job 因此红）。把异常类型+消息内联成一行，诊断信息不丢，
+        # 也不会污染子进程输出。
+        logger.warning(
+            "定时任务注册跳过（数据库未就绪或调度表异常）: %s（%s: %s）",
+            TASK_NAME,
+            type(exc).__name__,
+            exc,
+        )

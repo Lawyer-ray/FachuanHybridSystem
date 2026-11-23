@@ -36,30 +36,45 @@ def guess_mime_type(file_path: str) -> str:
 def load_db_category_config(loader_name: str, key_mapping: Mapping[str, str], platform_label: str) -> dict[str, Any]:
     """从 SystemConfig 加载指定平台的配置并映射为内部键名
 
+    S35-05（2026-11-23 二轮审计）：原实现把「读库失败」和「loader 名写错」一起吞成
+    debug 日志再返回空字典（docstring 还谎称会回退到 settings，实际没有任何回退），
+    平台于是整块静默不可用、根因只在 debug 里。现在：loader 不存在属于编程错误，
+    直接抛；读库失败降级为空配置但升到 warning 并带上 loader 名与平台名。
+
     Args:
         loader_name: apps.core.config.utils 中的分类配置加载函数名
         key_mapping: SystemConfig 键 -> 内部键 的映射
         platform_label: 平台中文名（用于日志）
 
     Returns:
-        映射后的配置字典；加载失败时返回空字典（回退到 settings）
+        映射后的配置字典；未配置或读库失败时为空字典（调用方据此判定平台不可用）
+
+    Raises:
+        AttributeError: ``loader_name`` 在 apps.core.config.utils 中不存在（编程错误）
     """
+    from apps.core.config import utils as config_utils
+
+    loader = getattr(config_utils, loader_name, None)
+    if loader is None:
+        raise AttributeError(f"配置加载函数不存在: {loader_name}")
+
     try:
-        from apps.core.config import utils as config_utils
-
-        loader = getattr(config_utils, loader_name, None)
-        if loader is None:
-            raise AttributeError(f"配置加载函数不存在: {loader_name}")
-
         db_configs = loader()
-        if not db_configs:
-            return {}
-        config = {internal: db_configs[db] for db, internal in key_mapping.items() if db_configs.get(db)}
-        logger.debug("从 SystemConfig 加载%s配置: %s", platform_label, list(config.keys()))
-        return config
     except Exception as e:
-        logger.debug("从 SystemConfig 加载配置失败，回退到 settings: %s", e)
+        logger.warning(
+            "从 SystemConfig 加载%s配置失败（loader=%s），本次按未配置处理: %s",
+            platform_label,
+            loader_name,
+            e,
+            exc_info=True,
+        )
         return {}
+
+    if not db_configs:
+        return {}
+    config = {internal: db_configs[db] for db, internal in key_mapping.items() if db_configs.get(db)}
+    logger.debug("从 SystemConfig 加载%s配置: %s", platform_label, list(config.keys()))
+    return config
 
 
 def normalize_provider_config(config: dict[str, Any], platform_label: str) -> dict[str, Any]:

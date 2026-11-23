@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Check, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -34,7 +34,78 @@ function precisionHintOf(h: { approx?: boolean; precision?: RectPrecision }): st
   return ''
 }
 
-/** 一行正文：平时是文字（双击定位），编辑态是输入框（失焦/回车保存）。 */
+/**
+ * 编辑态的一行：输入框 + 显式保存/取消。
+ *
+ * 草稿归它自己（**挂载时**按 `initialText` 定初值），不是留在 BlockRow 里用 effect 同步：
+ * 那个写法要先渲染一轮旧文本、effect 跑完才换成种子文本，输入框会先闪一下原文。
+ * 代价是它必须随种子文本重新挂载，所以由 BlockRow 给 key（见那里的注释）。
+ */
+function BlockEditRow({
+  page,
+  initialText,
+  onCommitEdit,
+  onCancelEdit,
+}: {
+  page: number
+  /** 进入编辑态时的初值：种子文本（有的话）或本行原文 */
+  initialText: string
+  onCommitEdit: (text: string) => void
+  onCancelEdit: () => void
+}) {
+  const [draft, setDraft] = useState(initialText)
+
+  // 编辑态：输入框 + **显式的保存/取消按钮**。
+  //
+  // 不用「失焦即保存」——这一行是法律文书正文，改错了下游 AI 会拿错文本跑，
+  // 该由人明确说「我要保存」。失焦保存还有三个实际问题：
+  //   ① 界面上没有任何提示，用户不知道"切走"就等于提交；
+  //   ② 误点别处（想复制文字、想对照原页）就改了库；
+  //   ③ 回车保存会让父级卸载输入框 → 触发 blur → 再提交一次（重复写入）。
+  // 回车 / Esc 作为快捷键保留给熟手，但**不再是唯一入口**。
+  return (
+    <div className="flex flex-col gap-1 rounded border border-sky-300 bg-sky-50/40 p-1">
+      <div className="flex items-start gap-1">
+        <span className="mt-1 flex-none tabular-nums text-[10.5px] text-muted-foreground">P{page}</span>
+        <textarea
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              onCommitEdit(draft)
+            }
+            if (e.key === 'Escape') onCancelEdit()
+          }}
+          spellCheck={false}
+          rows={Math.min(6, Math.max(2, Math.ceil(draft.length / 38)))}
+          className="min-w-0 flex-1 resize-y rounded border border-sky-300 bg-white p-1 font-mono text-[11px] leading-relaxed outline-none focus:ring-1 focus:ring-sky-400"
+        />
+      </div>
+      <div className="flex items-center gap-1.5 pl-5">
+        <button
+          type="button"
+          onClick={() => onCommitEdit(draft)}
+          className="flex items-center gap-1 rounded-md bg-zinc-900 px-2 py-0.5 text-[10.5px] font-medium text-white hover:bg-zinc-800"
+        >
+          <Check className="h-2.5 w-2.5" aria-hidden />
+          保存
+        </button>
+        <button
+          type="button"
+          onClick={onCancelEdit}
+          className="rounded-md border border-border bg-white px-2 py-0.5 text-[10.5px] hover:bg-secondary"
+        >
+          取消
+        </button>
+        <span className="ml-auto text-[10px] text-muted-foreground">回车保存 · Esc 取消</span>
+      </div>
+    </div>
+  )
+}
+
+/** 一行正文：平时是文字（双击定位），编辑态是输入框（保存/取消）。 */
 export function BlockRow({
   blockKey,
   text,
@@ -77,77 +148,20 @@ export function BlockRow({
    */
   seedText?: string | null
 }) {
-  // 编辑态的草稿：进入编辑时用 seedText（若给了）作为起点，否则用本行原文。
-  // 不直接 `useState(text)` 是因为 seedText 要到「开始编辑」那一刻才确定，
-  // 在组件挂载时读它拿不到。
-  const [draft, setDraft] = useState(text)
-
-  // 进入编辑态的那一拍把 seedText 灌进草稿。
-  //
-  // 用 effect 而不是在 `useState` 初始化器里读：seedText 是「点采用那一刻」才
-  // 传下来的，而本组件在渲染态下**早已挂载**，初始化器不会重跑。
-  //
-  // `appliedSeed` 记住上次灌过哪个值：同一次编辑里用户已经开始打字，
-  // 父级重渲染不能把他的话覆盖回种子文本。
-  const appliedSeed = useRef<string | null>(null)
-  useEffect(() => {
-    if (!editing) {
-      appliedSeed.current = null
-      return
-    }
-    if (appliedSeed.current === seedText) return
-    appliedSeed.current = seedText ?? null
-    setDraft(seedText ?? text)
-  }, [editing, seedText, text])
-
   if (editing) {
-    // 编辑态：输入框 + **显式的保存/取消按钮**。
+    // 编辑态下沉到 BlockEditRow：草稿是**它自己挂载时**按种子文本定的初值。
     //
-    // 不用「失焦即保存」——这一行是法律文书正文，改错了下游 AI 会拿错文本跑，
-    // 该由人明确说「我要保存」。失焦保存还有三个实际问题：
-    //   ① 界面上没有任何提示，用户不知道"切走"就等于提交；
-    //   ② 误点别处（想复制文字、想对照原页）就改了库；
-    //   ③ 回车保存会让父级卸载输入框 → 触发 blur → 再提交一次（重复写入）。
-    // 回车 / Esc 作为快捷键保留给熟手，但**不再是唯一入口**。
+    // key 写种子文本：同一个 BlockRow 实例在不同次编辑之间是复用的，而「点采用」
+    // 可能在编辑中把种子文本换成另一侧引擎的全文——key 变了才重新挂载，草稿才会
+    // 回到新的种子文本；同一种子文本下的父级重渲染则不会碰用户已经打的字。
     return (
-      <div className="flex flex-col gap-1 rounded border border-sky-300 bg-sky-50/40 p-1">
-        <div className="flex items-start gap-1">
-          <span className="mt-1 flex-none tabular-nums text-[10.5px] text-muted-foreground">P{page}</span>
-          <textarea
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                onCommitEdit(draft)
-              }
-              if (e.key === 'Escape') onCancelEdit()
-            }}
-            spellCheck={false}
-            rows={Math.min(6, Math.max(2, Math.ceil(draft.length / 38)))}
-            className="min-w-0 flex-1 resize-y rounded border border-sky-300 bg-white p-1 font-mono text-[11px] leading-relaxed outline-none focus:ring-1 focus:ring-sky-400"
-          />
-        </div>
-        <div className="flex items-center gap-1.5 pl-5">
-          <button
-            type="button"
-            onClick={() => onCommitEdit(draft)}
-            className="flex items-center gap-1 rounded-md bg-zinc-900 px-2 py-0.5 text-[10.5px] font-medium text-white hover:bg-zinc-800"
-          >
-            <Check className="h-2.5 w-2.5" aria-hidden />
-            保存
-          </button>
-          <button
-            type="button"
-            onClick={onCancelEdit}
-            className="rounded-md border border-border bg-white px-2 py-0.5 text-[10.5px] hover:bg-secondary"
-          >
-            取消
-          </button>
-          <span className="ml-auto text-[10px] text-muted-foreground">回车保存 · Esc 取消</span>
-        </div>
-      </div>
+      <BlockEditRow
+        key={seedText ?? ''}
+        page={page}
+        initialText={seedText ?? text}
+        onCommitEdit={onCommitEdit}
+        onCancelEdit={onCancelEdit}
+      />
     )
   }
 

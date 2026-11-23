@@ -137,7 +137,8 @@ class QuickRecognitionService:
                     parts.append(self._ocr.recognize(str(img_path)))
                 return "\n".join(parts)
             finally:
-                shutil.rmtree(img_tmp_dir, ignore_errors=True)
+                if img_tmp_dir is not None:
+                    shutil.rmtree(img_tmp_dir, ignore_errors=True)
 
         finally:
             tmp_path.unlink(missing_ok=True)

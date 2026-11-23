@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { DEFAULT_SYNC_WINDOW_DAYS, INBOX_LIST_KEY, listInbox, listSources, syncAllSources, syncSource } from '../api'
 import type { SyncWindowDays } from '../api'
@@ -27,6 +27,12 @@ import type { InboxSourceFilter } from '../types'
  *
  * Playwright 类来源（一张网）后端超时给到 1800s。前端不能无限转圈——用户会以为
  * 卡死。到点停止转圈并提示仍在后台进行，让用户自己决定要不要稍后刷新。
+ *
+ * ## 为什么卸载要能打断轮询
+ *
+ * 上面那条 60 秒上限说的是「用户看得见的时候」。用户切走阶段、关掉页面后，
+ * 这条轮询链没有任何消费者，却仍会每 2 秒发一次 listSources——最长 60 秒、
+ * 30 次请求全是白打的。所以卸载时置位 `cancelledRef`，每个 await 之后早退。
  */
 
 /** 轮询间隔：同步通常是秒级到分钟级，2 秒一次的密度对后端无压力 */
@@ -71,6 +77,17 @@ export function useSyncSources(source: InboxSourceFilter): SyncResult {
   // state 更新是异步的，重复点击要用同步的 ref 拦
   const runningRef = useRef(false)
 
+  // 卸载后整条异步链必须在**下一个 await 后立刻停**：轮询每 2 秒发一次
+  // listSources、上限 60 秒，组件已经不在页面上时这些请求既无人消费、
+  // 又会在卸载后继续打后端。effect cleanup 置位，各 await 之后早退。
+  const cancelledRef = useRef(false)
+  useEffect(() => {
+    cancelledRef.current = false
+    return () => {
+      cancelledRef.current = true
+    }
+  }, [])
+
   // 先收窄 target：后面闭包里 TS 才能确定它不是 null
   const target = spec.target
 
@@ -86,12 +103,15 @@ export function useSyncSources(source: InboxSourceFilter): SyncResult {
       try {
         // 1) 记快照 + 记录同步前的消息总数（用于算新增）
         const beforeSources = await listSources()
+        if (cancelledRef.current) return
         const beforeRows = await listInbox({})
+        if (cancelledRef.current) return
         const baseline = new Map(beforeSources.map((s) => [s.id, s.last_sync_at]))
 
         // 2) 提交同步任务
         if (target === 'all') {
           await syncAllSources(days)
+          if (cancelledRef.current) return
         } else {
           const ids = resolveTargetIds(beforeSources, target)
           if (ids.length === 0) {
@@ -100,13 +120,16 @@ export function useSyncSources(source: InboxSourceFilter): SyncResult {
             return
           }
           await Promise.all(ids.map((id) => syncSource(id, days)))
+          if (cancelledRef.current) return
         }
 
         // 3) 轮询到 last_sync_at 变化（或超时）
         const startedAt = Date.now()
         for (;;) {
           await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
+          if (cancelledRef.current) return
           const now = await listSources()
+          if (cancelledRef.current) return
           const relevant = now.filter((s) => baseline.has(s.id))
           const allDone = relevant.length > 0 && relevant.every((s) => s.last_sync_at !== baseline.get(s.id))
 
@@ -119,7 +142,9 @@ export function useSyncSources(source: InboxSourceFilter): SyncResult {
 
         // 4) 完成后刷新列表并算出新增条数
         const afterRows = await listInbox({})
+        if (cancelledRef.current) return
         await qc.invalidateQueries({ queryKey: INBOX_LIST_KEY })
+        if (cancelledRef.current) return
         const added = afterRows.length - beforeRows.length
         setNewCount(added > 0 ? added : null)
         setState('idle')

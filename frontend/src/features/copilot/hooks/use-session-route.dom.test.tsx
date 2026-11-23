@@ -276,7 +276,7 @@ describe('防护：replace 语义 / 不乒乓 / 不误伤新会话', () => {
     renderRoute(['/assistant'])
     await act(async () => {})
 
-    // store/turn.ts 建会话成功后就 set({ sessionId })——此刻列表里还没有它
+    // store/turn-send.ts 建会话成功后就 set({ sessionId })——此刻列表里还没有它
     await act(async () => {
       useCopilot.setState({ sessionId: 'new-1' })
     })

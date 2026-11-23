@@ -140,7 +140,11 @@ class DocumentRecognitionTaskService:
         updated_fields: list[str] = []
 
         if case_number is not None:
-            task.case_number = case_number if case_number else None
+            # S32-31（2026-11-23 二轮审计）：原实现把空串转成 ``None`` 写进
+            # ``case_number``（``CharField(null=False, default="")``），清空案号时 DB 抛
+            # NotNullViolation → 500，用户无法表达「这条案号作废」。现在空串即「无案号」，
+            # 与字段默认值同一口径（``key_time`` 是可空列，仍写 None）。
+            task.case_number = case_number or ""
             updated_fields.append("case_number")
 
         if key_time is not None:

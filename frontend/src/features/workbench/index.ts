@@ -8,6 +8,17 @@
 
 import { lazy } from 'react'
 
+/**
+ * 新建项目对话框（AppNavbar 的「+ 新建项目」按需打开）。
+ *
+ * 这里破例走静态 re-export：它是壳层按钮的弹窗，不是页面，且本域其余静态
+ * 出口只有下面这些 lazy 包装（`import()` 仍在，不会被静态导出拖成同步依赖）。
+ * 改动前 AppNavbar 直接深引本文件，依赖图本来就在首屏 chunk 里；改成走桶出口
+ * 只是把同一份模块换了个入口，不新增首屏体积，换来的是跨域引用规则不再为它
+ * 开豁免。新增页面组件仍必须走上/下面的 lazy 出口。
+ */
+export { NewProjectDialog } from './components/NewProjectDialog'
+
 /** 办案主页 chunk 加载器：lazy 出口与导航预取共用同一个 import()，浏览器模块缓存保证只下载一次 */
 export const preloadWorkbenchPage = () => import('./components/WorkbenchPage')
 

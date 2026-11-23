@@ -1,6 +1,6 @@
 import { AlertTriangle } from 'lucide-react'
 
-import { docTypeLabel, qualityFlagLabel, type SegmentReviewHint } from '../../draft/quality'
+import { docTypeLabel, qualityFlagLabel, type SegmentReviewHint } from '../../draft'
 
 /** 提示条的统一外壳：淡灰底 + 灰图标。复核用的是琥珀壳（它要的是动作，不是陈述） */
 const HINT_CLS =

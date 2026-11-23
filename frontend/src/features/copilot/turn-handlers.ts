@@ -59,7 +59,7 @@ export function createTurnHandlers(
    * 后端可能降级（aux 席位满 → 只跑主后端并收窄 agents），也可能某个 kind 不在
    * 清单里。这两种情况下 `assistantFor` 会回落到默认气泡——单栏轮次里事件带的
    * `agent` 是后端自己的 kind（`pi` / `dsh` / `openai-agents`），而单栏气泡没有
-   * 登记在任何 kind 名下（见 store/turn.ts：只有多栏才建 assistantByAgent）。
+   * 登记在任何 kind 名下（见 store/turn-send.ts：只有多栏才建 assistantByAgent）。
    * 一律走 `assistantFor` 让「路由表怎么建的就怎么查」，两处只有一份真相。
    */
   const ctx: TurnHandlerContext = {

@@ -18,6 +18,20 @@ vi.mock('../api', () => ({
   listCasesByContract: vi.fn(),
 }))
 
+/** navigate spy：行/抽屉进详情页的断言靠它看实际下发的 URL，而不是「不抛错」 */
+const navigateMock = vi.hoisted(() => vi.fn())
+vi.mock('react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router')>()
+  return { ...actual, useNavigate: () => navigateMock }
+})
+
+/** 详情页 chunk 的 import 次数：预载用例用它证明「到点真的 import 了」而不是只推了定时器 */
+const detailChunkImport = vi.hoisted(() => ({ calls: 0 }))
+vi.mock('./deal-detail/DealDetailPage', () => {
+  detailChunkImport.calls += 1
+  return { DealDetailPage: () => null }
+})
+
 import { listContractsPage, listLawyers } from '../api'
 import type { ContractListItem, ContractPageResponse, LawyerListItem } from '../types'
 
@@ -242,14 +256,15 @@ describe('WorkbenchPage 分页', () => {
 // ============ 行点击 / 抽屉 / 预载（覆盖率补测） ============
 
 describe('WorkbenchPage：行交互与抽屉', () => {
-  it('左键行 → 跳详情页（navigate 被调用）', async () => {
+  it('左键行 → 跳详情页（navigate 收到 /projects/:id）', async () => {
     setupUi()
     await waitFor(() => expect(document.querySelector('[data-deal-id]')).toBeTruthy())
 
     const row = document.querySelector('[data-deal-id]') as HTMLElement
     expect(row).toBeTruthy()
     fireEvent.click(row)
-    // 跳转由 react-router 处理；这里验证不抛错且行存在（路由副作用由 MemoryRouter 承载）
+    // 断言真的下发了跳转：断掉行上的 onOpenDetail 接线这条会红（旧版只写「不抛错即通过」）
+    expect(navigateMock).toHaveBeenCalledWith('/projects/1')
   })
 
   it('右键行 → 打开抽屉（DealSheet 挂载）', async () => {
@@ -261,7 +276,7 @@ describe('WorkbenchPage：行交互与抽屉', () => {
     await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeTruthy())
   })
 
-  it('抽屉内「详情 →」回调到 openDetail', async () => {
+  it('抽屉内「详情 →」回调到 openDetail（navigate 收到 /projects/:id）', async () => {
     setupUi()
     await waitFor(() => expect(document.querySelector('[data-deal-id]')).toBeTruthy())
 
@@ -272,19 +287,29 @@ describe('WorkbenchPage：行交互与抽屉', () => {
     const detailBtn = Array.from(document.querySelectorAll('button')).find((b) =>
       /详情 →/.test(b.textContent ?? ''),
     )
-    if (detailBtn) {
-      fireEvent.click(detailBtn)
-      // 不抛错即通过（跳转/提示由 openDetail 决定）
-    }
+    // 按钮必须是真的存在：旧版 `if (detailBtn)` 让「按钮没了」也被判绿
+    expect(detailBtn).toBeTruthy()
+    fireEvent.click(detailBtn as HTMLElement)
+    expect(navigateMock).toHaveBeenCalledWith('/projects/1')
   })
 })
 
 describe('WorkbenchPage：空闲预载详情页 chunk', () => {
-  it('1.5 秒后触发详情页 chunk 预载（动态 import）', async () => {
+  it('数据到位后 800ms 触发详情页 chunk 预载（动态 import）', async () => {
     vi.useFakeTimers()
-    setupUi()
-    // 推进 1.5s 让预载 effect 执行（import 失败被 catch 吞掉，不抛错）
-    await vi.advanceTimersByTimeAsync(1600)
-    vi.useRealTimers()
+    try {
+      // 重置模块登记表：让被 mock 的详情页 chunk 在本用例里重新走一遍 import（计数从 0 起）
+      vi.resetModules()
+      detailChunkImport.calls = 0
+      setupUi()
+      // 数据回来 + 799ms：还没到点，不许提前抢带宽
+      await vi.advanceTimersByTimeAsync(799)
+      expect(detailChunkImport.calls).toBe(0)
+      // 到 800ms：预载真的发生（不再只是「推进了定时器、无断言」）
+      await vi.advanceTimersByTimeAsync(200)
+      expect(detailChunkImport.calls).toBe(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

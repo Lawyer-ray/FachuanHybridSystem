@@ -60,7 +60,10 @@ class EvidenceFileService:
         item.save()
 
         # 异步 OCR 提取
-        _schedule_ocr(item.pk)
+        # S37-04（2026-11-23 二轮审计）：原实现在 @transaction.atomic 内直接入队，worker 可能
+        # 在提交前取到尚未落库的 EvidenceItem（读不到 → OCR 随机失败且无重试）。现在改成
+        # transaction.on_commit：提交后才投递任务。
+        transaction.on_commit(lambda: _schedule_ocr(item.pk))
 
         return item
 

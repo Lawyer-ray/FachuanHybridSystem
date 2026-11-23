@@ -9,11 +9,35 @@
  * 所以这里提供统一的 Drawer：右侧滑入、带遮罩、ESC 关闭、点遮罩关闭。
  * 内容由调用方给（ReactNode），不只是文本 —— 可以放 markdown 预览、
  * 图片、表单、操作按钮。
+ *
+ * ═══ 层级：为什么是 z-[110] ═══
+ * 本组件是模态的，必须盖住 copilot 常驻 dock（z-[100]，S7 审计 P20-102 记的
+ * 就是「dock 一展开就把抽屉压在下面」）；但不能越到菜单类 portal（z-[120]）
+ * 与弹窗基线（z-[130]）之上 —— 抽屉里点「确定」会弹 Dialog / AlertDialog，
+ * 行内也可能开下拉，压过去就点不到。
+ *
+ * 当前 z 阶梯快照（`grep -rn 'z-\[[0-9]*\]' src` 全量整理，2026-11-23）：
+ *    60  阅读器底部浮条（SelectionBar / AutoSplitProgress）、消息抽屉遮罩
+ *    61  消息抽屉面板
+ *    80  全屏阅读器 .mp-reader
+ *    90  copilot 遮罩、签章抽屉、阅读器右键菜单
+ *    96  发起审查抽屉遮罩 / 97 面板
+ *   100  copilot 常驻 dock
+ *   110  阅读器 OCR 浮层 ← 本组件取这一档
+ *   119  右键菜单的透明遮罩 / 120 菜单类下拉与浮层（Radix portal）
+ *   130  弹窗基线：Dialog / AlertDialog / Sheet / 首页日程详情
+ * 999999999  toast（sonner 自带）
+ *
+ * 取 110 而不是新造一个数：它是阶梯里现成的、唯一落在「高于 dock、低于菜单/
+ * 弹窗」这一段的值。同档的 OcrPanel 挂在 .mp-reader（z-[80]）自己的层叠上下文里，
+ * 只跟阅读器内部比高低，与兜在页面层的抽屉不冲突。改前是 z-[80]，与全屏阅读器
+ * 平档，dock 打开时被 z-[100] 盖住（P20-102）。
  */
 
-import { useEffect, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { X } from 'lucide-react'
 
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 import { cn } from '@/lib/utils'
 
 export function DetailDrawer({
@@ -37,25 +61,21 @@ export function DetailDrawer({
   footer?: ReactNode
   width?: number
 }) {
-  // ESC 关闭
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  // 模态行为（ESC / Tab 圈定 / 关闭后焦点归还）全在这里，本文件不再自绘 ESC
+  // 监听：两处都监听会让一次 ESC 触发两次 onClose。hook 必须在 `return null` 之前
+  // 调用（hook 顺序），它会自己处理 open=false 的 inactive 状态。
+  const { panelRef } = useFocusTrap(open, onClose)
 
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[80] h-screen w-screen overflow-hidden">
+    <div className="fixed inset-0 z-[110] h-screen w-screen overflow-hidden">
       {/* 遮罩 */}
       <div className="absolute inset-0 bg-foreground/20 backdrop-blur-[1px]" onClick={onClose} aria-hidden />
 
       {/* 抽屉 */}
       <aside
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}

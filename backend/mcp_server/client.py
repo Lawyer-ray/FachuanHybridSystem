@@ -119,12 +119,25 @@ class FachuanClient:
         raise last_exc  # type: ignore[misc]
 
     def _refresh(self) -> None:
+        """用 refresh token 换新的 access token。
+
+        S12-01（2026-11-23 二轮审计）：服务端开了 ``ROTATE_REFRESH_TOKENS`` +
+        ``BLACKLIST_AFTER_ROTATION``（`apiSystem/settings.py:413-415`），响应里会带回
+        **新的 refresh token 且旧的立刻作废**。原实现只取 ``access`` 就丢掉新 refresh，
+        于是下一次刷新必然 401，被 ``except Exception`` 吞掉后回落「重新登录」——
+        表现为每隔几分钟就无谓重登一次（并把这行日志埋进噪音里）。
+        """
         try:
             resp = self._http.post("/token/refresh", json={"refresh": self._refresh_token})
             resp.raise_for_status()
-            self._access_token = resp.json()["access"]
+            payload = resp.json()
+            self._access_token = payload["access"]
+            rotated = payload.get("refresh")
+            if rotated:
+                self._refresh_token = rotated
             self._expires_at = time.time() + 270
         except Exception:
+            logger.warning("refresh token 刷新失败，回落重新登录（若持续发生，检查 refresh 轮换是否被丢弃）")
             self._obtain_token()
 
     def _ensure_token(self) -> None:

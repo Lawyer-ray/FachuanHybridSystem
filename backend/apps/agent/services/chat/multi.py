@@ -82,7 +82,8 @@
 
 ## 并发上限
 
-``MAX_ANSWERS = 5``。理由是成本线性增长且五栏并排在 UI 上已接近可读性极限，
+``# 单源：真正的数值在 `chat/config.py`（F8，避免与 aggregate.MAX_CANDIDATES 漂移）
+from .config import MAX_ANSWERS as MAX_ANSWERS``。理由是成本线性增长且五栏并排在 UI 上已接近可读性极限，
 不是技术限制——``_pump_lane`` 对 N 没有假设，调高这个常量即可。从 4 提到 5 是
 为了接入第五个运行时 ``claude-agent``（Anthropic 协议通道，与其它四栏的
 OpenAI 兼容通道形成对照）。

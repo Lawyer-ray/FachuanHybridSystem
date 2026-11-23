@@ -1,21 +1,24 @@
 """Tests for contracts archive API schemas and content types."""
 
+from types import SimpleNamespace
+from unittest.mock import patch
+
 import pytest
 
 from apps.contracts.api.archive_api import (
-    ReorderIn,
-    MoveIn,
-    SuccessOut,
-    ClearAllOut,
-    GenerateArchiveFolderOut,
-    ToggleCompactOut,
     ChecklistItemOut,
     ChecklistOut,
-    UploadArchiveItemOut,
+    ClearAllOut,
     ConfirmArchiveOut,
-    SyncCaseMaterialsOut,
-    ScaleToA4Out,
+    GenerateArchiveFolderOut,
     LearnRulesOut,
+    MoveIn,
+    ReorderIn,
+    ScaleToA4Out,
+    SuccessOut,
+    SyncCaseMaterialsOut,
+    ToggleCompactOut,
+    UploadArchiveItemOut,
 )
 
 
@@ -167,30 +170,41 @@ class TestSchemas:
 
 
 class TestContentTypeMapping:
-    """Test the content type mapping logic used in preview_archive_material."""
+    """归档材料下载的 后缀 → Content-Type 映射（直接调用生产函数）。
 
-    def test_pdf_type(self):
-        from django.http import HttpResponse
+    S12-02（2026-11-23 二轮审计）：原实现在测试里另抄一份 `content_type_map`，
+    再 `assert expected_type == expected_type` 自比（另一条是
+    `"application/octet-stream" == "application/octet-stream"`）→ 零覆盖却显示通过。
+    现在构造真实临时文件、patch 掉 media 路径解析后调生产
+    `download_handler._read_material_file`，删掉生产分支即会红。
+    """
 
-        content_type_map = {
-            ".pdf": "application/pdf",
-            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".png": "image/png",
-        }
-        for suffix, expected_type in content_type_map.items():
-            assert expected_type == expected_type  # Verify the mapping is correct
+    @staticmethod
+    def _content_type(suffix: str, tmp_path) -> str:
+        from typing import Any
 
-    def test_octet_stream_fallback(self):
-        # Unknown extension should use application/octet-stream
-        assert "application/octet-stream" == "application/octet-stream"
+        from apps.contracts.services.archive.generation.download_handler import _read_material_file
 
-    def test_content_disposition_format(self):
-        import urllib.parse
+        probe = tmp_path / f"probe{suffix}"
+        probe.write_bytes(b"archive-probe")
+        # _read_material_file 只读 file_path / original_filename 两个属性
+        material: Any = SimpleNamespace(file_path=f"archive/probe{suffix}", original_filename=f"probe{suffix}")
 
-        filename = "测试文件.pdf"
-        encoded = urllib.parse.quote(filename.encode("utf-8"))
-        disposition = f"inline; filename*=UTF-8''{encoded}"
-        assert "inline" in disposition
-        assert "UTF-8" in disposition
+        with patch("apps.core.services.storage_service.to_media_abs", return_value=probe):
+            payload = _read_material_file(material)
+
+        assert payload["content"] == b"archive-probe"
+        return str(payload["content_type"])
+
+    def test_pdf_type(self, tmp_path):
+        assert self._content_type(".pdf", tmp_path) == "application/pdf"
+
+    def test_docx_type(self, tmp_path):
+        assert (
+            self._content_type(".docx", tmp_path)
+            == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+
+    def test_octet_stream_fallback(self, tmp_path):
+        # 未知后缀一律 application/octet-stream
+        assert self._content_type(".zip", tmp_path) == "application/octet-stream"

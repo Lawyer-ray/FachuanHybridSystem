@@ -671,6 +671,7 @@ class ContractAdmin(
         if not self.has_view_permission(request):
             return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
 
+        from apps.contracts.admin.access import get_admin_accessible_contract_queryset
         from apps.contracts.admin.wiring_admin import get_contract_oa_sync_service
 
         service = get_contract_oa_sync_service()
@@ -678,7 +679,20 @@ class ContractAdmin(
         if session is None:
             return JsonResponse({"success": False, "message": "会话不存在"}, status=404)
 
-        return JsonResponse({"success": True, **service.build_status_payload(session=session)})
+        payload = service.build_status_payload(session=session)
+
+        # S32-07（2026-11-23 二轮审计）：原实现只校验 ``has_view_permission``（模型级
+        # contracts.view_contract），随后按纯 id 取会话并把 items / remaining_contracts
+        # 原样返回——受限用户能从批量同步会话里读到**他人的**合同名、案号与 OA 候选。
+        # 现在按 get_queryset 同款行级口径（get_admin_accessible_contract_queryset）
+        # 逐项过滤这两个列表；总量/计数仍保留会话全局进度（那是批次进度，不按人切分）。
+        accessible_ids = set(get_admin_accessible_contract_queryset(request).values_list("id", flat=True))
+        payload["items"] = [item for item in payload.get("items") or [] if item.get("contract_id") in accessible_ids]
+        payload["remaining_contracts"] = [
+            contract for contract in payload.get("remaining_contracts") or [] if contract.get("id") in accessible_ids
+        ]
+
+        return JsonResponse({"success": True, **payload})
 
     def batch_folder_binding_preview_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
         if request.method != "POST":

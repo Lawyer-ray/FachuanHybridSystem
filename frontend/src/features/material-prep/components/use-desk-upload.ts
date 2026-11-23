@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { errMessage } from '@/lib/errors'
-import { useCreatePack } from '../hooks/use-inbox'
+import { useCreatePack } from '../hooks/use-material-packs'
 import { formatMB, uploadSizeCapBytes } from '../constants'
 import type { PrepStage } from '../stages'
 
@@ -30,8 +30,9 @@ export function useDeskUpload({
     async (files: FileList | null) => {
       if (!files || files.length === 0) return
       const list = Array.from(files)
-      // 体积预检：后端对单文件有硬上限（普通 50MB / 压缩包 200MB），超限必被
-      // 400 拒绝。传到一半才被拒既浪费上行带宽又让用户白等，这里提前报。
+      // 体积预检：后端对单文件有硬上限（1GiB，见 uploadSizeCapBytes，与后端
+      // upload_policy.py 的 MANUAL_UPLOAD_* 同步），超限必被 400 拒绝。传到一半
+      // 才被拒既浪费上行带宽又让用户白等，这里提前报。
       // 逐个提示第一个超限文件即可——一次拖 10 个超限文件时堆 10 条 toast
       // 只会把提示区刷满，反而看不到具体哪个文件有问题。
       const oversized = list.find((f) => f.size > uploadSizeCapBytes(f.name))

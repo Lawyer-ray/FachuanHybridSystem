@@ -13,6 +13,19 @@ from apps.contracts.models import ContractPayment, Invoice, InvoiceStatus
 from apps.core.admin.base import BaseModelAdmin, BaseTabularInline  # 解耦（2026-10-19）：nested_admin 兜底别名上提 core
 from apps.core.admin.filters import date_filter
 
+#: 上传发票时，除文件字段外还要从表单合并到 service 新建记录上的模型字段。
+#: `InvoiceInline` 眼下只渲染 file/total_amount，其余字段留在这里是为了「哪天
+#: 表单重新暴露它们时不会被静默丢弃」（见 `InvoiceAdminForm.save` 的 S32-09 注释）。
+_MERGED_INVOICE_FORM_FIELDS = (
+    "invoice_code",
+    "invoice_number",
+    "invoice_date",
+    "amount",
+    "tax_amount",
+    "total_amount",
+    "remark",
+)
+
 
 class InvoiceAdminForm(forms.ModelForm[Invoice]):  # pragma: no cover
     file = forms.FileField(
@@ -49,9 +62,16 @@ class InvoiceAdminForm(forms.ModelForm[Invoice]):  # pragma: no cover
             # 收款页下，二者至少其一有值，取或即可
             payment_id: int | None = instance.payment_id or self.instance.payment_id
             saved = svc.save_invoice_file(uploaded_file, payment_id)
-            instance.file_path = saved.file_path
-            instance.original_filename = saved.original_filename
-            # 文件已由 service 创建记录，直接返回
+            # S32-09（2026-11-23 二轮审计）：原实现把 service 返回的裸文件记录直接当
+            # 表单结果返回（只赋了两行到 ``instance`` 上再丢弃），用户在表单里填的
+            # 票号/号码/开票日期/金额/税额/合计/备注被静默丢弃。现在把这些字段合并
+            # 到该记录上再保存；``original_filename`` 不合并——它是 service 按真实
+            # 上传文件名写的。
+            for field in _MERGED_INVOICE_FORM_FIELDS:
+                value = self.cleaned_data.get(field)
+                if value not in (None, ""):
+                    setattr(saved, field, value)
+            saved.save()
             return saved  # type: ignore[no-any-return]
         if commit:
             instance.save()

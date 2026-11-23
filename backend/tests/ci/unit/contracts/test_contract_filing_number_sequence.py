@@ -83,7 +83,7 @@ class TestAssignFilingNumberLockCoverage:
             barrier.wait()  # 尽量同时冲进去，放大并发窗口
             try:
                 results.append(svc.assign_filing_number(c, created_year=2032))
-            except Exception as exc:  # noqa: BLE001 - 测试要捕获任何异常
+            except Exception as exc:
                 errors.append(exc)
 
         threads = [threading.Thread(target=_worker, args=(c,)) for c in contracts]

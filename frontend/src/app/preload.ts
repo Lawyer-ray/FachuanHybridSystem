@@ -26,9 +26,6 @@ export const DeskPageLazy = lazy(() => preloadDeskPage().then((m) => ({ default:
 export const CopilotPanelLazy = lazy(() =>
   import('@/features/copilot').then((m) => ({ default: m.CopilotPanel })),
 )
-export const PanelBackdropLazy = lazy(() =>
-  import('@/features/copilot').then((m) => ({ default: m.PanelBackdrop })),
-)
 
 // AI 助手独立页（/assistant）：与抽屉同一个 copilot 域 chunk（共用 store 与消息组件）。
 // 故意不进 ROUTE_PRELOADERS：copilot 域带 markdown/语法高亮，登录即空闲预载会把

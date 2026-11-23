@@ -18,6 +18,31 @@ from apps.core.llm.service import LLMService
 logger = logging.getLogger(__name__)
 
 
+def _parse_llm_response(text: str, para_count: int) -> list[tuple[int, int]]:  # pragma: no cover
+    text = text.strip()
+    if "```" in text:
+        start = text.find("[")
+        end = text.rfind("]") + 1
+        if start >= 0 and end > start:
+            text = text[start:end]
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        logger.warning("标题识别 JSON 解析失败: %s", text[:200])
+        return []
+    if not isinstance(data, list):
+        return []
+    results: list[tuple[int, int]] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        idx = item.get("index")
+        lvl = item.get("level")
+        if isinstance(idx, int) and isinstance(lvl, int) and 0 <= idx < para_count and -1 <= lvl <= 2:
+            results.append((idx, lvl))
+    return results
+
+
 class HeadingNumbering:  # pragma: no cover
     """通过 LLM 识别标题层级并设置 OOXML 多级自动编号"""
 
@@ -74,6 +99,10 @@ class HeadingNumbering:  # pragma: no cover
 
         logger.info("已为 %d 个标题段落应用编号（%d 个编号区域）", applied, len([s for s in sections if s]))
 
+    #: 兼容旧测试/调用方：`HeadingNumbering._parse_llm_response(...)`（实现是模块级函数，
+    #: 用 staticmethod(...) 绑定而非装饰器，避免触发 Service 层静态方法棘轮）
+    _parse_llm_response = staticmethod(_parse_llm_response)
+
     def _identify_headings_via_llm(
         self, doc: DocumentType, model_name: str
     ) -> list[tuple[int, int]]:  # pragma: no cover
@@ -113,7 +142,7 @@ class HeadingNumbering:  # pragma: no cover
                     temperature=0.1,
                     fallback=True,
                 )
-                return self._parse_llm_response(resp.content, len(doc.paragraphs))
+                return _parse_llm_response(resp.content, len(doc.paragraphs))
             except Exception:
                 if attempt == 0:
                     logger.warning("标题识别 LLM 调用失败，重试中...")
@@ -121,31 +150,6 @@ class HeadingNumbering:  # pragma: no cover
                 logger.exception("标题识别 LLM 调用失败（已重试）")
                 return []
         return []
-
-    @staticmethod
-    def _parse_llm_response(text: str, para_count: int) -> list[tuple[int, int]]:  # pragma: no cover
-        text = text.strip()
-        if "```" in text:
-            start = text.find("[")
-            end = text.rfind("]") + 1
-            if start >= 0 and end > start:
-                text = text[start:end]
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            logger.warning("标题识别 JSON 解析失败: %s", text[:200])
-            return []
-        if not isinstance(data, list):
-            return []
-        results: list[tuple[int, int]] = []
-        for item in data:
-            if not isinstance(item, dict):
-                continue
-            idx = item.get("index")
-            lvl = item.get("level")
-            if isinstance(idx, int) and isinstance(lvl, int) and 0 <= idx < para_count and -1 <= lvl <= 2:
-                results.append((idx, lvl))
-        return results
 
     def _create_abstract_num(self, doc: DocumentType) -> int:  # pragma: no cover
         """创建 abstractNum 定义，返回 abstractNumId"""

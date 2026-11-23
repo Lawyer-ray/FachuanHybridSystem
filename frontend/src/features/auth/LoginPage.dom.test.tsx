@@ -108,30 +108,30 @@ describe('LoginPage：账密视图', () => {
     container.remove()
   })
 
-  it('只有一个方式时不渲染方式标签', async () => {
+  it('只有一个方式时不渲染方式切换器', async () => {
     const { container } = renderPage()
     await waitFor(() => expect(within(container).getByText('账密表单')).toBeTruthy())
-    expect(within(container).queryByRole('tablist')).toBeNull()
+    expect(within(container).queryByRole('radiogroup')).toBeNull()
     container.remove()
   })
 })
 
 describe('LoginPage：扫码视图派发', () => {
-  it('桌面且有扫码 Provider：出现方式标签', async () => {
+  it('桌面且有扫码 Provider：出现方式切换器', async () => {
     providersMock.mockResolvedValue([provider('feishu', 'embedded_qr')])
     const { container } = renderPage()
-    await waitFor(() => expect(within(container).getByRole('tablist')).toBeTruthy())
-    const tabs = within(container).getAllByRole('tab')
-    expect(tabs).toHaveLength(2)
+    await waitFor(() => expect(within(container).getByRole('radiogroup')).toBeTruthy())
+    const radios = within(container).getAllByRole('radio')
+    expect(radios).toHaveLength(2)
     container.remove()
   })
 
-  it('手机视口：即使有扫码 Provider 也只显示账密，不出标签', async () => {
+  it('手机视口：即使有扫码 Provider 也只显示账密，不出切换器', async () => {
     mediaDesktop = false
     providersMock.mockResolvedValue([provider('feishu', 'embedded_qr')])
     const { container } = renderPage()
     await waitFor(() => expect(within(container).getByText('账密表单')).toBeTruthy())
-    expect(within(container).queryByRole('tablist')).toBeNull()
+    expect(within(container).queryByRole('radiogroup')).toBeNull()
     container.remove()
   })
 })

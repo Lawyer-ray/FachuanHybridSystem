@@ -209,13 +209,21 @@ class CaseImportService:
 
         from apps.cases.models import CaseNumber
         from apps.cases.models.case import SupervisingAuthority
+        from apps.core.models.enums import AuthorityType
 
+        valid_authority_types = {choice for choice, _label in AuthorityType.choices}
         for sa_data in data.get("supervising_authorities") or []:
+            raw_authority_type = sa_data.get("authority_type")
+            if raw_authority_type and raw_authority_type not in valid_authority_types:
+                # 历史坑：这里曾写死大写 "TRIAL"（choices 真值是 "trial"），落库成脏数据，
+                # 任何按 AuthorityType.TRIAL 过滤的查询都会漏掉这些行。
+                logger.warning("主管机关性质非法，已回落 trial: %s（案件 %s）", raw_authority_type, case.id)
+                raw_authority_type = None
             SupervisingAuthority.objects.get_or_create(
                 case=case,
                 # name 为非空 CharField，lookup 传 None 会生成 IS NULL 查询且创建时违反非空约束
                 name=sa_data.get("name") or "",
-                defaults={"authority_type": sa_data.get("authority_type") or "TRIAL"},
+                defaults={"authority_type": raw_authority_type or AuthorityType.TRIAL},
             )
 
         for cn_data in data.get("case_numbers") or []:

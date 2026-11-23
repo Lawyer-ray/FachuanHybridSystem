@@ -1,5 +1,17 @@
 import type { CloudBackend } from '../../api/pdf-split'
-import type { EngineName } from '../../types'
+import {
+  CLOUD_ENGINES,
+  normalizeCloudSelection,
+  toggleCloudEngine,
+  type CloudEngine,
+  type CloudSelection,
+} from '../../types'
+
+// 类型与两个纯函数都在域根 types.ts：store / reader-state 在根层，根层不能反向
+// 指向本目录（E6）。这里 re-export 保持既有消费方（AutoSplitSettings / 单测）的
+// import 路径不变。
+export { CLOUD_ENGINES, normalizeCloudSelection, toggleCloudEngine }
+export type { CloudEngine, CloudSelection }
 
 /**
  * 自动分段「解析平台」的多选口径：勾哪些引擎就跑哪些，勾两个就交叉比对。
@@ -18,19 +30,6 @@ import type { EngineName } from '../../types'
  * 菜单里用一句说明把这个后果讲清楚。
  */
 
-/**
- * 可选引擎。取值与后端 `cloud_backend` / `dual_engines` 的字符串逐字一致，
- * 也与 `EngineName`（双引擎分歧数据里的引擎码）同一套拼写——两处若不一致，
- * 「勾了 PaddleOCR-VL」与「分歧里出现 paddleocr_vl」就对不上。
- */
-export type CloudEngine = EngineName
-
-/** 勾选的引擎集合。**空数组 = 自动容灾**（不勾任何引擎时的默认行为） */
-export type CloudSelection = CloudEngine[]
-
-/** 菜单里的固定顺序：MinerU 在最前，因为它也是双引擎的正主（见 `resolveBackendRequest`） */
-export const CLOUD_ENGINES: readonly CloudEngine[] = ['mineru', 'paddleocr_vl', 'textin']
-
 /** 引擎码 → 菜单里的名字。与 `draft/engine.ts` 的 `engineLabel` 同义，只是那边喂给分歧清单 */
 export function cloudEngineLabel(engine: CloudEngine): string {
   switch (engine) {
@@ -41,32 +40,6 @@ export function cloudEngineLabel(engine: CloudEngine): string {
     case 'textin':
       return 'Textin'
   }
-}
-
-function isCloudEngine(v: unknown): v is CloudEngine {
-  return typeof v === 'string' && (CLOUD_ENGINES as readonly string[]).includes(v)
-}
-
-/**
- * 把任意来源的值收窄成引擎集合。
- *
- * 为什么要收窄：选择集来自 store（`localStorage` 持久化 / 旧会话留下的单值 `'auto'`），
- * 不是可信形状。旧值 `'auto'`、`null`、未知引擎名一律当「没勾」（= 容灾）——
- * 宁可回到安全的默认行为，也不要带着一个不存在的引擎去请求云端。
- *
- * 同时去重并按 `CLOUD_ENGINES` 固定排序：勾选顺序不该影响标题文案与正主选择。
- */
-export function normalizeCloudSelection(raw: unknown): CloudSelection {
-  if (!Array.isArray(raw)) return []
-  const picked = new Set(raw.filter(isCloudEngine))
-  return CLOUD_ENGINES.filter((e) => picked.has(e))
-}
-
-/** 勾上 / 取消一个引擎。返回**新数组**（zustand 靠引用变化触发订阅） */
-export function toggleCloudEngine(selection: CloudSelection, engine: CloudEngine): CloudSelection {
-  const has = selection.includes(engine)
-  const next = has ? selection.filter((e) => e !== engine) : [...selection, engine]
-  return normalizeCloudSelection(next)
 }
 
 /** 勾了两个及以上才比对：一个引擎自己跟自己没有「分歧」可言 */

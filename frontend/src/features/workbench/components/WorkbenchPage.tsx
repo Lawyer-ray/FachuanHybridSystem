@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 
 import { ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
+import { DEFAULT_FILTER } from '../constants'
 import { useWorkbenchData } from '../hooks/use-workbench-data'
 import type { WorkbenchDeal, WorkbenchFilter } from '../types'
 import { DealRow } from './DealRow'
@@ -15,9 +16,6 @@ import { FilterBar } from './FilterBar'
  * 交互语义（38 号原型终态 + 详情页落地）：左键行 / → = 详情页（统一 /projects/:id，
  * 诉讼/非诉由详情页按 lit 选左栏）；右键行 / 👁 = 抽屉预览。
  */
-
-/** 默认筛选（与 FilterBar「清除全部筛选」一致）；空态判定也以它为基准 */
-const DEFAULT_FILTER: WorkbenchFilter = { status: 'active', cat: '', fee: '', q: '' }
 
 export function WorkbenchPage() {
   const navigate = useNavigate()

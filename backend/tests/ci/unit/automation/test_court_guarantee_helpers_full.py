@@ -744,11 +744,12 @@ class TestBuildPlaintiffAgentPayload:
         case.assignments.select_related.return_value.order_by.return_value.first.return_value = None
         with patch("apps.organization.models.Lawyer") as MockLawyer:
             MockLawyer.objects.select_related.return_value.filter.return_value.first.return_value = None
-            result = helpers._build_plaintiff_agent_payload(
-                case=case, requester_id=None, fallback_party={"name": "张三", "phone": "139"}
-            )
-            assert result["name"] == "张三"
-            assert result["party_type"] == "agent"
+            # S11-23（2026-11-23 二轮审计）：无代理律师时不再回落 fallback 名字（实体材料造假级），
+            # 改为 fail-closed 直接阻断。原断言锁的是缺陷行为。
+            with pytest.raises(ValueError, match="未找到案件代理律师"):
+                helpers._build_plaintiff_agent_payload(
+                    case=case, requester_id=None, fallback_party={"name": "张三", "phone": "139"}
+                )
 
 
 # ======================================================================

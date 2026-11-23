@@ -26,8 +26,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { errMessage } from '@/lib/errors'
-import { passkeyApi, PASSKEY_CREDENTIALS_KEY, type PasskeyCredentialRow } from '../passkey-api'
-import { credentialToRegistrationJSON, toCreationOptions } from '../passkey-coding'
+import { passkeyApi, PASSKEY_CREDENTIALS_KEY } from '../passkey-api'
+import { credentialToRegistrationJSON, platformAuthenticatorAvailable, toCreationOptions } from '../passkey-coding'
+import type { PasskeyCredentialRow } from '../types'
 
 function registeredAtText(iso: string): string {
   const date = new Date(iso)
@@ -60,15 +61,7 @@ export function PasskeySection() {
   useEffect(() => {
     let mounted = true
     // 有平台认证器（Touch ID 等）才给添加入口；列表仍展示（其他设备可注册过）
-    const check = async () => {
-      if (typeof window === 'undefined' || !window.PublicKeyCredential) return false
-      try {
-        return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
-      } catch {
-        return false
-      }
-    }
-    void check().then((ok) => {
+    void platformAuthenticatorAvailable().then((ok) => {
       if (mounted) setSupported(ok)
     })
     return () => {

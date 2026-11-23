@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from django.conf import settings
+from django.core.files import File
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
@@ -114,7 +116,10 @@ class PdfSplitStorage:
         """把 job 目录内的绝对路径转换为 media 相对路径（供 default_storage 使用）。"""
         return path.relative_to(Path(settings.MEDIA_ROOT)).as_posix()
 
-    def save_overwrite(self, path: Path, content: ContentFile[bytes]) -> None:
+    def save_overwrite(self, path: Path, content: File[Any]) -> None:
+        # 参数取 `File[Any]` 而不是只收 `ContentFile[bytes]`：`ContentFile` 是 `File`
+        # 的子类，而大文件入口（S17-04，2026-11-23 二轮审计）传进来的是磁盘上的
+        # 只读文件对象，靠 `chunks()` 分块落盘而不把整份字节读进内存。
         rel_path = self.rel_path_of(path)
         if default_storage.exists(rel_path):
             default_storage.delete(rel_path)

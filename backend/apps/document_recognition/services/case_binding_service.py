@@ -17,6 +17,7 @@ from django.db import transaction
 
 from apps.core.exceptions import NotFoundError
 from apps.core.exceptions.error_codes import CASE_NOT_FOUND
+from apps.core.security.admin_access import is_admin_user
 
 from .data_classes import BindingResult, DocumentType
 
@@ -315,11 +316,12 @@ class CaseBindingService:
 
         归属口径（审计 P1 修复）：非归属人非管理员对任务不可见，
         按"任务不存在"（TASK_NOT_FOUND）拒绝，不泄露存在性。
+        案件侧同样做归属校验（S32-39，见步骤 3），无权按"案件不存在"（CASE_NOT_FOUND）拒绝。
 
         Args:
             task_id: 识别任务ID
             case_id: 用户选择的案件ID
-            user: 当前用户（可选）
+            user: 当前用户（可选；不传时不校验案件归属，供内部调用）
 
         Returns:
             BindingResult 对象，包含绑定结果
@@ -352,7 +354,28 @@ class CaseBindingService:
         if task.binding_success:
             return BindingResult.failure_result(message="任务已绑定到案件", error_code="ALREADY_BOUND")
 
-        # 3. 获取案件信息
+        # 3. 案件归属校验 + 获取案件信息
+        # S32-39（2026-11-23 二轮审计）：原实现案件侧只调无 ACL 的
+        # ``get_case_by_id_internal``，用户 A 可把自己的识别任务绑到用户 B 的案件：
+        # 后续 create_case_log/附件都走 ``*_internal`` 通道写进 B 的卷宗，且 B 的案名
+        # 会经响应 ``case_name`` 回流给 A。现在取案件前先过案件访问校验；
+        # 无权与不存在同一口径（CASE_NOT_FOUND），不泄露案件存在性。
+        # 管理员放行口径与任务侧 ``task_ownership_q`` 一致（管理员全量可见）。
+        user_id = getattr(user, "id", None) if user is not None else None
+        if user_id is not None and not is_admin_user(user):
+            has_case_access = self.case_service.check_case_access(case_id, user_id)
+            if not has_case_access:
+                logger.warning(
+                    "手动绑定被拒绝：用户无权访问该案件",
+                    extra={
+                        "action": "manual_bind_document_to_case",
+                        "task_id": task_id,
+                        "case_id": case_id,
+                        "user_id": user_id,
+                    },
+                )
+                return BindingResult.failure_result(message=f"案件 {case_id} 不存在", error_code=CASE_NOT_FOUND)
+
         case_dto = self.case_service.get_case_by_id_internal(case_id)
         if case_dto is None:
             return BindingResult.failure_result(message=f"案件 {case_id} 不存在", error_code=CASE_NOT_FOUND)

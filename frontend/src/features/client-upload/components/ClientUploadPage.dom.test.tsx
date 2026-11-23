@@ -71,6 +71,17 @@ describe('ClientUploadPage', () => {
     expect(screen.getByText(/剩余容量/)).toBeTruthy()
   })
 
+  it('上传区提示里的容量数字来自常量，渲染文案不变', async () => {
+    render(<ClientUploadPage />)
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          '支持 PDF / Word / Excel / PPT / 图片 / 压缩包；单个文件 ≤ 50MB，压缩包 ≤ 200MB',
+        ),
+      ).toBeTruthy(),
+    )
+  })
+
   it.each([
     ['expired', '链接已过期，请联系律师重新获取链接'],
     ['revoked', '链接已作废，请联系律师重新获取链接'],

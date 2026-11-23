@@ -214,10 +214,15 @@ def calculate_interest(  # pragma: no cover
 
         from apps.finance.services.lpr import LPRSyncService
 
+        # S36-03（2026-11-23 二轮审计）：原实现用 `with ThreadPoolExecutor(...) as pool`，
+        # `future.result(timeout=120)` 抛 FutureTimeout 后进入 `with` 的 __exit__，
+        # 而 ThreadPoolExecutor.__exit__ 就是 shutdown(wait=True) —— 它会**阻塞到同步线程真正结束**
+        # 才把异常交给 except，于是 120s 上限形同虚设（请求实际阻塞 = 同步全时长）。
+        # 现在自己管理生命周期，超时后 shutdown(wait=False) 立即返回，不等那条线程。
+        pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="lpr-sync")
         try:
-            with ThreadPoolExecutor(max_workers=1, thread_name_prefix="lpr-sync") as pool:
-                future = pool.submit(LPRSyncService().sync_if_needed)
-                sync_result = future.result(timeout=120)
+            future = pool.submit(LPRSyncService().sync_if_needed)
+            sync_result = future.result(timeout=120)
             if sync_result["synced"]:
                 r = sync_result["sync_result"]
                 sync_info = f"LPR数据已自动同步（新增{r.get('created', 0)}条）"
@@ -227,6 +232,9 @@ def calculate_interest(  # pragma: no cover
             logger.warning("[LPRCalc] Auto-sync timed out after 120s, using existing data")
         except Exception as e:
             logger.warning("[LPRCalc] Auto-sync error, using existing data: %s", e)
+        finally:
+            # wait=False：不等已超时的那条同步线程（它会在后台自己醒来），只回收线程池句柄
+            pool.shutdown(wait=False)
 
     calculator = InterestCalculator()
 

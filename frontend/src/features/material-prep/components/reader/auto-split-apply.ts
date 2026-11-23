@@ -1,12 +1,12 @@
 import {
   applyAutoSplit,
   applyAutoSplitPreservingEdits,
+  applyDetectedParties,
   fillSegmentText,
+  resolveParties,
   withEngineDisagreements,
   withPageQuality,
 } from '../../draft'
-import { applyDetectedParties } from '../../draft/detect-parties'
-import { resolveParties } from '../../draft/party-lookup'
 import { useReader } from '../../store'
 import { ruleSegmentCountOf, segmentBackendNote } from './auto-split-helpers'
 import type { AutoSplitResult, ExtractedText } from './auto-split-tracks'

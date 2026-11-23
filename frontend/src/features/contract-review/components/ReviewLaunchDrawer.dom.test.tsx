@@ -10,6 +10,9 @@
  *
  * 为什么必须先识别：合同可能四方、我方也可能是乙方或丙方（代表客户股东
  * 去审尤其如此）。先给「甲方/乙方」两个空标签让人选，等于让他猜。
+ *
+ * 草稿契约：关闭 / 换文件即作废（步骤勾选、特别交代、手动立场），由「关闭就
+ * 卸载内容层 + key=fileName」保证，不靠 useEffect 事后复位。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -229,6 +232,43 @@ describe('ReviewLaunchDrawer · 模态语义', () => {
     fireEvent.keyDown(window, { key: 'Tab' })
     expect(dialog.contains(document.activeElement)).toBe(true)
     expect(document.activeElement).toBe(focusables[0])
+  })
+})
+
+describe('ReviewLaunchDrawer · 关闭/换文件后草稿不残留', () => {
+  const NOTE_PLACEHOLDER = /客户有没有特别在意的点/
+
+  it('关闭后重新打开：特别交代与步骤勾选回到初值', async () => {
+    const { rerenderWith } = setup()
+    await waitFor(() => expect(screen.getByText('甲方')).toBeTruthy())
+
+    fireEvent.change(screen.getByPlaceholderText(NOTE_PLACEHOLDER), { target: { value: '上一份合同才有的交代' } })
+    // 默认三项全开：勾掉一项，看它关闭后会不会原样回来
+    const firstChecked = (screen.getAllByRole('checkbox') as HTMLInputElement[]).find((c) => c.checked)!
+    fireEvent.click(firstChecked)
+    expect(firstChecked.checked).toBe(false)
+
+    rerenderWith({ open: false })
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    rerenderWith({ open: true })
+    await waitFor(() => expect(screen.getByText('甲方')).toBeTruthy())
+    expect((screen.getByPlaceholderText(NOTE_PLACEHOLDER) as HTMLTextAreaElement).value).toBe('')
+    expect((screen.getAllByRole('checkbox') as HTMLInputElement[]).filter((c) => c.checked)).toHaveLength(3)
+    // 重开同一份合同不重传：识别结果仍在 mutation cache 里，卸载不等于丢缓存
+    expect(uploadMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('同一抽屉换文件：上一份合同的交代不会被带到新合同', async () => {
+    const { rerenderWith } = setup()
+    await waitFor(() => expect(screen.getByText('甲方')).toBeTruthy())
+    fireEvent.change(screen.getByPlaceholderText(NOTE_PLACEHOLDER), { target: { value: '只属于旧合同的交代' } })
+
+    rerenderWith({ fileName: '另一份合同.docx' })
+    await waitFor(() => expect(uploadMock).toHaveBeenCalledTimes(2))
+
+    // 输入框里是这份新输入自己的草稿（空），不是上一份留下的字
+    expect((screen.getByPlaceholderText(NOTE_PLACEHOLDER) as HTMLTextAreaElement).value).toBe('')
   })
 })
 

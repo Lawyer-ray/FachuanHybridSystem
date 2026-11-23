@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, cast
 
 from django.core.files.uploadedfile import UploadedFile
+from django.db import transaction
 from django.db.models import QuerySet
 
 from apps.cases.models import CaseLog, CaseLogAttachment, CaseLogVersion
@@ -269,6 +270,48 @@ class CaseLogService:
         return self.attachment_service.upload_attachments(
             log_id=log_id, files=files, user=user, org_access=org_access, perm_open_access=perm_open_access
         )
+
+    @transaction.atomic
+    def create_log_with_attachments(
+        self,
+        case_id: int,
+        content: str,
+        files: list[UploadedFile],
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> tuple[CaseLog, list[CaseLogAttachment]]:
+        """建日志 + 传附件作为一个事务。
+
+        S44-03（2026-11-23 二轮审计）：原调用方在 API 里先 `create_log`（自带
+        `@transaction.atomic`，返回即提交）再 `upload_attachments`，两段分属两个事务块，
+        附件校验/写盘失败时日志已落库，用户拿不到结果却留下一条空日志。现在把两步
+        包在同一个事务里：任一步失败整体回滚。
+
+            case_id: 案件 ID
+            content: 日志内容
+            files: 上传的文件列表
+
+            (创建的日志, 创建的附件列表)
+
+            NotFoundError: 案件不存在
+            ValidationException: 文件验证失败
+        """
+        log = self.mutation_service.create_log(
+            case_id=case_id,
+            content=content,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        )
+        created = self.attachment_service.upload_attachments(
+            log_id=log.id,
+            files=files,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        )
+        return log, created
 
     def get_logs_for_case(
         self,

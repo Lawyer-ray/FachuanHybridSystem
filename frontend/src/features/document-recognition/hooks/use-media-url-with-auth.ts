@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 
+import { hasTicket } from '@/lib/download-ticket'
+
 import { resolveMediaUrlWithAuth } from '../domain'
 
 /**
@@ -33,7 +35,7 @@ export function useMediaUrlWithAuth(mediaUrl: string | null | undefined): MediaU
     resolveMediaUrlWithAuth(mediaUrl)
       .then((next) => {
         if (!alive) return
-        const failed = !next || !next.includes('ticket=')
+        const failed = !next || !hasTicket(next)
         setState({ url: next, failed })
       })
       .catch(() => {

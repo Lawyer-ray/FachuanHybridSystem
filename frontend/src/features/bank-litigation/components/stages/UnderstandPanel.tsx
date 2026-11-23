@@ -131,9 +131,12 @@ export function UnderstandPanel() {
         <UnderstandRail />
       </div>
 
-      <MarkdownDrawer fileName={viewing} onClose={() => setViewing(null)} />
+      {/* 两个抽屉都常驻挂载：key 取当前条目，换一份 / 换一个字段就是换实例，
+          上一份的视图与方法选择、上一行的改正草稿都不会跟过来 */}
+      <MarkdownDrawer key={viewing ?? 'none'} fileName={viewing} onClose={() => setViewing(null)} />
 
       <FieldDrawer
+        key={editing ? `${editing.doc}-${editing.field}` : 'none'}
         picked={editing}
         onClose={() => setEditing(null)}
         overrides={overrides}

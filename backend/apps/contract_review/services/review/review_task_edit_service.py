@@ -45,10 +45,18 @@ class ReviewTaskEditError(Exception):
 
 
 def _task_output_path(task: ReviewTask) -> Path:
-    """任务产物的绝对路径。没有产物时回落到上传原件。"""
-    rel = task.output_file or task.original_file
+    """任务产物的绝对路径。没有产物时拒绝，**绝不回落到上传原件**。
+
+    S27-07（2026-11-23 二轮审计）：原实现 ``task.output_file or task.original_file``
+    在没有产物时回落到上传原件，而 ``apply_to_task`` 随后无条件
+    ``path.write_bytes(...)`` —— 律师划词直改一次就把客户来稿就地改写，而
+    ``original_file`` 是上传时 ``default_storage`` 落下的**唯一副本**（无版本、
+    无备份），改完既无法恢复，后续审查/规范化也会把改过的文件当成原始输入。
+    原形的 docstring 把这个回落写成「特性」，实际是自毁数据的路径。
+    """
+    rel = task.output_file
     if not rel:
-        raise ReviewTaskEditError("该任务还没有可编辑的文件")
+        raise ReviewTaskEditError("该任务还没有产物，请先执行审查")
     path = Path(settings.MEDIA_ROOT) / rel
     if not path.exists():
         raise ReviewTaskEditError("文件不存在，可能已被清理")

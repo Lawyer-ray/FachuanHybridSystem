@@ -26,14 +26,16 @@ router = Router()
 
 
 async def _ensure_case_access(request: Any, case_id: int) -> None:
-    """校验当前用户对案件的访问权（安全审计 B-25/B-26）。"""
-    from asgiref.sync import sync_to_async
+    """校验当前用户对案件的访问权（安全审计 B-25/B-26）。
 
+    S44-02（2026-11-23 二轮审计）：原实现在本文件里自带 ``sync_to_async(...)`` 桥接，
+    同一段在 5 个端点文件里逐字复制；现在统一调 ``CaseAccessPolicy.aensure_access_ctx``。
+    """
     from apps.cases.services.case.case_access_policy import CaseAccessPolicy
     from apps.core.security import get_request_access_context
 
     ctx = get_request_access_context(request)
-    await sync_to_async(CaseAccessPolicy().ensure_access_ctx)(case_id=case_id, ctx=ctx)
+    await CaseAccessPolicy().aensure_access_ctx(case_id=case_id, ctx=ctx)
 
 
 # ==================== Factory Function ====================

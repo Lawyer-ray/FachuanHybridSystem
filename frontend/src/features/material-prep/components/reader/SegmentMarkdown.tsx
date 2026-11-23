@@ -1,8 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, FileCode2 } from 'lucide-react'
 
-import { blockKeyOf } from '../../draft/block-keys'
-import { reviewHintOf } from '../../draft/quality'
+import { blockKeyOf, reviewHintOf } from '../../draft'
 import type { EngineDisagreement, Inconsistency, Segment } from '../../types'
 import { rectPrecisionOf } from '../../types'
 import { SegmentQualityHint, type DocHintPage } from './SegmentQualityHint'

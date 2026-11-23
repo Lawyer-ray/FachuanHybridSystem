@@ -121,9 +121,11 @@ class GuaranteeDialogFieldFillingMixin:  # pragma: no cover
         self._close_popovers()  # type: ignore[attr-defined]
         return [str(item) for item in updates]
 
-    def _fill_dialog_date_fields(self) -> list[str]:  # pragma: no cover
+    def _fill_dialog_date_fields(self, defaults: dict[str, str] | None = None) -> list[str]:  # pragma: no cover
+        # S31-01（2026-11-23 二轮审计）：原实现是 `() => {...}` 却引用了 `defaults.birth_date`，
+        # JS 侧 ReferenceError → 担保 gTwo「填日期」必崩。现在显式把 defaults 作为参数传入。
         updates = self.page.evaluate(
-            r"""() => {
+            r"""(defaults) => {
                 const result = [];
                 const isVisible = (el) => {
                     if (!el) return false;
@@ -159,7 +161,8 @@ class GuaranteeDialogFieldFillingMixin:  # pragma: no cover
                     }
                 }
                 return result;
-            }"""
+            }""",
+            defaults or {},
         )
         return [str(item) for item in updates]
 

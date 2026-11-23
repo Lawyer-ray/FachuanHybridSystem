@@ -48,6 +48,23 @@ export function splitDemands(note: string): string[] {
     .filter(Boolean)
 }
 
+/**
+ * 一键定位某条修订时的默认改法指令。
+ *
+ * 定位（ReviewWorkbenchPage 的 locate）在右侧开一个自动指令：审查依据为空时
+ * 拿它兜底，右栏的输入框直接带上它。境内合同审查场景的示例句——改这句属于
+ * 产品文案决策，所以只收口位置、不动文字。
+ */
+export const DEFAULT_REVIEW_INSTRUCTION = '按泰国法审查这一条，我方是承租方'
+
+/**
+ * 指令输入框的示例 placeholder。
+ *
+ * 由 DEFAULT_REVIEW_INSTRUCTION 派生而不是再写一遍字面量：示例句与真实发出去
+ * 的指令必须是同一句，两处各存一份迟早漂移（测试也按 placeholder 定位输入框）。
+ */
+export const REVIEW_INSTRUCTION_PLACEHOLDER = `例如：${DEFAULT_REVIEW_INSTRUCTION}`
+
 /** 常用交代 chips（写进 textarea，律师可继续编辑） */
 export const DEMAND_CHIPS = [
   { key: '压工期', text: '这单一定要压工期' },

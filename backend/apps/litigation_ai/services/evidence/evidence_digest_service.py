@@ -19,6 +19,22 @@ logger = logging.getLogger("apps.litigation_ai")
 EVIDENCE_EXCERPT_CHARS = 1500
 
 
+def _chunk_to_result(chunk: Any) -> dict[str, Any]:
+    """把检索到的 chunk 转成给 Agent 的结果项。
+
+    ``relevance_score`` 取 ``EvidenceRAGService`` 在返回前回填的实例属性
+    ``chunk.score``（S23-16：``EvidenceChunk`` 没有 score 列，分只随检索结果对象走）。
+    """
+    return {
+        "evidence_item_id": chunk.evidence_item_id,
+        "text": chunk.text[:EVIDENCE_EXCERPT_CHARS] if chunk.text else "",
+        "page_start": getattr(chunk, "page_start", None),
+        "page_end": getattr(chunk, "page_end", None),
+        "source_name": (getattr(chunk.evidence_item, "name", "") if hasattr(chunk, "evidence_item") else ""),
+        "relevance_score": getattr(chunk, "score", 0.0),
+    }
+
+
 class EvidenceDigestService:
     """
     证据摘要服务
@@ -94,22 +110,7 @@ class EvidenceDigestService:
             # 执行检索
             chunks = rag_service.retrieve(query, evidence_item_ids, top_k)
 
-            results: list[Any] = []
-            for chunk in chunks:
-                results.append(
-                    {
-                        "evidence_item_id": chunk.evidence_item_id,
-                        "text": chunk.text[:EVIDENCE_EXCERPT_CHARS] if chunk.text else "",
-                        "page_start": getattr(chunk, "page_start", None),
-                        "page_end": getattr(chunk, "page_end", None),
-                        "source_name": (
-                            getattr(chunk.evidence_item, "name", "") if hasattr(chunk, "evidence_item") else ""
-                        ),
-                        "relevance_score": getattr(chunk, "score", 0.0),
-                    }
-                )
-
-            return results
+            return [_chunk_to_result(chunk) for chunk in chunks]
 
         except ImportError:
             logger.warning("RAG 服务不可用,使用简单文本匹配")
@@ -135,22 +136,7 @@ class EvidenceDigestService:
             await rag_service.aensure_ingested(evidence_item_ids)
             chunks = await rag_service.aretrieve(query, evidence_item_ids, top_k)
 
-            results: list[Any] = []
-            for chunk in chunks:
-                results.append(
-                    {
-                        "evidence_item_id": chunk.evidence_item_id,
-                        "text": chunk.text[:EVIDENCE_EXCERPT_CHARS] if chunk.text else "",
-                        "page_start": getattr(chunk, "page_start", None),
-                        "page_end": getattr(chunk, "page_end", None),
-                        "source_name": (
-                            getattr(chunk.evidence_item, "name", "") if hasattr(chunk, "evidence_item") else ""
-                        ),
-                        "relevance_score": getattr(chunk, "score", 0.0),
-                    }
-                )
-
-            return results
+            return [_chunk_to_result(chunk) for chunk in chunks]
 
         except ImportError:
             logger.warning("RAG 服务不可用,使用简单文本匹配")

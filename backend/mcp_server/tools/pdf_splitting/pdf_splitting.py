@@ -15,7 +15,7 @@ def create_pdf_split_job(
     split_mode: str = "content_analysis",
     ocr_profile: str = "balanced",
 ) -> dict[str, Any]:
-    """上传 PDF 并创建拆解任务。file_base64 为文件的 base64 编码；split_mode: content_analysis（内容识别）或 by_page（按页）；ocr_profile: balanced/fast/accurate。返回 job_id。"""
+    """上传 PDF 并创建拆解任务。file_base64 为文件的 base64 编码；split_mode: content_analysis（内容识别拆分）/ page_split（按页拆分）/ manual_split（手动拆分）；ocr_profile: balanced/fast/accurate。返回 job_id。"""
     file_bytes = base64.b64decode(file_base64)
     return client.upload(  # type: ignore[no-any-return]
         "/pdf-splitting/jobs",

@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
-import { applyDetectedParties } from '../../draft/detect-parties'
-import { resolveParties } from '../../draft/party-lookup'
+import { applyDetectedParties, resolveParties } from '../../draft'
 import { useReader } from '../../store'
 
 /**

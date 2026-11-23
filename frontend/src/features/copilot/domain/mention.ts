@@ -102,6 +102,28 @@ export function detectMentionToken(text: string, caret: number): MentionToken | 
 }
 
 /**
+ * 光标前的 `@` token（菜单的展开判据）：`/` 命令不归本菜单。
+ *
+ * {@link detectMentionToken} 同时认 `@` 与 `/`——两者共用同一个检测器（一条按键
+ * 管线只能有一种 token 口径），但 `/` 命令菜单自带一组「禁用项」语义（无会话时
+ * compact 置灰），归 use-slash-menu 管，所以这里只把 `@` 放行。
+ */
+export function mentionTokenAt(text: string, caret: number): MentionToken | null {
+  const detected = detectMentionToken(text, caret)
+  return detected?.trigger === '@' ? detected : null
+}
+
+/**
+ * 菜单「被 Esc 关掉」的签名：起点 + 查询词相同的 token 视为同一个。
+ *
+ * Esc 只否掉当前这一次补全，不是永久关掉 `@` 菜单：改字或挪光标都会换签名，
+ * 菜单随之重新自动弹出。
+ */
+export function mentionTokenSignature(token: MentionToken | null): string | null {
+  return token ? `${token.start}:${token.query}` : null
+}
+
+/**
  * 候选排序 + 过滤。
  *
  * **只在 label 上做匹配，sublabel 不参与**：菜单只有一个共享高亮，副标题命中会

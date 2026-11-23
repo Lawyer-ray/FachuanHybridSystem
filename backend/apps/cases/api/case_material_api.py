@@ -101,15 +101,12 @@ async def upload_materials(request: HttpRequest, case_id: int) -> dict[str, Any]
     files = request.FILES.getlist("files") if hasattr(request, "FILES") else []
 
     def _do_upload() -> dict[str, Any]:
-        log = service.create_log(
+        # S44-03（2026-11-23 二轮审计）：原实现分两次调用（create_log 自带事务、返回即提交，
+        # 再 upload_attachments），附件任一个失败就留下一条空的「上传材料」日志。
+        # 现在走 service 的单一事务方法，两步要么一起成功要么一起回滚。
+        log, created = service.create_log_with_attachments(
             case_id=case_id,
             content="上传材料",
-            user=ctx.user,
-            org_access=ctx.org_access,
-            perm_open_access=ctx.perm_open_access,
-        )
-        created = service.upload_attachments(
-            log_id=log.id,
             files=files,
             user=ctx.user,
             org_access=ctx.org_access,

@@ -8,8 +8,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import { matLabel } from '../../draft/labels'
-import type { AutoSplitConflict } from '../../draft'
+import { matLabel, type AutoSplitConflict } from '../../draft'
 import type { DraftState } from '../../types'
 
 /**

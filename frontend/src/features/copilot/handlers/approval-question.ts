@@ -1,8 +1,12 @@
 /**
- * 交互类事件：审批卡入列、模型反问入列、排队名次、上下文压缩阶段。
+ * 交互类事件：审批卡入列、模型反问入列、排队名次写入、上下文压缩阶段写入。
  *
  * 这四个都是「把事件翻译成 store 里的一张卡/一行状态」，与正文无关；也都要补
  * 事件本身不带、只能从当前会话/本轮栏数推出的归属信息（session_id、栏标签）。
+ *
+ * `queuePosition` / `compacting` 的**写入端只在本文件**：onQueued 记排队名次、
+ * onCompaction 按 start/end 置位/复位。`handlers/lane-lifecycle.ts` 不写这两个
+ * 状态，只在退场路径上清理它们（onProgress 清排队横幅、onStreamEnd 清压缩态）。
  */
 
 import { normalizeQuestions } from '../domain'

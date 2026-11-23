@@ -139,7 +139,9 @@ async def list_batch_print_jobs(  # pragma: no cover
     keyword: str | None = None,
 ) -> list[BatchPrintJobSummaryOut]:
     service = get_batch_print_job_service()
-    jobs = await sync_to_async(service.list_jobs)(status=status or "", keyword=keyword or "")
+    jobs = await sync_to_async(service.list_jobs)(
+        status=status or "", keyword=keyword or "", user=getattr(request, "user", None)
+    )
     return [BatchPrintJobSummaryOut(**service.build_job_summary_payload(job=item)) for item in jobs]
 
 
@@ -155,18 +157,20 @@ async def create_batch_print_job(request: HttpRequest) -> BatchPrintSubmitOut:  
 @router.get("/jobs/{job_id}", response=BatchPrintJobOut)
 async def get_batch_print_job(request: HttpRequest, job_id: UUID) -> BatchPrintJobOut:  # pragma: no cover
     service = get_batch_print_job_service()
-    job = await sync_to_async(service.get_job)(job_id)
+    job = await sync_to_async(service.get_job)(job_id, user=getattr(request, "user", None))
     payload = service.build_job_payload(job=job)
     return BatchPrintJobOut(**payload)
 
 
 @router.post("/jobs/{job_id}/cancel", response=BatchPrintSubmitOut)
 async def cancel_batch_print_job(request: HttpRequest, job_id: UUID) -> BatchPrintSubmitOut:  # pragma: no cover
-    job = await sync_to_async(get_batch_print_job_service().request_cancel)(job_id=job_id)
+    job = await sync_to_async(get_batch_print_job_service().request_cancel)(
+        job_id=job_id, user=getattr(request, "user", None)
+    )
     return BatchPrintSubmitOut(job_id=str(job.id), status=job.status)
 
 
 @router.delete("/jobs/{job_id}")
 async def delete_batch_print_job(request: HttpRequest, job_id: UUID) -> dict[str, bool]:  # pragma: no cover
-    await sync_to_async(get_batch_print_job_service().delete_job)(job_id=job_id)
+    await sync_to_async(get_batch_print_job_service().delete_job)(job_id=job_id, user=getattr(request, "user", None))
     return {"success": True}

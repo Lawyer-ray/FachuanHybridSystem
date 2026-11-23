@@ -34,7 +34,9 @@ def _get_audit_log_service() -> Any:
 
         return TemplateAuditLogService()
     except (ImportError, ModuleNotFoundError):
-        logger.debug("TemplateAuditLogService 不可用，跳过审计日志")
+        # G12（2026-11-23 二轮审计）：这里曾把「审计服务不存在」吞成 debug，
+        # 结果整个审计链静默死了一年也没人发现。降级可以，但必须能看见。
+        logger.exception("TemplateAuditLogService 不可用，模板审计日志将丢失")
         return None
 
 

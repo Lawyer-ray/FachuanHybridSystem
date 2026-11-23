@@ -16,9 +16,15 @@ import type { PhaseNode } from '../components/deal-detail/special-phase-tree'
 import { normalizeTree } from '../components/deal-detail/special-phase-tree'
 import { contractsApi } from './client'
 
-/** 后端契约：一棵阶段树（key 稳定，改名不丢交付物） */
+/**
+ * 后端契约：一棵阶段树（key 稳定，改名不丢交付物）。
+ *
+ * 只声明到「一层原始节点」而不声明成 `PhaseNode[]`：后端字段名（`children` /
+ * `doc` / `ver`）与前端 `PhaseNode`（`folders` / `name` / `version`）不同，逐字段
+ * 写一份后端形状等于把适配层抄两遍；形状对齐由下面的 `fromBackendNode` 负责。
+ */
 export interface ContractStagesResponse {
-  stages: PhaseNode[]
+  stages: Record<string, unknown>[]
 }
 
 /**
@@ -95,7 +101,7 @@ function toBackendNode(p: PhaseNode): Record<string, unknown> {
 
 export async function getContractStages(contractId: number): Promise<PhaseNode[]> {
   const res = await contractsApi.get(`contracts/${contractId}/stages`).json<ContractStagesResponse>()
-  const raw = (res?.stages ?? []) as unknown as Record<string, unknown>[]
+  const raw = res?.stages ?? []
   return normalizeTree(raw.map(fromBackendNode))
 }
 
@@ -110,6 +116,6 @@ export async function putContractStages(contractId: number, stages: PhaseNode[])
   const res = await contractsApi
     .put(`contracts/${contractId}/stages`, { json: { stages: stages.map(toBackendNode) } })
     .json<ContractStagesResponse>()
-  const raw = (res?.stages ?? []) as unknown as Record<string, unknown>[]
+  const raw = res?.stages ?? []
   return raw.length ? normalizeTree(raw.map(fromBackendNode)) : stages
 }

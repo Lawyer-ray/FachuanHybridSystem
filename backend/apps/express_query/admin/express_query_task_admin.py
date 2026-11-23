@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import re
 from pathlib import Path
 from typing import Any, Callable, Final
@@ -14,10 +13,8 @@ from django.utils.html import format_html
 from django.utils.safestring import SafeData
 
 from apps.core.admin.filters import date_filter
-from apps.core.tasking import submit_task
-from apps.express_query.models import ExpressCarrierType, ExpressQueryTask, ExpressQueryTaskStatus, ExpressQueryTool
-
-logger = logging.getLogger("apps.express_query")
+from apps.express_query.models import ExpressCarrierType, ExpressQueryTask, ExpressQueryTool
+from apps.express_query.services.task_service import create_and_enqueue_manual, create_and_enqueue_upload
 
 # 运单号正则（与 TrackingExtractionService 保持一致）
 _SF_PATTERN: Final[re.Pattern[str]] = re.compile(r"(?<![A-Z0-9])SF\d{10,20}(?![A-Z0-9])", re.IGNORECASE)
@@ -107,31 +104,14 @@ class ExpressQueryToolAdmin(admin.ModelAdmin):  # pragma: no cover
             )
             return HttpResponseRedirect(request.path)
 
-        # 创建任务（无上传文件）
-        task = ExpressQueryTask(title=title or f"{carrier_type.upper()}-{tracking_number}")
-        if request.user.is_authenticated:
-            task.created_by = request.user
-
-        # 直接设置承运商和运单号（跳过OCR）
-        task.carrier_type = carrier_type
-        task.tracking_number = tracking_number
-        task.ocr_text = "手动输入运单号"
-        task.status = ExpressQueryTaskStatus.QUERYING  # 跳过OCR，直接进入查询状态
-        task.save()
-
-        # 入队执行浏览器查询
-        queue_task_id = str(submit_task("apps.express_query.tasks.execute_manual_express_query_task", task.id))
-        task.queue_task_id = queue_task_id
-        task.save(update_fields=["queue_task_id", "updated_at"])
-
-        logger.info(
-            "快递查询任务已创建（手动输入）",
-            extra={
-                "task_id": task.id,
-                "queue_task_id": queue_task_id,
-                "carrier_type": carrier_type,
-                "tracking_number": tracking_number,
-            },
+        # 建任务 + 入队下沉到 service：S39-03（2026-11-23 二轮审计）原实现把
+        # 「建任务 → save → submit_task → 回写 queue_task_id」在上传路径里又抄了一遍，
+        # 两条路径已经漂移 → 现在 admin 只做参数提取与 message_user。
+        create_and_enqueue_manual(
+            title=title,
+            carrier_type=carrier_type,
+            tracking_number=tracking_number,
+            user=request.user,
         )
 
         self.message_user(
@@ -161,16 +141,8 @@ class ExpressQueryToolAdmin(admin.ModelAdmin):  # pragma: no cover
             self.message_user(request, "仅支持 PDF、PNG、JPG、JPEG、WEBP 文件。", level=messages.ERROR)
             return HttpResponseRedirect(request.path)
 
-        task = ExpressQueryTask(title=title, waybill_image=upload_file)
-        if request.user.is_authenticated:
-            task.created_by = request.user
-        task.save()
+        create_and_enqueue_upload(title=title, waybill_image=upload_file, user=request.user)
 
-        queue_task_id = str(submit_task("apps.express_query.tasks.execute_express_query_task", task.id))
-        task.queue_task_id = queue_task_id
-        task.save(update_fields=["queue_task_id", "updated_at"])
-
-        logger.info("快递查询任务已创建并入队", extra={"task_id": task.id, "queue_task_id": queue_task_id})
         self.message_user(request, "上传成功，任务已创建并进入队列。", level=messages.SUCCESS)
         return HttpResponseRedirect(reverse("admin:express_query_expressquerytask_changelist"))
 

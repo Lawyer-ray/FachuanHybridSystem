@@ -16,6 +16,10 @@ import type {
   PasskeyRequestOptionsJSON,
   RegistrationResponseJSON,
 } from './passkey-coding'
+import type { PasskeyCredentialRow } from './types'
+
+/** PasskeyCredentialRow 定义在 `types.ts`（PasskeySection 也消费），此处 re-export 保持既有 import 路径 */
+export type { PasskeyCredentialRow }
 
 /** 登录挑战用的匿名客户端：参数口径与豁免理由见 lib/api.ts 的 createAnonymousClient */
 const passkeyClient: KyInstance = createAnonymousClient()
@@ -26,15 +30,6 @@ export interface PasskeyOptionsResponse {
   success: boolean
   message: string
   public_key: Record<string, unknown> | null
-}
-
-/** 已注册通行密钥的展示行（不含公钥等内部字段） */
-export interface PasskeyCredentialRow {
-  id: number
-  name: string
-  rp_id: string
-  created_at: string
-  last_used_at: string | null
 }
 
 type TokenExchangeResponse = components['schemas']['TokenExchangeOut']

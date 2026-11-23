@@ -6,7 +6,7 @@
  * 并行子任务、最终失败都写在界面上。演示用的 setTimeout 剧本是假的，
  * **但状态机的语义是真的** —— 所以这里只钉语义，不钉耗时：
  * - 跑完所有步骤 → done / percent 100 / summary 由 toSummary 投影
- * - run 抛错 → failed + error（不吞异常）
+ * - run 抛错 → failed + error（不吞异常），且 execute() 报 ok:false（不算成功）
  * - 某步 fail → 立刻 failed，后面步骤不再跑
  * - 某步 confirm → 停在 awaiting，点 confirm 才继续
  * - 某步 retry → 先记 warn 日志、retries 累加，重试完继续
@@ -124,6 +124,46 @@ describe('useStageAction · 正常跑完', () => {
   })
 })
 
+describe('useStageAction · execute() 的可判别结果', () => {
+  it('成功跑完：execute() resolve 成 { ok: true }', async () => {
+    const { result } = renderHook(() => useStageAction({ steps: [step('一步')] }))
+
+    let outcome!: Awaited<ReturnType<typeof result.current.execute>>
+    await act(async () => {
+      outcome = await result.current.execute()
+    })
+
+    expect(outcome).toEqual({ ok: true })
+  })
+
+  it('run 抛错：execute() 报 ok:false 带原话，成功回调一次都不调，phase=failed', async () => {
+    const run = vi.fn().mockRejectedValue(new Error('材料服务 502'))
+    const { result } = renderHook(() => useStageAction({ steps: [step('一步')], run }))
+    /** 调用方的成功回调 —— 只有 execute() 报 ok 才该走 */
+    const onSuccess = vi.fn()
+
+    await act(async () => {
+      const outcome = await result.current.execute()
+      if (outcome.ok) onSuccess()
+    })
+
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(result.current.phase).toBe('failed')
+  })
+
+  it('必然失败的一步：execute() 报 ok:false，error 就是那一步的失败原因', async () => {
+    const steps = [step('会炸的一步', { fail: 'OA 返回 500' })]
+    const { result } = renderHook(() => useStageAction({ steps }))
+
+    let outcome!: Awaited<ReturnType<typeof result.current.execute>>
+    await act(async () => {
+      outcome = await result.current.execute()
+    })
+
+    expect(outcome).toEqual({ ok: false, error: 'OA 返回 500' })
+  })
+})
+
 describe('useStageAction · 必然失败的一步', () => {
   it('fail 步当场判失败，后续步骤不再执行', async () => {
     const steps = [step('一月'), step('会炸的一步', { fail: 'OA 返回 500' }), step('永远不到')]
@@ -162,7 +202,7 @@ describe('useStageAction · 中断等人', () => {
     const steps = [step('填表', { confirm: '请核对被告身份后继续' }), step('提交')]
     const { result } = renderHook(() => useStageAction({ steps }))
 
-    let done!: Promise<void>
+    let done!: Promise<unknown>
     act(() => {
       done = result.current.execute()
     })
@@ -257,32 +297,49 @@ describe('useStageAction · reset 打断', () => {
 
 describe('useStageAction · 进度权重', () => {
   it('进度分 6 段平滑推进（按权重），等长两段在中点正好 50%，收尾 100%', async () => {
-    const seen: number[] = []
-    const steps = [step('第一步', { ms: 100 }), step('第二步', { ms: 100 })]
+    // 这里不能靠「轮询采样」抓中间值：采样与 React 的渲染刷新抢同一条事件循环，
+    // 全量并发跑时曾漏掉只存在一拍的 50。改用假定时器逐段推进，每推进一段记一次
+    // percent，记录点由定时器决定，与机器快慢无关。
+    // 段长是剧本算出来的：ms=100 且 fixed → jitter 恒等，段间隔
+    // max(40, 100 / 6 / 1.6) = 40ms。所以只把 setTimeout 换假，Date 保持真实。
+    vi.unstubAllGlobals()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const SEG_MS = 40
+      const steps = [step('第一步', { ms: 100 }), step('第二步', { ms: 100 })]
 
-    const { result } = renderHook(() => useStageAction({ steps }))
+      const { result } = renderHook(() => useStageAction({ steps }))
 
-    let done!: Promise<void>
-    act(() => {
-      done = result.current.execute()
-    })
-    // 逐拍采样：React 的批量更新让「渲染即记录」拿不到中间值，
-    // 所以手动让出宏任务并在每拍读一次 result.current.percent。
-    for (let i = 0; i < 100; i++) {
+      const seen: number[] = []
+      let done!: Promise<unknown>
+      act(() => {
+        done = result.current.execute()
+      })
       seen.push(result.current.percent)
-      if (result.current.phase === 'done') break
-      await new Promise((r) => setImmediate(r))
-    }
-    await act(async () => {
-      await done
-    })
 
-    // 单调不减
-    for (let i = 1; i < seen.length; i++) expect(seen[i]).toBeGreaterThanOrEqual(seen[i - 1]!)
-    // 平滑推进：出现过 0 与 100 之间、且非 0/100 的中间值（不是一步跳到 100）
-    expect(seen.some((p) => p > 0 && p < 100)).toBe(true)
-    expect(seen).toContain(50)
-    expect(seen.at(-1)).toBe(100)
+      // 两段各 6 拍 = 12 拍；多留余量，phase 到 done 就停
+      for (let i = 0; i < 20 && result.current.phase !== 'done'; i++) {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(SEG_MS)
+        })
+        seen.push(result.current.percent)
+      }
+      // 12 拍内必然跑完：不靠等超时兜底，这里直接钉住
+      expect(result.current.phase).toBe('done')
+      await act(async () => {
+        await done
+      })
+      seen.push(result.current.percent)
+
+      // 单调不减
+      for (let i = 1; i < seen.length; i++) expect(seen[i]).toBeGreaterThanOrEqual(seen[i - 1]!)
+      // 平滑推进：出现过 0 与 100 之间、且非 0/100 的中间值（不是一步跳到 100）
+      expect(seen.some((p) => p > 0 && p < 100)).toBe(true)
+      expect(seen).toContain(50)
+      expect(seen.at(-1)).toBe(100)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('权重按 ms 分配：短步骤在总进度中占的比例更小', async () => {
@@ -290,7 +347,7 @@ describe('useStageAction · 进度权重', () => {
     const steps = [step('短', { ms: 20 }), step('长', { ms: 80 })]
     const { result } = renderHook(() => useStageAction({ steps }))
 
-    let done!: Promise<void>
+    let done!: Promise<unknown>
     act(() => {
       done = result.current.execute()
     })

@@ -72,6 +72,14 @@ export interface StageActionState {
   retries: number
 }
 
+/**
+ * `execute()` 的结果 —— 调用方必须看 `ok` 才决定要不要走成功回执。
+ *
+ * 状态机自己会把 phase 写成 failed 并**正常 resolve**，所以「跑完了」不等于「成功了」：
+ * 只看 resolve 就弹成功回执，失败会被当成成功（P03-007）。
+ */
+export type StageActionOutcome = { ok: true } | { ok: false; error: string }
+
 const INITIAL: StageActionState = {
   phase: 'idle',
   percent: 0,
@@ -91,6 +99,9 @@ function clock(): string {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/** 中途被 reset 打断的结果：不是失败，但绝不能走成功回执 */
+const ABORTED: StageActionOutcome = { ok: false, error: '已中止' }
 
 /** 耗时波动 ±30%，模拟真实系统的抖动 */
 function jitter(ms: number, fixed?: boolean): number {
@@ -126,7 +137,7 @@ export function useStageAction<T>({ steps, run, toSummary }: StageActionOptions<
     if (fn) fn()
   }, [])
 
-  const execute = useCallback(async () => {
+  const execute = useCallback(async (): Promise<StageActionOutcome> => {
     abortedRef.current = false
     setState({ ...INITIAL, phase: 'running' })
 
@@ -137,7 +148,7 @@ export function useStageAction<T>({ steps, run, toSummary }: StageActionOptions<
     let retries = 0
 
     for (let i = 0; i < steps.length; i++) {
-      if (abortedRef.current) return
+      if (abortedRef.current) return ABORTED
       const s = steps[i]!
       const w = weights[i]!
       const from = (acc / total) * 100
@@ -148,7 +159,7 @@ export function useStageAction<T>({ steps, run, toSummary }: StageActionOptions<
       // ① 并行子任务：交错出现，像多线程
       if (s.parallel?.length) {
         for (const sub of s.parallel) {
-          if (abortedRef.current) return
+          if (abortedRef.current) return ABORTED
           pushLog({ at: clock(), text: `  ↳ ${sub}`, kind: 'sub' })
           await sleep(jitter(Math.max(120, w / (s.parallel.length + 1))))
         }
@@ -156,22 +167,23 @@ export function useStageAction<T>({ steps, run, toSummary }: StageActionOptions<
 
       // ② 必然失败（不重试）
       if (s.fail) {
-        pushLog({ at: clock(), text: s.fail, kind: 'error' })
+        const failReason = s.fail
+        pushLog({ at: clock(), text: failReason, kind: 'error' })
         setState((v) => ({
           ...v,
           phase: 'failed',
           percent: Math.round(to),
           progress: '',
-          error: s.fail!,
+          error: failReason,
           retries,
         }))
-        return
+        return { ok: false, error: failReason }
       }
 
       // ③ 失败 → 等待 → 重试
       if (s.retry) {
         for (let t = 0; t < s.retry.times; t++) {
-          if (abortedRef.current) return
+          if (abortedRef.current) return ABORTED
           retries++
           pushLog({ at: clock(), text: `${s.retry.reason}（第 ${t + 1} 次重试）`, kind: 'warn' })
           setState((v) => ({ ...v, retries, progress: `重试中 ${t + 1}/${s.retry!.times}…` }))
@@ -185,7 +197,7 @@ export function useStageAction<T>({ steps, run, toSummary }: StageActionOptions<
       // ④ 进度平滑推进（分 6 段，看起来在动而不是跳）
       const segs = 6
       for (let k = 1; k <= segs; k++) {
-        if (abortedRef.current) return
+        if (abortedRef.current) return ABORTED
         const p = from + ((to - from) * k) / segs
         setState((v) => ({ ...v, percent: Math.round(p) }))
         await sleep(jitter(Math.max(40, w / segs / 1.6), s.fixed))
@@ -203,7 +215,7 @@ export function useStageAction<T>({ steps, run, toSummary }: StageActionOptions<
         await new Promise<void>((resolve) => {
           resumeRef.current = resolve
         })
-        if (abortedRef.current) return
+        if (abortedRef.current) return ABORTED
         pushLog({ at: clock(), text: '已确认，继续', kind: 'ok' })
         setState((v) => ({ ...v, phase: 'running', confirmText: '' }))
       }
@@ -211,7 +223,7 @@ export function useStageAction<T>({ steps, run, toSummary }: StageActionOptions<
       acc += w
     }
 
-    if (abortedRef.current) return
+    if (abortedRef.current) return ABORTED
 
     // 真实接口（如果有）
     try {
@@ -225,10 +237,12 @@ export function useStageAction<T>({ steps, run, toSummary }: StageActionOptions<
         retries,
       }))
       pushLog({ at: clock(), text: '完成', kind: 'ok' })
+      return { ok: true }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       pushLog({ at: clock(), text: `失败：${msg}`, kind: 'error' })
       setState((v) => ({ ...v, phase: 'failed', progress: '', error: msg, retries }))
+      return { ok: false, error: msg }
     }
   }, [steps, run, toSummary, pushLog])
 

@@ -143,10 +143,14 @@ class ImageRotationService:
         # 唯一转换（apps/image_rotation/services/transform/angles.py 明确要求只在此处转换），
         # 两次取反相互抵消成「再反转」→ /export 的 90°/270° 结果与界面方向相反。
         # 语义约定：传进来的 rotation 就是界面/ONNX 的顺时针角，直接交给下游。
-        if rotation in (90, 180, 270):
+        # S27-19（2026-11-23 二轮审计）：原判据写成 `rotation in (90, 180, 270)`，只认这三个
+        # 字面值——ONNX 输出的 -90/-270（angles.py:5-6 明确列举）与手动累加越过 360 的角（450）
+        # 都被静默当成「不旋转」。现在先归一到 0/90/180/270 再决定是否旋转。
+        normalized_rotation = normalize_rotation(rotation)
+        if normalized_rotation:
             processed_bytes = rotate_image_for_output(
                 processed_bytes,
-                rotation=rotation,
+                rotation=normalized_rotation,
                 img_format=normalized_format,
             )
 

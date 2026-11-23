@@ -98,7 +98,10 @@ export function ContractPanel() {
               report,
               onExport: () => {
                 setReport(null)
-                void exportReport.execute().then(() => setReport(DEMO_X3_CONFLICT_REPORT_FILE))
+                // 报告只在意真的导出成功时落盘 —— execute() 失败也是 resolve
+                void exportReport.execute().then((r) => {
+                  if (r.ok) setReport(DEMO_X3_CONFLICT_REPORT_FILE)
+                })
               },
             }}
             onOpenHit={setHitOpen}
@@ -115,7 +118,8 @@ export function ContractPanel() {
       </div>
 
       <DocDrawer name={docOpen} onClose={() => setDocOpen(null)} />
-      <ConflictDrawer keyName={hitOpen} onClose={() => setHitOpen(null)} />
+      {/* 抽屉常驻挂载：key 取当前条目，换一条就是换实例，导出结果不会带到下一条 */}
+      <ConflictDrawer key={hitOpen ?? 'none'} keyName={hitOpen} onClose={() => setHitOpen(null)} />
       <TermEditDrawer
         clause={termEdit}
         drafts={drafts}

@@ -36,13 +36,14 @@ class PDFTextExtractor:
             logger.warning("PDFTextExtractor.extract 失败: %s, 文件: %s", exc, pdf_path)
             return None
 
-    def pdf_to_images(self, pdf_path: Path) -> tuple[list[Path], Path]:  # pragma: no cover
+    def pdf_to_images(self, pdf_path: Path) -> tuple[list[Path], Path | None]:  # pragma: no cover
         """
         将 PDF 每页转换为临时 PNG 图片文件，供 OCR 使用。
         使用 PyMuPDF (fitz) 渲染，dpi=150。
 
         Returns:
             (image_paths, tmp_dir) — 调用方用完后需调用 shutil.rmtree(tmp_dir) 清理。
+            **失败时 tmp_dir 为 None**（不能返回 `Path()`，那等于 `.`，删它会删掉 cwd）。
         """
         try:
             import pymupdf as fitz
@@ -62,4 +63,7 @@ class PDFTextExtractor:
             return image_paths, tmp_dir
         except Exception as exc:
             logger.warning("PDFTextExtractor.pdf_to_images 失败: %s, 文件: %s", exc, pdf_path)
-            return [], Path()
+            # S43-01（2026-11-23 二轮审计）：原实现返回 `Path()`（即 "."），
+            # 调用方拿到后 `shutil.rmtree(tmp_dir)` 会把**当前工作目录**删掉。
+            # 失败时返回空的临时目录路径，调用方必须先判空再删。
+            return [], None

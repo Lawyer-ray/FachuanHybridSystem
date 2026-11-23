@@ -20,8 +20,21 @@ from django.http import HttpRequest
 from ninja import Router
 
 from apps.cases.schemas import CaseReadinessOut, ConflictCheckOut, MaterialStatusOut
+from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from apps.cases.services.case_readiness_service import CaseReadinessService, ConflictCheckService, MaterialStatusService
 from apps.core.security import get_request_access_context
+
+
+def _ensure_case_access(request: HttpRequest, case_id: int) -> None:
+    """案件级 ACL（2026-11-23 二轮审计 G9）。
+
+    历史坑：这三个端点只调了 `get_request_access_context`（只验证登录态），
+    没有任何案件级校验 → 任意登录律师可用 case_id 遍历他案的就绪度、
+    材料齐备度与利冲结果。统一收敛到 CaseAccessPolicy。
+    """
+    ctx = get_request_access_context(request)
+    CaseAccessPolicy().ensure_access_ctx(case_id=case_id, ctx=ctx)
+
 
 router = Router()
 
@@ -45,7 +58,8 @@ def case_material_status(request: HttpRequest, case_id: int) -> Any:  # pragma: 
     返回每类材料的 ok/stale/miss/na 状态与齐备计数。
     律师最常问的是「这件能不能递」，所以单独给 `ready`（只看 miss，stale 不阻塞）。
     """
-    get_request_access_context(request)  # 触发鉴权上下文，非法用户直接 401/403
+    ctx = get_request_access_context(request)  # 非法用户直接 401/403
+    _ensure_case_access(request, case_id)
     # 槽位按案件当前阶段自动选：一审问「合同/借据/流水/催收」，
     # 二审问「一审判决书/上诉状/答辩状/一审卷宗」。两套不可混用，
     # 混了就会出现「二审案缺催收记录」这种律师一眼看穿的错。
@@ -62,6 +76,7 @@ def case_readiness(request: HttpRequest, case_id: int) -> Any:  # pragma: no cov
       其他阶段   → other 模式（暂无专门校验，明确返回空而不是假装通过）
     """
     get_request_access_context(request)
+    _ensure_case_access(request, case_id)
     return _readiness().readiness_of(case_id)
 
 
@@ -75,5 +90,6 @@ def case_conflict_check(request: HttpRequest, case_id: int) -> Any:  # pragma: n
       neutral 缺证件号无法判定 → 提示补全资料，不是冲突
     `blocked=True` 表示存在 red 级命中，前端据此阻断后续动作。
     """
-    get_request_access_context(request)
-    return _conflict().check(case_id)
+    ctx = get_request_access_context(request)
+    _ensure_case_access(request, case_id)
+    return _conflict().check(case_id, ctx=ctx)

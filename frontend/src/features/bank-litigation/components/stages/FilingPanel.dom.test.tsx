@@ -8,11 +8,12 @@
  * - 起诉条件判定三种结果（通过 / 提示 / 不通过）各有独立文案与语气
  * - 「一键修正」必须**先看 diff 再执行**：按钮只打开预览抽屉，确认后才跑
  * - 通知是两阶段的：发出 ≠ 送达，卡片拿到阻塞条数与阻塞原因
+ * - 通知失败不得当成功：execute() 报 ok:false 时不进 sent（否则失败会被说成已发出）
  *
  * 抽屉 / 通知卡 / 金额卡 / 动作卡全部 stub（各自有自己的测试），
  * 本文件只测编排与统计口径。
  */
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const stubs = vi.hoisted(() => ({
@@ -89,9 +90,10 @@ vi.mock('./FilingSignDrawer', () => ({
 }))
 /**
  * 用可控的假状态机替掉 useStageAction：真实跑批有毫秒级延时，
- * 这里只测「面板怎么用它的状态」，所以自己控制 phase / summary。
+ * 这里只测「面板怎么用它的状态」，所以自己控制 phase / summary / execute 的结果。
+ * execOk=false 用来模拟 run() 抛错：真实 execute() 失败时也是 resolve，只是 ok:false。
  */
-const fakeState = vi.hoisted(() => ({ phase: 'idle' as string, summary: '' }))
+const fakeState = vi.hoisted(() => ({ phase: 'idle' as string, summary: '', execOk: true }))
 vi.mock('./use-stage-action', () => ({
   useStageAction: (opts: { toSummary?: () => string }) => {
     stubs.stageAction(opts)
@@ -106,7 +108,7 @@ vi.mock('./use-stage-action', () => ({
       retries: 0,
       confirmText: '',
       error: null,
-      execute: vi.fn(() => Promise.resolve()),
+      execute: vi.fn(() => Promise.resolve({ ok: fakeState.execOk })),
       reset: vi.fn(),
       confirm: vi.fn(),
     }
@@ -128,6 +130,7 @@ const BLOCKED = DEMO_SIGN_CHECKS.filter((d) => !d.sealOk || !d.signOk)
 beforeEach(() => {
   vi.clearAllMocks()
   fakeState.phase = 'idle'
+  fakeState.execOk = true
 })
 
 describe('FilingPanel · 统计口径', () => {
@@ -262,5 +265,22 @@ describe('FilingPanel · 签章抽屉与通知', () => {
     render(<FilingPanel />)
     fireEvent.click(screen.getByText(`NOTIFY_CARD:${BLOCKED.length}/idle`))
     expect(stubs.notify.mock.calls.at(-1)![0].stage).toBe('sending')
+  })
+
+  it('通知跑完且 ok 才进 sent（成功回执）', async () => {
+    render(<FilingPanel />)
+    await act(async () => {
+      fireEvent.click(screen.getByText(`NOTIFY_CARD:${BLOCKED.length}/idle`))
+    })
+    expect(stubs.notify.mock.calls.at(-1)![0].stage).toBe('sent')
+  })
+
+  it('通知失败（execute 报 ok:false）不进 sent，也不留「发送中…」假相', async () => {
+    fakeState.execOk = false
+    render(<FilingPanel />)
+    await act(async () => {
+      fireEvent.click(screen.getByText(`NOTIFY_CARD:${BLOCKED.length}/idle`))
+    })
+    expect(stubs.notify.mock.calls.at(-1)![0].stage).toBe('idle')
   })
 })

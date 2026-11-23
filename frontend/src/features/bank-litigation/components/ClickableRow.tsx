@@ -9,9 +9,12 @@
  *
  * ═══ 用法约束 ═══
  * 1. 只用在 `<ul>` / `<ol>` 的直接子元素位置（渲染出来是 `<li>`）。
- * 2. 行内如果有自己的按钮/勾选框/下拉框，必须在那个控件上 `stopPropagation`，
- *    否则点它等于点整行（本组件的 Enter/Space 也走同一个 `onClick`）；
- *    同时要传 `nestedControl`，原因见下面的参数说明。
+ * 2. 行内如果有自己的按钮/勾选框/下拉框：
+ *    · 鼠标：仍然要在那个控件上 `stopPropagation`，否则 click 冒泡上来等于点整行；
+ *    · 键盘：不用额外处理——本组件的 `onKeyDown` 只认「事件源就是行本身」
+ *      （`e.target === e.currentTarget`），行内控件的 Enter/Space 原样放行：
+ *      既不 `preventDefault`（原生激活照常），也不会点开整行；
+ *    · 同时要传 `nestedControl`，原因见下面的参数说明。
  * 3. `className` 原样透传，行的排版（flex/grid、padding）与条件底色由调用方决定。
  */
 
@@ -39,6 +42,10 @@ export function ClickableRow({
 }) {
   /** Enter / Space 是按钮的标准触发键；其余键原样放行（不拦方向键/Tab） */
   function onKeyDown(e: KeyboardEvent<HTMLLIElement>) {
+    // 行内控件的 keydown 会冒泡到这里：那个 Enter/Space 属于控件自己，
+    // 拦掉默认行为会掐掉它的原生激活，顺手 onClick() 还会把整行点开。
+    // 只处理「行自己聚焦时」的按键（`nestedControl` 的行同样能 Tab 到 + Enter）。
+    if (e.target !== e.currentTarget) return
     if (e.key !== 'Enter' && e.key !== ' ') return
     // Space 的默认行为是滚页面，不拦掉就没法当「按下」用
     e.preventDefault()

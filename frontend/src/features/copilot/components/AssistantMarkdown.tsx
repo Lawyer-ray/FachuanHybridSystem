@@ -32,11 +32,7 @@ import ReactMarkdown, { type Components } from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
 
-import {
-  hasPendingCiteMarker,
-  splitCiteSegments,
-  type CitationRef,
-} from '../domain/knowledge'
+import { hasPendingCiteMarker, splitCiteSegments, type CitationRef } from '../domain'
 import { splitStreamingMarkdownBlocks } from '../lib/stream-blocks'
 import { CitationMark } from './markdown/CitationMark'
 import { CodeBlock } from './markdown/CodeBlock'

@@ -32,6 +32,7 @@ import {
   DEMO_ARCHIVE_MATERIALS,
 } from './demo-data'
 
+/** 与 `OAActionPanels` 旧版同名组件已删除，本处为唯一实现。 */
 export function OAArchivePanel() {
   const [showOnlyMissing, setShowOnlyMissing] = useState(false)
 

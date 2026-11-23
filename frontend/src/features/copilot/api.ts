@@ -8,8 +8,8 @@
  * 按职责拆出去的部分（本文件只 re-export，import 路径一律不变）：
  * - `review-api.ts`      评审 / 综合结论 / 采纳（8 个端点）
  * - `memory-api.ts`      记忆域（含 @see createProjectNote 项目笔记，同为 `agent/memory` 前缀）
- * - `api/folders.ts`     绑定文件夹浏览（contracts / cases 两个后端域）
- * - `api/mention-sources.ts` `@` 引用的跨实体候选源（core `search/`）
+ * - `api/folders.ts`     绑定文件夹浏览（contracts / cases 两个后端域；契约在 `api/folder-types.ts`）
+ * - `api/mention-sources.ts` `@` 引用的跨实体候选源（core `search/`；契约在 `api/search-types.ts`）
  */
 
 import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
@@ -96,9 +96,10 @@ export {
   loadScopeFolderRows,
   SCOPE_SUBDIR_SCAN,
 } from './api/folders'
-export type { FolderEntries, ScopeFolderRows } from './api/folders'
+export type { FolderEntries } from './api/folder-types'
+export type { ScopeFolderRows } from './api/folders'
 export { globalSearch } from './api/mention-sources'
-export type { GlobalSearchItem, GlobalSearchResult } from './api/mention-sources'
+export type { GlobalSearchItem, GlobalSearchResult } from './api/search-types'
 export { createProjectNote } from './memory-api'
 export type { ProjectNoteReceipt } from './memory-api'
 

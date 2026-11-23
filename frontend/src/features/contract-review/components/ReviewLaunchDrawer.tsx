@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, X } from 'lucide-react'
 
 import { ErrorBlock } from '@/components/shared/AsyncState'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 import { useLaunchUpload } from '../hooks/use-launch-upload'
 import { useLaunchSubmit } from '../hooks/use-launch-submit'
-import { useFocusTrap } from '../hooks/use-focus-trap'
 import type { PartyKey } from '../domain'
 import { DemandSection } from './launch/DemandSection'
 import { PartySection } from './launch/PartySection'
@@ -21,21 +21,16 @@ import { StepSection } from './launch/StepSection'
  * - 第一阶段（上传 + 识别当事人、推荐我方）→ hooks/use-launch-upload
  * - 第二/三阶段（勾选步骤、写交代、确认立场）→ hooks/use-launch-submit
  * - 三段 UI → components/launch/*
- * - 模态行为（Esc 关闭、焦点圈定、aria-modal）→ hooks/use-focus-trap
+ * - 模态行为（Esc 关闭、焦点圈定、aria-modal）→ @/hooks/use-focus-trap
+ *
+ * **关闭即卸载内容层**（见 ReviewLaunchDrawerBody）：步骤勾选、特别交代、手动立场、
+ * 提交错误都是内容层的 useState 初值，常驻挂着不清会在下次打开时原样回来。
  */
 
 export type RepresentedParty = PartyKey
 
-export function ReviewLaunchDrawer({
-  open,
-  onClose,
-  onStarted,
-  loadFile,
-  fileName,
-  partyHint,
-  parties,
-  clientName,
-}: {
+/** 抽屉的对外契约：壳层与内容层共用 */
+type ReviewLaunchDrawerProps = {
   open: boolean
   onClose: () => void
   /** 流水线已触发，带上 taskId 跳复审台 */
@@ -57,7 +52,28 @@ export function ReviewLaunchDrawer({
   /** 我方委托客户名：用于从识别结果里自动推荐「我方是哪一方」 */
   clientName?: string
   partyHint?: string
-}) {
+}
+
+export function ReviewLaunchDrawer({ open, ...props }: ReviewLaunchDrawerProps) {
+  // 关闭就卸载内容层（而不是常驻挂载 + 事后复位）：草稿全部是内容层的 useState
+  // 初值，随组件销毁自然作废。key 取 fileName：同一个抽屉里换了合同也重建，
+  // 手法同 material-prep 的 RenamePackDialog（key 定义「何时算一份新输入」，
+  // 比 useEffect 复位少一帧、也不会漏字段）。
+  if (!open) return null
+  return <ReviewLaunchDrawerBody key={props.fileName} open {...props} />
+}
+
+/** 内容层：只在抽屉打开时挂载，所有草稿状态都活在这里 */
+function ReviewLaunchDrawerBody({
+  open,
+  onClose,
+  onStarted,
+  loadFile,
+  fileName,
+  partyHint,
+  parties,
+  clientName,
+}: ReviewLaunchDrawerProps) {
   const upload = useLaunchUpload({ open, loadFile, fileName, clientName })
 
   /**
@@ -70,26 +86,21 @@ export function ReviewLaunchDrawer({
   const [pickedParty, setPickedParty] = useState<PartyKey | null>(null)
   const party = pickedParty ?? upload.party
 
-  // 关掉抽屉（或换了一份合同）就作废手动立场，否则下次打开会沿用上一份的选择
-  useEffect(() => {
-    if (!open) setPickedParty(null)
-  }, [open, fileName])
-
   /**
    * 打开 / 换了输入就上传识别一次。
    *
    * recognize 内部按「这条输入是否已有识别结果」幂等，所以这里不必再挂
    * running 守卫（旧实现正是靠一个只在错误分支复位的 runningRef 兜这个）。
    * 依赖里不能放 upload 对象（useMutation 每次渲染都新建），只放 recognize 的
-   * 稳定输入：open + fileName + clientName。
+   * 稳定输入：fileName + clientName（内容层挂载即「打开」，换文件由壳层 key 重建）。
    */
   const recognize = upload.recognize
   useEffect(() => {
-    if (open) recognize()
+    recognize()
     // recognize 是每次渲染新建的箭头函数（内部读 ref 取最新 loadFile），不能进依赖；
-    // 真正的输入是 open / fileName / clientName，已在其闭包里被 useMemo 化。
+    // 真正的输入是 fileName / clientName（内容层挂载即打开，换文件以 key 重建）。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, fileName, clientName])
+  }, [fileName, clientName])
 
   /** 可选的立场项：识别结果优先，未识别时为空 */
   const partyOptions = useMemo(() => {
@@ -110,13 +121,13 @@ export function ReviewLaunchDrawer({
 
   const { panelRef } = useFocusTrap(open, onClose)
   const closeRef = useRef<HTMLButtonElement>(null)
+  // 内容层挂载 = 刚刚打开：焦点落到关闭键，读屏与键盘用户先听到抽屉标题
   useEffect(() => {
-    if (open) closeRef.current?.focus()
-  }, [open])
+    closeRef.current?.focus()
+  }, [])
 
   /** 上传阶段的错误（读合同失败）与提交阶段的错误（选漏 / 接口失败）都走同一条展示 */
   const err = upload.err ?? submit.submitErr
-  if (!open) return null
 
   return (
     <>

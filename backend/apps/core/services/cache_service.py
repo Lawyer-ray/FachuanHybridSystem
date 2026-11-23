@@ -15,6 +15,12 @@ from typing import Any, TypeVar
 
 from django.core.cache import cache
 
+# S30-22（2026-11-23 二轮审计）：原实现三处都写 `except (ConnectionError, TimeoutError, OSError)`，
+# 但生产形态是 RedisCache，redis.exceptions.ConnectionError / TimeoutError 都**不**继承
+# builtin ConnectionError/OSError（实测 MRO 里只有 RedisError）——降级分支从未命中，
+# Redis 抖动会直接穿过装饰器变成 500。现在统一用缓存层已收敛的 CACHE_ERRORS（含 RedisError）。
+from apps.core.infrastructure.cache import CACHE_ERRORS
+
 logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -55,7 +61,7 @@ def cached(key_template: str, timeout: int | None = None) -> Callable[[F], F]:  
                 result = cache.get(cache_key)
                 if result is not None:
                     return result
-            except (ConnectionError, TimeoutError, OSError):
+            except CACHE_ERRORS:
                 logger.warning("缓存读取失败，降级为直接查询: key=%s", cache_key)
                 return func(*args, **kwargs)
 
@@ -63,7 +69,7 @@ def cached(key_template: str, timeout: int | None = None) -> Callable[[F], F]:  
 
             try:
                 cache.set(cache_key, result, timeout)
-            except (ConnectionError, TimeoutError, OSError):
+            except CACHE_ERRORS:
                 logger.warning("缓存写入失败: key=%s", cache_key)
 
             return result
@@ -84,5 +90,5 @@ def invalidate_cache(key: str) -> None:  # pragma: no cover
     """
     try:
         cache.delete(key)
-    except (ConnectionError, TimeoutError, OSError):
+    except CACHE_ERRORS:
         logger.warning("缓存失效操作失败: key=%s", key)
