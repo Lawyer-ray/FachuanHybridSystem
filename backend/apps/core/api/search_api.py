@@ -91,7 +91,7 @@ async def global_search(request: HttpRequest, q: str = "", limit: int = 5) -> di
         stf(search_clients)(q, limit, user=user, org_access=org_access),
         stf(search_cases)(q, limit, user=user, org_access=org_access),
         stf(search_contracts)(q, limit, user=user, org_access=org_access),
-        stf(search_inbox)(q, limit),
+        stf(search_inbox)(q, limit, user=user, org_access=org_access),
         stf(search_court_sms)(q, limit, user=user, org_access=org_access),
         stf(search_contacts)(q, limit, user=user, org_access=org_access),
         return_exceptions=True,

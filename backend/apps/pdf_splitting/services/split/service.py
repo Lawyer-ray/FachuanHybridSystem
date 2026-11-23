@@ -12,6 +12,7 @@ from typing import Any
 
 import pymupdf as fitz
 from django.core.files.base import ContentFile
+from django.db import transaction
 from django.utils import timezone
 
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -1011,23 +1012,26 @@ class PdfSplitService:
                 name = f"{name}.pdf"
             deduped.append((item, deduplicate_filename(name, seen_names)))
 
-        PdfSplitSegment.objects.filter(job=job).delete()
-        PdfSplitSegment.objects.bulk_create(
-            [
-                PdfSplitSegment(
-                    job=job,
-                    order=item.order,
-                    page_start=item.page_start,
-                    page_end=item.page_end,
-                    segment_type=item.segment_type,
-                    filename=name,
-                    confidence=item.confidence,
-                    source_method=item.source_method,
-                    review_flag=item.review_flag,
-                )
-                for item, name in deduped
-            ]
-        )
+        # S16-13（2026-11-23 二轮审计）：原来「先 delete 再 bulk_create」不在事务里，
+        # 中途失败/进程被杀 → 该任务的分段全部丢失（要重跑整份 OCR/分段，几十元）。
+        # 两步放进同一事务：要么整批换新，要么保持原样。
+        rows = [
+            PdfSplitSegment(
+                job=job,
+                order=item.order,
+                page_start=item.page_start,
+                page_end=item.page_end,
+                segment_type=item.segment_type,
+                filename=name,
+                confidence=item.confidence,
+                source_method=item.source_method,
+                review_flag=item.review_flag,
+            )
+            for item, name in deduped
+        ]
+        with transaction.atomic():
+            PdfSplitSegment.objects.filter(job=job).delete()
+            PdfSplitSegment.objects.bulk_create(rows)
 
         # 分段阶段（merge_summary=False）要合入取字阶段已写的键，逐页质量 / 取字参数都靠它保留
         previous_summary = {} if merge_summary else dict(job.summary_payload or {})
