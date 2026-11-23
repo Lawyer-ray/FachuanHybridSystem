@@ -153,11 +153,23 @@ def promote_memory(
         if not lawyer.law_firm_id:
             raise ValueError("当前账号未归属律所")
 
+    # S47-01（2026-11-23 二轮审计）：原 `get_or_create` 的查找条件只有
+    # `scope + content_hash + status`，**缺 owner 维度** —— 别家律所/别的团队只要文本相同，
+    # 就会被命中并返回对方那条记忆（越权回吐内容），而本团队该有的规则则永远不落库。
+    # 查找条件必须与归属维度一致：团队按 team、律所按 law_firm、个人按 law_firm + created_by。
+    if scope == AgentMemory.Scope.TEAM:
+        owner_lookup: dict[str, Any] = {"team": team}
+    elif scope == AgentMemory.Scope.LAW_FIRM:
+        owner_lookup = {"law_firm": lawyer.law_firm}
+    else:  # PERSONAL
+        owner_lookup = {"law_firm": lawyer.law_firm, "created_by": lawyer}
+
     with transaction.atomic():
         memory, _created = AgentMemory.objects.get_or_create(
             scope=scope,
             content_hash=normalized,
             status__in=[AgentMemory.Status.PENDING, AgentMemory.Status.ACTIVE],
+            **owner_lookup,
             defaults={
                 "kind": kind,
                 "content": content,
