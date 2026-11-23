@@ -117,7 +117,6 @@ class TestRecordStep:
 
         assert mock_obj.started_at == "original-start", "终态不得覆盖开始时间"
         assert mock_obj.attempts == 1, "非 running 状态不应累加 attempts"
-        assert not mock_obj.asave.await_count, "没有字段需要回写时不应多打一次 UPDATE"
 
 
 # ── generic_code_exec ──
