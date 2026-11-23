@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.core.exceptions import ValidationException
+from apps.core.exceptions import ExternalServiceError, ValidationException
 from apps.enterprise_data.services.clients import McpToolClient
 from apps.enterprise_data.services.providers.adapters import QichachaResponseAdapter
 from apps.enterprise_data.services.types import ProviderConfig, ProviderResponse
@@ -43,6 +43,23 @@ _CAPABILITY_ROUTING: dict[str, tuple[str, str]] = {
     "get_company_risks": ("risk", "get_dishonest_info"),
     "search_bidding_info": ("operation", "get_bidding_info"),
     "get_person_profile": ("executive", "get_executive_positions"),
+}
+
+
+# 中文风险类别 → 企查查风控工具列表（**唯一权威**）。
+#
+# 键必须与 `apps/enterprise_data/api/enterprise_data_api.py` 的 `RiskType`（中文四值）一致；
+# 任何不一致都会让整条链路静默降级成「全查失信被执行人」（2026-11-23 二轮审计 G6 实锤）。
+# 一个类别对多个工具：企查查风控是「一工具一风险维度」，类别级语义靠这里合并。
+_RISK_TYPE_TOOLS: dict[str, tuple[str, ...]] = {
+    # 企业自身的负面记录
+    "自身风险": ("get_dishonest_info", "get_judgment_debtor_info", "get_administrative_penalty"),
+    # 关联涉诉（与他人/其他主体的纠纷）
+    "周边风险": ("get_judicial_documents",),
+    # 早期预警信号
+    "预警提醒": ("get_business_exception", "get_high_consumption_restriction"),
+    # 已发生的历史处置记录
+    "历史风险": ("get_judicial_auction",),
 }
 
 
@@ -174,27 +191,73 @@ class QichachaMcpProvider:
         )
 
     def get_company_risks(self, *, company_id: str, risk_type: str) -> ProviderResponse:
-        # 根据 risk_type 选择对应的 QCC 风险工具
-        risk_tool_map = {
-            "dishonest": "get_dishonest_info",
-            "executed": "get_judgment_debtor_info",
-            "punishment": "get_administrative_penalty",
-            "court_document": "get_judicial_documents",
-            "abnormal": "get_business_exception",
-            "judicial_sale": "get_judicial_auction",
-            "high_consumption": "get_high_consumption_restriction",
-        }
-        tool_name = risk_tool_map.get(risk_type, "get_dishonest_info")
+        """按**中文风险类别**拉取企查查风险数据。
+
+        历史坑（2026-11-23 二轮审计 G6）：这里曾用英文 slug 做键
+        （``dishonest`` / ``executed`` / ...），而 API 层 ``RiskType`` 是中文四值，
+        两边交集为空 → ``get()`` 恒走默认 ``get_dishonest_info``：
+        **四种风险全部只查「失信被执行人」**，还把请求的类别原样回填到响应里。
+
+        现在：中文类别 → 工具列表（唯一权威表 ``_RISK_TYPE_TOOLS``），多工具结果合并；
+        未登记的类别**显式报错**，不再静默回落。
+        """
+        tool_names = _RISK_TYPE_TOOLS.get(risk_type)
+        if not tool_names:
+            raise ValidationException(
+                message="不支持的风险类型: %(risk_type)s（可选：%(valid)s）"
+                % {"risk_type": risk_type, "valid": "、".join(_RISK_TYPE_TOOLS)},
+                code="INVALID_RISK_TYPE",
+                errors={"risk_type": risk_type},
+            )
+
         client = self._clients["risk"]
-        result = client.call_tool(tool_name=tool_name, arguments={"searchKey": company_id})
-        items = self._adapter.extract_items(result["payload"])
-        normalized_items = [self._adapter.normalize_risk_item(item, fallback_risk_type=risk_type) for item in items]
+        normalized_items: list[Any] = []
+        raw: dict[str, Any] = {}
+        used_tools: list[str] = []
+        first_result: dict[str, Any] | None = None
+        failures: list[str] = []
+
+        for tool_name in tool_names:
+            try:
+                result = client.call_tool(tool_name=tool_name, arguments={"searchKey": company_id})
+            except (ValidationException, ExternalServiceError) as exc:
+                # 只捕本模块已知的失败面（客户端把错误统一包成这两类）；
+                # **不写 `except Exception`** —— 仓库棘轮禁止新增宽捕获，且真未知异常该冒泡。
+                # 单工具失败不应拖垮整个类别，但必须留痕（warning，不是 debug）。
+                failures.append(tool_name)
+                logger.warning(
+                    "企查查风险工具调用失败 risk_type=%s tool=%s company=%s err=%s",
+                    risk_type,
+                    tool_name,
+                    company_id,
+                    exc,
+                )
+                continue
+            first_result = first_result or result
+            used_tools.append(tool_name)
+            raw[tool_name] = result["raw"]
+            normalized_items.extend(
+                self._adapter.normalize_risk_item(item, fallback_risk_type=risk_type)
+                for item in self._adapter.extract_items(result["payload"])
+            )
+
+        if not used_tools:
+            raise ValidationException(
+                message="企查查风险接口全部调用失败: %(tools)s" % {"tools": "、".join(failures)},
+                code="TOOL_CALL_FAILED",
+                errors={"failed_tools": failures},
+            )
+
+        meta = self._build_response_meta(first_result or {})
+        meta["tools"] = used_tools
+        if failures:
+            meta["failed_tools"] = failures
         data = {"items": normalized_items, "total": len(normalized_items), "risk_type": risk_type}
         return ProviderResponse(
             data=data,
-            raw=result["raw"],
-            tool=tool_name,
-            meta=self._build_response_meta(result),
+            raw=raw,
+            tool="、".join(used_tools),
+            meta=meta,
         )
 
     def get_company_shareholders(self, *, company_id: str) -> ProviderResponse:

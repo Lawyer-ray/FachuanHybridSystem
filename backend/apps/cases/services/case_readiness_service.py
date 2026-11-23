@@ -475,10 +475,26 @@ class ConflictCheckService:
     neutral 只是提醒补全资料。一律当冲突会让律师对告警脱敏。
     """
 
-    def check(self, case_id: int) -> dict[str, Any]:
+    def check(self, case_id: int, *, ctx: Any = None) -> dict[str, Any]:
+        """利益冲突预检。
+
+        ``ctx`` 不为空时，**命中项指向的案件若提问者无权访问，则涤去案名与客户 ID**
+        （2026-11-23 二轮审计 G9：原实现把本案以外的案名/客户 ID 无条件回吐）。
+        客户姓名必须保留——利冲的用途就是让律师认出“这是我的客户”，
+        但“这是哪个案子、客户主键是什么”属于可不给的内部标识。
+        """
         case = Case.objects.filter(id=case_id).first()
         if case is None:
             raise ValueError(f"案件不存在: {case_id}")
+
+        # 提问者可访问的案件集合（用于命中项的脱敏判定；ctx 为 None 时不脱敏）
+        visible_case_ids: set[int] = set()
+        if ctx is not None:
+            from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+
+            visible_case_ids = set(
+                CaseAccessPolicy().filter_queryset_ctx(Case.objects.all(), ctx).values_list("id", flat=True)
+            )
 
         # 本案的对方当事人（我方客户的对手才可能冲突）
         parties = list(CaseParty.objects.filter(case_id=case_id).select_related("client").all())
@@ -508,6 +524,7 @@ class ConflictCheckService:
                         level, reason, matched = "yellow", "同名但证件号不同——疑似重名，需律师复核", False
                 else:
                     level, reason, matched = "neutral", "同名但缺少证件号，无法自动判定", False
+                can_see_matched_case = ctx is None or o.case_id in visible_case_ids
                 hits.append(
                     {
                         "level": level,
@@ -515,10 +532,11 @@ class ConflictCheckService:
                         "legal_status": p.get_legal_status_display()
                         if hasattr(p, "get_legal_status_display")
                         else (p.legal_status or ""),
-                        "matched_client_id": getattr(o.client, "id", None),
                         "matched_client_name": name,
-                        "matched_case_id": o.case_id,
-                        "matched_case_name": getattr(o.case, "name", ""),
+                        "matched_case_id": o.case_id if can_see_matched_case else None,
+                        "matched_case_name": (getattr(o.case, "name", "") if can_see_matched_case else ""),
+                        "matched_client_id": getattr(o.client, "id", None) if can_see_matched_case else None,
+                        "matched_case_visible": can_see_matched_case,
                         "reason": reason,
                         "id_matched": matched,
                     }

@@ -184,6 +184,21 @@ class LPRRateService:
                 code="LPR_RATE_NOT_FOUND",
             )
 
+        # 前段守卫：查询没有下界，若 start_date 早于最早一条 LPR 记录，
+        # 第一条分段起点会被 max() 抬到「最早记录生效日」，start_date → 该日-1 这一天数段
+        # 既不进 segments 也不报错 —— 表现为静默少算天数（少算钱）。这里必须显式拒绝。
+        earliest_effective_date = rates[0].effective_date
+        if start_date < earliest_effective_date:
+            raise ValidationException(
+                message="%(start)s 至 %(end)s 期间缺少 LPR 利率数据（本库最早一条为 %(earliest)s），无法计算前段利息"
+                % {"start": start_date, "end": end_date, "earliest": earliest_effective_date},
+                code="LPR_RATE_NOT_FOUND",
+                errors={
+                    "start_date": "早于最早一条 LPR 生效日 %s" % earliest_effective_date,
+                    "earliest_effective_date": earliest_effective_date,
+                },
+            )
+
         segments: list[RateSegment] = []
 
         for i, rate in enumerate(rates):
