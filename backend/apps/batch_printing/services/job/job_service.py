@@ -254,7 +254,11 @@ class BatchPrintJobService:
         payload["items"] = [self.build_job_item_payload(item=item) for item in job.items.order_by("order", "id")]
         return payload
 
-    @transaction.atomic
+    # 注意：**不要**给 execute_job 加 `@transaction.atomic`（S30-02，2026-11-23 二轮审计）。
+    # 它内部按文件循环调用 `subprocess.run(..., timeout=120)`，整轮可能几分钟到十几分钟，
+    # 包在一个事务里会有三个后果：①进度 `.update()` 对其它会话不可见（用户看着不动）
+    # ②`request_cancel` 的写入被行锁挡住（取消不生效）③长事务拖住 vacuum。
+    # 这里每一步 DB 写本身已是原子的，失败时按 item 粒度标记即可。
     def execute_job(self, *, job_id: uuid.UUID) -> None:  # pragma: no cover
         job = self.get_job(job_id)
         if job.status in {BatchPrintJobStatus.COMPLETED, BatchPrintJobStatus.CANCELLED}:
