@@ -478,7 +478,9 @@ class TestExporterWriteImage:
     def test_invalid_base64_does_not_crash(self) -> None:
         buf = BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
-            assert _write_image(zf, "bad.jpg", "not-valid-base64!") is None
+            # S01-03（2026-11-23 二轮审计）：`_write_image` 改为返回 bool（写入成功与否），
+            # 原实现返回 None 让调用方无法区分「跳过」与「写入」，导出汇总就永远看不出部分失败。
+            assert _write_image(zf, "bad.jpg", "not-valid-base64!") is False
         # 非法 base64 图片不应写入 zip
         with zipfile.ZipFile(buf) as zf:
             assert zf.namelist() == []
@@ -493,10 +495,12 @@ class TestExporterExportZipIntegration:
         mock_storage = MagicMock()
         with patch("django.core.files.storage.default_storage", mock_storage):
             output = svc.export_zip(result)
-            assert output["success"] is True
-            assert output["zip_url"].startswith("/media/evidence_sorting/")
-            assert output["zip_url"].endswith(".zip")
-            mock_storage.save.assert_called_once()
+            # S01-03：空结果不再谎报成功（原实现恒 success=True，用户以为导出成功却拿到空包）；
+            # 既然没生成包，就不存在 zip_url，也不应落盘。
+            assert output["success"] is False
+            assert "zip_url" not in output
+            assert output["message"]
+            mock_storage.save.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
