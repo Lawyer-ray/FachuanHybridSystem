@@ -3,13 +3,15 @@
  *
  * 单独成文件是为了打断 `app/router.tsx <-> app/shell/AppShell.tsx` 的静态循环：
  * AppShell 需要这个叶子 UI，router 需要 AppShell，二者原先互相 import。
+ *
+ * 块本身不在这里手写：走 `LoadingBlock`（`components/shared/AsyncState`）这个
+ * 三态单一来源，顺带拿到 `role="status"` / `aria-live="polite"`（转圈时要让读屏
+ * 播报「正在加载」，此前手写的 div 没有这两个属性）。
  */
-import { Loader2 } from 'lucide-react'
+import { LoadingBlock } from '@/components/shared/AsyncState'
 
 export function RouteFallback() {
-  return (
-    <div className="flex items-center justify-center gap-2 py-24 text-sm text-secondary-foreground">
-      <Loader2 className="h-4 w-4 animate-spin" /> 正在加载…
-    </div>
-  )
+  // py-24 / text-secondary-foreground 覆盖 LoadingBlock 的默认 py-8 / muted 色，
+  // 与改造前视觉一致（字号本就是同档 text-sm）。
+  return <LoadingBlock text="正在加载…" className="py-24 text-secondary-foreground" />
 }

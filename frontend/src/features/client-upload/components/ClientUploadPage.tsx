@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { formatBytes } from '@/lib/format'
 import { errMessage } from '@/lib/errors'
 import { getLinkInfo, listUploadedFiles, uploadFiles } from '../api'
-import { ACCEPT_ATTR, CLOSED_STATE_TEXT } from '../constants'
+import { ACCEPT_ATTR, CLOSED_STATE_TEXT, MAX_ARCHIVE_MB, MAX_SINGLE_FILE_MB } from '../constants'
 import type { LinkState, PublicFileItem, PublicLinkInfo } from '../types'
 
 function stateHint(state: LinkState): string {
@@ -163,7 +163,7 @@ export function ClientUploadPage() {
               <UploadCloud className="mx-auto mb-3 h-8 w-8 text-muted-foreground" aria-hidden />
               <p className="text-sm font-medium">点击选择文件，或把文件拖到这里</p>
               <p className="mt-2 text-xs text-muted-foreground">
-                支持 PDF / Word / Excel / PPT / 图片 / 压缩包；单个文件 ≤ 50MB，压缩包 ≤ 200MB
+                支持 PDF / Word / Excel / PPT / 图片 / 压缩包；单个文件 ≤ {MAX_SINGLE_FILE_MB}MB，压缩包 ≤ {MAX_ARCHIVE_MB}MB
               </p>
             </section>
             {/* 真正的 file input 留在按钮之外：`display:none` 时本来就不在无障碍树上，
