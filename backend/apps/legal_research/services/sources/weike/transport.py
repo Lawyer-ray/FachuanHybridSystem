@@ -7,9 +7,26 @@ import time
 from collections.abc import Callable, Iterable
 from typing import Any
 
+import httpx
+from playwright.sync_api import Error as PlaywrightError
+
 from .types import WeikeSession
 
 logger = logging.getLogger(__name__)
+
+# 可重试的请求异常：真实抛出的超时/连接错误都不在这两类之外。
+# S14-27（2026-11-23 二轮审计）：原实现只捕 `(TypeError, ValueError)`，而 httpx 抛
+# TimeoutException/ConnectError（httpx.HTTPError）、Playwright 抛 TimeoutError
+# （playwright.sync_api.Error）、requests 抛 Timeout/ConnectionError（IOError 子类，
+# 由 OSError 接住）—— 三者都不是 TypeError/ValueError，max_attempts=3 对网络故障
+# 一次也没生效。TypeError/ValueError 保留：入参/JSON 结构异常仍按原口径重试。
+RETRYABLE_REQUEST_ERRORS: tuple[type[Exception], ...] = (
+    httpx.HTTPError,
+    OSError,
+    PlaywrightError,
+    TypeError,
+    ValueError,
+)
 
 
 class WeikeTransportMixin:  # pragma: no cover
@@ -97,7 +114,7 @@ class WeikeTransportMixin:  # pragma: no cover
             try:
                 response = request_fn()
                 last_response = response
-            except (TypeError, ValueError) as exc:
+            except RETRYABLE_REQUEST_ERRORS as exc:
                 last_exception = exc
                 if attempt >= attempts:
                     raise

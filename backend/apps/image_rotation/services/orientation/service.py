@@ -9,6 +9,8 @@ from PIL import Image
 
 from apps.core.protocols import IOcrService
 
+from ..transform.angles import to_pil_angle
+
 logger = logging.getLogger("apps.image_rotation")
 
 
@@ -51,11 +53,11 @@ class OrientationDetectionService:
             scores: dict[int, float] = {}
             rotations: list[Any] = [0, 90, 180, 270]
 
-            for rotation in rotations:
-                if rotation == 0:
+            for pil_rotation in rotations:
+                if pil_rotation == 0:
                     rotated_img = img
                 else:
-                    rotated_img = img.rotate(rotation, expand=True)
+                    rotated_img = img.rotate(pil_rotation, expand=True)
 
                 img_bytes = io.BytesIO()
                 rotated_img.save(img_bytes, format="JPEG", quality=85)
@@ -70,8 +72,14 @@ class OrientationDetectionService:
                 else:
                     score = 0
 
-                scores[rotation] = score
-                logger.debug("方向 %s°: 得分=%.2f", rotation, score)
+                # S27-20（2026-11-23 二轮审计）：投票循环里 `img.rotate(rotation)` 用的是
+                # PIL 语义（正值 = 逆时针），而返回给调用方的 rotation 被当作界面/ONNX 的
+                # 顺时针角消费（facade.py 再交给 to_pil_angle 取反一次）→ 90°/270° 方向整体反号，
+                # 图仍横向且倒置。现在把每个候选角度先转成顺时针再入表，scores 的键与
+                # 返回的 rotation 用同一套语义。
+                clockwise_rotation = to_pil_angle(pil_rotation)
+                scores[clockwise_rotation] = score
+                logger.debug("方向 %s°: 得分=%.2f", clockwise_rotation, score)
 
             best_rotation = max(scores, key=lambda rotation: scores[rotation])
             best_score = scores[best_rotation]
@@ -124,11 +132,11 @@ class OrientationDetectionService:
             texts: dict[int, str] = {}
             rotations: list[Any] = [0, 90, 180, 270]
 
-            for rotation in rotations:
-                if rotation == 0:
+            for pil_rotation in rotations:
+                if pil_rotation == 0:
                     rotated_img = img
                 else:
-                    rotated_img = img.rotate(rotation, expand=True)
+                    rotated_img = img.rotate(pil_rotation, expand=True)
 
                 img_bytes = io.BytesIO()
                 rotated_img.save(img_bytes, format="JPEG", quality=85)
@@ -136,17 +144,20 @@ class OrientationDetectionService:
 
                 result = self.ocr_service.recognize_raw(img_bytes_data)
 
+                # S27-20（2026-11-23 二轮审计）：同 detect_orientation，候选角度统一换成
+                # 顺时针（界面/ONNX 语义）后再入表，scores/texts 的键与返回的 rotation 一致。
+                clockwise_rotation = to_pil_angle(pil_rotation)
                 if result and result.txts and result.scores:
                     text_count = len(result.txts)
                     avg_confidence = sum(result.scores) / len(result.scores)
                     score = text_count * avg_confidence
-                    texts[rotation] = "\n".join(result.txts)
+                    texts[clockwise_rotation] = "\n".join(result.txts)
                 else:
                     score = 0
-                    texts[rotation] = ""
+                    texts[clockwise_rotation] = ""
 
-                scores[rotation] = score
-                logger.debug("方向 %s°: 得分=%.2f", rotation, score)
+                scores[clockwise_rotation] = score
+                logger.debug("方向 %s°: 得分=%.2f", clockwise_rotation, score)
 
             best_rotation = max(scores, key=lambda rotation: scores[rotation])
             best_score = scores[best_rotation]

@@ -50,6 +50,11 @@ class ExtractionResult:
     amount: str | None = None  # 标准化金额 如 "65500元"
     raw_date: str | None = None  # 原始日期文本
     raw_amount: str | None = None  # 原始金额文本
+    # S27-18（2026-11-23 二轮审计）：原实现把「LLM 不可用 / 超时 / 返回空 / 调用失败」
+    # 四种情况都降级成空 ExtractionResult，于是 suggest_rename 恒返回 success=True,
+    # 与「LLM 成功但确实没提取到日期金额」在响应里完全不可区分。现在用 error 记住
+    # 失败原因，由 suggest_rename 转成 success=False。
+    error: str | None = None  # 提取失败的原因（非空即失败，区别于「提取成功但无内容」）
 
 
 @dataclass
@@ -88,7 +93,7 @@ class AutoRenameService:
             ocr_text: OCR 识别的文本
 
         Returns:
-            ExtractionResult: 包含 date 和 amount 的提取结果
+            ExtractionResult: 包含 date 和 amount 的提取结果；LLM 失败时 `error` 非空
 
         Requirements: 2.1, 2.2, 2.3, 2.4, 2.5
         """
@@ -111,17 +116,17 @@ class AutoRenameService:
                 response_text = (llm_resp.content or "").strip()
             if not response_text:
                 logger.warning("LLM 返回内容为空")
-                return ExtractionResult()
+                return ExtractionResult(error="LLM 返回内容为空")
 
         except LLMNetworkError as e:
             logger.warning("LLM 服务不可用，跳过提取: %s", e)
-            return ExtractionResult()
+            return ExtractionResult(error=f"LLM 服务不可用: {e}")
         except LLMTimeoutError as e:
             logger.warning("LLM 请求超时，跳过提取: %s", e)
-            return ExtractionResult()
+            return ExtractionResult(error=f"LLM 请求超时: {e}")
         except Exception as e:
             logger.warning("LLM 调用失败: %s", e)
-            return ExtractionResult()
+            return ExtractionResult(error=f"LLM 调用失败: {e}")
 
         # 解析 JSON 响应
         return self._parse_extraction_response(response_text)
@@ -363,6 +368,7 @@ class AutoRenameService:
 
         组合 extract_info 和 generate_filename 方法,从 OCR 文本中提取信息并生成建议文件名.
         处理异常时返回带有错误信息的 RenameSuggestion,而非抛出异常.
+        LLM 提取失败（非「无日期金额」）时返回 success=False 并带上 error.
 
         Args:
             original_filename: 原始文件名
@@ -380,7 +386,20 @@ class AutoRenameService:
             # 2. 生成建议文件名
             suggested_filename = self.generate_filename(original_filename, extraction_result)
 
-            # 3. 返回重命名建议
+            # 3. 提取失败（LLM 不可用/超时/返回空/调用失败）不是「没有日期金额」：
+            # S27-18（2026-11-23 二轮审计）原实现一律 success=True，前端以为自动重命名
+            # 已完成，实际一张没改。现在把失败原因带出去。
+            if extraction_result.error is not None:
+                return RenameSuggestion(
+                    original_filename=original_filename,
+                    suggested_filename=suggested_filename,
+                    date=extraction_result.date,
+                    amount=extraction_result.amount,
+                    success=False,
+                    error=extraction_result.error,
+                )
+
+            # 4. 返回重命名建议
             return RenameSuggestion(
                 original_filename=original_filename,
                 suggested_filename=suggested_filename,

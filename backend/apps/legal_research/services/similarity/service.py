@@ -39,11 +39,20 @@ class _LLMEmbeddingClientAdapter:  # pragma: no cover
         else:
             texts = [str(raw_input or "")]
         model = kwargs.get("model")
+        embed_kwargs: dict[str, Any] = {}
+        # S14-28（2026-11-23 二轮审计）：原实现只读 input/model，调用方
+        # `_get_semantic_embedding` 传的 `timeout=8` 被丢掉，于是后端按
+        # provider.timeout（缺省 120s）等下去，8 秒上限从未生效。
+        # 后端认的键名是 `timeout_seconds`（backends/openai_compatible.py:1001），在此改名转发。
+        timeout = kwargs.get("timeout")
+        if timeout is not None:
+            embed_kwargs["timeout_seconds"] = timeout
         vectors = self._llm_service.embed_texts(
             texts=texts,
             backend="openai_compatible",
             model=model,
             fallback=False,
+            **embed_kwargs,
         )
         data = [SimpleNamespace(embedding=vector) for vector in vectors]
         return SimpleNamespace(data=data)
