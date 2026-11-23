@@ -46,6 +46,13 @@ _CAPABILITY_ROUTING: dict[str, tuple[str, str]] = {
 }
 
 
+# 工具名 → 首选 server（由统一能力路由表反推）：直调工具时先试对的那一个，
+# 其余 server 仅作兜底（企查查 6 个 server 各管一域，盲试顺序必然白撞 5 次）。
+_PREFERRED_SERVER_BY_TOOL: dict[str, str] = {
+    qcc_tool: server_key for server_key, qcc_tool in _CAPABILITY_ROUTING.values()
+}
+
+
 # 中文风险类别 → 企查查风控工具列表（**唯一权威**）。
 #
 # 键必须与 `apps/enterprise_data/api/enterprise_data_api.py` 的 `RiskType`（中文四值）一致；
@@ -126,8 +133,19 @@ class QichachaMcpProvider:
                 code="INVALID_TOOL_NAME",
                 errors={"provider": self.name},
             )
-        # 尝试从所有 client 中调用
-        for server_key, client in self._clients.items():
+        # S33-02（2026-11-23 二轮审计）：原实现无视路由表、按建表顺序串行盲试 6 个
+        # server，且把每次失败压到 `logger.debug`——命中正确 server 前先白撞若干个，
+        # 失败原因在生产 INFO 级日志里完全不可见。现在：路由表能定位到 server 的工具
+        # 优先试那一个（其余仍是兜底），失败改 warning 留痕并汇总进最终异常。
+        preferred_server = _PREFERRED_SERVER_BY_TOOL.get(normalized_tool)
+        server_keys = list(self._clients)
+        if preferred_server in server_keys:
+            server_keys.remove(preferred_server)
+            server_keys.insert(0, preferred_server)
+
+        failures: list[str] = []
+        for server_key in server_keys:
+            client = self._clients[server_key]
             try:
                 result = client.call_tool(tool_name=normalized_tool, arguments=arguments)
                 return ProviderResponse(
@@ -136,18 +154,21 @@ class QichachaMcpProvider:
                     tool=normalized_tool,
                     meta=self._build_response_meta(result),
                 )
-            except Exception:
-                logger.debug(
-                    "企查查 MCP Server 调用工具失败（已忽略，尝试下一个 Server）: server=%s tool=%s",
+            except Exception as exc:
+                # 仍按「换下一个 server 再试」容错（企查查各域 server 对非本域工具
+                # 一律报错），但每次失败必须留痕：warning + 汇总到最终异常。
+                failures.append(server_key)
+                logger.warning(
+                    "企查查 MCP Server 调用工具失败（尝试下一个 Server）: server=%s tool=%s err=%s",
                     server_key,
                     normalized_tool,
-                    exc_info=True,
+                    exc,
                 )
                 continue
         raise ValidationException(
             message=f"企查查工具调用失败: {normalized_tool}",
             code="TOOL_CALL_FAILED",
-            errors={"provider": self.name, "tool": normalized_tool},
+            errors={"provider": self.name, "tool": normalized_tool, "failed_servers": failures},
         )
 
     def search_companies(self, *, keyword: str) -> ProviderResponse:

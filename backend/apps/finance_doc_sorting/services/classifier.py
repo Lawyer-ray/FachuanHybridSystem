@@ -56,6 +56,15 @@ _KEYWORDS: dict[str, list[str]] = {
 }
 
 
+def _decode_image_bytes(data: str) -> bytes:
+    """解码前端提交的 base64 图片数据（兼容 `data:image/xxx;base64,` 前缀）。
+
+    非法 base64 会抛 `binascii.Error`，由调用方按单张失败处理。
+    """
+    raw_data = data.split(",", 1)[-1] if "," in data else data
+    return base64.b64decode(raw_data)
+
+
 @dataclass
 class ClassifiedImage:
     """分类后的图片"""
@@ -94,7 +103,7 @@ class ClassifierService:
 
     def classify_images(self, images: list[dict[str, Any]]) -> ClassifyResult:
         """
-        批量 OCR + 分类
+        批量 OCR + 分类（同步）
 
         Args:
             images: [{"filename": str, "data": str(base64)}]
@@ -109,52 +118,12 @@ class ClassifierService:
             filename: str = img.get("filename", f"image_{idx}")
             data: str = img.get("data", "")
             try:
-                # 去掉 data:image/xxx;base64, 前缀
-                raw_data = data.split(",", 1)[-1] if "," in data else data
-                image_bytes = base64.b64decode(raw_data)
-
                 # OCR + 方向检测
-                ocr_result = ocr_svc.detect_orientation_with_text(image_bytes)
-                ocr_text: str = ocr_result.get("ocr_text", "")
-                rotation: int = ocr_result.get("rotation", 0)
-                confidence: float = ocr_result.get("confidence", 0.0)
-
-                # 关键词分类
-                category = self._classify_by_keywords(ocr_text, filename)
-
-                # 提取日期和金额
-                date = self._extract_date(ocr_text)
-                amount = self._extract_amount(ocr_text)
-
-                # 对账单检测签名
-                signed: bool | None = None
-                if category == TYPE_STATEMENT:
-                    signed = self._detect_signed(ocr_text)
-
-                result.images.append(
-                    ClassifiedImage(
-                        filename=filename,
-                        category=category,
-                        ocr_text=ocr_text,
-                        date=date,
-                        amount=amount,
-                        signed=signed,
-                        confidence=confidence,
-                        image_data=data,
-                        rotation=rotation,
-                    )
-                )
+                ocr_result = ocr_svc.detect_orientation_with_text(_decode_image_bytes(data))
+                classified = self._build_classified_image(filename, data, ocr_result)
             except Exception as e:
-                logger.warning("分类失败: %s - %s", filename, e)
-                result.errors.append(f"{filename}: {e!s}")
-                result.images.append(
-                    ClassifiedImage(
-                        filename=filename,
-                        category=TYPE_OTHER,
-                        ocr_text="",
-                        image_data=data,
-                    )
-                )
+                classified = self._fallback_image(filename, data, e, result.errors)
+            result.images.append(classified)
 
         logger.info(
             "分类完成: %d 张图片, %d 个错误",
@@ -177,50 +146,17 @@ class ClassifierService:
         ocr_svc = self._get_ocr_service()
         detect_fn = sync_to_async(ocr_svc.detect_orientation_with_text, thread_sensitive=False)
 
-        async def _classify_one(idx: int, img: dict[str, Any]) -> ClassifiedImage | None:
+        async def _classify_one(idx: int, img: dict[str, Any]) -> ClassifiedImage:
             filename: str = img.get("filename", f"image_{idx}")
             data: str = img.get("data", "")
             try:
-                raw_data = data.split(",", 1)[-1] if "," in data else data
-                image_bytes = base64.b64decode(raw_data)
-
-                ocr_result = await detect_fn(image_bytes)
-                ocr_text: str = ocr_result.get("ocr_text", "")
-                rotation: int = ocr_result.get("rotation", 0)
-                confidence: float = ocr_result.get("confidence", 0.0)
-
-                category = self._classify_by_keywords(ocr_text, filename)
-                date = self._extract_date(ocr_text)
-                amount = self._extract_amount(ocr_text)
-
-                signed: bool | None = None
-                if category == TYPE_STATEMENT:
-                    signed = self._detect_signed(ocr_text)
-
-                return ClassifiedImage(
-                    filename=filename,
-                    category=category,
-                    ocr_text=ocr_text,
-                    date=date,
-                    amount=amount,
-                    signed=signed,
-                    confidence=confidence,
-                    image_data=data,
-                    rotation=rotation,
-                )
+                ocr_result = await detect_fn(_decode_image_bytes(data))
+                return self._build_classified_image(filename, data, ocr_result)
             except Exception as e:
-                logger.warning("分类失败: %s - %s", filename, e)
-                result.errors.append(f"{filename}: {e!s}")
-                return ClassifiedImage(
-                    filename=filename,
-                    category=TYPE_OTHER,
-                    ocr_text="",
-                    image_data=data,
-                )
+                return self._fallback_image(filename, data, e, result.errors)
 
-        tasks = [_classify_one(idx, img) for idx, img in enumerate(images)]
-        classified = await asyncio.gather(*tasks)
-        result.images = [img for img in classified if img is not None]
+        # gather 保持入参顺序：result.images 与前端提交的 images 一一对应
+        result.images = list(await asyncio.gather(*(_classify_one(idx, img) for idx, img in enumerate(images))))
 
         logger.info(
             "分类完成(并发): %d 张图片, %d 个错误",
@@ -228,6 +164,54 @@ class ClassifierService:
             len(result.errors),
         )
         return result
+
+    def _build_classified_image(self, filename: str, data: str, ocr_result: dict[str, Any]) -> ClassifiedImage:
+        """把一次 OCR 结果映射成分类结果。
+
+        S01-08（2026-11-23 二轮审计）：原实现里 `classify_images`（同步）与
+        `classify_images_async` 各抄一份这段约 25 行的「OCR 结果 → ClassifiedImage」
+        映射与失败兜底，只有 OCR 调用方式不同，改一侧必漏另一侧 → 现在两条路径
+        共用 `_build_classified_image` / `_fallback_image` / `_decode_image_bytes`，
+        差异只剩 OCR 那一次调用（`detect_orientation_with_text` vs `await detect_fn`）。
+        """
+        ocr_text: str = ocr_result.get("ocr_text", "")
+        rotation: int = ocr_result.get("rotation", 0)
+        confidence: float = ocr_result.get("confidence", 0.0)
+
+        # 关键词分类
+        category = self._classify_by_keywords(ocr_text, filename)
+
+        # 提取日期和金额
+        date = self._extract_date(ocr_text)
+        amount = self._extract_amount(ocr_text)
+
+        # 对账单检测签名
+        signed: bool | None = None
+        if category == TYPE_STATEMENT:
+            signed = self._detect_signed(ocr_text)
+
+        return ClassifiedImage(
+            filename=filename,
+            category=category,
+            ocr_text=ocr_text,
+            date=date,
+            amount=amount,
+            signed=signed,
+            confidence=confidence,
+            image_data=data,
+            rotation=rotation,
+        )
+
+    def _fallback_image(self, filename: str, data: str, exc: Exception, errors: list[str]) -> ClassifiedImage:
+        """单张图片失败：记错误并按「其他」保留原图（不中断整批）。"""
+        logger.warning("分类失败: %s - %s", filename, exc)
+        errors.append(f"{filename}: {exc!s}")
+        return ClassifiedImage(
+            filename=filename,
+            category=TYPE_OTHER,
+            ocr_text="",
+            image_data=data,
+        )
 
     def _classify_by_keywords(self, text: str, filename: str = "") -> str:
         """关键词匹配分类，返回匹配数最多的类型"""

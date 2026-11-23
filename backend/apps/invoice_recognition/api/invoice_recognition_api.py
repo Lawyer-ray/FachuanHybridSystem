@@ -223,6 +223,12 @@ def download_invoices(  # pragma: no cover
             raise HttpError(400, "无效的 scope 参数，允许值：single/category/all")
     except ObjectDoesNotExist:
         raise HttpError(404, "任务或发票不存在")
+    except FileNotFoundError as exc:
+        # S40-01（2026-11-23 二轮审计）：原实现只捕 ObjectDoesNotExist，媒体文件被
+        # 清理/未落盘（含 file_path="" 的校验失败记录）时 FileNotFoundError /
+        # IsADirectoryError 落到全局兜底 → 500「系统错误」；语义应为 404，
+        # 且需要与「记录不存在」区分开，告诉用户文件本身没了。
+        raise HttpError(404, "发票文件不存在（可能已被清理）") from exc
 
     response = HttpResponse(data, content_type=content_type)
     # 解耦（2026-10-19）：裸拼改走统一 RFC 5987 实现（中文/特殊字符文件名安全转义）

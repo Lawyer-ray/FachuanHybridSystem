@@ -251,6 +251,9 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
         # 安全审计（2026-10-19）：视图入口补案件访问校验（须在 try 之外，避免被兜底 except 吞成 302）
         _ensure_evidence_list_case_access(request, pk)
 
+        # 是否已把 merge_status 写成 PROCESSING（成功分支写状态、提交失败回填失败态用）
+        status_marked = False
+
         try:
             evidence_list = EvidenceList.objects.get(pk=pk)
 
@@ -270,14 +273,11 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
             from apps.core.interfaces import ServiceLocator
             from apps.core.tasking import TaskContext
 
-            task_name = f"merge_evidence_{pk}"
-            ServiceLocator.get_task_submission_service().submit(
-                "apps.evidence.tasks.merge_evidence_pdf_task",
-                args=(pk,),
-                task_name=task_name,
-                context=TaskContext(task_name=task_name, entity_id=str(pk)),
-            )
-
+            # S37-02（2026-11-23 二轮审计）：原实现「先入队、后写 PROCESSING」→ 现在「先写状态、后入队」。
+            # async_task 只保证入队成功；清单小/PDF 少时 worker 可能在本视图 save 之前就已写回
+            # COMPLETED（或旧的 COMPLETED 被 usecase 的快路径直接返回），随后本视图的
+            # 无条件 save 又把状态覆盖回 PROCESSING 且 progress 归 0 → 列表页永久「⏳ 合并中... 0%」，
+            # 且 merge_view / merge_pdfs 都以 PROCESSING 为「正在合并」跳过 → 无法再次合并。
             evidence_list.merge_status = MergeStatus.PROCESSING
             evidence_list.merge_started_at = timezone.now()
             evidence_list.merge_finished_at = None
@@ -298,6 +298,15 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
                     "merge_message",
                 ]
             )
+            status_marked = True
+
+            task_name = f"merge_evidence_{pk}"
+            ServiceLocator.get_task_submission_service().submit(
+                "apps.evidence.tasks.merge_evidence_pdf_task",
+                args=(pk,),
+                task_name=task_name,
+                context=TaskContext(task_name=task_name, entity_id=str(pk)),
+            )
 
             if is_ajax:
                 return JsonResponse({"success": True, "message": "合并任务已提交"})
@@ -309,6 +318,15 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
                 return JsonResponse({"success": False, "error": "证据清单不存在"})
             messages.error(request, "证据清单不存在")
         except Exception as e:
+            if status_marked:
+                # S37-02（2026-11-23 二轮审计）：状态已写成 PROCESSING，入队失败必须回填失败态，
+                # 否则清单永久「⏳ 合并中」且 merge_view / merge_pdfs 都以 PROCESSING 跳过 → 无法再次合并
+                EvidenceList.objects.filter(pk=pk).update(
+                    merge_status=MergeStatus.FAILED,
+                    merge_error=str(e),
+                    merge_finished_at=timezone.now(),
+                    merge_message="合并任务提交失败",
+                )
             logger.exception("操作失败")
             if is_ajax:
                 return JsonResponse({"success": False, "error": f"提交合并任务失败: {e!s}"})

@@ -73,8 +73,8 @@ class StoryAnimationJobService:
             progress_percent=0,
             created_by=created_by_value,
         )
-        task_name = self.submit_generation(animation=animation)
-        StoryAnimation.objects.filter(id=animation.id).update(task_id=task_name, started_at=timezone.now())
+        StoryAnimation.objects.filter(id=animation.id).update(started_at=timezone.now())
+        self.enqueue_generation_after_commit(animation_id=animation.id)
         animation.refresh_from_db()
         return animation
 
@@ -86,6 +86,25 @@ class StoryAnimationJobService:
                 task_name=f"story_viz_{animation.id}",
             )
         )
+
+    def enqueue_generation_after_commit(self, *, animation_id: UUID) -> None:
+        """把生成任务投递到事务提交之后。
+
+        S07-03（2026-11-23 二轮审计）：原实现在 `@transaction.atomic` 内直接
+        `submit_generation`，Redis broker 下 worker 可能抢在事务提交前出队，
+        按 id 读不到行（`get_animation` 抛 NotFoundError）或读到旧状态。
+        现在统一挂 `transaction.on_commit`，行真正落库后才投递。
+        """
+        transaction.on_commit(lambda: self._enqueue_generation(animation_id=animation_id))
+
+    def _enqueue_generation(self, *, animation_id: UUID) -> None:
+        """on_commit 回调：投递任务并把 django-q task id 回写到行上。"""
+        animation = StoryAnimation.objects.filter(id=animation_id).first()
+        if animation is None:
+            logger.warning("story_viz_enqueue_skipped animation_id=%s（行已不存在）", animation_id)
+            return
+        task_name = self.submit_generation(animation=animation)
+        StoryAnimation.objects.filter(id=animation_id).update(task_id=task_name)
 
     def get_animation(self, *, animation_id: UUID | str, user: typing.Any = None) -> StoryAnimation:
         """按 ID 取任务；user 非空且非 superuser 时限定本人创建（安全审计 IDOR）。"""
@@ -228,18 +247,20 @@ class StoryAnimationJobService:
         if animation.status not in {StoryAnimationStatus.FAILED, StoryAnimationStatus.CANCELLED}:
             raise ValidationException(message="当前状态不允许重试", errors={"status": animation.status})
 
-        task_id = self.submit_generation(animation=animation)
+        # S07-03（2026-11-23 二轮审计）：同 create_from_admin——入队移到提交后，
+        # 旧的 task_id 先清空（那条任务已结束），新 task_id 由 on_commit 回调回写。
         StoryAnimation.objects.filter(id=animation.id).update(
             status=StoryAnimationStatus.PENDING,
             current_stage=StoryAnimationStage.QUEUED,
             progress_percent=0,
-            task_id=task_id,
+            task_id="",
             cancel_requested=False,
             error_message="",
             animation_html="",
             finished_at=None,
             started_at=timezone.now(),
         )
+        self.enqueue_generation_after_commit(animation_id=animation.id)
         animation.refresh_from_db()
         return animation
 

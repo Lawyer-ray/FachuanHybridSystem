@@ -26,6 +26,8 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):  # pragma: n
         error_count = 0
 
         for evidence_list in queryset:
+            # 是否已把 merge_status 写成 PROCESSING（提交失败时回填失败态用）
+            status_marked = False
             try:
                 if evidence_list.merge_status == MergeStatus.PROCESSING:
                     skipped_count += 1
@@ -39,13 +41,9 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):  # pragma: n
                 from apps.core.interfaces import ServiceLocator
                 from apps.core.tasking import TaskContext
 
-                task_name = f"merge_evidence_{evidence_list.id}"
-                ServiceLocator.get_task_submission_service().submit(
-                    "apps.evidence.tasks.merge_evidence_pdf_task",
-                    args=(evidence_list.id,),
-                    task_name=task_name,
-                    context=TaskContext(task_name=task_name, entity_id=str(evidence_list.id)),
-                )
+                # S37-02（2026-11-23 二轮审计）：原实现「先入队、后写 PROCESSING」→ 现在「先写状态、后入队」，
+                # 否则 worker 先跑完写回 COMPLETED 后会被这里无条件覆盖回 PROCESSING（进度归 0），
+                # 清单永久「合并中」且无法再次合并（与 merge_view 同一修复口径）。
                 EvidenceList.objects.filter(pk=evidence_list.id).update(
                     merge_status=MergeStatus.PROCESSING,
                     merge_progress=0,
@@ -53,9 +51,25 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):  # pragma: n
                     merge_total=0,
                     merge_message="已提交合并任务",
                 )
+                status_marked = True
+
+                task_name = f"merge_evidence_{evidence_list.id}"
+                ServiceLocator.get_task_submission_service().submit(
+                    "apps.evidence.tasks.merge_evidence_pdf_task",
+                    args=(evidence_list.id,),
+                    task_name=task_name,
+                    context=TaskContext(task_name=task_name, entity_id=str(evidence_list.id)),
+                )
                 submitted_count += 1
             except Exception as e:
                 error_count += 1
+                if status_marked:
+                    # 状态已写成 PROCESSING：入队失败回填失败态，避免清单卡在「合并中」不可再合并
+                    EvidenceList.objects.filter(pk=evidence_list.id).update(
+                        merge_status=MergeStatus.FAILED,
+                        merge_error=str(e),
+                        merge_message="合并任务提交失败",
+                    )
                 messages.warning(request, "清单 %(id)s 提交失败: %(e)s" % {"id": evidence_list.id, "e": e})
 
         if submitted_count > 0:

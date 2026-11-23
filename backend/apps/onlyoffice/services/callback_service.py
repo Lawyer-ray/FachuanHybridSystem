@@ -240,7 +240,11 @@ def handle_save_callback(session: EditorSession, url: str, status: int) -> bool:
         return True
     try:
         data = _download_edited_docx(url)
-        new_saved_version = _doc_saved_version(session.task_id) + 1
+        # S36-01（2026-11-23 二轮审计）：原实现漏传 `task_type`，按默认
+        # "contract_review" 过滤——folder 域的会话（`contract_folder` / `case_folder`）
+        # 查不到行 → max() 恒为 None → 保存后 document_key 永不轮换（DS 一直用旧缓存）。
+        # 现在与同函数的 `_current_output_file` / `_doc_external_seq` 同口径带上域。
+        new_saved_version = _doc_saved_version(session.task_id, session.task_type) + 1
         old_output = _current_output_file(session.task_id, session.task_type)
         # 落盘目标交给业务域钩子（新增业务域不用改本函数）：
         # review 域改任务产物、folder 域覆写原文件（或按一次性意图另存，

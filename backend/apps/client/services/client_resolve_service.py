@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from apps.client.models import Client, ClientIdentityDoc
+from apps.client.models.identity_doc import IdentityDocType
 from apps.client.services.importer.validator import ClientJsonImportValidator
 from apps.core.exceptions import ValidationException
 
@@ -24,6 +25,26 @@ _CLIENT_FIELDS: tuple[str, ...] = (
     "legal_representative_id_number",
     "is_our_client",
 )
+
+
+def _resolve_import_doc_type(raw: object, *, client: Client) -> str:
+    """把 JSON 导入数据里的 doc_type 收敛到 IdentityDocType 的合法值。
+
+    S28-02（2026-11-23 二轮审计）：原实现缺 doc_type 时回退到字面量
+    ``"id_card_front"``，该值不在 ``IdentityDocType`` 里。Django ``choices``
+    **不建 DB 约束**，脏值会直接落库，之后按类型过滤的证件分组/合并逻辑
+    会漏掉这批数据。现在：缺省回退 ``IdentityDocType.ID_CARD``；非空但非法的
+    值记 warning 后同样回退，不打断整批导入。
+    """
+    if isinstance(raw, str) and raw in IdentityDocType.values:
+        return raw
+    if raw:
+        logger.warning(
+            "JSON 导入的证件类型非法，回退为身份证: client_id=%s doc_type=%r",
+            client.pk,
+            raw,
+        )
+    return str(IdentityDocType.ID_CARD)
 
 
 class ClientResolveService:
@@ -88,7 +109,7 @@ class ClientResolveService:
                     ClientIdentityDoc.objects.get_or_create(
                         client=client,
                         file_path=doc["file_path"],
-                        defaults={"doc_type": doc.get("doc_type", "id_card_front")},
+                        defaults={"doc_type": _resolve_import_doc_type(doc.get("doc_type"), client=client)},
                     )
 
             for clue in data.get("property_clues") or []:

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -38,15 +39,12 @@ class TestValidateCreateParamsRound4:
         from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         repo = PreservationQuoteRepository()
-        # 合法参数静默通过（返回 None）
-        assert (
-            repo.validate_create_params(
-                preserve_amount=Decimal("500"),
-                corp_id="2550",
-                category_id="127000",
-                credential_id=42,
-            )
-            is None
+        # 合法参数静默通过（无返回值、不抛异常即为通过）
+        repo.validate_create_params(
+            preserve_amount=Decimal("500"),
+            corp_id="2550",
+            category_id="127000",
+            credential_id=42,
         )
 
     def test_multiple_errors_collected(self):
@@ -186,7 +184,7 @@ class TestSavePremiumResultsEdge:
         company.c_code = "C001"
         company.c_name = "Co"
 
-        results = [
+        results: list[Any] = [
             SimpleNamespace(
                 company=company,
                 premium=Decimal("100"),
@@ -224,7 +222,7 @@ class TestSavePremiumResultsEdge:
         # Decimal(str(some_obj)) where str() works but Decimal() raises InvalidOperation
         # The catch only handles TypeError and ValueError, not InvalidOperation.
         # Test with "null" string (returns None) and empty string (returns None) instead.
-        results = [
+        results: list[Any] = [
             SimpleNamespace(
                 company=company,
                 premium=Decimal("100"),
@@ -274,22 +272,32 @@ class TestSavePremiumResultsEdge:
 
 
 class TestListQuotes:
-    """list_quotes has a known source bug: errors = ({},) is a tuple, not dict.
-    The validation path crashes before raising ValidationError.
-    We test only the non-crashing happy path here.
+    """list_quotes 真实走 Paginator + status 过滤。
+
+    S09-06（2026-11-23 二轮审计）：原实现用 `try: … except Exception: pass` 包住整个
+    调用 → 恒绿（连 AssertionError 都被吞），注释里那条「`errors = ({},)` 是元组」
+    的生产 bug 在当前源码已不存在（`preservation_quote/preservation_quote/repo.py`
+    用 `errors: dict[str, str]`），且 `@pytest.mark.django_db` 已给好连接，
+    “可能连不上 DB” 的理由不成立；现在改为裸调用 + 真断言。
     """
 
     @pytest.mark.django_db
     def test_happy_path_with_status_filter(self):
-        """list_quotes with valid params works through Paginator."""
+        """list_quotes 按 status 过滤并从 Paginator 取回列表与总数。"""
+        from apps.automation.models import PreservationQuote, QuoteStatus
         from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
+        PreservationQuote.objects.create(
+            preserve_amount=Decimal("1000.00"),
+            corp_id="2550",
+            category_id="127000",
+            status=QuoteStatus.PENDING,
+        )
+
         repo = PreservationQuoteRepository()
-        # Just verify it doesn't crash with valid params (uses real DB, may return empty)
-        try:
-            items, count = repo.list_quotes(page=1, page_size=5, status=None)
-            assert isinstance(items, list)
-            assert isinstance(count, int)
-        except Exception:
-            # May fail due to DB connection in test, that's OK
-            pass
+        items, count = repo.list_quotes(page=1, page_size=5, status=QuoteStatus.PENDING)
+
+        assert isinstance(items, list)
+        assert isinstance(count, int)
+        assert count == len(items) == 1
+        assert all(item.status == QuoteStatus.PENDING for item in items)

@@ -21,6 +21,9 @@ from .constants import (
 )
 from .filing_models import ClientInfo, _gender_from_id_number
 
+# 客户名比较与 HTTP 立案链路（http_filing._search_customer_http）共用同一个规范化口径
+from .http_filing import normalize_text
+
 logger = logging.getLogger("apps.oa_filing.jtn")
 
 
@@ -241,43 +244,70 @@ class PlaywrightHelpersMixin:  # pragma: no cover
     # 客户搜索 / 选择 / 创建
     # ------------------------------------------------------------------
 
-    async def _try_select_client(self: Any, page: Page, iframe: Frame) -> bool:  # pragma: no cover
-        """尝试在搜索结果中选中第一个客户并确认。
+    async def _try_select_client(  # pragma: no cover
+        self: Any,
+        page: Page,
+        iframe: Frame,
+        client: ClientInfo,
+    ) -> bool:
+        """在搜索结果中选中名称为 `client.name` 的客户并确认。
 
         layui table radio 选中需通过内部缓存 LAY_CHECKED 标志，
         然后直接调用 parent.projectAppReg.loadCustomer 并关闭弹窗。
 
         结果必须验证：cache 为空时 JS 静默 return 曾造成「已选中已有客户」
         假阳性——弹窗实际未关，后续步骤会被遮罩挡住（与盖章选案弹窗同族）。
-        """
-        try:
-            # 检查客户名称列（第4列，index=3）是否有实际内容
-            name_cells = iframe.locator('xpath=//*[@id="form1"]/div[5]/div[2]/div[2]/table/tbody/tr/td[4]/div')
-            if await name_cells.count() == 0:
-                return False
-            first_name = (await name_cells.first.inner_text()).strip()
-            if not first_name:
-                return False
 
+        S21-b-34（2026-11-23 二轮审计）：原实现恒取搜索结果第一条 `cache[0]`，
+        第一行客户名只写日志、从不与 `client.name` 比对；OA 搜索是子串模糊匹配，
+        「张三」会命中「张三丰」并被挂成委托方（HTTP 链路是精确名匹配，两条链路
+        口径不一致）→ 现在按「规范化后名称完全相等」过滤搜索结果：唯一命中才选中，
+        无命中返回 False 走新建客户，多条同名则报错交人工核对（选错委托方是写进
+        对方法系统的实质错误，宁可停下）。
+        """
+        # 第4列（index=3）是客户名称；行序与 layui table 缓存 cache 的下标一致
+        name_cells = iframe.locator('xpath=//*[@id="form1"]/div[5]/div[2]/div[2]/table/tbody/tr/td[4]/div')
+        if await name_cells.count() == 0:
+            return False
+
+        wanted = normalize_text(client.name)
+        row_names = [normalize_text(text) for text in await name_cells.all_text_contents()]
+        matched = [idx for idx, name in enumerate(row_names) if name and name == wanted]
+        if not matched:
+            logger.info(
+                "搜索结果的 %d 条客户中没有名称为「%s」的记录，按未找到处理",
+                len(row_names),
+                client.name,
+            )
+            return False
+        if len(matched) > 1:
+            raise RuntimeError(
+                f"OA 客户库中名称为「{client.name}」的客户有 {len(matched)} 条，无法确定委托方，请人工核对后再立案"
+            )
+        row_index = matched[0]
+
+        try:
             # 通过 JS 设置 layui table 内部缓存的选中状态，然后调用确认逻辑；
-            # 返回状态串而非静默 return，cache 为空必须按未找到处理
+            # 返回状态串而非静默 return，cache 为空/下标越界必须按未找到处理
             iframe_id = await self._get_latest_iframe_id(page)
             status = await page.evaluate(
-                """(iframeId) => {
-                const iframe = document.getElementById(iframeId);
+                """(payload) => {
+                const iframe = document.getElementById(payload.iframeId);
                 if (!iframe) return 'no-iframe';
                 const layui = iframe.contentWindow.layui;
                 const cache = layui && layui.table ? layui.table.cache['custable'] : null;
                 if (!cache || cache.length === 0) return 'no-cache';
-                cache[0]['LAY_CHECKED'] = true;
-                const data = [cache[0]];
+                const row = cache[payload.rowIndex];
+                if (!row) return 'no-row';
+                row['LAY_CHECKED'] = true;
+                const data = [row];
                 data[0]['istemp'] = 'Z';
                 iframe.contentWindow.parent.projectAppReg.loadCustomer(data);
                 const index = iframe.contentWindow.parent.layer.getFrameIndex(iframe.contentWindow.name);
                 iframe.contentWindow.parent.layer.close(index);
                 return 'ok';
             }""",
-                iframe_id,
+                {"iframeId": iframe_id, "rowIndex": row_index},
             )
             if status != "ok":
                 logger.info("客户搜索弹窗无可选数据（status=%s），按未找到处理", status)
@@ -290,7 +320,7 @@ class PlaywrightHelpersMixin:  # pragma: no cover
                     "() => document.querySelectorAll('iframe[id^=\"layui-layer-iframe\"]').length"
                 )
                 if not remaining:
-                    logger.info("已选中已有客户: %s", first_name)
+                    logger.info("已选中已有客户: %s", row_names[row_index])
                     return True
                 await asyncio.sleep(_SHORT_WAIT)
             logger.warning("客户选择后弹窗未关闭，按未选中处理")

@@ -78,11 +78,19 @@ class TestIcsUrlProviderValidateUrl:
         assert "内网" in self.provider._validate_url("https://0.0.0.0/ics")
 
     def test_rejects_ipv6_loopback(self) -> None:
-        # [::1] is parsed as a domain by urlparse, so ipaddress check doesn't trigger
-        # but it still gets caught by blocked_hosts or passes through
-        result = self.provider._validate_url("https://[::1]/ics")
-        # Just verify the method runs without error
-        assert isinstance(result, str)
+        # S36-06（2026-11-23 二轮审计）：原断言只校验 isinstance(result, str)，
+        # _validate_url 放行（返回 ""）时同样成立 → 零回归保护；
+        # 现在直接断言「内网地址」拦截口径。urlparse 会去掉方括号，
+        # hostname 拿到 "::1"，走 ipaddress 字面量分支而非域名分支。
+        assert "内网" in self.provider._validate_url("https://[::1]/ics")
+
+    def test_rejects_ipv6_expanded_loopback(self) -> None:
+        # 全展开写法与 [::1] 等价，同样必须走字面量 IP 判定
+        assert "内网" in self.provider._validate_url("https://[0:0:0:0:0:0:0:1]/ics")
+
+    def test_rejects_ipv4_mapped_ipv6_loopback(self) -> None:
+        # IPv4-mapped 写法可绕过只看 IPv4 字面量的实现
+        assert "内网" in self.provider._validate_url("https://[::ffff:127.0.0.1]/ics")
 
     def test_invalid_url_format(self) -> None:
         result = self.provider._validate_url("not a url at all")

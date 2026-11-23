@@ -262,78 +262,23 @@ class TestRunSingleQuote:
 
 @pytest.mark.django_db
 class TestGetQuoteComparison:
-    """Test the comparison analysis method (lines 457-543 in preservation_quote_admin_service.py)."""
+    """直接调用生产的 get_quote_comparison。
 
-    def _call_comparison(self, service, quote_id):
-        """Call the comparison method that's defined after run_single_quote."""
-        # The method code is in a string block after run_single_quote's raise
-        # We invoke the actual code path via the class
-        import types
-
-        code_text = """
-def get_quote_comparison(self, quote_id):
-    from apps.automation.models import PreservationQuote, InsuranceQuote, QuoteItemStatus
-    from apps.core.exceptions import NotFoundError, BusinessException
-    try:
-        quote = PreservationQuote.objects.get(id=quote_id)
-    except PreservationQuote.DoesNotExist as e:
-        raise NotFoundError(message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}) from e
-
-    successful_quotes = quote.quotes.filter(status=QuoteItemStatus.SUCCESS, min_amount__isnull=False).order_by("min_amount")
-
-    if not successful_quotes.exists():
-        return {
-            "quote_id": quote_id,
-            "preserve_amount": float(quote.preserve_amount),
-            "comparison_data": [],
-            "statistics": {},
-            "message": "暂无成功的报价数据",
-        }
-
-    comparison_data = []
-    premiums = []
-    for i, insurance_quote in enumerate(successful_quotes):
-        premium = float(insurance_quote.min_amount)
-        premiums.append(premium)
-        rate = premium / float(quote.preserve_amount) * 100
-        comparison_data.append({
-            "rank": i + 1,
-            "company_name": insurance_quote.company_name,
-            "premium": premium,
-            "rate": rate,
-            "max_apply_amount": float(insurance_quote.max_apply_amount) if insurance_quote.max_apply_amount else None,
-            "is_best": i == 0,
-        })
-
-    statistics = {
-        "total_companies": len(comparison_data),
-        "min_premium": min(premiums),
-        "max_premium": max(premiums),
-        "avg_premium": sum(premiums) / len(premiums),
-        "price_range": max(premiums) - min(premiums),
-        "savings_amount": max(premiums) - min(premiums),
-        "savings_percentage": (((max(premiums) - min(premiums)) / max(premiums) * 100) if max(premiums) > 0 else 0),
-    }
-
-    return {
-        "quote_id": quote_id,
-        "preserve_amount": float(quote.preserve_amount),
-        "comparison_data": comparison_data,
-        "statistics": statistics,
-    }
-"""
-        exec(code_text)
-        return locals()["get_quote_comparison"](self, quote_id)
+    S09-05（2026-11-23 二轮审计）：原实现用 `exec(code_text)` 跑一份手抄的源码，
+    断言全落在这份拷贝上——生产方法改字段名/改统计口径/被删除都不会红；
+    现在改为真调用 `PreservationQuoteAdminService.get_quote_comparison`。
+    """
 
     def test_not_found(self, service):
         from apps.core.exceptions import NotFoundError
 
         with pytest.raises(NotFoundError):
-            self._call_comparison(service, 999999)
+            service.get_quote_comparison(999999)
 
     def test_no_successful_quotes(self, service, failed_quote):
-        result = self._call_comparison(service, failed_quote.id)
+        result = service.get_quote_comparison(failed_quote.id)
         assert result["comparison_data"] == []
+        assert result["statistics"] == {}
         assert result["message"] == "暂无成功的报价数据"
 
     def test_with_successful_quotes(self, service, success_quote):
@@ -347,9 +292,22 @@ def get_quote_comparison(self, quote_id):
             max_apply_amount=Decimal("500000.00"),
             status=QuoteItemStatus.SUCCESS,
         )
-        result = self._call_comparison(service, success_quote.id)
-        assert len(result["comparison_data"]) == 2
-        assert result["statistics"]["total_companies"] == 2
-        assert result["statistics"]["min_premium"] == 500.0
-        assert result["statistics"]["max_premium"] == 800.0
-        assert result["comparison_data"][0]["is_best"] is True
+        result = service.get_quote_comparison(success_quote.id)
+
+        # 排名与排序：按 min_amount 升序，rank 从 1 递增，第一个即最优
+        assert [row["rank"] for row in result["comparison_data"]] == [1, 2]
+        assert [row["company_name"] for row in result["comparison_data"]] == ["保险公司B", "保险公司C"]
+        assert [row["is_best"] for row in result["comparison_data"]] == [True, False]
+        # 保费 500 / 保额 200000 → 费率 0.25%（口径：百分比）
+        assert result["comparison_data"][0]["rate"] == pytest.approx(500.0 / 200000.0 * 100)
+        assert result["comparison_data"][1]["max_apply_amount"] == 500000.0
+
+        # 统计字段：两条成功报价 500 / 800
+        statistics = result["statistics"]
+        assert statistics["total_companies"] == 2
+        assert statistics["min_premium"] == 500.0
+        assert statistics["max_premium"] == 800.0
+        assert statistics["avg_premium"] == 650.0
+        assert statistics["price_range"] == 300.0
+        assert statistics["savings_amount"] == 300.0
+        assert statistics["savings_percentage"] == pytest.approx(300.0 / 800.0 * 100)

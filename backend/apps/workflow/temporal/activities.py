@@ -217,6 +217,13 @@ async def suggest_arrangement(summary: dict) -> list[dict]:
                 text = text[4:]
         return json.loads(text.strip())  # type: ignore[no-any-return]
     except (json.JSONDecodeError, IndexError):
+        # S47-27（2026-11-23 二轮审计）：原实现静默回退，事故不留痕。
+        # 兜底载荷维持原状（结果形状已被 tests/ci/unit/workflow/temporal/test_activities.py#TestSuggestArrangement
+        # 锁死，改值需先改测试），但至少把解析失败与模型输出片段记下来。
+        logger.warning(
+            "suggest_arrangement LLM 回复不是合法 JSON，回退为空排列建议: output=%r",
+            result[:200],
+        )
         return [{"id": 0, "name": "解析失败", "reason": result}]
 
 
@@ -393,6 +400,12 @@ async def review_complaint_quality(draft: dict, summary: dict) -> dict:
                 text = text[4:]
         return json.loads(text.strip())  # type: ignore[no-any-return]
     except (json.JSONDecodeError, IndexError):
+        # S47-27（2026-11-23 二轮审计）：同 suggest_arrangement，兜底值
+        # （score: 70）仍待改成「不伪造」，但解析失败必留 warning 底。
+        logger.warning(
+            "review_complaint_quality LLM 回复不是合法 JSON，回退为默认评分: output=%r",
+            result[:200],
+        )
         return {"score": 70, "issues": ["解析失败"], "suggestions": [result]}
 
 

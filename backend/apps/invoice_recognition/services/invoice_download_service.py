@@ -43,8 +43,16 @@ class InvoiceDownloadService:
         if user is not None and not getattr(user, "is_superuser", False):
             qs = qs.filter(task__created_by=user)
         record = qs.get(pk=invoice_id)
+        # S40-01（2026-11-23 二轮审计）：原实现只看 `exists()`，而校验失败的记录
+        # `file_path=""`（见 upload_and_recognize），`Path(MEDIA_ROOT) / ""` 就是
+        # MEDIA_ROOT 目录、`exists()` 为真 → 调用方 `Path(...).open("rb")` 抛
+        # IsADirectoryError 落到全局兜底变成 500。现在空路径与目录都按「文件不存在」
+        # 提前拒绝，由 API 层转 404。
+        if not record.file_path:
+            logger.warning("发票记录没有关联文件（file_path 为空）: id=%s", record.id)
+            raise FileNotFoundError(f"文件不存在: 发票记录 {record.id} 没有关联文件")
         abs_path = Path(settings.MEDIA_ROOT) / record.file_path
-        if not abs_path.exists():
+        if not abs_path.is_file():
             logger.warning("发票文件不存在: %s", abs_path)
             raise FileNotFoundError(f"文件不存在: {abs_path}")
         return abs_path, record.original_filename
