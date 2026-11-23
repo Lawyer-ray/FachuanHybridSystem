@@ -77,7 +77,10 @@ class GuaranteeDataMixin:
             ).strip()
             defaults["property_province"] = str(clue_data.get("property_province") or "").strip()
             defaults["property_cert_no"] = str(clue_data.get("property_cert_no") or "").strip()
-            defaults["property_value"] = str(clue_data.get("property_value") or "").strip() or "300000"
+            # S31-09（2026-11-23 二轮审计）：这里原本在缺值时回落硬编码 "300000"，
+            # 等于**凭空编一个保全金额报给法院**（同文件自己的注释写着「禁止使用默认值提交法院系统」）。
+            # 现在缺值就留空，由上层按「缺字段」处理。
+            defaults["property_value"] = str(clue_data.get("property_value") or "").strip()
         return defaults
 
     def _build_agent_dialog_defaults(self, source: dict[str, Any]) -> dict[str, str]:

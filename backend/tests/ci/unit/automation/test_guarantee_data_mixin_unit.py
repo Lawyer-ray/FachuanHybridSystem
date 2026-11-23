@@ -138,7 +138,9 @@ class TestBuildPartyDialogDefaults:
         assert defaults["owner_name"] == "张三"
         assert defaults["property_type"] == "其他"
         assert "张三" in defaults["property_info"]
-        assert defaults["property_value"] == "300000"
+        # S31-09（2026-11-23 二轮审计）：缺 property_value 时**不再**回落硬编码 "300000"
+        # —— 那是凭空编一个保全金额报给法院。原断言锁的正是这个缺陷。
+        assert defaults["property_value"] == "", "缺值必须留空，不得编造金额提交法院"
 
 
 class TestBuildAgentDialogDefaults:
