@@ -32,7 +32,22 @@ def _content_preview(content: str, limit: int = _LOG_CONTENT_PREVIEW_LIMIT) -> s
 
 
 def _usage_tokens(response: Any) -> int:
-    """从响应里取 total_tokens（供 tpm 统计）；取不到返回 0，绝不因此报错。"""
+    """从响应里取 total_tokens（供 tpm 统计）；取不到返回 0，绝不因此报错。
+
+    S45-01（2026-11-23 二轮审计）：调用点传进来的是本仓的 **`LLMResponse`**
+    （`apps/core/llm/backends/base.py:37` 有 `total_tokens` 字段），它**没有** `.usage`；
+    原实现只读 `.usage` → 恒返回 0 → `KeyPool.release(tokens=0)` → 滑窗永不记 token，
+    tpm 限流实际上一直是瞎的。这里两条路径都认：先读 `LLMResponse.total_tokens`，
+    再退到 SDK 风格的 `usage.total_tokens`。
+    """
+    direct = getattr(response, "total_tokens", None)
+    try:
+        direct_value = int(direct or 0)
+    except (TypeError, ValueError):
+        direct_value = 0
+    if direct_value > 0:
+        return direct_value
+
     usage = getattr(response, "usage", None)
     if usage is None:
         return 0
