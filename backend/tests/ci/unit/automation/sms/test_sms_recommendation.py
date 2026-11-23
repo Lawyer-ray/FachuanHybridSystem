@@ -78,8 +78,18 @@ class TestYearCourtPrefixPattern:
         assert _YEAR_COURT_PREFIX_PATTERN.search("普通文本") is None
 
 
+@pytest.mark.skipif(
+    CaptchaRecognizer is None,
+    reason="court_login 插件未安装：captcha_recognizer 是插件 stub，缺插件时降级为 None",
+)
 class TestCaptchaRecognizer:
-    """CaptchaRecognizer 抽象接口测试。"""
+    """CaptchaRecognizer 抽象接口测试。
+
+    S20-06 删掉了整份文件的 `skipif(not _HAS_LOGIN)`（其余被测对象确实都来自 core apps，
+    不需要插件）。但**本类是例外**：`CaptchaRecognizer` 来自
+    `automation/services/scraper/core/captcha_recognizer.py`，那是 `plugins.court_automation.login`
+    的 stub，缺插件时降级为 None。所以门控收窄到本类，而不是恢复整文件的 skip。
+    """
 
     def test_abstract_methods(self) -> None:
         """验证抽象方法存在。"""

@@ -44,7 +44,9 @@ class TemplateAuditLogAdmin(admin.ModelAdmin):  # pragma: no cover
 
     search_fields = (
         "object_repr",
-        "user__name",
+        # 2026-11-23：原写 "user__name"，但 Lawyer 上没有 name 字段（只有 real_name）——
+        # admin 一搜索就 FieldError → 500。tests/ci/unit/test_admin_field_references.py 抓的就是这个。
+        "user__real_name",
     )
 
     readonly_fields = (
