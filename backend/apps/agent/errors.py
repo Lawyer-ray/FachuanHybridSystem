@@ -51,6 +51,18 @@ _REASON_LIMIT = 240
 #: 不是许可：**调用方仍然不得主动把 key 放进 detail**。
 _SECRET_RE = re.compile(r"(sk-[A-Za-z0-9_\-]{4,})|(Bearer\s+[A-Za-z0-9._\-]{8,})", re.IGNORECASE)
 
+#: 客户端可见的 ``detail["reason"]``：只放**分类结论**，绝不放异常原文。
+#:
+#: 异常原文（``str(exc)`` / ``exc.args``）常内嵌堆栈、上游 HTML 错误页、甚至回显的
+#: Authorization 头；它顺着 SSE 推到浏览器就是 CodeQL 的 py/stack-trace-exposure
+#: （error 级，本仓库门禁阈值 0，实测拦过两次）。原文由各调用点的 ``logger.exception``
+#: 留档（配 ``run_id`` / ``trace_id`` 检索），客户端只需要「哪一类错、能不能重试」。
+REASON_UPSTREAM = "upstream_error"
+REASON_PI_UNAVAILABLE = "pi_unavailable"
+REASON_POOL_QUEUE_TIMEOUT = "pool_queue_timeout"
+REASON_UNKNOWN_BACKEND = "unknown_backend"
+REASON_UNCLASSIFIED = "unclassified"
+
 #: 网关 429 的 ``retry-after``（pi / SDK 常把它拼进异常消息）。
 _RETRY_AFTER_RE = re.compile(r"retry[-_ ]?after[\"'=:\s]+(\d+)", re.IGNORECASE)
 
@@ -289,11 +301,13 @@ def _classify(exc: BaseException) -> tuple[str, ErrorScope, dict[str, Any], str]
     （``BackendError`` 与 pi 异常都是 ``RuntimeError`` 的子类，但彼此不继承）。
     """
     if isinstance(exc, AgentError):
-        return exc.code, exc.scope, exc.detail(), str(exc)
+        # 不用 ``str(exc)``：抛错点可能把上游原文塞进构造参数（见 stream.py 历史），
+        # 一旦进 message 就顺 SSE 外泄。类级 default_message 是策划过的中文文案。
+        return exc.code, exc.scope, exc.detail(), exc.default_message
 
     if isinstance(exc, BackendError):
         code, scope = _BACKEND_KIND_CODES.get(exc.kind, (AgentError.code, AgentError.scope))
-        detail: dict[str, Any] = {"reason": _clip(exc.message), "retryable": exc.retryable}
+        detail: dict[str, Any] = {"reason": REASON_UPSTREAM, "retryable": exc.retryable}
         retry_after = _retry_after_seconds(exc.message)
         if retry_after is not None:
             detail["retry_after_seconds"] = retry_after
@@ -309,12 +323,12 @@ def _classify(exc: BaseException) -> tuple[str, ErrorScope, dict[str, Any], str]
     if isinstance(exc, PiNotAvailableError):
         # 文案逐字保留：「pi 运行时不可用」是律师与运维都已经认得的说法
         # （集成测试也断言这一句），换措辞要同时改三处，收益不如稳定。
-        detail = {"reason": _clip(str(exc))}
+        detail = {"reason": REASON_PI_UNAVAILABLE}
         message = "pi 运行时不可用，请联系管理员（详见服务端日志）"
         return BackendUnavailableError.code, BackendUnavailableError.scope, detail, message
 
     if isinstance(exc, PoolQueueTimeoutError):
-        detail = {"reason": _clip(str(exc)), "limit": "agent_pool"}
+        detail = {"reason": REASON_POOL_QUEUE_TIMEOUT, "limit": "agent_pool"}
         return QuotaExceededError.code, QuotaExceededError.scope, detail, "当前使用人数较多，请稍后重试"
 
     if isinstance(exc, PiError):
@@ -324,7 +338,8 @@ def _classify(exc: BaseException) -> tuple[str, ErrorScope, dict[str, Any], str]
             if pattern.search(text):
                 error_type = candidate
                 break
-        detail = {"reason": _clip(text)}
+        # 分类结论代替原文；原文只进 logger（调用点已有 logger.exception）
+        detail = {"reason": error_type.code}
         retry_after = _retry_after_seconds(text)
         if retry_after is not None:
             detail["retry_after_seconds"] = retry_after
@@ -337,7 +352,7 @@ def _classify(exc: BaseException) -> tuple[str, ErrorScope, dict[str, Any], str]
     if isinstance(exc, LookupError):
         # ``get_backend`` 对未知 kind 抛 LookupError（见 ``multi.py`` 的失败矩阵：
         # 不在这里把整轮拒掉，只让那一栏报「这个后端不认识」）。
-        detail = {"reason": _clip(str(exc))}
+        detail = {"reason": REASON_UNKNOWN_BACKEND}
         return (
             CapabilityUnsupportedError.code,
             CapabilityUnsupportedError.scope,
@@ -348,7 +363,7 @@ def _classify(exc: BaseException) -> tuple[str, ErrorScope, dict[str, Any], str]
     return (
         AgentError.code,
         AgentError.scope,
-        {"reason": _clip(str(exc)), "exc_type": type(exc).__name__},
+        {"reason": REASON_UNCLASSIFIED, "exc_type": type(exc).__name__},
         (AgentError.default_message),
     )
 
