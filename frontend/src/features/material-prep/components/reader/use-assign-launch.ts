@@ -2,9 +2,30 @@ import type { NavigateFunction } from 'react-router'
 import { toast } from 'sonner'
 
 import { bankLitigation, projectDetail, projectReview } from '@/app/paths'
-import { assignPack, fetchAttachmentBytes } from '../../api'
+import { archiveSplitToCaseFolder, assignPack, fetchAttachmentBytes } from '../../api'
+import type { ArchiveToCaseFolderSegment } from '../../api'
 import { errMessage } from '@/lib/errors'
-import type { AssignInfo, DraftState } from '../../types'
+import type { AssignInfo, DraftState, Segment } from '../../types'
+
+/**
+ * 「同时归档到案件文件夹」的勾选状态（默认勾选）。
+ *
+ * 为什么由本模块持有而不是跟着 `AssignInfo` 一起传：那个类型在 `types.ts`，
+ * 它的归属不归这次改动；而弹窗到 hook 的唯一通道 `onConfirm` 在 `Reader.tsx`
+ * 里被包成了单参箭头（`(a) => void launch.onAssignConfirm(a)`），第二参数会被
+ * 静默丢掉。所以状态放在这里，`AssignModal` 用下面两个函数读写。
+ *
+ * 模块级而不是 hook state：这是律师的**偏好**，关掉弹窗再打开不该自己弹回来。
+ */
+let archiveToCaseFolderOn = true
+
+export function isArchiveToCaseFolderEnabled(): boolean {
+  return archiveToCaseFolderOn
+}
+
+export function setArchiveToCaseFolderEnabled(enabled: boolean): void {
+  archiveToCaseFolderOn = enabled
+}
 
 /**
  * 归案 → 发起审查的接线（材料预处理这一侧）。
@@ -115,6 +136,23 @@ export function useAssignLaunch(params: {
             : '案件已创建，但材料绑定未成功 —— 可到办案详情手动上传',
         duration: 5000,
       })
+
+      // 归档到案件文件夹（默认勾选）：归案已经成功，这一步是**附加**动作。
+      // 任何失败只提示、绝不改判「归案失败」——归档挂了律师也得进得去案件看材料。
+      // 一个 job 挂了不影响其余 job：循环里逐组 catch。
+      if (isArchiveToCaseFolderEnabled()) {
+        for (const group of archiveGroupsOf(draft?.segs ?? [])) {
+          try {
+            await archiveSplitToCaseFolder(group.jobId, r.caseId, group.segments)
+          } catch (e) {
+            toast.warning(`归档到案件文件夹失败：${errMessage(e, '未知错误')}`, {
+              id: 'archive',
+              duration: 6000,
+            })
+          }
+        }
+      }
+
       // 归案后跳到该项目，让用户看到结果（此前只弹 toast，用户以为没成）。
       //
       // ⚠️ /projects/:id 的 :id 是**委托合同 id**，不是案件 id（见 paths.ts）。
@@ -177,6 +215,44 @@ export function partiesOf(draft: DraftState): Record<string, string> {
     if (info.v?.trim()) acc[`party_${key}`] = info.v.trim()
     return acc
   }, {})
+}
+
+/** 一个拆分任务要归档的那些段（端点按 job 分组，一个 job 一次请求） */
+export interface ArchiveGroup {
+  jobId: string
+  segments: ArchiveToCaseFolderSegment[]
+}
+
+/**
+ * 把带 `splitRef` 的段按拆分任务分组，换成归档端点的入参。
+ *
+ * - **没有 `splitRef` 的段直接跳过**：人工切/并出来的段、旧草稿、规则引擎分流的段
+ *   在后端没有对应的任务产物，指不到 job 就归档不对（同下载入口的取舍）。
+ * - `doc_type` / `material_type` 都取段名（`seg.t || seg.fn`）去扩展名：卷宗里的
+ *   类型名与文件名都不带扩展名。
+ * - `page_start` / `page_end` 取该段的页区间（归案前已校验单源连续，见
+ *   `isSingleSourceContiguous`，所以首尾就是最小/最大页）。
+ */
+export function archiveGroupsOf(segs: Segment[]): ArchiveGroup[] {
+  const groups = new Map<string, ArchiveToCaseFolderSegment[]>()
+  for (const sg of segs) {
+    const jobId = sg.splitRef?.jobId
+    if (!jobId) continue
+    const first = sg.refs[0]
+    const last = sg.refs[sg.refs.length - 1]
+    if (!first || !last) continue
+    const name = archiveDocTypeOf(sg)
+    const list = groups.get(jobId) ?? []
+    list.push({ page_start: first.p, page_end: last.p, doc_type: name, material_type: name })
+    groups.set(jobId, list)
+  }
+  return [...groups].map(([jobId, segments]) => ({ jobId, segments }))
+}
+
+/** 归档用的类型名：段类型优先、退回文件名，去掉扩展名；都空时给个兜底名 */
+function archiveDocTypeOf(sg: Segment): string {
+  const name = (sg.t || sg.fn || '').trim().replace(/\.[A-Za-z0-9]{1,5}$/, '')
+  return name || '未命名材料'
 }
 
 /**

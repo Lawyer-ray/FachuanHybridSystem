@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useTypeaheadSearch } from '@/hooks/use-typeahead-search'
 import { searchCases } from '../../api'
 import type { AssignInfo, CaseRow, InfoField } from '../../types'
+import { isArchiveToCaseFolderEnabled, setArchiveToCaseFolderEnabled } from './use-assign-launch'
 import { cn } from '@/lib/utils'
 
 type Target = 'existing' | 'new'
@@ -27,6 +28,9 @@ export function AssignModal({
   const [target, setTarget] = useState<Target>('existing')
   const [contract, setContract] = useState<ContractOpt>('has')
   const [pickCase, setPickCase] = useState<CaseRow | null>(null)
+  // 「同时归档到案件文件夹」默认勾选。状态由 use-assign-launch 模块持有
+  // （为什么不在本组件里、也没走 AssignInfo：见那边的注释），这里只是渲染镜像。
+  const [archiveToFolder, setArchiveToFolder] = useState<boolean>(() => isArchiveToCaseFolderEnabled())
 
   const who = infos.find((f) => f.k === '委托人')?.v || ''
   // 生成委托合同要用的字段：委托人不填不能提交，另两个可空
@@ -236,14 +240,28 @@ export function AssignModal({
         </div>
 
         {/* 底部 */}
-        <div className="flex items-center gap-2 border-t border-border px-5 py-3.5">
-          <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted-foreground">{why}</span>
-          <Button variant="outline" size="sm" onClick={onCancel}>
-            取消
-          </Button>
-          <Button size="sm" disabled={okDisabled} onClick={confirm}>
-            确认并继续
-          </Button>
+        <div className="border-t border-border px-5 py-3.5">
+          {/* 归案成功后按拆分任务把每段落进案件卷宗目录；归档失败只提示、不影响归案 */}
+          <label className="flex cursor-pointer items-center gap-2 text-[12.5px]">
+            <input
+              type="checkbox"
+              checked={archiveToFolder}
+              onChange={(e) => {
+                setArchiveToFolder(e.target.checked)
+                setArchiveToCaseFolderEnabled(e.target.checked)
+              }}
+            />
+            同时归档到案件文件夹（按案件卷宗命名）
+          </label>
+          <div className="mt-2.5 flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted-foreground">{why}</span>
+            <Button variant="outline" size="sm" onClick={onCancel}>
+              取消
+            </Button>
+            <Button size="sm" disabled={okDisabled} onClick={confirm}>
+              确认并继续
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -21,6 +21,7 @@ from mcp_server.tools import (
     analyze_template,
     apply_file_write_patches,
     approve_workflow_step,
+    archive_pdf_split_to_case_folder,
     ask_user,
     assign_lawyer,
     assign_sms_case,
@@ -946,6 +947,7 @@ _t(get_automation_status)
 
 # PDF 拆解
 _t(create_pdf_split_job)
+_t(archive_pdf_split_to_case_folder)
 _t(get_pdf_split_job)
 _t(confirm_pdf_split)
 _t(cancel_pdf_split)

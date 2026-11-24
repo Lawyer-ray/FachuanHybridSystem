@@ -135,6 +135,62 @@ export async function getPdfSplitJob(jobId: string): Promise<PdfSplitJobPayload>
 }
 
 /**
+ * 归档入参里的一段（POST /pdf-splitting/jobs/{job_id}/archive-to-case-folder）。
+ *
+ * 两个类型字段（doc_type / material_type）后端都要，而本域一个段只有一个名字，
+ * 调用方先同值传（`use-assign-launch` 的 `archiveGroupsOf`）。
+ */
+export interface ArchiveToCaseFolderSegment {
+  page_start: number
+  page_end: number
+  doc_type: string
+  material_type: string
+}
+
+/** 归档结果：落在哪儿、写了哪些文件、哪些疑似副本、哪些段跳过 */
+export interface ArchiveToCaseFolderResult {
+  root: string
+  written: Array<{ filename: string; subdir: string; is_duplicate: boolean }>
+  duplicates: string[][]
+  skipped: Array<{ doc_type: string; reason: string }>
+  notice_path: string
+}
+
+/**
+ * 归案后把这次拆分的段归档到案件文件夹（POST /pdf-splitting/jobs/{job_id}/archive-to-case-folder）。
+ *
+ * 归档按**拆分任务**分组：一个 job 一次请求，`segments` 是该 job 产出的那些段
+ * （页区间 + 类型名）。后端的命名 / 版本对齐 / 副本识别都在服务端做，前端只给
+ * 「哪几页、算什么类型」。
+ *
+ * 失败**直接抛**：归档是归案的附加动作，由调用方决定只提示、不让归案看起来失败
+ * （见 `use-assign-launch` 的 `onAssignConfirm`）。
+ */
+export async function archiveSplitToCaseFolder(
+  jobId: string,
+  caseId: number,
+  segments: ArchiveToCaseFolderSegment[],
+  opts: {
+    /** 归档日期（YYYY-MM-DD）；不传由后端按今天算 */
+    date?: string
+    /** 已存在同名文件时是否照样写入（默认由后端决定） */
+    writeDuplicates?: boolean
+  } = {},
+): Promise<ArchiveToCaseFolderResult> {
+  return pdfSplitApi
+    .post(`jobs/${jobId}/archive-to-case-folder`, {
+      json: {
+        case_id: caseId,
+        segments,
+        // 可选字段只在调用方给了才进 body：后端按缺省处理，别用 undefined 占位
+        ...(opts.date ? { date: opts.date } : {}),
+        ...(opts.writeDuplicates !== undefined ? { write_duplicates: opts.writeDuplicates } : {}),
+      },
+    })
+    .json<ArchiveToCaseFolderResult>()
+}
+
+/**
  * 查一份**正在进行中**的拆分任务（GET /pdf-splitting/inflight-job）。
  *
  * 为什么需要：任务一旦发起就只活在发起页面的内存里。刷新、换设备、或者同事先

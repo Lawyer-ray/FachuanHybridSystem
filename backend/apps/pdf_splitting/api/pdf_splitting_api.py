@@ -5,12 +5,14 @@ from uuid import UUID
 
 import pymupdf as fitz
 from django.http import FileResponse, HttpResponse
+from django.utils import timezone
 from ninja import File, Form, Router
 from ninja.files import UploadedFile
 from pydantic import BaseModel, Field
 
-from apps.core.exceptions import ValidationException
+from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.http.download import build_download_response
+from apps.core.security import get_request_access_context
 from apps.pdf_splitting.services import PdfSplitJobService, PdfSplitService
 from apps.pdf_splitting.services.split.export_utils import export_segment_pdf
 from apps.pdf_splitting.services.storage import PdfSplitStorage
@@ -51,6 +53,79 @@ def _parse_segment_ids(raw: str) -> list[int] | None:
             errors={"ids": invalid},
         )
     return [int(token) for token in tokens]
+
+
+#: 页指纹的渲染分辨率。为什么不是 36 dpi：真实 40 页扫描样本实测（2026-11-24），
+#: 36 dpi + 16×16 灰度均值下「真副本」（0.003–0.012）与「非同页」（0.008–0.017）的
+#: 距离区间重叠——密排正文的 A4 在粗网格上几乎同构；100 dpi 下逐页二值化后两簇才
+#: 分开（0.008–0.024 vs 0.042–0.049），容差取在中间。
+_FINGERPRINT_DPI = 100
+
+#: 块边长（像素）：100 dpi 下每块≈2mm，一个汉字约占 2×2 块。
+#: 再细一半则扫描噪点开始主导，再粗一半则回到「版式被抹平」的 16×16 那一步。
+_FINGERPRINT_POOL = 8
+
+
+def _page_signature(page: fitz.Page) -> list[float]:
+    """单页指纹：100 dpi 灰度 → 逐页二值化 → 8×8 块内墨点占比（行优先展平）。
+
+    维度 ≈ (宽//8)×(高//8)，A4 约 15038 维。长度随页面尺寸变化，同一任务的页面
+    同尺寸即可；长度不同的两份签名由 ``signature_distance`` 直接判 1.0（＝不同页），
+    这里不做二次判断。
+
+    逐页二值化（阈值取该页灰度中位水平 ``low + (high-low)/2``）是抗纸张亮度与扫描
+    曝光的关键：不二值化时平均灰度距离被纸底亮度主导——同文书的两份扫件（纸底差
+    6/255）反而比两份不同文书更「不像」。
+
+    这里只产出**可比的向量**，判据不在这里：两页算不算「同一页」的容差是
+    ``apps/cases/services/material/scan_archive_naming.py`` 的
+    ``SAME_PAGE_MAX_DISTANCE``，副本分组也由那边的 ``group_copies`` 做。
+    """
+    pixmap = page.get_pixmap(dpi=_FINGERPRINT_DPI, colorspace=fitz.csGRAY, alpha=False)
+    width, height, samples = pixmap.width, pixmap.height, pixmap.samples
+    low, high = min(samples), max(samples)
+    threshold = low + 0.5 * (high - low)
+    # 先查表二值化成 0/1，再按块求和：块内 sum 直接就是墨点数。逐像素比较慢一个
+    # 量级（A4 每页约 97 万像素），而这里每页只做 15038 次小块求和。
+    ink_mask = samples.translate(bytes(1 if value <= threshold else 0 for value in range(256)))
+    blocks_per_row = width // _FINGERPRINT_POOL
+    signature: list[float] = []
+    for block_y in range(height // _FINGERPRINT_POOL):
+        row_start = block_y * _FINGERPRINT_POOL * width
+        for block_x in range(blocks_per_row):
+            left = row_start + block_x * _FINGERPRINT_POOL
+            ink = 0
+            for line in range(_FINGERPRINT_POOL):
+                start = left + line * width
+                ink += sum(ink_mask[start : start + _FINGERPRINT_POOL])
+            signature.append(ink / (_FINGERPRINT_POOL * _FINGERPRINT_POOL))
+    return signature
+
+
+def _segment_pdf_and_signatures(
+    source_doc: fitz.Document, segment: ArchiveSegmentIn, *, index: int, total_pages: int
+) -> tuple[bytes, list[list[float]]]:
+    """按页区间切一份 PDF，并逐页算指纹（副本判定的入参）。
+
+    页区间必须在这里校验：越界在 ``export_segment_pdf`` 里只会静默切出空页，
+    归档后就变成「一份只有封面的起诉状」，比 400 难查得多。
+    """
+    if segment.page_start < 1 or segment.page_end < segment.page_start:
+        raise ValidationException(
+            message=f"第 {index + 1} 段页区间不合法",
+            errors={"segments": f"[{index}] {segment.page_start}-{segment.page_end}"},
+        )
+    if segment.page_end > total_pages:
+        raise ValidationException(
+            message=f"第 {index + 1} 段页区间超出文件页数",
+            errors={"segments": f"[{index}] {segment.page_end} > {total_pages}"},
+        )
+    # 切页只有一份实现（export_utils）——归档不能有第二套页边界口径
+    content = export_segment_pdf(source_doc, segment.page_start, segment.page_end)
+    signatures = [
+        _page_signature(source_doc[page_no - 1]) for page_no in range(segment.page_start, segment.page_end + 1)
+    ]
+    return content, signatures
 
 
 class PositionedRectOut(BaseModel):
@@ -192,6 +267,51 @@ class ConfirmSegmentIn(BaseModel):
 
 class ConfirmRequestIn(BaseModel):
     segments: list[ConfirmSegmentIn]
+
+
+class ArchiveSegmentIn(BaseModel):
+    """一段要归到案件文件夹的材料：页区间 + 文书名 + 材料类型。"""
+
+    page_start: int
+    page_end: int
+    #: 文书名（如「传统起诉状」），进文件名的括号前那一段
+    doc_type: str
+    #: 材料类型（一般是任务的 segment_type），决定落到案件文件夹的哪一层
+    material_type: str
+
+
+class ArchiveToCaseFolderIn(BaseModel):
+    case_id: int
+    segments: list[ArchiveSegmentIn]
+    #: 文件名里的日期段（YYYYMMDD）；null/缺省取今天
+    date: str | None = None
+    #: False = 副本**不落盘**，但仍出现在响应的 duplicates 里（调用方据此提示
+    #: 「另有 N 份未写入」）
+    write_duplicates: bool = True
+
+
+class ArchiveWrittenOut(BaseModel):
+    filename: str
+    subdir: str
+    is_duplicate: bool
+    #: 落盘后的绝对路径：前端 toast / 打开目录要用，不参与文件名展示
+    absolute_path: str = ""
+
+
+class ArchiveSkippedOut(BaseModel):
+    doc_type: str
+    reason: str
+
+
+class ArchiveToCaseFolderOut(BaseModel):
+    root: str
+    written: list[ArchiveWrittenOut]
+    #: 副本分组：每组的 doc_type 序列（组内第一个是正本）
+    duplicates: list[list[str]]
+    #: 没落盘的分段与原因（如「未匹配到子目录」）
+    skipped: list[ArchiveSkippedOut]
+    #: 归档说明文件的绝对路径；没生成时为 null
+    notice_path: str | None = None
 
 
 @router.post("/extract-pages")
@@ -347,6 +467,76 @@ def confirm_pdf_split_job(
 def cancel_pdf_split_job(request: Any, job_id: UUID) -> PdfSplitJobSubmitOut:  # pragma: no cover
     job = PdfSplitJobService().request_cancel(job_id=job_id, user=_request_user(request))
     return PdfSplitJobSubmitOut(job_id=str(job.id), status=job.status)
+
+
+@router.post("/jobs/{job_id}/archive-to-case-folder", response=ArchiveToCaseFolderOut)
+def archive_pdf_split_to_case_folder(
+    request: Any, job_id: UUID, payload: ArchiveToCaseFolderIn
+) -> ArchiveToCaseFolderOut:
+    """把拆分结果按段切页，直接写进案件的绑定文件夹（不经浏览器上传往返）。
+
+    与 ``/extract-pages`` + 前端上传的分工：那条链路每份材料都要过一次上传，
+    几十段就是几十次往返；这条在服务端切片 + 命名 + 落盘，前端只给「每段用
+    哪个文书名 / 材料类型」。命名、版本对齐（docx 是 V4、扫描件也是 V4，不是 V5）、
+    副本识别都在 ``apps.cases.services.material`` 侧（见 scan_archive_naming）。
+
+    页指纹随材料一起交给归档服务：副本靠它比对，不能靠文件名——「起诉状_1.pdf」
+    与「起诉状(1).pdf」既可能是同一份的两个扫件，也可能是两份不同材料。
+    """
+    job = PdfSplitJobService().get_job(job_id, user=_request_user(request))  # 安全审计第4轮：校验任务属主
+    if not payload.segments:
+        raise ValidationException(message="没有可归档的分段", errors={"segments": "至少需要一个分段"})
+
+    # 延迟导入：cases 侧的归档服务是本模块唯一的跨 app 依赖，放在函数内与
+    # _request_user / _require_admin 同风格，也让两个 app 的 import 不互相绑架。
+    from apps.cases.services.material.case_material_archive_service import ArchiveItem, CaseMaterialArchiveService
+
+    storage = PdfSplitStorage(job.id)
+    if not storage.source_pdf_path.exists():
+        raise NotFoundError(message="任务缺少原始 PDF，无法归档", errors={"job_id": str(job.id)})
+
+    date = (payload.date or "").strip() or timezone.localdate().strftime("%Y%m%d")
+    ctx = get_request_access_context(request)
+
+    items: list[Any] = []
+    with fitz.open(storage.source_pdf_path) as source_doc:
+        total_pages = int(source_doc.page_count)
+        for index, segment in enumerate(payload.segments):
+            content, signatures = _segment_pdf_and_signatures(source_doc, segment, index=index, total_pages=total_pages)
+            items.append(
+                ArchiveItem(
+                    doc_type=segment.doc_type,
+                    material_type=segment.material_type,
+                    content=content,
+                    page_signatures=signatures,
+                )
+            )
+
+    # 案件 ACL、命名、副本分组、落盘全在归档服务内；这里只透传 ctx 与结果
+    result = CaseMaterialArchiveService().archive(
+        case_id=payload.case_id,
+        items=items,
+        date=date,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+        write_duplicates=payload.write_duplicates,
+    )
+    return ArchiveToCaseFolderOut(
+        root=result.root,
+        written=[
+            ArchiveWrittenOut(
+                filename=item.filename,
+                subdir=item.subdir,
+                is_duplicate=item.is_duplicate,
+                absolute_path=item.absolute_path,
+            )
+            for item in result.written
+        ],
+        duplicates=result.duplicates,
+        skipped=[ArchiveSkippedOut(**entry) for entry in result.skipped],
+        notice_path=result.notice_path,
+    )
 
 
 @router.get("/jobs/{job_id}/segments/{segment_id}/pdf")

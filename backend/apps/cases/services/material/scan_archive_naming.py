@@ -206,13 +206,24 @@ def fallback_subdir(available_subdirs: Sequence[str]) -> str | None:
 
 # ── 副本识别 ────────────────────────────────────────────────────────────────
 
-#: 页指纹（灰度缩略图的归一化灰度序列）比对阈值。
+#: 页指纹比对阈值：**多页文书**（真副本实测 ≤0.024，非同页 ≥0.042）。
 #:
-#: 0.06 的来历：同一文书的三份打印件，签章位置与扫描噪点不同，
-#: 实测平均灰度差在 0.02–0.05；而「起诉状第 1 页」与「第 2 页」相差 0.3 以上。
-#: 阈值取在两者之间的低端，宁可漏判副本（多余文件留在副本目录）也不误判
-#: （误判会把不同材料删成一份，属不可逆损失）。
-SAME_PAGE_MAX_DISTANCE = 0.06
+#: 实测来自 2026-11-24 一份真实 40 页立案材料扫描件（同一文书回传 3 份）：
+#: 指纹口径为「逐页二值化 → 100dpi → 8px block 墨占比 → 平均绝对差」。
+#:
+#:   真副本（6 对）      0.008 ~ 0.024
+#:   非同页（4 对）      0.042 ~ 0.049
+#:
+#: 为什么不取更低分辨率：36dpi/16×16 与 36dpi/24×24 两种灰度方案在这批样本上
+#: **排序是反的**（真副本 0.003–0.012、不同文书 0.008–0.017，完全重叠），
+#: 因为密集中文版式在低分辨率下同构、而距离又被纸张亮度主导。
+SAME_PAGE_MAX_DISTANCE = 0.03
+
+#: **单页文书**的阈值更严：单页只有一次独立证据，误判成本全压在这一页上。
+#:
+#: 实测里有一对不同的单页文书距离 0.027，落在多页阈值 0.03 以内；收紧到 0.02
+#: 后它不再被判为副本。多页文书要「逐页全中」，误判概率天然低得多，故不收紧。
+SINGLE_PAGE_MAX_DISTANCE = 0.02
 
 
 def signature_distance(a: Sequence[float], b: Sequence[float]) -> float:
@@ -239,20 +250,29 @@ def documents_match(
     return all(pages_match(x, y, max_distance=max_distance) for x, y in zip(a, b))
 
 
+def page_aware_max_distance(page_count: int) -> float:
+    """按页数取阈值：单页更严（见 `SINGLE_PAGE_MAX_DISTANCE` 的实测理由）。"""
+    return SINGLE_PAGE_MAX_DISTANCE if page_count <= 1 else SAME_PAGE_MAX_DISTANCE
+
+
 def group_copies(
     documents: Mapping[str, Sequence[Sequence[float]]],
     *,
-    max_distance: float = SAME_PAGE_MAX_DISTANCE,
+    max_distance: float | None = None,
 ) -> list[list[str]]:
     """把内容相同的文书分到一组，返回**只有 2 份以上**的分组。
 
     输入/输出都用调用方给的键（一般是段 id），保持顺序稳定：
     组内第一个元素是「正本」，其后是副本；组的先后按首次出现顺序。
+
+    `max_distance` 留空时按页数自动取（`page_aware_max_distance`）：单页更严。
+    调用方显式给值则一律用它（测试与特殊批处理需要可控阈值）。
     """
     groups: list[list[str]] = []
     for key, pages in documents.items():
         for group in groups:
-            if documents_match(pages, documents[group[0]], max_distance=max_distance):
+            threshold = max_distance if max_distance is not None else page_aware_max_distance(len(pages))
+            if documents_match(pages, documents[group[0]], max_distance=threshold):
                 group.append(key)
                 break
         else:
