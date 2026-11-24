@@ -243,3 +243,4 @@ make ci-full        # 完整 CI（需 PostgreSQL：+ pytest + 覆盖率）
 <p align="center">
   <sub>由一线执业律师主导研发 · 开源 · 私有化部署 · 数据自持</sub>
 </p>
+
