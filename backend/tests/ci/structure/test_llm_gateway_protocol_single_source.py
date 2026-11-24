@@ -82,7 +82,8 @@ GATEWAY_ADAPTERS: tuple[str, ...] = (
     "apps/core/llm/backends/openai_compatible.py",  # 服务通道
     "apps/agent/pi/model_config.py",  # pi
     "apps/agent/backends/dsh_config.py",  # DeepSeek Harness
-    "apps/agent/backends/openai_agents_backend.py",  # openai-agents
+    # openai-agents 后端已于 v27.23.10 移除（空缺由 codex 顶上）；codex 走
+    # `codex app-server` + config.toml，思考字段由 codex 自己算，不经过本表。
     # antigravity：字段在``antigravity_backend.thinking_extra``里算好（它 import 权威模块），
     # loopback 代理``antigravity_gateway``只负责把它合并进请求体、不自己拼字段——
     # 对它来说「不复制知识」的守卫是断言 3（不得出现 wire 字段字面构造），而非要求它

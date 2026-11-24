@@ -730,11 +730,11 @@ def _approval_identity(method: str, params: dict[str, Any]) -> tuple[str | None,
 
 def _mcp_result_text(result: Any) -> str:
     if isinstance(result, dict):
-        parts = [
-            b.get("text")
-            for b in (result.get("content") or [])
-            if isinstance(b, dict) and isinstance(b.get("text"), str)
-        ]
+        parts: list[str] = []
+        for block in result.get("content") or []:
+            text = block.get("text") if isinstance(block, dict) else None
+            if isinstance(text, str):
+                parts.append(text)
         if parts:
             return "\n".join(parts)
         return json.dumps(result, ensure_ascii=False)[:4000]
