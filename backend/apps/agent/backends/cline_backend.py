@@ -377,6 +377,7 @@ class ClineBackend:
                 await proc.stdin.drain()
                 proc.stdin.close()
         except (BrokenPipeError, ConnectionResetError):
+            # 桥已经自己退出了（例如它判定模型不可用后 exit）——收尾阶段无需再写 stdin。
             pass
         if proc.returncode is None:
             proc.kill()

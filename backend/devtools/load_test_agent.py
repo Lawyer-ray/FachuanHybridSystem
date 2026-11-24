@@ -172,6 +172,8 @@ async def main() -> int:
         try:
             await rss_task
         except asyncio.CancelledError:
+            # 采样任务本来就是被 cancel 结束的：把它的 CancelledError 收干净，
+            # 不要让它盖住压测本身的异常。
             pass
     peak = rss["peak"]
     total = round(time.monotonic() - started, 2)

@@ -99,9 +99,6 @@ HOME_ENV = "FACHUAN_AGENT_HOME"
 #: 兜底默认值（与 pi 同口径）。
 DEFAULT_AGENT_HOME = "~/.fachuan-agent"
 
-#: 单轮模型循环上限，写进 opencode 的 agent 配置。
-MAX_TURNS = 40
-
 #: 收尾事实的保留条数（并发两轮互不覆盖；超出丢最旧）。
 MAX_KEPT_RESULTS = 32
 
@@ -440,6 +437,7 @@ class _AcpConnection:
             if self._proc.stdin is not None:
                 self._proc.stdin.close()
         except (BrokenPipeError, ConnectionResetError):
+            # ACP 子进程已退出：关 stdin 失败不影响收尾，后面统一 kill/wait。
             pass
         self._reader.cancel()
         try:

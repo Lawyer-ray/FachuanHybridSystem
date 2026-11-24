@@ -42,7 +42,7 @@ from asgiref.sync import sync_to_async
 from django.contrib.auth import get_user_model
 
 from apps.agent.backends import builtin, registry
-from apps.agent.models import AgentMessage, AgentSession
+from apps.agent.models import AgentMessage
 from apps.agent.services.chat.multi import stream_multi
 from apps.agent.services.chat.stream import stream_chat
 from apps.agent.services.session_service import create_session

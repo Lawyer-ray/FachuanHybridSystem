@@ -40,6 +40,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlsplit
 
 logger = logging.getLogger(__name__)
 
@@ -135,8 +136,16 @@ class _Handler(BaseHTTPRequestHandler):
         if base.endswith("/v1") and tail.startswith("/v1"):
             base = base[: -len("/v1")]
         url = base + tail
-        if not url.startswith(("http://", "https://")):
-            self._fail(403, "codex proxy: scheme not allowed")
+        # SSRF 闸门（CodeQL `Partial server-side request forgery`）：请求路径虽然被
+        # 白名单限定，但它仍会拼进最终 URL，所以**再校验一次的 scheme/host/port 必须
+        # 与租约里的网关完全一致**——绝不能转发到客户端指定的第三方地址。
+        base_parts, final_parts = urlsplit(base), urlsplit(url)
+        if (final_parts.scheme, final_parts.hostname, final_parts.port) != (
+            base_parts.scheme,
+            base_parts.hostname,
+            base_parts.port,
+        ) or final_parts.scheme not in {"http", "https"}:
+            self._fail(403, "codex proxy: upstream host mismatch")
             return
         request = urllib.request.Request(url, data=payload, method="POST", headers=headers)  # noqa: S310 - scheme 已白名单
         try:

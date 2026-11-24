@@ -327,6 +327,7 @@ class _JsonRpc:
             if self._proc.stdin is not None:
                 self._proc.stdin.close()
         except (BrokenPipeError, ConnectionResetError):
+            # 子进程已退出：关 stdin 失败不影响收尾，后面统一 kill/wait。
             pass
         self._reader.cancel()
         if self._proc.returncode is None:
