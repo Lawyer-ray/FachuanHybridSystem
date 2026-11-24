@@ -49,6 +49,7 @@ from .consistency_summary import attach_quality_flags_to_markdown, detect_incons
 from .llm_segment_detector import LLMSegmentDetector
 from .markdown_builder import build_segments_markdown
 from .ocr_handler import OCRHandler, OCRStageBudget, cloud_backend_of_method
+from .page_fingerprint import find_duplicate_pages, page_signature
 from .page_quality import mark_rescued_image_blocks, rescue_image_region, strip_stamp_boilerplate_lines
 from .page_quality_summary import attach_page_quality_flags, build_page_quality_summary, qualities_by_page
 from .segment_detector import SegmentDetector
@@ -575,9 +576,14 @@ class PageTextExtractor:
                 stats=stats,
                 want_layout=want_layout,
             )
+            # 立案材料一式三份是常态：先把与前面某页**版式完全相同**的页挑出来，
+            # 只 OCR 代表作，其余页在 OCR 结束后继承文字。真实 40 页扫描件里 25 页
+            # 是副本，本机 OCR 取字从 97s 降到 ~40s（见 page_fingerprint 模块头）。
+            duplicate_pages = self._dedupe_pending_pages(doc, stats)
             self._resolve_pending_pages(
                 pdf_path, descriptors=descriptors, pdf_hash=pdf_hash, template_key=template_key, stats=stats
             )
+            self._fill_duplicate_pages(descriptors, duplicates=duplicate_pages, template_key=template_key, stats=stats)
 
         # 补救放在取字全部定稿之后：判据要的是「这一页最终读出来多少内容」，
         # 半路补救会对同一页重复判定，也可能把云端还没填的页当成图形页。
@@ -663,6 +669,56 @@ class PageTextExtractor:
 
         stats["pending_page_numbers"] = [no for no in range(1, total_pages + 1) if descriptors[no - 1] is None]
         return descriptors
+
+    def _dedupe_pending_pages(self, doc: fitz.Document, stats: dict[str, Any]) -> dict[int, int]:
+        """把「与前面某页版式完全相同」的待取字页挑出来，只留代表作进 OCR。
+
+        **只在本机 OCR 路径生效**：云端（MinerU/TextIn）是一次整本解析，少送几页
+        省不掉那一次往返，反而让页序对齐更复杂。
+
+        宁漏不错：阈值见 page_fingerprint（真实样本上真副本 ≤0.024、不同文书 ≥0.044）。
+        漏判只是多 OCR 一页；误判会把两页不同内容的文字合成一份，只能靠人工复核发现。
+        """
+        stats["dedupe_skipped_pages"] = 0
+        pending: list[int] = list(stats.get("pending_page_numbers") or [])
+        if stats.get("cloud_backend") is not None or len(pending) < 2:
+            return {}
+        signatures: dict[int, list[float]] = {}
+        for page_no in pending:
+            self._raise_if_cancelled(page_no - 1)
+            signatures[page_no] = page_signature(doc.load_page(page_no - 1))
+        duplicates = find_duplicate_pages(signatures)
+        if not duplicates:
+            return {}
+        stats["dedupe_skipped_pages"] = len(duplicates)
+        stats["pending_page_numbers"] = [page_no for page_no in pending if page_no not in duplicates]
+        return duplicates
+
+    def _fill_duplicate_pages(
+        self,
+        descriptors: list[PageDescriptor | None],
+        *,
+        duplicates: dict[int, int],
+        template_key: str,
+        stats: dict[str, Any],
+    ) -> None:
+        """把代表作的取字结果抄给重复页（页号仍是自己的，版式块同页可直接沿用）。"""
+        filled = 0
+        for page_no, rep_no in duplicates.items():
+            representative = descriptors[rep_no - 1]
+            if representative is None:  # 代表作也没取到字：保持缺页，由完整性断言兜底
+                continue
+            descriptors[page_no - 1] = build_page_descriptor(
+                page_no=page_no,
+                text=representative.text,
+                source_method="dedupe_copy",
+                ocr_failed=representative.ocr_failed,
+                template_key=template_key,
+                layout=representative.layout,
+                segment_detector=self._rule_detector,
+            )
+            filled += 1
+        stats["dedupe_filled_pages"] = filled
 
     def _resolve_pending_pages(
         self,
@@ -1103,6 +1159,10 @@ class PageTextExtractor:
             "image_rescue_pages": list(stats.get("image_rescue_pages") or []),
             "image_rescue_chars": int(stats.get("image_rescue_chars") or 0),
             "image_rescue_reused": int(stats.get("image_rescue_reused") or 0),
+            # 重复页去重（一式三份）：省掉多少页 OCR、补回多少页文字。
+            # 这两个数就是「为什么这次取字比上次快一半」的直接证据。
+            "dedupe_skipped_pages": int(stats.get("dedupe_skipped_pages") or 0),
+            "dedupe_filled_pages": int(stats.get("dedupe_filled_pages") or 0),
         }
         if self._budget is not None:
             # 预算降级的观测面：**只有真算了预算才追加这几个键**，不在无预算的

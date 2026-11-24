@@ -18,6 +18,20 @@ from .split_models import _NON_WORD_RE, _TEXT_MIN_LENGTH, PageDescriptor, Segmen
 logger = logging.getLogger("apps.pdf_splitting")
 
 
+#: 模糊匹配的二元组重合率下限。低于它直接判定「不可能模糊命中」。
+#:
+#: 取值理由：编辑距离 ≤2 时，长度 ≤10 的关键词至少保留 8 个字符，二元组重合率
+#: 通常 >0.7；0.5 留足余量，同时能把大量「完全不相干的关键词」一次性筛掉。
+_FUZZY_BIGRAM_PREFILTER = 0.5
+
+
+def _bigrams(text: str) -> set[str]:
+    """字符串的全部相邻二元组（长度 <2 时退化为单字集合）。"""
+    if len(text) < 2:
+        return {text} if text else set()
+    return {text[i : i + 2] for i in range(len(text) - 1)}
+
+
 class SegmentDetector:
     """段落检测、评分、补全未识别区间（LLM 不可用时的降级兜底）。"""
 
@@ -46,7 +60,13 @@ class SegmentDetector:
     def contains_keyword(self, haystack: str, keyword: str) -> bool:
         return self.normalize_text(keyword) in haystack
 
-    def fuzzy_contains_keyword(self, haystack: str, keyword: str) -> tuple[bool, float]:
+    def fuzzy_contains_keyword(
+        self,
+        haystack: str,
+        keyword: str,
+        *,
+        haystack_bigrams: set[str] | None = None,
+    ) -> tuple[bool, float]:
         """
         模糊匹配关键词。
 
@@ -74,6 +94,17 @@ class SegmentDetector:
 
         max_dist = 1 if kw_len <= 6 else 2
 
+        # 大前提过滤（2026-11-24 实测：40 页卷宗这里跑了 540 万次 Levenshtein，
+        # 占掉整份取字的 20s）。编辑距离 ≤2 的片段必然**保留绝大多数二元组**，
+        # 所以先用二元组重合率做一次 O(len) 的筛：重合率过低的关键词根本不可能
+        # 模糊命中，直接返回，不必再滑窗逐位算距离。
+        if haystack_bigrams is not None:
+            keyword_bigrams = _bigrams(normalized_kw)
+            if keyword_bigrams:
+                overlap = len(keyword_bigrams & haystack_bigrams) / len(keyword_bigrams)
+                if overlap < _FUZZY_BIGRAM_PREFILTER:
+                    return False, 0.0
+
         window_size = kw_len + max_dist
         for i in range(max(1, len(haystack) - window_size + 1)):
             fragment = haystack[i : i + window_size]
@@ -92,6 +123,8 @@ class SegmentDetector:
 
     def score_page(self, *, head_text: str, normalized_text: str, template_key: str) -> list[dict[str, Any]]:
         template = get_template_definition(template_key)
+        # 整页文字只算一次二元组集合，供下面每个关键词做前缀过滤
+        haystack_bigrams = _bigrams(normalized_text)
         candidates: list[dict[str, Any]] = []
         for rule in template.rules:
             score = 0.0
@@ -100,7 +133,7 @@ class SegmentDetector:
 
             strong_score = 0.0
             for kw in rule.strong_keywords:
-                hit, decay = self.fuzzy_contains_keyword(normalized_text, kw)
+                hit, decay = self.fuzzy_contains_keyword(normalized_text, kw, haystack_bigrams=haystack_bigrams)
                 if hit:
                     matched_strong.append(kw)
                     strong_score += (0.4 + 0.18) * decay
@@ -110,7 +143,7 @@ class SegmentDetector:
             score += min(0.75, strong_score)
 
             for kw in rule.weak_keywords:
-                hit, _decay = self.fuzzy_contains_keyword(normalized_text, kw)
+                hit, _decay = self.fuzzy_contains_keyword(normalized_text, kw, haystack_bigrams=haystack_bigrams)
                 if hit:
                     matched_weak.append(kw)
             if matched_weak:

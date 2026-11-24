@@ -5927,6 +5927,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pdf-splitting/jobs/{job_id}/archive-to-case-folder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive Pdf Split To Case Folder
+         * @description 把拆分结果按段切页，直接写进案件的绑定文件夹（不经浏览器上传往返）。
+         *
+         *     与 ``/extract-pages`` + 前端上传的分工：那条链路每份材料都要过一次上传，
+         *     几十段就是几十次往返；这条在服务端切片 + 命名 + 落盘，前端只给「每段用
+         *     哪个文书名 / 材料类型」。命名、版本对齐（docx 是 V4、扫描件也是 V4，不是 V5）、
+         *     副本识别都在 ``apps.cases.services.material`` 侧（见 scan_archive_naming）。
+         *
+         *     页指纹随材料一起交给归档服务：副本靠它比对，不能靠文件名——「起诉状_1.pdf」
+         *     与「起诉状(1).pdf」既可能是同一份的两个扫件，也可能是两份不同材料。
+         */
+        post: operations["apps_pdf_splitting_api_pdf_splitting_api_archive_pdf_split_to_case_folder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pdf-splitting/jobs/{job_id}/segments/{segment_id}/pdf": {
         parameters: {
             query?: never;
@@ -19251,6 +19279,68 @@ export interface components {
             review_flag?: string | null;
             /** Source Method */
             source_method?: string | null;
+        };
+        /** ArchiveSkippedOut */
+        ArchiveSkippedOut: {
+            /** Doc Type */
+            doc_type: string;
+            /** Reason */
+            reason: string;
+        };
+        /** ArchiveToCaseFolderOut */
+        ArchiveToCaseFolderOut: {
+            /** Root */
+            root: string;
+            /** Written */
+            written: components["schemas"]["ArchiveWrittenOut"][];
+            /** Duplicates */
+            duplicates: string[][];
+            /** Skipped */
+            skipped: components["schemas"]["ArchiveSkippedOut"][];
+            /** Notice Path */
+            notice_path?: string | null;
+        };
+        /** ArchiveWrittenOut */
+        ArchiveWrittenOut: {
+            /** Filename */
+            filename: string;
+            /** Subdir */
+            subdir: string;
+            /** Is Duplicate */
+            is_duplicate: boolean;
+            /**
+             * Absolute Path
+             * @default
+             */
+            absolute_path: string;
+        };
+        /**
+         * ArchiveSegmentIn
+         * @description 一段要归到案件文件夹的材料：页区间 + 文书名 + 材料类型。
+         */
+        ArchiveSegmentIn: {
+            /** Page Start */
+            page_start: number;
+            /** Page End */
+            page_end: number;
+            /** Doc Type */
+            doc_type: string;
+            /** Material Type */
+            material_type: string;
+        };
+        /** ArchiveToCaseFolderIn */
+        ArchiveToCaseFolderIn: {
+            /** Case Id */
+            case_id: number;
+            /** Segments */
+            segments: components["schemas"]["ArchiveSegmentIn"][];
+            /** Date */
+            date?: string | null;
+            /**
+             * Write Duplicates
+             * @default true
+             */
+            write_duplicates: boolean;
         };
         /** CapabilityOut */
         CapabilityOut: {
@@ -34238,6 +34328,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PdfSplitJobSubmitOut"];
+                };
+            };
+        };
+    };
+    apps_pdf_splitting_api_pdf_splitting_api_archive_pdf_split_to_case_folder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveToCaseFolderIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchiveToCaseFolderOut"];
                 };
             };
         };

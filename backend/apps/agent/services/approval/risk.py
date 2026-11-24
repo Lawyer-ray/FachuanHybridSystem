@@ -165,6 +165,11 @@ WRITE_PREFIXES: tuple[str, ...] = (
     # 需人工审批）——模型不能静默抹掉律师的记忆。
     "remember",
     "restore_memory",
+    # 扫描件归档：
+    # ``archive_pdf_split_to_case_folder`` 把拆解结果落盘到律师的案卷目录，
+    # 名字里没有常规写前缀，不补就只能判 LOW（连留痕都没有）。
+    # 落盘幂等且不覆盖既有文件，故与 ``generate_`` / ``export_`` / ``bind_`` 同档（MEDIUM）。
+    "archive_",
 )
 
 DEFAULT_TIMEOUT = 300.0

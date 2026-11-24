@@ -15,6 +15,7 @@ OCR 服务 - 统一路由层
 import io
 import logging
 import re
+import threading
 from typing import Any
 
 from PIL import Image
@@ -25,6 +26,14 @@ logger = logging.getLogger(__name__)
 
 # 全局 OCR 引擎实例缓存(按模型档位区分,避免 fast/accurate 串用同一引擎)
 _ocr_engine_cache: dict[bool, Any] = {}
+
+#: 引擎构建锁。**不是可选的性能优化，是正确性问题**：
+#: `pdf_splitting.parallel_ocr` 用线程池逐页识别，多个线程同时首次调用
+#: `get_ocr_engine()` 时都会看到「缓存未命中」，于是各自 `RapidOCR(...)` 一次——
+#: 实测 6 个 worker 建了 6 个 ONNX 会话，光模型加载就吃掉 22s（占整份取字 25.5s 的
+#: 86%），而且这几个会话随后争抢 CPU，比单会话还慢。
+#: 加上双检锁后：引擎只建一次，其余线程直接复用。
+_ocr_engine_lock = threading.Lock()
 
 
 def get_ocr_engine(use_v5: bool = True) -> Any:  # 内部实现，外部请通过 ServiceLocator.get_ocr_service() 获取
@@ -48,15 +57,27 @@ def get_ocr_engine(use_v5: bool = True) -> Any:  # 内部实现，外部请通�
         third_party_logger.setLevel(logging.WARNING)
         third_party_logger.propagate = False
 
-    if use_v5 in _ocr_engine_cache:
+    cached = _ocr_engine_cache.get(use_v5)
+    if cached is not None:
+        return cached
+
+    with _ocr_engine_lock:
+        # 双检：等锁期间可能已被别的线程建好，直接复用
+        cached = _ocr_engine_cache.get(use_v5)
+        if cached is not None:
+            return cached
+        _ocr_engine_cache[use_v5] = _build_ocr_engine(use_v5)
         return _ocr_engine_cache[use_v5]
 
+
+def _build_ocr_engine(use_v5: bool) -> Any:
+    """真正构造引擎（调用方必须持有 `_ocr_engine_lock`）。"""
     from rapidocr import ModelType, OCRVersion, RapidOCR
 
     if use_v5:
         # 使用 PP-OCRv5 server 模型(精度更高)
         logger.info("初始化 RapidOCR 引擎 (PP-OCRv5 server)")
-        _ocr_engine_cache[use_v5] = RapidOCR(
+        return RapidOCR(
             params={
                 "Det.ocr_version": OCRVersion.PPOCRV5,
                 "Det.model_type": ModelType.SERVER,
@@ -64,12 +85,9 @@ def get_ocr_engine(use_v5: bool = True) -> Any:  # 内部实现，外部请通�
                 "Rec.model_type": ModelType.SERVER,
             }
         )
-    else:
-        # 使用默认 PP-OCRv4 模型
-        logger.info("初始化 RapidOCR 引擎 (PP-OCRv4)")
-        _ocr_engine_cache[use_v5] = RapidOCR()
-
-    return _ocr_engine_cache[use_v5]
+    # 使用默认 PP-OCRv4 模型
+    logger.info("初始化 RapidOCR 引擎 (PP-OCRv4)")
+    return RapidOCR()
 
 
 def _get_ocr_provider() -> str:  # pragma: no cover

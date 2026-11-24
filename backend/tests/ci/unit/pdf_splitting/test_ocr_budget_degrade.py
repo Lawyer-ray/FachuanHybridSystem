@@ -56,10 +56,19 @@ REQUIRED_SECONDS = SINGLE_PAGE_OCR_WORST_CASE_SECONDS + SINGLE_PAGE_OCR_SAFETY_M
 
 
 def _make_scan_pdf(path: Path, pages: int = 3) -> Path:
-    """造一份无文本层的扫描件（空白页）：逐页都会走 OCR 路径。"""
+    """造一份无文本层的扫描件：逐页都会走 OCR 路径。
+
+    每页画**不同行数**的横线而不是留全白：全白页彼此像素级相同，会被重复页去重
+    （`page_fingerprint`）判成同一页的副本，于是后几页直接从第 1 页继承文字——
+    那测的就不是预算降级了。真实扫描件的不同页也不会全白。
+    """
     with fitz.open() as doc:
-        for _ in range(pages):
-            doc.new_page()
+        for index in range(pages):
+            page = doc.new_page()
+            # 墨块面积逐页递增（1/3、2/3、整页）：差异必须**远大于**指纹阈值，
+            # 否则这几页仍会被判成同一页的副本而互相继承文字
+            bottom = 60 + (760 - 60) * (index + 1) / pages
+            page.draw_rect(fitz.Rect(60, 60, 540, bottom), color=None, fill=(0, 0, 0))
         doc.save(path.as_posix())
     return path
 

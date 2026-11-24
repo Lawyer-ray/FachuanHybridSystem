@@ -14127,6 +14127,55 @@
         ]
       }
     },
+    "/api/v1/pdf-splitting/jobs/{job_id}/archive-to-case-folder": {
+      "post": {
+        "operationId": "apps_pdf_splitting_api_pdf_splitting_api_archive_pdf_split_to_case_folder",
+        "summary": "Archive Pdf Split To Case Folder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveToCaseFolderOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "把拆分结果按段切页，直接写进案件的绑定文件夹（不经浏览器上传往返）。\n\n与 ``/extract-pages`` + 前端上传的分工：那条链路每份材料都要过一次上传，\n几十段就是几十次往返；这条在服务端切片 + 命名 + 落盘，前端只给「每段用\n哪个文书名 / 材料类型」。命名、版本对齐（docx 是 V4、扫描件也是 V4，不是 V5）、\n副本识别都在 ``apps.cases.services.material`` 侧（见 scan_archive_naming）。\n\n页指纹随材料一起交给归档服务：副本靠它比对，不能靠文件名——「起诉状_1.pdf」\n与「起诉状(1).pdf」既可能是同一份的两个扫件，也可能是两份不同材料。",
+        "tags": [
+          "PDF 拆解"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveToCaseFolderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/pdf-splitting/jobs/{job_id}/segments/{segment_id}/pdf": {
       "get": {
         "operationId": "apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_segment_pdf",
@@ -43849,6 +43898,169 @@
           "filename"
         ],
         "title": "ConfirmSegmentIn",
+        "type": "object"
+      },
+      "ArchiveSkippedOut": {
+        "properties": {
+          "doc_type": {
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "doc_type",
+          "reason"
+        ],
+        "title": "ArchiveSkippedOut",
+        "type": "object"
+      },
+      "ArchiveToCaseFolderOut": {
+        "properties": {
+          "root": {
+            "title": "Root",
+            "type": "string"
+          },
+          "written": {
+            "items": {
+              "$ref": "#/components/schemas/ArchiveWrittenOut"
+            },
+            "title": "Written",
+            "type": "array"
+          },
+          "duplicates": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Duplicates",
+            "type": "array"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/ArchiveSkippedOut"
+            },
+            "title": "Skipped",
+            "type": "array"
+          },
+          "notice_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice Path"
+          }
+        },
+        "required": [
+          "root",
+          "written",
+          "duplicates",
+          "skipped"
+        ],
+        "title": "ArchiveToCaseFolderOut",
+        "type": "object"
+      },
+      "ArchiveWrittenOut": {
+        "properties": {
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "subdir": {
+            "title": "Subdir",
+            "type": "string"
+          },
+          "is_duplicate": {
+            "title": "Is Duplicate",
+            "type": "boolean"
+          },
+          "absolute_path": {
+            "default": "",
+            "title": "Absolute Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filename",
+          "subdir",
+          "is_duplicate"
+        ],
+        "title": "ArchiveWrittenOut",
+        "type": "object"
+      },
+      "ArchiveSegmentIn": {
+        "description": "一段要归到案件文件夹的材料：页区间 + 文书名 + 材料类型。",
+        "properties": {
+          "page_start": {
+            "title": "Page Start",
+            "type": "integer"
+          },
+          "page_end": {
+            "title": "Page End",
+            "type": "integer"
+          },
+          "doc_type": {
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "material_type": {
+            "title": "Material Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_start",
+          "page_end",
+          "doc_type",
+          "material_type"
+        ],
+        "title": "ArchiveSegmentIn",
+        "type": "object"
+      },
+      "ArchiveToCaseFolderIn": {
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "integer"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/ArchiveSegmentIn"
+            },
+            "title": "Segments",
+            "type": "array"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "write_duplicates": {
+            "default": true,
+            "title": "Write Duplicates",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "case_id",
+          "segments"
+        ],
+        "title": "ArchiveToCaseFolderIn",
         "type": "object"
       },
       "CapabilityOut": {
