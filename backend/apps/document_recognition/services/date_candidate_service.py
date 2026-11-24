@@ -36,6 +36,7 @@ from .date_candidate_policy import DERIVATION_LABELS
 from .date_candidate_policy import EFFECTIVE_FIRST_NOTE as _policy_effective_first_note
 from .date_candidate_policy import (
     FLAG_ANCHOR_FOREIGN_LLM,
+    FLAG_ANCHOR_UNKNOWN,
     FLAG_DUPLICATE,
     FLAG_GENERIC_BOILERPLATE,
     AnchorDocument,
@@ -1122,6 +1123,12 @@ def build_date_candidates(
     if anchor_day is None:
         issue = _find_issue_date(text)
         anchor_day = issue.date() if issue else None
+    # 起算点可能早于本次送达：真实模板常写「自当事人收到**起诉状副本及举证通知书**之日起计算」。
+    # 起诉状副本与前序文书可能不同批送达，拿本次短信收到日当锚会把截止日算**晚**
+    # （律师以为还有时间，实际已过）。这种情况保留候选但不默认勾，逼人工核对实际收到日。
+    anchor_mentions_complaint = bool(period_context) and (
+        "起诉状" in period_context and not any(kw in period_context for kw in ("本通知", "本举证通知书"))
+    )
     if period_verdict.stated_days is not None and not period_verdict.reason and anchor_day is not None:
         period_due = datetime.combine(anchor_day, datetime.min.time()) + timedelta(days=period_verdict.stated_days)
         drafts_list.append(
@@ -1135,6 +1142,7 @@ def build_date_candidates(
                 anchor_at=anchor_day,
                 anchor_document=AnchorDocument.SELF.value,
                 derivation="rule_period",
+                review_flags=(FLAG_ANCHOR_UNKNOWN,) if anchor_mentions_complaint else (),
                 anchor_note=anchor_note_for(
                     kind=AnchorKind.SERVICE_OF_SELF if received_at else AnchorKind.ISSUE_DATE_OF_SELF,
                     anchor_at=anchor_day,
