@@ -51,6 +51,7 @@ def ensure_registered() -> None:
         _register_claude_agent()
         _register_opencode()
         _register_codex()
+        _register_cline()
         return
 
     # 延迟 import：pi_backend 会连带拉起 pi 的 rpc / 池依赖。
@@ -66,6 +67,7 @@ def ensure_registered() -> None:
     _register_claude_agent()
     _register_opencode()
     _register_codex()
+    _register_cline()
 
 
 def _register_dsh() -> None:
@@ -217,3 +219,29 @@ def _register_codex() -> None:
         return
 
     registry.register(CodexBackend())
+
+
+def _register_cline() -> None:
+    """注册 cline 后端；node 或桥脚本缺失时静默降级（只登记一次）。
+
+    判据是「node 在 + 桥脚本在」，与 opencode/codex 同构（看可执行文件而不是
+    Python 包）。``@cline/core`` 本身不在这里探测：它由桥在运行期按
+    ``FACHUAN_CLINE_SDK`` 解析，缺了会在第一轮报 UNAVAILABLE（文案里带路径）。
+
+    ``_attempted`` 只记「探测失败过」，不能当成「已注册」——注册表可被
+    ``clear()`` 清空（测试大量用到），清空后被它挡住会永远报「未知 backend」。
+    """
+    kind = "cline"
+    if kind in registry.available_kinds():
+        return
+    if kind in _attempted:
+        return
+
+    from .cline_backend import ClineBackend, is_available
+
+    if not is_available():
+        _attempted.add(kind)
+        logger.info("未找到 node 或 cline 桥脚本，cline 后端不可用（其它后端不受影响）")
+        return
+
+    registry.register(ClineBackend())

@@ -41,7 +41,8 @@ _BACKEND_LABELS: dict[str, tuple[str, str]] = {
     "pi": ("Pi", "通用 agent 运行时，工具面与技能最全"),
     "dsh": ("DeepSeek Harness", "DeepSeek 官方 harness 运行时"),
     "opencode": ("opencode", "开源 coding agent（ACP 协议接入，工具面来自共享 MCP）"),
-    "codex": ("codex", "OpenAI 官方 coding agent（exec --json 接入，工具面来自共享 MCP）"),
+    "codex": ("codex", "OpenAI 官方 coding agent（app-server 接入，含执行前审批）"),
+    "cline": ("cline", "Cline SDK（Node 桥接入，工具面来自共享 MCP）"),
 }
 
 #: dsh 的 Python SDK 模块名（可用性自检用）。
@@ -152,6 +153,15 @@ def _codex_probe() -> tuple[bool, str]:
     return True, ""
 
 
+def _cline_probe() -> tuple[bool, str]:
+    """cline 后端能不能用：只看 node 与桥脚本（不拉进程、不查库）。"""
+    from ..backends.cline_backend import bridge_path, is_available, node_bin
+
+    if not is_available():
+        return False, f"未找到 node（{node_bin()}）或 cline 桥脚本（{bridge_path()}）"
+    return True, ""
+
+
 def _models_for_kind(kind: str, models: list[str]) -> list[str]:
     """某个后端实际能用的模型（平台清单按运行时收窄）。
 
@@ -184,6 +194,8 @@ def _collect_backend_options() -> list[BackendOptionOut]:
             available, reason = _opencode_probe()
         elif kind == "codex":
             available, reason = _codex_probe()
+        elif kind == "cline":
+            available, reason = _cline_probe()
         else:
             available, reason = True, ""
         options.append(
