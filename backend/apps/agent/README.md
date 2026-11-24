@@ -63,6 +63,34 @@ AI 对话运行时；其中唯一被外部依赖的 `DashboardService` 已迁至
 **并发画像**：8 路全链路 29.3s（full 工具面）/ **11.6s（`FACHUAN_OPENCODE_TOOL_TIER=lite`）**，
 pi 基线 6.9s；8 路峰值 RSS ~4.5GB vs pi 3.2GB。压测脚本 `backend/devtools/load_test_agent.py`。
 
+## 2.2 第七个后端：codex（`exec --json` + loopback 反代）
+
+`kind="codex"`，走 `codex exec --json` 子进程。**它的价值是「换壳对照」**：前六栏里
+pi/dsh/opencode/claude-agent 的 agent 循环都是第三方的，只有 openai-agents 是
+「我们的循环 + OpenAI 的螺丝刀」——那一栏已移除，由 codex 顶上 OpenAI 官方的循环。
+
+| 硬约束 | codex 的满足方式 |
+|:-|:-|
+| 工具面来自共享 MCP | `config.toml` 的 `[mcp_servers.fachuan]`（url + 律师 token + session + tier 三个头） |
+| 走律所网关 | `wire_api = "responses"` + **loopback 反代**（`codex_gateway.py`） |
+| 工具事件 | `item.started` / `item.completed` 的 `mcp_tool_call`（server/tool/arguments/result 齐全） |
+| 用量 | `turn.completed.usage`（input / cached_input / cache_write 分开记） |
+
+**它做不到的两件事**（`capabilities` 如实声明，不是待办）：
+`streaming=False`（`exec` 只在 item 完成时出事件，没有 token 级增量）、
+`approval=False`（`exec` 的 `approval_policy=Never`；高危动作仍由 **MCP 服务端闸门**
+`tool_approval_gate` 拦，与用哪个后端无关）。要走「执行前问人」得换 `app-server`
+通道——它的协议里确实有 `CommandExecutionRequestApproval`，留作下一步。
+
+**三个实测坑**（都在模块 docstring 里）：
+1. **必须经 loopback 反代**：codex 的 reqwest `system_proxy_fallback: true`，会读 macOS
+   系统代理；内网网关被 Clash 一劫持就是 502，而同一份请求体经本地反代就正常。
+   `NO_PROXY` / 删 `HTTPS_PROXY` 都无效。
+2. **只认 `responses` 协议**：`wire_api = "chat"` 在 0.161 已移除，写错直接启动失败。
+3. **每轮约 17 万 token**（工具面 + 它自己的系统提示词，`cache_read≈167872`）；
+   `FACHUAN_CODEX_TOOL_TIER=lite` 能压到约 3 万，但**冷门工具就调不到了**
+   （实测 lite 下模型答「没有 asean_law_countries 这个工具」）。
+
 ## 3. 高并发：共享 MCP 是关键
 
 ### 实测数据

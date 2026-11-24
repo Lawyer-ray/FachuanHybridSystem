@@ -98,11 +98,18 @@ def approval_enabled() -> bool:
 
 
 def tool_tier() -> str:
-    """MCP 工具面分层（``full`` / ``lite``）。codex 的 prompt 更贵，默认给 lite。"""
+    """MCP 工具面分层（``full`` / ``lite``）；**默认 full**。
+
+    为什么默认不是 lite：实测 lite 下 codex 拿不到 ``fachuan_asean_law_countries``
+    这类冷门工具，于是它**不调工具、直接编一句「当前会话没有这个工具」**——
+    矩阵 e2e 里表现为 ``tool_call=0``，看着"有正文、done=1"像是通的，实际等于没干活。
+    代价是每轮约 17 万 token（``cache_read≈167872``），所以本栏定位是**对照栏**：
+    要省钱就显式 ``FACHUAN_CODEX_TOOL_TIER=lite``，并接受冷门工具不可用。
+    """
     raw = os.environ.get("FACHUAN_CODEX_TOOL_TIER", "").strip().lower()
     if raw in {TIER_LITE, TIER_FULL}:
         return raw
-    return TIER_LITE
+    return TIER_FULL
 
 
 def resolve_bin() -> str:
