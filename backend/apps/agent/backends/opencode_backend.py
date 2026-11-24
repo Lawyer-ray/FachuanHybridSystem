@@ -574,38 +574,17 @@ class OpenCodeBackend:
             if not session_id:
                 raise BackendError(BackendErrorKind.UNKNOWN, "opencode 没有返回 sessionId")
             await self._apply_session_config(conn, session_id, resolved["model"])
-            handle = OpenCodeHandle(run_id=ctx.run_id, session_id=session_id, conn=conn, state=state)
-            if not ctx.isolated:
-                await self._register_live(ctx, session_id, handle)
-            try:
-                async for frame in self._pump(ctx, conn, session_id, state):
-                    yield frame
-                self._remember_result(ctx.run_id, OpenCodeRunResult(model=resolved["model"]))
-            finally:
-                if not ctx.isolated:
-                    await self._unregister_live(ctx, handle)
+            # **不登记到 live_sessions**：那张表是「同一会话只允许一个运行」的单槽表
+            # （``live_sessions.register`` 会抛 ``SessionBusyError``），而本后端声明
+            # ``concurrent_in_session=True``——多栏并答时三栏共用同一个会话，登记就撞车
+            # （实测：pi 先登记，opencode 这一栏直接 SessionBusyError 挂掉）。
+            # 中止走编排层取消生成器 → ``_pump`` 发 ``session/cancel``，不依赖那张表。
+            async for frame in self._pump(ctx, conn, session_id, state):
+                yield frame
+            self._remember_result(ctx.run_id, OpenCodeRunResult(model=resolved["model"]))
         finally:
             if conn is not None:
                 await conn.close()
-
-    async def _register_live(self, ctx: RunContext, session_id: str, handle: OpenCodeHandle) -> None:
-        """登记运行中会话：用户可在本轮跑到一半时按停止（插话不支持）。
-
-        隔离运行不登记——与 ``pi_backend`` 同一口径（综合进程不该抢用户对主栏的控制）。
-        """
-        from ..services.live_sessions import get_live_registry
-
-        await get_live_registry().register(str(ctx.session.session_id), handle)
-
-    async def _unregister_live(self, ctx: RunContext, handle: OpenCodeHandle) -> None:
-        """注销运行中会话（失败不抛：收尾阶段的异常不该盖住本轮结果）。"""
-        from ..services.live_sessions import get_live_registry
-
-        try:
-            await get_live_registry().unregister(str(ctx.session.session_id), handle)
-        except (BackendError, RuntimeError, OSError, ValueError, TypeError):
-            # 注销失败不影响本轮结果；同样不写宽 ``except Exception``。
-            logger.exception("opencode 注销运行中会话失败：%s", ctx.session.session_id)
 
     async def _pump(
         self,
