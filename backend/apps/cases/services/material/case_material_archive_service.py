@@ -278,10 +278,14 @@ class CaseMaterialArchiveService:
         )
         filename = build_archive_name(
             ordinal=target.ordinal,
-            doc_type=item.doc_type,
+            # 命中同名文书时用卷宗里的写法（「退费账户确认书」而不是拆解侧的
+            # 「诉讼费用退费账户确认书」），避免同一份材料在卷宗里出现两种叫法
+            doc_type=target.doc_type or item.doc_type,
             case_name=case_name,
             version=target.version,
-            date=date,
+            # 命中同名文书时用它的版本日期（V4_20261106 的草稿 → 签章件也是
+            # V4_20261106）；未命中才是新文书，用调用方给的归档日期
+            date=target.date or date,
         )
         if copy_no >= 2:
             filename = self._with_suffix_marker(filename, f"{PAREN_OPEN}第{copy_no}份{PAREN_CLOSE}")
@@ -394,14 +398,27 @@ class CaseMaterialArchiveService:
     def _copy_groups(self, items: Sequence[ArchiveItem]) -> list[list[int]]:
         """按页指纹把「同一份文书的重复件」分组，组内条目下标有序（第一个是正本）。
 
+        **只在同名文书内部比对**（`doc_type` 必须完全一致）。仅靠图像距离区分不了
+        版式相近的不同单页表格：送达地址确认书与退费账号确认书都是「一页表头 + 表格」，
+        像素级相似度可能高于同一份文书的两份扫件；而尾部这些表格的文书名本来就不一样。
+        端到端测试就是这个组合报出来的错（把两份不同文书并成了一组）。
+
         没有 `page_signatures` 的条目一律不参与——判不了就当正本，宁可多留一份。
         """
-        signatures = {
-            str(index): [list(page) for page in item.page_signatures]
-            for index, item in enumerate(items)
-            if item.page_signatures
-        }
-        return [[int(key) for key in group] for group in group_copies(signatures)]
+        by_doc_type: dict[str, dict[str, list[list[float]]]] = {}
+        for index, item in enumerate(items):
+            if not item.page_signatures:
+                continue
+            key = item.doc_type.strip()
+            by_doc_type.setdefault(key, {})[str(index)] = [list(page) for page in item.page_signatures]
+
+        groups: list[list[int]] = []
+        for signatures in by_doc_type.values():
+            if len(signatures) < 2:
+                continue
+            groups.extend([int(key) for key in group] for group in group_copies(signatures))
+        # 组内/组间都按原始顺序：下游用 copy_no 算「第N份」，顺序不稳会写出不同的文件名
+        return sorted((sorted(group) for group in groups), key=lambda group: group[0])
 
     # ── 核对说明 ────────────────────────────────────────────────────────────
 

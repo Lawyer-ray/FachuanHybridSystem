@@ -75,13 +75,45 @@ class ParsedDocumentName(NamedTuple):
     ext: str
 
 
+#: 文书名里不参与「是不是同一份文书」判断的通用词。
+#:
+#: 拆解侧给的文书名常带抬头（「诉讼费用退费账户确认书」），而律师在卷宗里写的是
+#: 简称（「退费账户确认书」）。只做**精确比对前的归一化**，不做模糊匹配——
+#: 「传统起诉状」与「要素式起诉状」差三个字，模糊匹配会把它们并成一份。
+_GENERIC_DOC_TYPE_TOKENS: tuple[str, ...] = (
+    "诉讼费",
+    "诉讼费用",
+    "财产",
+    "开户行",
+    "银行",
+    "账号",
+    "帐号",
+    "账户",
+    "帐号",
+)
+
+
+def canonical_doc_type(doc_type: str) -> str:
+    """抽出文书名里能区分身份的那部分（去掉抬头式通用词）。"""
+    text = _nfkc(doc_type).replace(" ", "")
+    for token in _GENERIC_DOC_TYPE_TOKENS:
+        text = text.replace(token, "")
+    return text
+
+
 class TargetName(NamedTuple):
-    """归档目标（序号 + 版本），由目录里既有文件推断。"""
+    """归档目标（序号 + 版本 + 版本日期），由目录里既有文件推断。"""
 
     ordinal: int
     version: int
     #: 是否命中了同类型的既有文件（命中＝沿用其序号与版本；未命中＝新文书）
     matched_existing: bool
+    #: 命中时的版本日期（YYYYMMDD）。**版本与日期是一对**：V4_20261106 的草稿，
+    #: 它对应的签章扫描件也叫 V4_20261106，不能写成「V4 + 今天的日期」。
+    #: 未命中时为空串，由调用方用归档日期。
+    date: str = ""
+    #: 命中时用**既有文件里的文书名**（与卷宗写法一致），未命中时为空串
+    doc_type: str = ""
 
 
 def _nfkc(text: str) -> str:
@@ -129,14 +161,24 @@ def infer_target_name(
     target_case = _nfkc(case_name)
     parsed = [p for p in (parse_document_name(n) for n in existing_names) if p is not None]
 
+    canonical = canonical_doc_type(target_doc)
     same_doc = [p for p in parsed if p.doc_type == target_doc]
+    if not same_doc and canonical:
+        same_doc = [p for p in parsed if canonical_doc_type(p.doc_type) == canonical]
     if target_case:
         same_case = [p for p in same_doc if _nfkc(p.case_name) == target_case]
         same_doc = same_case or same_doc
 
     if same_doc:
         ordinal = min(p.ordinal for p in same_doc)
-        return TargetName(ordinal=ordinal, version=max(p.version for p in same_doc), matched_existing=True)
+        latest = max(same_doc, key=lambda p: (p.version, p.date))
+        return TargetName(
+            ordinal=ordinal,
+            version=latest.version,
+            matched_existing=True,
+            date=latest.date,
+            doc_type=latest.doc_type,
+        )
 
     used_ordinals = {p.ordinal for p in parsed}
     next_ordinal = len(used_ordinals) + 1
@@ -206,24 +248,22 @@ def fallback_subdir(available_subdirs: Sequence[str]) -> str | None:
 
 # ── 副本识别 ────────────────────────────────────────────────────────────────
 
-#: 页指纹比对阈值：**多页文书**（真副本实测 ≤0.024，非同页 ≥0.042）。
+#: 页指纹比对阈值。
 #:
-#: 实测来自 2026-11-24 一份真实 40 页立案材料扫描件（同一文书回传 3 份）：
+#: 实测来自 2026-11-24 一份真实 40 页立案材料扫描件（6 份文书、其中 3 份回传 3 份）：
 #: 指纹口径为「逐页二值化 → 100dpi → 8px block 墨占比 → 平均绝对差」。
 #:
-#:   真副本（6 对）      0.008 ~ 0.024
-#:   非同页（4 对）      0.042 ~ 0.049
+#:   真副本：多页 0.008~0.024，单页（送达地址确认书）0.0235~0.0243
+#:   不同文书：≥0.044（保全 vs 退费 0.044、退费 vs 证据清单 0.046、退费 vs 送达 0.107）
 #:
 #: 为什么不取更低分辨率：36dpi/16×16 与 36dpi/24×24 两种灰度方案在这批样本上
 #: **排序是反的**（真副本 0.003–0.012、不同文书 0.008–0.017，完全重叠），
 #: 因为密集中文版式在低分辨率下同构、而距离又被纸张亮度主导。
-SAME_PAGE_MAX_DISTANCE = 0.03
-
-#: **单页文书**的阈值更严：单页只有一次独立证据，误判成本全压在这一页上。
 #:
-#: 实测里有一对不同的单页文书距离 0.027，落在多页阈值 0.03 以内；收紧到 0.02
-#: 后它不再被判为副本。多页文书要「逐页全中」，误判概率天然低得多，故不收紧。
-SINGLE_PAGE_MAX_DISTANCE = 0.02
+#: 单页文书**不再单独收紧阈值**：真实样本里送达地址确认书的三份副本相距 0.0243，
+#: 收到 0.02 会把它们拆成三份不同文书。版式相近的不同表格（送达地址 vs 退费
+#: 账号，都只有一页表头+表格）靠下面的「文书名必须相同」拦住，比调阈值可靠。
+SAME_PAGE_MAX_DISTANCE = 0.03
 
 
 def signature_distance(a: Sequence[float], b: Sequence[float]) -> float:
@@ -250,29 +290,23 @@ def documents_match(
     return all(pages_match(x, y, max_distance=max_distance) for x, y in zip(a, b))
 
 
-def page_aware_max_distance(page_count: int) -> float:
-    """按页数取阈值：单页更严（见 `SINGLE_PAGE_MAX_DISTANCE` 的实测理由）。"""
-    return SINGLE_PAGE_MAX_DISTANCE if page_count <= 1 else SAME_PAGE_MAX_DISTANCE
-
-
 def group_copies(
     documents: Mapping[str, Sequence[Sequence[float]]],
     *,
-    max_distance: float | None = None,
+    max_distance: float = SAME_PAGE_MAX_DISTANCE,
 ) -> list[list[str]]:
     """把内容相同的文书分到一组，返回**只有 2 份以上**的分组。
 
     输入/输出都用调用方给的键（一般是段 id），保持顺序稳定：
     组内第一个元素是「正本」，其后是副本；组的先后按首次出现顺序。
 
-    `max_distance` 留空时按页数自动取（`page_aware_max_distance`）：单页更严。
-    调用方显式给值则一律用它（测试与特殊批处理需要可控阈值）。
+    调用方**必须先把不同文书名的条目分开**再传进来（见 `same_document_candidates`）：
+    仅靠图像距离区分不了版式相近的两种单页表格，文书名是廉价且语义正确的硬约束。
     """
     groups: list[list[str]] = []
     for key, pages in documents.items():
         for group in groups:
-            threshold = max_distance if max_distance is not None else page_aware_max_distance(len(pages))
-            if documents_match(pages, documents[group[0]], max_distance=threshold):
+            if documents_match(pages, documents[group[0]], max_distance=max_distance):
                 group.append(key)
                 break
         else:

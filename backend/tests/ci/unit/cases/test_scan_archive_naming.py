@@ -10,13 +10,11 @@ import pytest
 
 from apps.cases.services.material.scan_archive_naming import (
     SAME_PAGE_MAX_DISTANCE,
-    SINGLE_PAGE_MAX_DISTANCE,
     build_archive_name,
     documents_match,
     fallback_subdir,
     group_copies,
     infer_target_name,
-    page_aware_max_distance,
     pages_match,
     parse_document_name,
     resolve_subdir,
@@ -234,32 +232,3 @@ class TestGroupCopies:
             "z": [_page(0.6)],
         }
         assert group_copies(docs) == [["x", "y"]]
-
-
-class TestPageAwareThreshold:
-    """单页文书阈值更严：单页只有一次证据，误判代价全压在这一页上。"""
-
-    def test_threshold_depends_on_page_count(self):
-        assert page_aware_max_distance(0) == SINGLE_PAGE_MAX_DISTANCE
-        assert page_aware_max_distance(1) == SINGLE_PAGE_MAX_DISTANCE
-        assert page_aware_max_distance(2) == SAME_PAGE_MAX_DISTANCE
-        assert SINGLE_PAGE_MAX_DISTANCE < SAME_PAGE_MAX_DISTANCE
-
-    def test_single_page_pair_in_the_gap_is_not_grouped(self):
-        """实测有一对不同单页文书距离 0.027，落在多页阈值内但超过单页阈值。"""
-        docs = {
-            "a": [_page(0.5)],
-            "b": [_page(0.5, noise=0.027)],
-        }
-        assert group_copies(docs) == []
-
-    def test_multi_page_pair_in_the_gap_is_grouped(self):
-        docs = {
-            "a": [_page(0.3), _page(0.7)],
-            "b": [_page(0.3, noise=0.027), _page(0.7, noise=0.027)],
-        }
-        assert group_copies(docs) == [["a", "b"]]
-
-    def test_explicit_max_distance_overrides_page_heuristic(self):
-        docs = {"a": [_page(0.5)], "b": [_page(0.5, noise=0.027)]}
-        assert group_copies(docs, max_distance=SAME_PAGE_MAX_DISTANCE) == [["a", "b"]]
