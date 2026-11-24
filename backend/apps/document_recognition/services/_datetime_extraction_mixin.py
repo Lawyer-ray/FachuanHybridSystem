@@ -218,13 +218,14 @@ class DatetimeExtractionMixin:
                     continue
                 seen.add(dt)
                 found.append((dt, text[max(0, match.start() - CANDIDATE_CONTEXT_BEFORE) : match.end() + 20].strip()))
+        # context_score 给固定基线 80：`_calculate_context_score` 是**开庭关键词**评分
+        # （开庭/庭审/定于…），拿它给"举证期限/截止日"打分必然是 0，会把刚通过
+        # 期限词门槛的日期压成"低置信"从而永远默认不勾。
         return [
             {
                 "datetime": dt,
                 "context_text": context_text[:255],
-                "context_score": self._calculate_context_score(
-                    text, text.find(context_text[:10]) if context_text else 0
-                ),
+                "context_score": 80,
                 "reminder_type": _guess_reminder_type(context_text),
             }
             for dt, context_text in found

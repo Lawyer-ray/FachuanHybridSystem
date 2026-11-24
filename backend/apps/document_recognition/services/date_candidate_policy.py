@@ -780,7 +780,9 @@ def decide_candidate(
     flags: list[str] = []
     if anchor.kind is AnchorKind.EFFECTIVE_DATE:
         flags.append(FLAG_ANCHOR_EFFECTIVE)
-    if anchor.kind is AnchorKind.UNKNOWN:
+    # 只有"算出来的"日期才谈得上起算点无法判断；明文绝对日期（原文写明）本就没有起算锚，
+    # 给它挂 anchor_unknown 会让正常候选无端变成"需人工核对"。
+    if anchor.kind is AnchorKind.UNKNOWN and derivation in ("rule_relative", "rule_period"):
         flags.append(FLAG_ANCHOR_UNKNOWN)
     if party_role_ok is None:
         flags.append(FLAG_PARTY_ROLE_UNKNOWN)

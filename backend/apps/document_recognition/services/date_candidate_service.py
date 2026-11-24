@@ -1277,10 +1277,12 @@ def build_date_candidates(
             if flag not in merged_flags:
                 merged_flags.append(flag)
         draft.review_flags = tuple(merged_flags)
-        draft.confidence = decision.confidence
-        if merged_flags and draft.default_checked:
-            draft.default_checked = False
+        # 取 min 而不是覆盖：前置的陈旧降权（STALE_DAYS → 0.3）与远期降权不能被重算抹平
+        draft.confidence = min(draft.confidence, decision.confidence)
         draft.default_checked = decision.default_checked
+        # 草稿上预先打的 flag（如"起算点可能早于本次送达"）同样要收回默认勾选
+        if merged_flags:
+            draft.default_checked = False
         if not draft.anchor_document:
             draft.anchor_document = AnchorDocument.SELF.value
         decided.append(draft)
