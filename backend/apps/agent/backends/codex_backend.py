@@ -1,18 +1,23 @@
-"""codex 后端：把「``codex exec --json`` 子进程跑一轮」接成 ``AgentBackend``。
+"""codex 后端：把「``codex app-server`` 跑一轮」接成 ``AgentBackend``。
 
-## 为什么是 `exec --json` 而不是 `app-server`
+## 为什么是 `app-server` 而不是 `exec --json`
 
-codex 0.161 有两条可编程通道：
+两条通道都实测过（2026-11-24，codex-cli 0.161.0）：
 
-| 通道 | 能力 | 取舍 |
-|:-|:-|:-|
-| ``codex exec --json`` | JSONL 事件流（``item.started`` / ``item.completed`` / ``turn.completed``） | **本轮选它**：无状态、一行一条事件、失败面小 |
-| ``codex app-server`` | JSON-RPC + **外部审批回调**（``CommandExecutionRequestApproval`` / ``ApplyPatchApprovalRequest``，实测由 ``generate-json-schema`` 列出） | 能拿到「执行前问客户端」，但要维护长连接与协议状态；留作下一步 |
+| 通道 | 逐字流 | 执行前审批 | 结论 |
+|:-|:-|:-|:-|
+| ``exec --json`` | ❌ 只在 item 完成时出事件 | ❌ ``approval_policy = Never`` | 只能当「无闸门对照栏」 |
+| **``app-server``** | ✅ ``item/agentMessage/delta`` | ✅ ``item/commandExecution/requestApproval`` / ``item/fileChange/requestApproval`` | **本模块走这条** |
 
-所以本模块的能力声明里 ``approval=False``——**这是事实，不是待办**：
-``exec`` 模式的实际值就是 ``approval_policy = Never``（日志实测）。
-高危动作的强制闸门仍在 **MCP 服务端**（``tool_approval_gate``），与用哪个
-agent 后端无关，codex 绕不过去。
+``app-server`` 是 JSON-RPC over stdio：``initialize`` → ``thread/start``（把共享 MCP
+一起挂上，实测 ``mcpServer/startupStatus → ready``）→ ``turn/start``；随后服务端推
+``item/*`` 通知，并在需要人批时**反向发请求**给客户端。
+
+**内置工具一律走人工闸门**：codex 自己那套 shell / 打补丁能力不经过我们的 MCP，
+所以把它们命名成 ``codex_execute_command`` / ``codex_rewrite_file``——这两个名字命中
+``services/approval/risk.py`` 的 ``DANGER_PATTERNS``（``execute_`` / ``rewrite_``），
+于是**必然被判为 HIGH、必然弹审批卡**。这不是取名游戏：不用这两个前缀，分类器会
+把 ``codex_shell`` 判成低风险直接放行，闸门等于没有。
 
 ## 实测出来的三件事（都带着证据写在这里，免得后人再踩）
 
@@ -46,13 +51,13 @@ import logging
 import os
 import shutil
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
 from asgiref.sync import sync_to_async
 
-from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, StreamFrame
+from .base import BackendCapabilities, BackendError, BackendErrorKind, LiveBackendHandle, RunContext, StreamFrame
 from .codex_gateway import GatewayProxy
 from .gateway_cache import get_gateway_settings, resolve_gateway_target
 from .toolface import (
@@ -71,6 +76,9 @@ logger = logging.getLogger(__name__)
 KIND = "codex"
 
 #: codex 可执行文件（``FACHUAN_CODEX_BIN`` 可覆盖）。
+#: 审批开关（与 capabilities.approval 同源）。
+APPROVAL_ENV = "FACHUAN_CODEX_APPROVAL"
+
 BIN_ENV = "FACHUAN_CODEX_BIN"
 DEFAULT_BIN = "codex"
 
@@ -93,8 +101,15 @@ BUILTIN_TOOLS = frozenset(
 
 
 def approval_enabled() -> bool:
-    """codex 的 ``exec`` 通道**没有**外部审批回调，恒为 ``False``（如实声明）。"""
-    return False
+    """本轮是否启用人工审批闸门（默认开）。
+
+    **必须与 ``capabilities.approval`` 同源**：第一版把它写成「``exec`` 通道恒无审批 →
+    恒返回 False」，而 capabilities 却硬编码 True，结果 capability 说有闸门、
+    实现里 ``_ask_human`` 直接放行——实测 codex 的 ``touch`` 未经审批就执行了。
+    现在两处都取这个函数的值。
+    """
+    raw = os.environ.get(APPROVAL_ENV, "1").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
 
 
 def tool_tier() -> str:
@@ -203,9 +218,9 @@ class CodexRunResult:
 
 
 def normalize_tool_name(item: dict[str, Any]) -> tuple[str, str]:
-    """``mcp_tool_call`` 的 ``(server, tool)`` → ``(短名, 审批用全名)``。
+    """``mcpToolCall`` 的 ``(server, tool)`` → ``(短名, 审批用全名)``。
 
-    codex 的事件里 server 与 tool 是分开的两个字段，比 opencode 的 ``title`` 可靠得多：
+    codex 的事件里 server 与 tool 是分开的两个字段，比 opencode 的 ``title`` 可靠：
     ``{"server": "fachuan", "tool": "delete_case"}`` → ``("delete_case", "mcp__fachuan__delete_case")``。
     """
     tool = str(item.get("tool") or "").strip()
@@ -217,8 +232,176 @@ def normalize_tool_name(item: dict[str, Any]) -> tuple[str, str]:
     return tool, f"{server}__{tool}" if server else tool
 
 
+class _JsonRpc:
+    """``codex app-server`` 的 JSON-RPC over stdio 客户端（只实现用到的那一小片）。
+
+    三条通道分开：``request()`` 发请求等响应、``next_message()`` 取服务端推来的通知、
+    ``on_request`` 处理**服务端反向发来的请求**（审批就走这条）。
+    """
+
+    def __init__(self, proc: asyncio.subprocess.Process, on_request: Any) -> None:
+        self._proc = proc
+        self._on_request = on_request
+        self._next_id = 0
+        self._pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
+        self._notifications: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        self._reader = asyncio.create_task(self._read_loop())
+        self.closed = False
+
+    async def _read_loop(self) -> None:
+        assert self._proc.stdout is not None
+        while True:
+            raw = await self._proc.stdout.readline()
+            if not raw:
+                break
+            line = raw.decode("utf-8", "replace").strip()
+            if not line.startswith("{"):
+                continue
+            try:
+                msg = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            await self._dispatch(msg)
+        self.closed = True
+        for fut in self._pending.values():
+            if not fut.done():
+                fut.set_exception(BackendError(BackendErrorKind.UNKNOWN, "codex app-server 已退出"))
+        self._pending.clear()
+
+    async def _dispatch(self, msg: dict[str, Any]) -> None:
+        msg_id = msg.get("id")
+        if msg_id is not None and ("result" in msg or "error" in msg):
+            fut = self._pending.pop(int(msg_id), None)
+            if fut is not None and not fut.done():
+                fut.set_result(msg)
+            return
+        if msg_id is not None and "method" in msg:
+            await self._handle_server_request(msg)
+            return
+        if "method" in msg:
+            await self._notifications.put(msg)
+
+    async def _handle_server_request(self, msg: dict[str, Any]) -> None:
+        try:
+            result = await self._on_request(msg)
+        except (BackendError, RuntimeError, ValueError, KeyError, TypeError) as exc:
+            logger.exception("codex 审批回调失败：%s", msg.get("method"))
+            result = {"decision": "decline"}
+            logger.debug("审批回调异常按拒绝处理：%s", exc)
+        await self._send({"jsonrpc": "2.0", "id": msg["id"], "result": result})
+
+    async def _send(self, payload: dict[str, Any]) -> None:
+        if self._proc.stdin is None or self.closed:
+            return
+        try:
+            self._proc.stdin.write((json.dumps(payload, ensure_ascii=False) + "\n").encode())
+            await self._proc.stdin.drain()
+        except (BrokenPipeError, ConnectionResetError):
+            self.closed = True
+
+    async def request(self, method: str, params: dict[str, Any], *, timeout: float = 60.0) -> dict[str, Any]:
+        self._next_id += 1
+        rid = self._next_id
+        fut: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
+        self._pending[rid] = fut
+        await self._send({"jsonrpc": "2.0", "id": rid, "method": method, "params": params})
+        try:
+            msg = await asyncio.wait_for(fut, timeout=timeout)
+        except TimeoutError:
+            self._pending.pop(rid, None)
+            raise BackendError(BackendErrorKind.UNKNOWN, f"codex {method} 超时（{timeout:.0f}s）") from None
+        if "error" in msg:
+            raise _error_from_rpc(method, msg["error"])
+        return msg.get("result") or {}
+
+    async def next_message(self) -> dict[str, Any] | None:
+        if self.closed and self._notifications.empty():
+            return None
+        try:
+            return await asyncio.wait_for(self._notifications.get(), timeout=1.0)
+        except TimeoutError:
+            return None
+
+    async def close(self) -> None:
+        try:
+            if self._proc.stdin is not None:
+                self._proc.stdin.close()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        self._reader.cancel()
+        if self._proc.returncode is None:
+            self._proc.kill()
+        await self._proc.wait()
+
+
+def _error_from_rpc(method: str, error: Any) -> BackendError:
+    """JSON-RPC error → 用户能看懂的 ``BackendError``。"""
+    message = str((error or {}).get("message") or error) if isinstance(error, dict) else str(error)
+    lowered = message.lower()
+    if "auth" in lowered or "401" in message or "403" in message:
+        return BackendError(BackendErrorKind.AUTH, f"codex {method} 鉴权失败：{message}")
+    if "rate" in lowered or "429" in message:
+        return BackendError(BackendErrorKind.RATE_LIMITED, f"codex {method} 被限流：{message}", retryable=True)
+    if "context" in lowered or "token" in lowered:
+        return BackendError(BackendErrorKind.CONTEXT_OVERFLOW, f"codex {method} 上下文超限：{message}")
+    return BackendError(BackendErrorKind.UNKNOWN, f"codex {method} 失败：{message}")
+
+
+class CodexHandle(LiveBackendHandle):
+    """本轮控制柄：中止走 ``turn/interrupt``；插话走 ``turn/steer``（app-server 支持）。"""
+
+    kind = KIND
+
+    def __init__(self, *, run_id: str, thread_id: str, turn_id: str, rpc: _JsonRpc, state: _RunState) -> None:
+        self.run_id = run_id
+        self._thread_id = thread_id
+        self._turn_id = turn_id
+        self._rpc = rpc
+        self._state = state
+
+    async def steer(self, message: str) -> str:
+        await self._rpc.request(
+            "turn/steer",
+            {"threadId": self._thread_id, "turnId": self._turn_id, "input": [{"type": "text", "text": message}]},
+            timeout=30.0,
+        )
+        return "queued"
+
+    async def follow_up(self, message: str) -> str:
+        """app-server 没有「追加一轮」的独立语义：与插话同义。"""
+        return await self.steer(message)
+
+    async def abort(self) -> bool:
+        await self._rpc.request("turn/interrupt", {"threadId": self._thread_id, "turnId": self._turn_id}, timeout=15.0)
+        return True
+
+    async def get_stats(self) -> dict[str, Any]:
+        if self._state.input_tokens + self._state.output_tokens <= 0:
+            return {}
+        return {
+            "input_tokens": self._state.input_tokens,
+            "output_tokens": self._state.output_tokens,
+            "cache_read_tokens": self._state.cache_read_tokens,
+        }
+
+
+@dataclass
+class _RunState:
+    """一轮的翻译状态。"""
+
+    announced: set[str] = field(default_factory=set)
+    tool_names: dict[str, str] = field(default_factory=dict)
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    #: 上一份累计用量：``thread/tokenUsage/updated`` 给的是**累计值**，
+    #: 直接拿来记账会把整轮成本算成几倍（同 dsh 的教训）。
+    last_total: int = 0
+
+
 class CodexBackend:
-    """codex 运行时（每次 ``stream()`` 拉起一条 ``codex exec --json``）。"""
+    """codex 运行时（每次 ``stream()`` 拉起一条 ``codex app-server``）。"""
 
     kind = KIND
     capabilities: BackendCapabilities
@@ -227,11 +410,11 @@ class CodexBackend:
 
     def __init__(self) -> None:
         self.capabilities = BackendCapabilities(
-            streaming=False,  # exec 只按 item 完成出事件（实测）
+            streaming=True,  # app-server 有 item/agentMessage/delta（实测）
             tool_calls=True,
-            approval=approval_enabled(),  # exec 没有外部审批回调，恒 False
+            approval=approval_enabled(),  # 与开关同源（第一版硬编码 True，实现却恒放行——已修）
             compaction=False,  # 每轮新 thread，历史由编排层渲染
-            steer=False,
+            steer=True,  # turn/steer 在协议里
             concurrent_in_session=True,
         )
         self._results = OrderedDict()
@@ -250,20 +433,19 @@ class CodexBackend:
 
     async def _stream(self, ctx: RunContext) -> AsyncGenerator[StreamFrame, None]:
         resolved = await self._resolve_gateway(ctx)
-        sid = str(ctx.session.session_id)
-        run_dir = session_dir(sid)
-        home = run_dir / "home"
-        work = run_dir / "work"
+        run_dir = session_dir(str(ctx.session.session_id))
+        home, work = run_dir / "home", run_dir / "work"
+        state = _RunState()
         with GatewayProxy() as proxy:
             proxy_base = proxy.lease(base_url=resolved["base_url"], api_key=resolved["api_key"])
-            mcp_url, mcp_headers = self._mcp(ctx, sid)
+            mcp_url, mcp_headers = self._mcp(ctx, str(ctx.session.session_id))
             write_config(
                 home,
                 build_config(
                     proxy_base_url=proxy_base, model=resolved["model"], mcp_url=mcp_url, mcp_headers=mcp_headers
                 ),
             )
-            async for frame in self._run(ctx, home=home, work=work, resolved=resolved):
+            async for frame in self._run(ctx, home=home, work=work, resolved=resolved, state=state):
                 yield frame
         self._remember_result(ctx.run_id, CodexRunResult(model=resolved["model"]))
 
@@ -274,21 +456,16 @@ class CodexBackend:
         home: Path,
         work: Path,
         resolved: dict[str, Any],
+        state: _RunState,
     ) -> AsyncGenerator[StreamFrame, None]:
-        """拉起 codex，逐行读 JSONL 并翻译。"""
         binary = resolve_bin()
         try:
             proc = await asyncio.create_subprocess_exec(
                 binary,
-                "exec",
-                "--json",
-                "--skip-git-repo-check",
-                "-C",
-                str(work),
-                ctx.prompt,
-                stdin=asyncio.subprocess.DEVNULL,
+                "app-server",
+                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
                 env=build_env(home, resolved["api_key"]),
                 cwd=str(work),
             )
@@ -298,36 +475,215 @@ class CodexBackend:
                 f"找不到 codex 可执行文件（{binary}）；请先安装 codex 或设置 {BIN_ENV}",
             ) from None
 
-        started: set[str] = set()
+        rpc = _JsonRpc(proc, self._make_approval_handler(ctx, state))
         failure: BackendError | None = None
         try:
-            assert proc.stdout is not None
-            while True:
-                raw = await asyncio.wait_for(proc.stdout.readline(), timeout=ROUND_TIMEOUT)
-                if not raw:
-                    break
-                line = raw.decode("utf-8", "replace").strip()
-                if not line.startswith("{"):
-                    continue
-                try:
-                    event = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if event.get("type") == "turn.failed":
-                    # 不在这里拼 error 帧：错误事件只有一个投影点（``apps.agent.errors.project``），
-                    # 手写会让该路径在前端丢掉 ``code``。记下来，收尾时抛给编排层。
-                    message = (event.get("error") or {}).get("message") or "codex 本轮失败"
-                    failure = failure or BackendError(BackendErrorKind.UNKNOWN, str(message)[:300])
-                    continue
-                for frame in self._translate(event, started):
-                    yield {**frame, "agent": self.kind, "run_id": ctx.run_id}
-        finally:
-            if proc.returncode is None:
-                proc.kill()
-            await proc.wait()
+            await rpc.request(
+                "initialize", {"clientInfo": {"name": "fachuan", "version": "1"}, "capabilities": {}}, timeout=30.0
+            )
+            thread = await rpc.request(
+                "thread/start",
+                {
+                    "cwd": str(work),
+                    "model": resolved["model"],
+                    "modelProvider": "fachuan",
+                    # 严格模式：codex 自己的 shell / 打补丁**必须**先问我们
+                    "approvalPolicy": "untrusted",
+                    "sandbox": "read-only",
+                },
+                timeout=120.0,
+            )
+            thread_id = str((thread.get("thread") or {}).get("id") or "")
+            if not thread_id:
+                raise BackendError(BackendErrorKind.UNKNOWN, "codex 没有返回 thread id")
+            turn = await rpc.request(
+                "turn/start",
+                {"threadId": thread_id, "input": [{"type": "text", "text": ctx.prompt}]},
+                timeout=120.0,
+            )
+            turn_id = str((turn.get("turn") or {}).get("id") or "")
+            registered = False
+            handle: CodexHandle | None = None
+            if not ctx.isolated:
+                # 登记控制柄：用户可在本轮跑到一半时插话 / 中止（与 pi 同口径）。
+                # **best-effort**：登记失败不能让本轮对话挂住（测试桩会话、并发占位都会抛）。
+                from ..services.live_sessions import get_live_registry
 
+                handle = CodexHandle(run_id=ctx.run_id, thread_id=thread_id, turn_id=turn_id, rpc=rpc, state=state)
+                try:
+                    await get_live_registry().register(str(ctx.session.session_id), handle)
+                    registered = True
+                except (RuntimeError, ValueError, KeyError) as exc:
+                    logger.info("codex 登记运行中会话失败（不影响本轮）：%s", exc)
+            try:
+                async for frame in self._pump(ctx, rpc, state):
+                    yield frame
+            finally:
+                if registered and handle is not None:
+                    from ..services.live_sessions import get_live_registry
+
+                    try:
+                        await get_live_registry().unregister(str(ctx.session.session_id), handle)
+                    except (BackendError, RuntimeError, ValueError):
+                        logger.exception("codex 注销运行中会话失败：%s", ctx.session.session_id)
+        finally:
+            await rpc.close()
         if failure is not None:
             raise failure
+
+    async def _pump(self, ctx: RunContext, rpc: _JsonRpc, state: _RunState) -> AsyncGenerator[StreamFrame, None]:
+        """读通知直到 ``turn/completed``。"""
+        while True:
+            message = await rpc.next_message()
+            if message is None:
+                if rpc.closed:
+                    return
+                yield None
+                continue
+            method = str(message.get("method") or "")
+            params = message.get("params") or {}
+            if method == "turn/completed":
+                return
+            if method == "error":
+                raise BackendError(BackendErrorKind.UNKNOWN, str(params.get("message") or "codex 本轮失败")[:300])
+            for frame in self._translate(method, params, state):
+                yield {**frame, "agent": self.kind, "run_id": ctx.run_id}
+
+    # ── 审批 ────────────────────────────────────────────────────────────
+
+    def _make_approval_handler(self, ctx: RunContext, state: _RunState) -> Any:
+        async def handle(msg: dict[str, Any]) -> dict[str, Any]:
+            method = str(msg.get("method") or "")
+            params = msg.get("params") or {}
+            tool_name, tool_args, call_id = _approval_identity(method, params)
+            if tool_name is None:
+                logger.info("codex 发来未支持的请求，直接放行（不改语义）：%s", method)
+                return {"decision": "accept"}
+            approved = await self._ask_human(ctx, tool_name, tool_args, call_id)
+            # 取值来自 ``CommandExecutionApprovalDecision`` 枚举（实测踩过：写 ``denied``
+            # 会解析失败，整个 turn 挂住不返回）。``decline`` = 拒绝但本轮继续；
+            # ``cancel`` = 拒绝并中止本轮——我们只要前者（与其它后端的「拒绝后继续」同义）。
+            return {"decision": "accept" if approved else "decline"}
+
+        return handle
+
+    async def _ask_human(self, ctx: RunContext, tool_name: str, tool_args: dict[str, Any], call_id: str) -> bool:
+        """走四级判定；``codex_execute_command`` / ``codex_rewrite_file`` 必然 HIGH。"""
+        if not approval_enabled():
+            return True
+        from ..services.approval import request_approval
+
+        approved, _aid, _reason = await request_approval(
+            tool_name=tool_name,
+            tool_args=tool_args,
+            user_id=ctx.user_id,
+            session_id=str(ctx.session.session_id),
+            run_id=ctx.run_id,
+            tool_call_id=call_id,
+        )
+        return approved
+
+    # ── 事件翻译 ────────────────────────────────────────────────────────
+
+    def _translate(self, method: str, params: dict[str, Any], state: _RunState) -> list[dict[str, Any]]:
+        if method == "item/agentMessage/delta":
+            delta = params.get("delta")
+            return [{"type": "delta", "content": delta}] if isinstance(delta, str) and delta else []
+        if method == "item/started":
+            return self._item_frames(params.get("item") or {}, started=True, state=state)
+        if method == "item/completed":
+            return self._item_frames(params.get("item") or {}, started=False, state=state)
+        if method == "thread/tokenUsage/updated":
+            usage = self._usage_frame(params.get("tokenUsage") or {}, state)
+            return [usage] if usage else []
+        return []
+
+    def _item_frames(self, item: dict[str, Any], *, started: bool, state: _RunState) -> list[dict[str, Any]]:
+        kind = str(item.get("type") or "")
+        call_id = str(item.get("id") or "")
+        if kind == "mcpToolCall":
+            short, _full = normalize_tool_name(item)
+            if started:
+                if call_id in state.announced:
+                    return []
+                state.announced.add(call_id)
+                state.tool_names[call_id] = short
+                args = item.get("arguments")
+                return [
+                    {
+                        "type": "tool_call",
+                        "tool_call_id": call_id,
+                        "name": short,
+                        "arguments": json.dumps(args, ensure_ascii=False) if args else None,
+                    }
+                ]
+            return [
+                {
+                    "type": "tool_result",
+                    "tool_call_id": call_id,
+                    "name": state.tool_names.get(call_id, short),
+                    "result": _mcp_result_text(item.get("result")),
+                    "is_error": str(item.get("status") or "") == "failed",
+                }
+            ]
+        if kind == "commandExecution":
+            command = str(item.get("command") or "")
+            if started:
+                if call_id in state.announced:
+                    return []
+                state.announced.add(call_id)
+                state.tool_names[call_id] = "codex_execute_command"
+                return [
+                    {
+                        "type": "tool_call",
+                        "tool_call_id": call_id,
+                        "name": "codex_execute_command",
+                        "arguments": json.dumps({"command": command}, ensure_ascii=False),
+                    }
+                ]
+            output = item.get("aggregatedOutput") or item.get("output") or ""
+            return [
+                {
+                    "type": "tool_result",
+                    "tool_call_id": call_id,
+                    "name": "codex_execute_command",
+                    "result": str(output)[:4000],
+                    "is_error": bool(item.get("exitCode")) if item.get("exitCode") is not None else False,
+                }
+            ]
+        return []
+
+    @staticmethod
+    def _usage_frame(token_usage: dict[str, Any], state: _RunState) -> dict[str, Any] | None:
+        """``thread/tokenUsage/updated`` 给的是累计值，按差值记账。"""
+        total = token_usage.get("total") or {}
+        total_tokens = int(total.get("totalTokens") or 0)
+        if total_tokens <= 0:
+            return None
+        delta = max(0, total_tokens - state.last_total)
+        state.last_total = total_tokens
+        input_tokens = max(
+            0,
+            int(total.get("inputTokens") or 0)
+            - int(total.get("cachedInputTokens") or 0)
+            - int(total.get("cacheWriteInputTokens") or 0),
+        )
+        cached = int(total.get("cachedInputTokens") or 0)
+        cache_write = int(total.get("cacheWriteInputTokens") or 0)
+        output = int(total.get("outputTokens") or 0)
+        if delta <= 0:
+            return None
+        state.input_tokens, state.output_tokens = input_tokens, output
+        state.cache_read_tokens, state.cache_write_tokens = cached, cache_write
+        return {
+            "type": "usage",
+            "input_tokens": input_tokens,
+            "output_tokens": output,
+            "cache_read_tokens": cached,
+            "cache_write_tokens": cache_write,
+        }
+
+    # ── 网关 / 工具面 ────────────────────────────────────────────────────
 
     async def _resolve_gateway(self, ctx: RunContext) -> dict[str, Any]:
         settings = await sync_to_async(get_gateway_settings, thread_sensitive=True)(ctx.model)
@@ -340,7 +696,6 @@ class CodexBackend:
         return {"base_url": target.base_url, "api_key": target.api_key, "model": target.model}
 
     def _mcp(self, ctx: RunContext, session_id: str) -> tuple[str | None, dict[str, str]]:
-        """本轮 MCP 的 (url, headers)；不该挂时返回 ``(None, {})``。"""
         token = (ctx.user_token or "").strip()
         if not token or not shared_enabled():
             logger.warning("codex 本轮无业务工具（token 缺失或共享 MCP 已禁用）")
@@ -355,97 +710,32 @@ class CodexBackend:
             TOOL_TIER_HEADER: tool_tier(),
         }
 
-    # ── 事件翻译 ────────────────────────────────────────────────────────
 
-    def _translate(self, event: dict[str, Any], started: set[str]) -> list[dict[str, Any]]:
-        """一条 codex JSONL → 零个或多个契约事件。"""
-        kind = str(event.get("type") or "")
-        if kind == "turn.completed":
-            usage = self._usage(event.get("usage"))
-            return [usage] if usage else []
-        if kind not in {"item.started", "item.completed"}:
-            return []
-        item = event.get("item") or {}
-        item_type = str(item.get("type") or "")
-        if item_type == "agent_message" and kind == "item.completed":
-            text = str(item.get("text") or "")
-            return [{"type": "delta", "content": text}] if text else []
-        if item_type == "mcp_tool_call":
-            return self._tool_frames(item, kind, started)
-        return []
+def _approval_identity(method: str, params: dict[str, Any]) -> tuple[str | None, dict[str, Any], str]:
+    """把 codex 的审批请求映射成 ``(工具名, 参数, call_id)``。
 
-    def _tool_frames(self, item: dict[str, Any], event_kind: str, started: set[str]) -> list[dict[str, Any]]:
-        """``mcp_tool_call``：``item.started`` 发 ``tool_call``，``item.completed`` 发 ``tool_result``。"""
-        short, _full = normalize_tool_name(item)
-        call_id = str(item.get("id") or "")
-        if not call_id:
-            return []
-        if event_kind == "item.started":
-            if call_id in started:
-                return []
-            started.add(call_id)
-            args = item.get("arguments")
-            return [
-                {
-                    "type": "tool_call",
-                    "tool_call_id": call_id,
-                    "name": short,
-                    "arguments": json.dumps(args, ensure_ascii=False) if args else None,
-                }
-            ]
-        text = self._result_text(item.get("result"))
-        error = item.get("error")
-        return [
-            {
-                "type": "tool_result",
-                "tool_call_id": call_id,
-                "name": short,
-                "result": text if error is None else f"{text}\n{error}".strip(),
-                "is_error": error is not None,
-            }
+    名字带 ``codex_execute_command`` / ``codex_rewrite_file`` 是**故意的**：它们命中
+    ``services/approval/risk.py`` 的 ``DANGER_PATTERNS``（``execute_`` / ``rewrite_``），
+    因此必然判 HIGH、必然弹审批卡。换成 ``codex_shell`` 会被判低风险直接放行。
+    """
+    call_id = str(params.get("itemId") or "")
+    if method == "item/commandExecution/requestApproval":
+        return "codex_execute_command", {"command": str(params.get("command") or "")}, call_id
+    if method in {"item/fileChange/requestApproval", "applyPatchApproval"}:
+        return "codex_rewrite_file", {"paths": params.get("paths") or params.get("changes") or []}, call_id
+    if method == "item/permissions/requestApproval":
+        return "codex_execute_command", {"permissions": params.get("permissions") or {}}, call_id
+    return None, {}, call_id
+
+
+def _mcp_result_text(result: Any) -> str:
+    if isinstance(result, dict):
+        parts = [
+            b.get("text")
+            for b in (result.get("content") or [])
+            if isinstance(b, dict) and isinstance(b.get("text"), str)
         ]
-
-    @staticmethod
-    def _result_text(result: Any) -> str:
-        """MCP 结果里的 ``content`` 数组 → 一段文本。"""
-        if not isinstance(result, dict):
-            return "" if result is None else str(result)[:4000]
-        parts: list[str] = []
-        for block in result.get("content") or []:
-            if isinstance(block, dict) and isinstance(block.get("text"), str):
-                parts.append(block["text"])
-        return "\n".join(parts)
-
-    @staticmethod
-    def _usage(usage: Any) -> dict[str, Any] | None:
-        """``turn.completed.usage`` → ``usage`` 帧。"""
-        if not isinstance(usage, dict):
-            return None
-        input_tokens = int(usage.get("input_tokens") or 0)
-        cached = int(usage.get("cached_input_tokens") or 0)
-        write = int(usage.get("cache_write_input_tokens") or 0)
-        output = int(usage.get("output_tokens") or 0)
-        if input_tokens + output <= 0:
-            return None
-        return {
-            "type": "usage",
-            "input_tokens": max(0, input_tokens - cached - write),
-            "output_tokens": output,
-            "cache_read_tokens": cached,
-            "cache_write_tokens": write,
-        }
-
-
-__all__ = [
-    "KIND",
-    "CodexBackend",
-    "CodexRunResult",
-    "approval_enabled",
-    "build_config",
-    "build_env",
-    "is_available",
-    "normalize_tool_name",
-    "resolve_bin",
-    "session_dir",
-    "tool_tier",
-]
+        if parts:
+            return "\n".join(parts)
+        return json.dumps(result, ensure_ascii=False)[:4000]
+    return "" if result is None else str(result)[:4000]

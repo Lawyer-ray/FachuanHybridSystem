@@ -76,11 +76,13 @@ pi/dsh/opencode/claude-agent 的 agent 循环都是第三方的，只有 openai-
 | 工具事件 | `item.started` / `item.completed` 的 `mcp_tool_call`（server/tool/arguments/result 齐全） |
 | 用量 | `turn.completed.usage`（input / cached_input / cache_write 分开记） |
 
-**它做不到的两件事**（`capabilities` 如实声明，不是待办）：
-`streaming=False`（`exec` 只在 item 完成时出事件，没有 token 级增量）、
-`approval=False`（`exec` 的 `approval_policy=Never`；高危动作仍由 **MCP 服务端闸门**
-`tool_approval_gate` 拦，与用哪个后端无关）。要走「执行前问人」得换 `app-server`
-通道——它的协议里确实有 `CommandExecutionRequestApproval`，留作下一步。
+**已升级到 `app-server`**（2026-11-24）：`capabilities` 现在是
+`streaming=True`（`item/agentMessage/delta` 逐字）、`approval=True`
+（`item/commandExecution/requestApproval` 在执行前拦下）、`steer=True`
+（`turn/steer`）。codex 自己那套 shell / 打补丁能力**不经过 MCP**，所以后端把它们
+命名成 `codex_execute_command` / `codex_rewrite_file`——这两个名字命中
+`services/approval/risk.py` 的 `DANGER_PATTERNS`，于是必然判 HIGH、必然弹审批卡。
+实测双向闭环：拒绝 → 命令没执行；批准 → 执行。
 
 **三个实测坑**（都在模块 docstring 里）：
 1. **必须经 loopback 反代**：codex 的 reqwest `system_proxy_fallback: true`，会读 macOS
