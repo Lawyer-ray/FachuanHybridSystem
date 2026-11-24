@@ -266,7 +266,10 @@ class TestGatewayProfileDelegation:
         assert payload is not None
         [entry] = _models_of(payload)
         level_map = entry["thinkingLevelMap"]
-        assert level_map.pop("off") == "off"
+        # 先 pop 再断言：把有副作用的调用放在 assert 里会被 CodeQL 判 py/side-effect-in-assert
+        # （门禁阈值 0），而且断言被 -O 优化掉时副作用就静默消失了。
+        off_level = level_map.pop("off")
+        assert off_level == "off"
         assert level_map == {level: f"probe-{level}" for level in level_map}
 
     def test_off_level_is_not_sent_through_gateway_mapping(self) -> None:

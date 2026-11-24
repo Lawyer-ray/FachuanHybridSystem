@@ -297,7 +297,10 @@ async def stream_chat(
             logger.exception("为用户 %s 铸造 agent 凭证失败，拒绝本轮对话", user_id)
             # 投影而不是手写：这个 code（``auth_failed``）是前端「该重新登录还是
             # 找管理员」的唯一依据，手写一份就多一处拼写会漂。
-            yield project(AuthFailedError(reason=str(exc)), agent=backend.kind)
+            # 不把 ``str(exc)`` 塞进 reason：异常原文可能内嵌堆栈/上游 HTML 错误页，
+            # 顺着 SSE 推给浏览器就是 py/stack-trace-exposure（本仓库门禁阈值 0）。
+            # 分类由 ``code=auth_failed`` 承载（前端只认它），原文由上一行 logger.exception 留档。
+            yield project(AuthFailedError(reason="准备执行身份时失败，详见服务端日志"), agent=backend.kind)
             return
 
     session_id = str(session.session_id)
