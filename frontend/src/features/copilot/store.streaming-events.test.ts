@@ -149,6 +149,25 @@ describe('copilot store：流式事件处理', () => {
     expect(useCopilot.getState().lastError).toBe('服务端拒绝')
     expect(useCopilot.getState().streaming).toBe(false)
   })
+
+  it('error 事件：code / scope / detail 不得在流式层被丢掉', async () => {
+    // 回归夜（2026-11-24）：`streaming.ts` 曾经只转发 `event.message`，把后端已经
+    // 给了的 code/scope/detail 全扔了 → 会话不存在被报成「未知错误」，诊断里连
+    // which session 都看不到。这里从帧到 store 走一遍，锁住整条链路。
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"error","message":"会话不存在","code":"session_not_found","scope":"request","agent":"pi","detail":{"session_id":"s-1"}}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('x')
+    const raw = useCopilot.getState().lastError!
+    expect(raw).toContain('会话不存在')
+    // 信封里必须带着三件套，否则最后一个环节的 classifyError 只能按文案猜
+    expect(raw).toContain('session_not_found')
+    expect(raw).toContain('s-1')
+  })
 })
 
 // ============ 排队可见 / 插话 / 后台任务 / 离线审批（P0 批次） ============

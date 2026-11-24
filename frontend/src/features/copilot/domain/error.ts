@@ -202,7 +202,7 @@ export function mergeError(prev: ClassifiedError | null, next: ClassifiedError):
   return { ...next, repeat: prev.repeat + 1 }
 }
 
-export type ErrorActionId = 'retry' | 'switch_backend' | 'compact_context'
+export type ErrorActionId = 'retry' | 'switch_backend' | 'compact_context' | 'new_session'
 
 export interface ErrorAction {
   id: ErrorActionId
@@ -250,6 +250,10 @@ export function errorActions(error: ClassifiedError): ErrorAction[] {
       return [{ id: 'switch_backend', label: '换个后端' }]
     case 'context_exceeded':
       return [{ id: 'compact_context', label: '压缩上下文' }]
+    // 会话已不存在：只能重开一个。给按钮而不是只说一句「会话不存在」，
+    // 否则律师看着一张报错卡而不知道下一步点哪里（2026-11-24 实测的投诉现场）。
+    case 'session_not_found':
+      return [{ id: 'new_session', label: '新开会话' }]
     default:
       return []
   }

@@ -6,12 +6,25 @@ name: codeql
 # 是全仓 Python，scripts/ 也在内（历史上就报过 15 条告警）。但触发路径原先只写了
 # backend/**，于是「改了 scripts 里的代码 → 不会重扫 → 旧告警一直挂着 → Alerts gate
 # 一直红」，而修的人看不出为什么改了没反应。扫描范围与触发范围必须一致。
+#
+# 注：`push` 侧仍保留 paths 过滤（main 上只有 Python 变动会改变扫描结果，扫描不到的路径
+# 不重跑不丢信息）；`pull_request` 侧不保留，理由见下方 on.pull_request 的注释。
 on:
+  # ⚠️ `pull_request` **刻意不加 paths 过滤**（2026-11-24）。
+  #
+  # 原因：本工作流里的 `Alerts gate` 要作为 main 分支保护的 required status check。
+  # 而 GitHub **不会把“未触发的 required check”当作通过**——它会永远停在
+  # "Expected — Waiting for status to be reported"，PR 就永远合不了。
+  # 而 `enforce_admins: true` 意味着连仓库 owner 也无法 `--admin` 绕过。
+  # 换言之：带 paths 过滤的工作流一旦被设为 required，**纯前端/纯文档 PR 会把仓库锁死**。
+  #
+  # 代价是纯文档 PR 也会跑一次 analyze（实测 5–8 分钟，与其它 job 并行）。用这个代价换
+  # “门禁真的会拦”而不是“门禁看着像会拦”，值。
+  #
+  # 反之，若把它拆成独立轻量 workflow 来避开 analyze 开销，就会失去 `needs: analyze`——
+  # 门禁可能在同 PR 的扫描完成前就跑完，`refs/pull/N/merge` 上还什么都查不到，静默假绿。
+  # 宁可多烧几分钟 CI，也不要一个会报假绿的闸门。
   pull_request:
-    paths:
-      - "backend/**"
-      - "scripts/**"
-      - ".github/workflows/codeql.yml"
   push:
     branches:
       - main
@@ -53,8 +66,11 @@ jobs:
           category: "/language:${{ matrix.language }}"
 
   # 告警数门禁：Security tab 里的存量不会让任何 workflow 变红，所以这里显式卡数。
-  # 只统计 state=open 且 rule.severity 为 error/warning 的告警；note 级一律不卡
+  # 只统计 state=open 且 rule.severity 为 error/warning 的告警；note 级不进本脚本
   # （note 占存量绝大多数，全卡等于门禁一上线就全红，等于没上线）。
+  # note 级的棘轮是**同一个 job 里的另一个 step**（`Enforce note-level alerts`），
+  # 独立成步是为了让两边互不连坐：note 逻辑出错最多多一个红 step，不会拖垮已验证
+  # 可用的 error/warning 门禁。
   alerts-gate:
     name: Alerts gate
     needs: analyze
@@ -64,14 +80,19 @@ jobs:
       contents: read
       security-events: read
     env:
-      # 当前 main 基线（2026-10-31 第二轮合入后实测）：error+warning 合计 **0** 条。
-      # 剩下的 6 条全部是 note 级（CodeQL 对 global 读写 / 测试断言看不到导致的误报，
-      # 已就地加注释说明，见 approval.py / document_analyzer.py / onlyoffice/config.py /
-      # conftest.py / mcp_server/server.py）。
+      # 当前 main 基线（2026-11-24 实测）：error+warning 合计 **0** 条。
       # 阈值 = 基线，含义是「不得新增」；清理掉存量后把这里往下调，**不要往上调**。
       MAX_OPEN_ALERTS: "0"
       # 只卡 rule.severity 为这几档的告警；note 故意不在列。
       BLOCKING_SEVERITIES: "error, warning"
+      # ── note 级基线（2026-11-24 实测，见下一个 step 的完整说明）──────────────
+      # 全仓 note 合计 235 = 强制执行层 94 + 观察层 141。只准下调，上调须在本 PR 里
+      # 写明理由（例如 CodeQL 版本升级导致计数整体漂移）。
+      MAX_OPEN_NOTE_ALERTS: "235"
+      # 客观真阳类：这些规则不存在「CodeQL 看不见所以误报」的可能，新引入即视为缺陷。
+      # 刻意**不含** unused-global-variable / ineffectual-statement / catch-base-exception /
+      # empty-except —— 四者在本仓库的误报率极高（详见下一个 step 注释）。
+      NOTE_RULES_ENFORCED: "py/unused-import, py/unused-local-variable, py/import-and-import-from, py/unnecessary-lambda, py/mixed-returns"
       EVENT_NAME: ${{ github.event_name }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -216,4 +237,195 @@ jobs:
             echo "本 PR 新引入的 error/warning 级告警 ${blocking_count} 条，未超过阈值 ${MAX_OPEN_ALERTS}，通过。"
           else
             echo "error/warning 级 open 告警 ${blocking_count} 条，未超过阈值 ${MAX_OPEN_ALERTS}，通过。"
+          fi
+
+      # ── note 级棘轮 ──────────────────────────────────────────────────────────
+      #
+      # 为什么需要这一步：上面那个门禁只卡 error/warning，note 级无人看管。实测证据
+      # （2026-11-24）：note 从 issue #564 收尾时的 6 条涨到 235 条，**其中 153 条是最近
+      # 7 天新增的**。也就是说「看着清零」的第二天就开始无声再生了，这是 #564 自己写下的
+      # 教训（「看着清零不等于清零」），只不过发生在没人卡的 note 层。
+      #
+      # 为什么分两层而不是一律卡：
+      #   强制执行层 94 条 —— unused-import 71 / unused-local-variable 12 /
+      #     unnecessary-lambda 8 / mixed-returns 2 / import-and-import-from 1。
+      #     全部是**客观真阳**，删掉就对了，不存在误伤空间。
+      #   观察层 141 条 —— ineffectual-statement 72 / unused-global-variable 51 /
+      #     catch-base-exception 13 / empty-except 5。这一层在本仓库误报率极高，实测抽样：
+      #       `def tool() -> None: ...` 的省略号体被判 ineffectual-statement
+      #       `_pool_lock = _LoopScopedLock()` 经模块属性访问被判 unused-global-variable
+      #       线程边界的 `except BaseException` 是有意为之（收窄会丢异常）
+      #     一律全卡 = 上线即全红 = 等于没上线（#564 已经踩过这个坑），所以只报告。
+      #
+      # 失败口径（两条路径的语义**不同**，别弄混）：
+      #   pull_request  —— 只算「落在本 PR merge ref 上」的执行层告警，必须为 0。
+      #                    main 上的 94 条存量不归本 PR 负责，否则任何 PR 都永远红。
+      #                    ← 这是**真拦截点**，前提是 `Alerts gate` 已被配进 main 的
+      #                      required status checks（未配置时本 step 只是变红，不拦合并）。
+      #   push / schedule —— 全仓 note 总量比对 MAX_OPEN_NOTE_ALERTS。注意 main 上的
+      #                    push **不受 required status checks 约束**，所以这条路径是
+      #                    「可见化」而非「拦截」；不要把它当成合并闸门。
+      - name: Enforce note-level alerts
+        run: |
+          set -uo pipefail
+
+          degrade() {
+            echo "::warning title=CodeQL note gate skipped::$1"
+            {
+              echo ""
+              echo "### CodeQL note 级棘轮 — 跳过"
+              echo ""
+              echo "$1"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          }
+
+          if [ -z "${GH_TOKEN:-}" ]; then
+            degrade "GITHUB_TOKEN 不可用，跳过 note 级校验（不阻塞本次运行）。"
+          fi
+
+          command -v jq >/dev/null 2>&1 || degrade "runner 上没有 jq，跳过 note 级校验。"
+
+          # 阈值必须是非负整数；写错了就降级，否则下面的 [ -gt ] 会变成运行时错误而非门禁失败。
+          case "${MAX_OPEN_NOTE_ALERTS}" in
+            '' | *[!0-9]*) degrade "MAX_OPEN_NOTE_ALERTS 不是非负整数（当前：'${MAX_OPEN_NOTE_ALERTS}'），跳过 note 级校验。" ;;
+          esac
+
+          alerts_file="$(mktemp)"
+          alerts_err="$(mktemp)"
+          if ! gh api \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=open&per_page=100" \
+              --paginate >"$alerts_file" 2>"$alerts_err"; then
+            degrade "查询 code-scanning alerts 失败（多为 fork PR 上 security-events 权限不足），跳过校验。原始错误：$(tr '\n' ' ' < "$alerts_err")"
+          fi
+
+          # 结构护栏：code-scanning API 正常返回一定是 JSON 数组（`[]` 或 `[{...}]`，分页时
+          # 是多个顶层数组）。如果返回 `{}` 或 `{"message": ...}` 这类对象，下面的
+          # `[inputs | .[]]` 会把它归零后**静默判通过**（实测：喂 `{}` 得到「0 条，通过」），
+          # 那就是一个会发假绿灯的门。看到里面根本没有 `[` 就降级，宁可不卡也不能假通。
+          if ! grep -q '\[' "$alerts_file"; then
+            degrade "alerts 响应里没有数组（原始内容开头：$(head -c 120 "$alerts_file" | tr '\n' ' ')），跳过校验（请人工确认 Security tab）。"
+          fi
+
+          PR_REF=""
+          if [ "${EVENT_NAME:-}" = "pull_request" ] && [ -n "${PR_NUMBER:-}" ]; then
+            PR_REF="refs/pull/${PR_NUMBER}/merge"
+          fi
+
+          # 注意 jq 用法与上一个 step 一致：--paginate 产出「多个顶层数组」，必须用 [inputs] 拼；
+          # 用 -s 只 slurp 第一个值，多页会静默丢页（#564 记录过的坑）。
+          # $enf 是规则名数组；inside select 里先 `as $n` 绑定，否则 `.rule.id` 会落到 $enf 上取到 null。
+          report="$(jq -n --arg enforced "${NOTE_RULES_ENFORCED}" --arg pr_ref "$PR_REF" '
+            ( $enforced | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)) ) as $enf
+            | [ inputs | .[] | select(.rule.severity == "note") ] as $all
+            | (if $pr_ref == ""
+               then $all
+               else [ $all[] | select((.most_recent_instance.ref // "") == $pr_ref) ]
+               end) as $scope
+            | [ $scope[] | select(. as $n | $enf | index($n.rule.id)) ] as $enf_hits
+            | {
+                total_in_scope: ($scope | length),
+                enforced_in_scope: ($enf_hits | length),
+                repo_total: ($all | length),
+                by_rule: (
+                  $all
+                  | group_by(.rule.id)
+                  | map({ rule: .[0].rule.id, n: length })
+                  | sort_by(-.n)
+                ),
+                enforced_detail: (
+                  $enf_hits
+                  | map({
+                      number,
+                      rule: .rule.id,
+                      path: (.most_recent_instance.location.path // "?"),
+                      line: (.most_recent_instance.location.start_line // 0)
+                    })
+                  | sort_by(.rule, .path, .line)
+                )
+              }
+          ' "$alerts_file" 2>/dev/null)"
+
+          if [ -z "$report" ]; then
+            degrade "note 告警解析失败或返回结构异常，跳过校验（请人工确认 Security tab）。"
+          fi
+
+          enforced_count="$(printf '%s' "$report" | jq '.enforced_in_scope')"
+          scoped_total="$(printf '%s' "$report" | jq '.total_in_scope')"
+          repo_total="$(printf '%s' "$report" | jq '.repo_total')"
+
+          # 渲染规则分布表。**必须在 jq 里先把当前行绑成 $row 再用 $row.rule**：
+          # 写成 `$enf | index(.rule)` 时 `.rule` 会落到 $enf（字符串数组）上取索引，
+          # jq 直接报 `Cannot index array with string "rule"` 并中止，表格静默变成只有表头
+          # 0 行（实测踩过一次）。下面的空表自检就是为了让这种错不能再隐身。
+          rule_table="$(printf '%s' "$report" | jq -r --arg enforced "${NOTE_RULES_ENFORCED}" '
+            ( $enforced | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)) ) as $enf
+            | .by_rule[] as $row
+            | "| `\($row.rule)` | \($row.n) | \(if ($enf | index($row.rule)) then "强制执行" else "观察" end) |"
+          ' 2>&1)"
+
+          if [ "$repo_total" -gt 0 ] && [ -z "$rule_table" ]; then
+            echo "::warning title=CodeQL note gate::note 告警共 ${repo_total} 条，但规则分布表渲染为空（jq 可能出错：${rule_table}），请检查工作流。"
+            rule_table="| _渲染失败_ | - | - |"
+          fi
+
+          {
+            echo ""
+            echo "### CodeQL note 级棘轮"
+            echo ""
+            if [ -n "$PR_REF" ]; then
+              echo "- 统计范围：仅本 PR（\`${PR_REF}\`）；main 上的 ${repo_total} 条 note 不归本 PR 负责"
+            else
+              echo "- 统计范围：全仓 open note 告警（事件=\`${EVENT_NAME:-unknown}\`）"
+            fi
+            echo "- 全仓 note 总数：${repo_total}（基线 ${MAX_OPEN_NOTE_ALERTS}，本条仅在 push/schedule 时卡）"
+            echo "- 执行层告警（本范围）：${enforced_count} 条（PR 上必须为 0）"
+            echo "- 观察层告警（本范围）：$((scoped_total - enforced_count)) 条（只报告，不卡）"
+            echo ""
+            echo "<details><summary>全仓 note 按规则分布</summary>"
+            echo ""
+            echo "| 规则 | 数量 | 层级 |"
+            echo "| --- | ---: | --- |"
+            printf '%s\n' "$rule_table"
+            echo ""
+            echo "</details>"
+            if [ "$enforced_count" -gt 0 ]; then
+              echo ""
+              echo "<details><summary>执行层 note 明细（${enforced_count} 条）</summary>"
+              echo ""
+              echo "| 编号 | 规则 | 文件 | 行号 |"
+              echo "| --- | --- | --- | --- |"
+              printf '%s' "$report" \
+                | jq -r '.enforced_detail[] | "| \(.number) | \(.rule) | `\(.path)` | \(.line) |"'
+              echo ""
+              echo "</details>"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$enforced_count" -gt 0 ]; then
+            echo ""
+            echo "执行层 note 告警明细（这些是客观真阳，删掉即可，不存在误报空间）："
+            printf '%s' "$report" \
+              | jq -r '.enforced_detail[] | "  #\(.number) \(.rule) — \(.path):\(.line)"'
+          fi
+
+          # PR 路径：本 PR 新引入的执行层告警必须为 0。
+          if [ -n "$PR_REF" ] && [ "$enforced_count" -gt 0 ]; then
+            echo "::error title=CodeQL note gate::本 PR 新引入执行层 note 告警 ${enforced_count} 条。这类（unused-import / unused-local-variable / unnecessary-lambda / mixed-returns / import-and-import-from）没有误报空间，请直接清掉再合入。"
+            exit 1
+          fi
+
+          # main 路径：棘轮到基线为止。变红只是可见化——main 的 push 不受 required checks 约束。
+          if [ -z "$PR_REF" ] && [ "$repo_total" -gt "$MAX_OPEN_NOTE_ALERTS" ];
+          then
+            echo "::error title=CodeQL note gate::全仓 note 告警 ${repo_total} 条，超过基线 ${MAX_OPEN_NOTE_ALERTS}。请清掉新增部分；若为 CodeQL 版本升级导致的整体漂移，在本 PR 里上调基线并写明理由。"
+            exit 1
+          fi
+
+          if [ -n "$PR_REF" ]; then
+            echo "本 PR 未引入执行层 note 告警，通过（现存 ${scoped_total} 条 note 均不在本 PR 范围内或属观察层）。"
+          else
+            echo "全仓 note 告警 ${repo_total} 条，未超过基线 ${MAX_OPEN_NOTE_ALERTS}，通过。"
           fi

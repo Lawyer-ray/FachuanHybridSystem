@@ -30,7 +30,7 @@ AI 对话运行时；其中唯一被外部依赖的 `DashboardService` 已迁至
 |:-|:-|
 | 工具调用前能阻塞等人工审批 | `tool_call` 钩子返回 `{ block: true }` |
 | 能挂起等外部系统决策 | 钩子内 `await fetch(...)`（实测 allow/reject/timeout 三路） |
-| 能吃下 378 个 MCP 工具 | 实测 `fachuan: connected, 378 tools` |
+| 能吃下 430 个 MCP 工具 | 实测 `make mcp-verify` 真握手：注册表与线上均 430（2026-11-24）。早期日志 `fachuan: connected, 378 tools` 是工具面扩张前的记录 |
 
 对照：DSH 的 Python SDK 实测收不到审批事件；goose 的 ACP 协议支持但本地网关不兼容。
 

@@ -1,4 +1,4 @@
-"""给 dsh 接上法穿的 423 个 MCP 业务工具（生成 mcp-client 的 patch 层）。
+"""给 dsh 接上法穿的 430 个 MCP 业务工具（生成 mcp-client 的 patch 层）。
 
 ## 为什么必须自己写 patch（不是 ``dsh plugin add`` 一下就好）
 

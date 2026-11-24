@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import date, datetime
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger("apps.document_recognition")
@@ -55,6 +56,41 @@ def _load_pipeline_hints(task: Any) -> dict[str, Any]:
     }
 
 
+def _load_sibling_documents(task: Any) -> list[str]:
+    """同一条法院短信里**其他**文书的显示名（含本文书，便于按名检索同批存在性）。
+
+    为什么需要：一份文书里的「应自收到《缴费通知书》之日起七日内交纳」讲的是
+    **另一份**文书的期限。没有同批清单时只能判成"锚点指向未知文书"（同样丢弃，
+    但原因说不清）；有清单才能给出「期限归属那份文书」的人话解释。
+    手工上传（无来源短信）返回空列表。
+    """
+    sms_id = getattr(task, "source_court_sms_id", None)
+    if not sms_id:
+        return []
+    from django.db import DatabaseError
+
+    from apps.document_recognition.models import DocumentRecognitionTask
+
+    try:
+        # 排除本文书自身：交费通知书里会写「按《诉讼费用交费通知书》载明的账号交纳」，
+        # 若自身也在"同批清单"里，这类自引会被判成"期限归属另一份文书"而误丢。
+        own = Path(task.source_document_path or task.file_path or "").name
+        rows = (
+            DocumentRecognitionTask.objects.filter(source_court_sms_id=sms_id)
+            .exclude(id=task.id)
+            .values_list("source_document_path", "original_filename")
+        )
+        names: list[str] = []
+        for path, filename in rows:
+            name = Path(path).name if path else str(filename or "")
+            if name and name != own:
+                names.append(name)
+        return names
+    except DatabaseError:  # pragma: no cover - 读失败只降级为"无同批清单"
+        logger.warning("读取同批文书清单失败，锚点归属按无同批处理", exc_info=True)
+        return []
+
+
 def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  # pragma: no cover
     """Execute one document recognition task in Django-Q worker."""
     from django.utils import timezone
@@ -92,6 +128,7 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
             known_party_names=known["party_names"],
             known_document_type=known["document_type"],
             received_at=known["received_at"],
+            sibling_documents=_load_sibling_documents(task),
         )
 
         recognition = result.recognition
@@ -142,10 +179,28 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
                 context_text=item["context_text"],
                 source=item["source"],
                 confidence=item["confidence"],
+                anchor_note=item.get("anchor_note", ""),
+                anchor_kind=item.get("anchor_kind", ""),
+                anchor_at=date.fromisoformat(item["anchor_at"]) if item.get("anchor_at") else None,
+                anchor_document=item.get("anchor_document", ""),
+                derivation=item.get("derivation", ""),
+                review_flags=tuple(item.get("review_flags") or ()),
+                default_checked=bool(item.get("default_checked", False)),
             )
             for item in result.date_candidates
         ]
         date_candidate_service.persist_candidates(task, drafts)
+
+        # 被闸门丢弃的候选也要落库留痕（含重跑场景：每次识别重算一份最新的）
+        suppressed = list(getattr(result, "suppressed_candidates", []) or [])
+        if task.suppressed_candidates != suppressed:
+            task.suppressed_candidates = suppressed
+            task.save(update_fields=["suppressed_candidates"])
+
+        # 批内去重：同一份送达里"须知 + 通知书"常报出同一天同一类型的期限，
+        # 只保留权威那条，其余标 duplicate 并 skipped（已确认的行不动）。
+        if task.source_court_sms_id:
+            date_candidate_service.reconcile_source_candidates(task.source_court_sms_id)
 
         # 管线模式（来自法院短信）不重复发通知——通知由来源管线自己发
         if result.binding and result.binding.success and not task.source_court_sms_id:

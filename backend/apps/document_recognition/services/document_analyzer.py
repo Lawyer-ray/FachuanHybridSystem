@@ -9,6 +9,11 @@ LLM 不指定 backend/model，由统一 LLM 层按「默认后端 + AI 平台默
 路由（律所 kimi 平台）。LLM 不可用或重试后仍无法解析时返回
 ``analysis=None`` 的结果（软失败），由 recognition_service 降级到
 关键词 + 正则路径。
+
+**职责边界（LLM 只做语义，不做日期算术）**：LLM 只负责「这份文书里明文的日期
+有哪些、每个属于哪类事件、这条日期/期限的起算锚指向谁」；一切「起算日 + N 日」
+的推算归确定性层（``date_candidate_service``）。两层口径必须唯一——LLM 自己按
+落款日算一遍、确定性层再按送达日算一遍，同一句期限就会产出两条互相矛盾的候选。
 """
 
 from __future__ import annotations
@@ -17,6 +22,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -59,6 +65,11 @@ class ExtractedDateEvent(BaseModel):
     # 原文片段（截断到 80 字内），供律师人工核对
     context: str = Field(default="", max_length=80)
     confidence: float = Field(default=0.7, ge=0.0, le=1.0)
+    # 这条日期/期限的起算锚属于谁（LLM 只负责标注，归属判定与推算归确定性层）：
+    # self=本份文书自身的日期或期限 | effective=以「判决/裁定发生法律效力」为起算
+    # | future_document=锚点指向尚未产生的文书（如「裁判文书送达之日」）
+    # | other_document=锚点指向另一份具名文书（如「收到《缴费通知书》之日起」） | none=无法判断
+    anchor_hint: Literal["self", "effective", "future_document", "other_document", "none"] = "self"
 
 
 class CourtDocumentAnalysis(BaseModel):
@@ -97,11 +108,39 @@ class DocumentAnalysisOutcome:
         return self.analysis is not None
 
 
+def _delivery_hint(dt: datetime | None) -> str:
+    """生成注入提示词的「送达日背景」一句话（纯函数，无副作用）。
+
+    只做两件事：把送达日格式化成 YYYY-MM-DD 供模型**判断**某条相对期限是否已经
+    可以确定；同时明确**禁止**模型拿它做日期运算。日期算术统一归确定性层
+    （``date_candidate_service._apply_relative_deadline_rules``）——否则同一句期限
+    会出现「LLM 按落款日算一条 + 确定性层按送达日算一条」两条互相矛盾的候选。
+
+    日期取值口径与确定性层保持一致（都取 ``dt.date()``），避免提示词里的日期和
+    实际推算锚点差一天。
+
+    Args:
+        dt: 文书送达/收到时间（法院短信 ``CourtSMS.received_at``）；None 表示未知。
+
+    Returns:
+        可直接拼进提示词的中文说明（含句末括号约束）。
+    """
+    if dt is None:
+        return "（未提供送达日，禁止推算日期）"
+    return f"本份文书送达日：{dt.date().isoformat()}（仅用于判断某条期限是否已可确定，禁止用它计算日期）"
+
+
 ANALYSIS_PROMPT = """你是法院文书分析助手。请分析以下法院文书，一次性完成五项任务：
 1. 判断文书类型：summons=传票（含开庭时间、出庭通知），execution=执行裁定书（含财产保全、查封、冻结、执行裁定），other=其他文书；
 2. 提取案号：格式为（年份）法院代码+案件类型字号+序号+号，如（2024）粤0604民初41257号，必须含案件类型字号（民初/民终/刑初/执/执保等）并以"号"字结尾；无法确定填 null；
 3. 提取最关键的一个时间：传票取开庭时间，执行裁定书取财产保全到期时间；格式 YYYY-MM-DD HH:MM 或 YYYY-MM-DD；无法确定填 null；
-4. 提取文书中**所有**关键日期事件，每个一条填入 key_events：开庭时间、举证截止日、上诉期届满日、财产保全到期日、缴费期限、补正/材料提交期限、诉讼时效届满日等；同一文书有多个日期都要列出（如多次开庭、举证截止+开庭日期并存）；每条给出 event_type、原文片段（context，不超过 60 字）、置信度；日期格式 YYYY-MM-DD HH:MM 或 YYYY-MM-DD（只有日期无时间时可省略时间）；期限为相对表述时（如「收到本通知次日起两日内交纳」「自收到本决定书之日起7日内付款」），以文书落款/打印/出具日期为锚点推算届满日期——起算当日不计入、自次日起算（如落款 2025-11-11、「次日起两日内」→ 2025-11-13，「（之）日起七日内」→ 落款+7天），切勿把落款日期本身直接当作期限事件日期；**日期必须带年份**：原文只写「3月26日」「8月2日」这类无年份表述时，即使能从上下文猜出年份也**不要补年份、不要生成该条**（猜错一年会让律师跟进错期限），宁可省略；找不到锚点日期时省略该条，不要虚构日期；没有关键日期返回空数组；
+4. 提取文书中**所有**关键日期事件，每个一条填入 key_events：开庭时间、举证截止日、上诉期届满日、财产保全到期日、缴费期限、补正/材料提交期限、诉讼时效届满日等；同一文书有多个日期都要列出（如多次开庭、举证截止+开庭日期并存）；每条给出 event_type、原文片段（context，不超过 60 字）、置信度、起算锚归属（anchor_hint）；日期格式 YYYY-MM-DD HH:MM 或 YYYY-MM-DD（只有日期无时间时可省略时间）；
+   4.1 **只输出原文中明文的绝对日期，且必须带年份；不做任何日期推算**：原文是「收到本通知次日起两日内交纳」「自收到本决定书之日起7日内付款」这类相对表述时，不要替律师算出具体日期，也不要拿落款日、打印日、出具日、送达日或任何其它日期去加天数、减天数、补年份——期限怎么起算、怎么推算由系统另行确定；
+   4.2 **日期必须带年份**：原文只写「3月26日」「8月2日」这类无年份表述时，即使能从上下文猜出年份也**不要补年份、不要生成该条**（猜错一年会让律师跟进错期限），宁可省略；
+   4.3 **不要虚构日期**：原文中找不到的日期一律不要出现；切勿把落款日期本身直接当作期限事件的日期（落款日不是「期限届满日」）；
+   4.4 本文书若只是通用规则说明（须知、告知书、风险提示、举证通则等），且没有针对本案的具体日期，返回空数组 []；
+   4.5 每条 key_events 必须给出 anchor_hint，标注这条日期/期限的起算锚属于谁（你只描述原文指向谁，不做归属判定、不做任何换算）：self=本份文书自身的日期或期限（开庭日、举证截止日、本份文书载明的期限等）；effective=以「判决/裁定发生法律效力」为起算（如「本判决生效之日起十日内付款」）；future_document=锚点指向尚未产生的文书（如「裁判文书送达之日」）；other_document=锚点指向另一份具名文书（如「收到《缴费通知书》之日起」）；none=无法判断；
+   4.6 送达日背景：{delivery_date_hint}。它只用于判断某条期限是否已经可以确定，**禁止**拿它（或落款日、打印日）做加减来推算日期。
 5. 提取当事人名称（原告/被告/申请人/被申请人，去掉"原告""被告"等前缀只留名称）与法院名称；没有则 party_names 为空数组、court_name 为 null。
 
 {schema_instructions}
@@ -117,6 +156,7 @@ def analyze_document(
     llm_service: Any | None = None,
     max_attempts: int = 2,
     model: str | None = None,
+    delivery_date: datetime | None = None,
 ) -> DocumentAnalysisOutcome:
     """单次结构化 LLM 调用完成分类 + 提取。
 
@@ -125,6 +165,11 @@ def analyze_document(
         llm_service: 可注入的 LLM 服务（默认 ServiceLocator）
         max_attempts: 输出解析失败时带反馈重试的总次数
         model: 指定模型（None 走统一 LLM 层默认模型）
+        delivery_date: 文书送达/收到时间（法院短信 ``CourtSMS.received_at``）。
+            仅作为提示词背景注入（见 ``_delivery_hint``），让模型知道某些相对期限
+            已经可以确定；**不**在此处做任何日期推算，也**不**用它过滤 key_events
+            ——起算锚归属与届满日推算归确定性层 ``date_candidate_service``。
+            默认 None，兼容既有调用方（此时提示词明确告知「未提供送达日」）。
 
     Returns:
         DocumentAnalysisOutcome；永不抛异常——LLM 不可用/超时/解析失败都
@@ -143,6 +188,7 @@ def analyze_document(
     prompt = ANALYSIS_PROMPT.format(
         schema_instructions=json_schema_instructions(CourtDocumentAnalysis),
         text=truncated,
+        delivery_date_hint=_delivery_hint(delivery_date),
     )
 
     if llm_service is None:

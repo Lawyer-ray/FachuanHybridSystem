@@ -18,6 +18,7 @@
  * | `rate_limited` | 等 N 秒后重试 | N 来自 `detail.retry_after`；没有秒数就只写「稍后重试」 |
  * | `capability_unsupported` | 换个后端 | 只切**新对话**的后端（已有会话的 agent_kind 不可换） |
  * | `context_exceeded` | 压缩上下文 | 直接调 store 的 compactContext |
+ * | `session_not_found` | 新开会话 | 会话在服务端已没了，`switchSession(null)` 重开一个 |
  * | 其余 | 无 | 保持「建议 + 诊断 + 关闭」 |
  *
  * **没有 handler 的动作一律不渲染**：渲染一个点不动的禁用按钮，律师会以为功能
@@ -33,7 +34,17 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArrowLeftRight, Check, Copy, Info, Minimize2, RefreshCw, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowLeftRight,
+  Check,
+  Copy,
+  Info,
+  MessageSquarePlus,
+  Minimize2,
+  RefreshCw,
+  X,
+} from 'lucide-react'
 
 import { useCopyFeedback } from '@/hooks/use-copy-feedback'
 
@@ -65,6 +76,7 @@ const ACTION_ICON: Record<ErrorActionId, typeof RefreshCw> = {
   retry: RefreshCw,
   switch_backend: ArrowLeftRight,
   compact_context: Minimize2,
+  new_session: MessageSquarePlus,
 }
 
 const ACTION_TITLE: Record<ErrorActionId, (target: AgentBackendOption | null) => string> = {
@@ -72,6 +84,7 @@ const ACTION_TITLE: Record<ErrorActionId, (target: AgentBackendOption | null) =>
   switch_backend: (target) =>
     target ? `新对话改用 ${target.label}（本对话的后端不可更换）` : '换一个后端开新对话',
   compact_context: () => '压缩本会话的历史，腾出上下文空间后再问',
+  new_session: () => '这个会话在服务端已经没了，新开一个继续问（原上下文不会带过去）',
 }
 
 /**
@@ -123,6 +136,7 @@ export function ErrorNotice({ input }: {
   const lastError = useCopilot((s) => s.lastError)
   const clearError = useCopilot((s) => s.clearError)
   const compactContext = useCopilot((s) => s.compactContext)
+  const switchSession = useCopilot((s) => s.switchSession)
   const backends = useCopilot((s) => s.backends)
   const selectedAgentKind = useCopilot((s) => s.selectedAgentKind)
   const selectAgentKind = useCopilot((s) => s.selectAgentKind)
@@ -145,6 +159,12 @@ export function ErrorNotice({ input }: {
     // 不代为重发，只放行提示：理由见文件头「为什么不做重发」
     retry: clearError,
     compact_context: () => void compactContext(),
+    // 会话已不存在：清掉那个死掉的 id 并回到「新对话」（发第一条时自动建会话）。
+    // 先把错误清掉，否则新会话上空着一条红卡。
+    new_session: () => {
+      clearError()
+      void switchSession(null)
+    },
     switch_backend: switchTarget
       ? () => {
           selectAgentKind(switchTarget.kind)

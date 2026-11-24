@@ -1,7 +1,13 @@
 import { Check, Loader2, Undo2 } from 'lucide-react'
 
-import { DEFAULT_CHECK_CONFIDENCE, REMINDER_TYPE_OPTIONS } from '../constants'
-import { formatDueLocal, type CandidateRow } from '../domain'
+import { REMINDER_TYPE_OPTIONS, SOURCE_LABELS } from '../constants'
+import {
+  candidateAnchorLine,
+  candidateSourceLine,
+  flagLabel,
+  formatDueLocal,
+  type CandidateRow,
+} from '../domain'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -15,15 +21,8 @@ interface Props {
   onRevoke: (row: CandidateRow) => void
 }
 
-const SOURCE_LABELS: Record<string, string> = {
-  llm: 'AI',
-  merged: 'AI+规则',
-  regex: '规则',
-  text: '文字',
-}
-
 /** 关键日期候选列表：每行 = 勾选 + 时间 + 类型 + 原文摘录 + 状态。
- *  低置信度行虚线边框 + 默认不勾，提示人工核对。 */
+ *  第二行原文摘录之下再加一行推导依据（来源 · 起算点），让默认勾选可解释。 */
 export function DateCandidateList({ rows, interactive, busy, onToggle, onPatch, onSkip, onRevoke }: Props) {
   if (rows.length === 0) {
     return <div className="py-4 text-center text-[12px] text-muted-foreground">未识别到关键日期</div>
@@ -32,8 +31,12 @@ export function DateCandidateList({ rows, interactive, busy, onToggle, onPatch, 
     <div className="flex flex-col gap-2">
       {rows.map((r, i) => {
         const editable = r.status === 'pending' && !busy
-        const lowConfidence =
-          r.status === 'pending' && r.confidence != null && r.confidence < DEFAULT_CHECK_CONFIDENCE
+        const flags = r.reviewFlags ?? []
+        const lowConfidence = r.status === 'pending' && flags.includes('low_confidence')
+        /** 重复/已过滤的行不参与写入，锁住勾选避免误操作 */
+        const lockedByFlag = flags.includes('duplicate') || flags.includes('discarded_by_gate')
+        const sourceLine = candidateSourceLine(r)
+        const anchorLine = candidateAnchorLine(r)
         return (
           <div
             key={r.key}
@@ -42,6 +45,7 @@ export function DateCandidateList({ rows, interactive, busy, onToggle, onPatch, 
               'animate-in fade-in slide-in-from-bottom-1 duration-300 rounded-[10px] border bg-card px-3 py-2.5 transition-colors',
               r.status === 'confirmed' && 'border-status-green/40 bg-status-green-bg',
               r.status === 'skipped' && 'opacity-55',
+              lockedByFlag && 'opacity-55',
               lowConfidence && 'border-dashed border-status-yellow/50',
             )}
           >
@@ -50,7 +54,7 @@ export function DateCandidateList({ rows, interactive, busy, onToggle, onPatch, 
                 <button
                   type="button"
                   onClick={() => onToggle(r.key)}
-                  disabled={busy}
+                  disabled={busy || lockedByFlag}
                   title={r.checked ? '取消写入' : '勾选写入'}
                   aria-label={r.checked ? '取消写入' : '勾选写入'}
                   className={cn(
@@ -99,9 +103,19 @@ export function DateCandidateList({ rows, interactive, busy, onToggle, onPatch, 
                   {SOURCE_LABELS[r.source]}
                 </span>
               )}
-              {lowConfidence && (
-                <span className="rounded-[5px] border border-status-yellow/50 bg-status-yellow-bg px-[6px] py-[1px] text-[9.5px] font-semibold text-status-yellow">
-                  低置信·请核对
+              {flags.length > 0 && (
+                <span className="flex items-center gap-1" title={flags.map(flagLabel).join('、')}>
+                  {flags.slice(0, 2).map((f) => (
+                    <span
+                      key={f}
+                      className="rounded-[5px] border border-status-yellow/50 bg-status-yellow-bg px-[6px] py-[1px] text-[9.5px] font-semibold text-status-yellow"
+                    >
+                      {flagLabel(f)}
+                    </span>
+                  ))}
+                  {flags.length > 2 && (
+                    <span className="text-[9.5px] font-semibold text-status-yellow">+{flags.length - 2}</span>
+                  )}
                 </span>
               )}
               {r.confidence != null && (
@@ -143,6 +157,12 @@ export function DateCandidateList({ rows, interactive, busy, onToggle, onPatch, 
             {r.contextText && (
               <div className="mt-1.5 line-clamp-2 rounded-[7px] border-l-2 border-border bg-secondary/60 px-2.5 py-1.5 text-[11px] leading-[1.5] text-muted-foreground">
                 {r.contextText}
+              </div>
+            )}
+
+            {(sourceLine || anchorLine) && (
+              <div className="mt-1 px-0.5 text-[10.5px] leading-[1.5] text-muted-foreground">
+                {[sourceLine, anchorLine].filter(Boolean).join(' · ')}
               </div>
             )}
           </div>

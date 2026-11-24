@@ -79,6 +79,67 @@ describe('classifyError：code 优先', () => {
     expect(classifyError({ code: 'busy', message: '执行位满' })!.code).toBe('unknown')
   })
 
+  /**
+   * 码表对齐守卫（2026-11-24）。
+   *
+   * 事故现场：后端 `SessionNotFoundError` 发 `session_not_found`，而本表没有这个
+   * key → 归一化成 `unknown` → 律师看到「未知错误｜请联系管理员」，而实际上系统
+   * 完全知道发生了什么（会话没了，该重开）。同类缺失还有 `auth_failed` /
+   * `too_many_agents`，以及拼写不一致的 `quota_exceeded`（后端）vs
+   * `quota_exhausted`（本表）。
+   *
+   * 这份名单是 `backend/apps/agent/errors.py` 的 `ERROR_CODES` **快照**。后端新增
+   * 一个 code 时，这个用例不会自己红（两份表不在同一语言里），所以新增后端 code
+   * 的那一次改动**必须**顺手往这里加一行、并在 CODE_TABLE/CODE_ALIAS 里接上。
+   */
+  it('后端全部稳定 code 都能被认出来（不得静默落 unknown）', () => {
+    const backendCodes = [
+      'rate_limited',
+      'quota_exceeded',
+      'backend_unavailable',
+      'capability_unsupported',
+      'context_overflow',
+      'upstream_timeout',
+      'tool_args_invalid',
+      'auth_failed',
+      'session_not_found',
+      'too_many_agents',
+    ]
+    for (const code of backendCodes) {
+      const e = classifyError({ code, message: '出错了' })!
+      expect(e.rawCode, `${code} 的原始码要原样带出`).toBe(code)
+      expect(e.code, `${code} 不得落 unknown`).not.toBe('unknown')
+    }
+  })
+
+  it('session_not_found：明说会话没了、不谎报可重发、给「新开会话」', () => {
+    const e = classifyError({ code: 'session_not_found', message: '会话不存在' })!
+    expect(e.code).toBe('session_not_found')
+    expect(e.kind).toBe('history')
+    expect(e.severity).toBe('error')
+    // 会话都没了，原样再发只会再撞一次 404
+    expect(e.resendable).toBe(false)
+    expect(e.hint).toContain('新开会话')
+    expect(errorActions(e).map((a) => a.id)).toEqual(['new_session'])
+  })
+
+  it('quota_exceeded（后端拼写）接到 quota_exhausted（本表拼写）', () => {
+    const e = classifyError({ code: 'quota_exceeded', message: '当前使用人数较多' })!
+    expect(e.code).toBe('quota_exhausted')
+    expect(e.rawCode).toBe('quota_exceeded')
+  })
+
+  it('auth_failed / too_many_agents 不再冒充未知错误', () => {
+    const auth = classifyError({ code: 'auth_failed', message: '无法签发凭证' })!
+    expect(auth.code).toBe('auth_failed')
+    expect(auth.resendable).toBe(false)
+    expect(auth.hint).toContain('重新登录')
+
+    const many = classifyError({ code: 'too_many_agents', message: '一次问的 agent 太多' })!
+    expect(many.code).toBe('too_many_agents')
+    expect(many.severity).toBe('warn')
+  })
+
   it('空值不产出错误对象', () => {
     expect(classifyError(null)).toBeNull()
     expect(classifyError('')).toBeNull()

@@ -150,6 +150,37 @@ def _recommendation_rows(task: Any) -> list[dict[str, Any]]:
     return rows
 
 
+def _suppressed_candidate_rows(task: Any) -> list["SuppressedCandidateOutSchema"]:
+    """任务上被日期闸门过滤掉的候选（只做字段装配，判定已在 service 层完成）。
+
+    留痕的意义：律师问「这份文书为什么没生成日期提醒」时，能直接展开看到
+    「锚点在尚未产生的裁判文书」这类人话原因，而不是去翻日志。
+    """
+    from apps.reminders.models import ReminderType
+
+    def _label(reminder_type: str) -> str:
+        try:
+            return str(ReminderType(reminder_type).label)
+        except ValueError:
+            return reminder_type
+
+    rows: list[SuppressedCandidateOutSchema] = []
+    for item in task.suppressed_candidates or []:
+        if not isinstance(item, dict):
+            continue
+        rows.append(
+            SuppressedCandidateOutSchema(
+                due_at=str(item.get("due_at") or ""),
+                reminder_type=str(item.get("reminder_type") or ""),
+                reminder_type_label=_label(str(item.get("reminder_type") or "other")),
+                anchor_document=str(item.get("anchor_document") or ""),
+                reason=str(item.get("reason") or ""),
+                context_text=str(item.get("context_text") or ""),
+            )
+        )
+    return rows
+
+
 # ============================================================================
 # Response Schemas
 # ============================================================================
@@ -201,6 +232,29 @@ class DateCandidateOutSchema(BaseModel):
     status: str = Field("pending", description="确认状态 pending/confirmed/skipped")
     reminder_id: int | None = Field(None, description="已写入的提醒ID")
     confirmed_at: str | None = Field(None, description="确认时间")
+    # —— 出处（让律师一眼看出这条日期凭什么存在，见 date_candidate_policy）——
+    anchor_kind: str = Field(
+        "", description="起算锚类型 service_of_self/issue_date_of_self/effective_date/foreign_document/unknown"
+    )
+    anchor_at: str | None = Field(None, description="起算锚日期（YYYY-MM-DD）")
+    anchor_document: str = Field("", description="锚点文书归属 self/other_in_batch/future_document/other_case")
+    derivation: str = Field("", description="推算方式 llm_absolute/rule_absolute/rule_period/rule_relative")
+    derivation_label: str = Field("", description="推算方式中文标签（后端单一来源，前端直接显示）")
+    review_flags: list[str] = Field(default_factory=list, description="复核标记；空列表才允许默认勾选")
+    default_checked: bool = Field(False, description="后端算好的默认勾选（前端不再按置信度自行判断）")
+    anchor_note: str = Field("", description="起算点人话说明，如「起算点：本份文书送达日 2026-11-24 + 7 天」")
+    duplicate_of_id: int | None = Field(None, description="批内去重时指向的权威候选ID")
+
+
+class SuppressedCandidateOutSchema(BaseModel):
+    """被日期闸门过滤掉的候选（留痕，供「为什么没提醒」追问）。"""
+
+    due_at: str = Field("", description="当年算出的日期")
+    reminder_type: str = Field("", description="提醒类型")
+    reminder_type_label: str = Field("", description="提醒类型名称")
+    anchor_document: str = Field("", description="锚点文书归属")
+    reason: str = Field("", description="过滤原因（人话）")
+    context_text: str = Field("", description="原文上下文")
 
 
 class CaseRecommendationOutSchema(BaseModel):
@@ -242,6 +296,10 @@ class TaskStatusResponseSchema(BaseModel):
     )
     binding_mode: str = Field("standalone", description="绑定模式 standalone/pipeline")
     date_confirmation_status: str | None = Field(None, description="日期确认进度 none/pending/partial/complete")
+    suppressed_count: int = Field(0, description="被过滤的候选数（通用文书/锚点指向他文书/选择性申请等）")
+    suppressed_items: list[SuppressedCandidateOutSchema] = Field(
+        default_factory=list, description="被过滤候选明细（留痕，可展开查看）"
+    )
     error_message: str | None = None
     created_at: str
     finished_at: str | None = None
@@ -613,6 +671,7 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
         recognition = None
         binding = None
         date_candidates: list[DateCandidateOutSchema] = []
+        suppressed_items: list[SuppressedCandidateOutSchema] = []
         recommendations: list[CaseRecommendationOutSchema] = []
         contacts: list[ContactOutSchema] = []
         address: str | None = None
@@ -648,6 +707,7 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
                 )
 
             date_candidates = [DateCandidateOutSchema(**row) for row in date_candidate_service.list_candidates(task)]
+            suppressed_items = _suppressed_candidate_rows(task)
             if not task.case_log_id:
                 reco_rows = _recommendation_rows(task)
                 recommendations = [CaseRecommendationOutSchema(**row) for row in reco_rows]
@@ -668,6 +728,8 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
             recommendations=recommendations,
             binding_mode="pipeline" if task.source_court_sms_id else "standalone",
             date_confirmation_status=task.date_confirmation_status,
+            suppressed_count=len(suppressed_items),
+            suppressed_items=suppressed_items,
             error_message=task.error_message,
             created_at=task.created_at.isoformat(),
             finished_at=task.finished_at.isoformat() if task.finished_at else None,

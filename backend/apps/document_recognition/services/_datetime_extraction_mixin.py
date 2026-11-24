@@ -57,6 +57,32 @@ DATETIME_TYPE_KEYWORDS: dict[str, list[str]] = {
 CANDIDATE_CONTEXT_BEFORE = 40
 CANDIDATE_CONTEXT_AFTER = 20
 
+# 纯日期（无时刻）兜底：日期前后这么多字里必须出现"期限词"才采纳。
+# 为什么需要：DATETIME_PATTERNS 全部要求时刻（时/点/分 / HH:MM），
+# 「本案举证期限至 2027 年 1 月 10 日止」这类写法正则一条都抓不到，
+# 全靠 LLM；LLM 熔断/降级窗口里就全空。但如果不加期限词门槛，
+# 判决书正文里的开庭日/立案日/签约日会被成片抓进来（噪声爆炸）。
+DATE_ONLY_CONTEXT_RADIUS = 40
+DEADLINE_CONTEXT_KEYWORDS = (
+    "举证",
+    "证据",
+    "届满",
+    "截止",
+    "期限至",
+    "前提交",
+    "前向本院",
+    "前完成",
+    "答辩",
+    "补正",
+)
+
+# 纯日期模式（无时刻）：年月日 / 短横线 / 斜杠
+DATE_ONLY_PATTERNS = (
+    r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日",
+    r"(\d{4})-(\d{1,2})-(\d{1,2})",
+    r"(\d{4})/(\d{1,2})/(\d{1,2})",
+)
+
 
 class DatetimeExtractionMixin:
     """开庭时间提取 Mixin"""
@@ -159,6 +185,51 @@ class DatetimeExtractionMixin:
                     }
                 )
         return candidates
+
+    def extract_date_only_candidates(self, text: str) -> list[dict[str, Any]]:
+        """抽取**纯日期**（无时刻）候选，仅采纳上下文命中期限词的。
+
+        与 ``extract_datetime_candidates`` 同形状返回，便于调用方用同一套合并逻辑：
+        ``{datetime, context_text, context_score, reminder_type}``。
+
+        门槛（缺一不可）：
+        1. 日期可解析且年份在 2020–2030；
+        2. 日期前后 ``DATE_ONLY_CONTEXT_RADIUS`` 字窗口内命中 ``DEADLINE_CONTEXT_KEYWORDS``
+           ——否则判决书里"本院于X日公开开庭""X日立案"这类叙事日期会被全部抓进来；
+        3. 同一日期只留一条。
+        """
+        import re
+
+        text = text or ""
+        found: list[tuple[datetime, str]] = []
+        seen: set[datetime] = set()
+        for pattern in DATE_ONLY_PATTERNS:
+            for match in re.finditer(pattern, text):
+                try:
+                    dt = datetime(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+                except ValueError:
+                    continue
+                if not (2020 <= dt.year <= 2030) or dt in seen:
+                    continue
+                start = max(0, match.start() - DATE_ONLY_CONTEXT_RADIUS)
+                end = min(len(text), match.end() + DATE_ONLY_CONTEXT_RADIUS)
+                window = text[start:end]
+                if not any(keyword in window for keyword in DEADLINE_CONTEXT_KEYWORDS):
+                    continue
+                seen.add(dt)
+                found.append((dt, text[max(0, match.start() - CANDIDATE_CONTEXT_BEFORE) : match.end() + 20].strip()))
+        # context_score 给固定基线 80：`_calculate_context_score` 是**开庭关键词**评分
+        # （开庭/庭审/定于…），拿它给"举证期限/截止日"打分必然是 0，会把刚通过
+        # 期限词门槛的日期压成"低置信"从而永远默认不勾。
+        return [
+            {
+                "datetime": dt,
+                "context_text": context_text[:255],
+                "context_score": 80,
+                "reminder_type": _guess_reminder_type(context_text),
+            }
+            for dt, context_text in found
+        ]
 
     def _score_days_diff(self, days_diff: int, score: int, reasons: list[str]) -> tuple[int, list[str]]:
         """评估天数差对分数的影响"""

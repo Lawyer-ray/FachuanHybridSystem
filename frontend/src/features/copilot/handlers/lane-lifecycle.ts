@@ -13,6 +13,7 @@
  * 各发一次 done，先跑完的那栏**不能**把其他栏一起收掉。
  */
 
+import { encodeError } from '../domain/error'
 import { addUsageToLane, addUsageToTurn } from '../domain/lane-stats'
 import { emptyTurnStats } from '../domain/usage'
 import type { StreamHandlers } from '../streaming'
@@ -94,11 +95,16 @@ export function createLaneLifecycleHandlers(ctx: TurnHandlerContext): {
     }))
   }
 
-  const onError: StreamHandlers['onError'] = (message, origin) => {
+  const onError: StreamHandlers['onError'] = (err, origin) => {
     // 多答时一个后端失败其他照常输出：错误行必须标明是哪一栏失败了，
     // 否则律师会以为整轮都没跑成，而屏幕上半截明明有答案。
     const who = columnCount > 1 && origin.kind ? `${origin.kind}：` : ''
-    set({ lastError: `${who}${message}` })
+    // **必须**走 encodeError：store 的 lastError 只是一个字符串，code / scope /
+    // detail 靠这个信封带过去，否则 classifyError 只剩文案可看，dev 一新增 code
+    // 就静默变 unknown（2026-11-24 实测：session_not_found 被报成未知错误）。
+    // 前缀拼进 message 而不是另造 lane 字段：诊断里的「来源」靠 splitLanePrefix
+    // 从文案里拆，两处口径必须一致。
+    set({ lastError: encodeError({ ...err, message: `${who}${err.message}` }) })
     // 失败方的栏要停住光标并标成「本轮未做」；其他栏继续流（finishAssistant 会把
     // 所有 streaming 气泡收掉，这里只收失败那一栏）。
     //

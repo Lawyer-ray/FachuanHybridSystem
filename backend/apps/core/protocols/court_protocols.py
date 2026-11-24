@@ -78,6 +78,7 @@ class ICourtDocumentRecognitionService(Protocol):
         known_party_names: list[str] | None = None,
         known_document_type: str | None = None,
         received_at: Any | None = None,
+        sibling_documents: list[str] | None = None,
     ) -> Any: ...
 
     def recognize_document_from_text(self, text: str, *, llm_model: str | None = None) -> Any: ...
