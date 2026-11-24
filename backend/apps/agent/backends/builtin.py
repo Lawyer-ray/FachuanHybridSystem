@@ -50,6 +50,7 @@ def ensure_registered() -> None:
         _register_openai_agents()
         _register_antigravity()
         _register_claude_agent()
+        _register_opencode()
         return
 
     # 延迟 import：pi_backend 会连带拉起 pi 的 rpc / 池依赖。
@@ -64,6 +65,7 @@ def ensure_registered() -> None:
     _register_openai_agents()
     _register_antigravity()
     _register_claude_agent()
+    _register_opencode()
 
 
 def _register_dsh() -> None:
@@ -192,3 +194,31 @@ def _register_claude_agent() -> None:
     from .claude_agent_backend import ClaudeAgentBackend
 
     registry.register(ClaudeAgentBackend())
+
+
+def _register_opencode() -> None:
+    """注册 opencode 后端；二进制没装时**静默降级**（只登记一次）。
+
+    与其它可选后端同构。差异只有一处：可用性判据不是 Python 包，而是
+    ``opencode`` 可执行文件（``shutil.which`` 一次，不拉进程）——它是个
+    独立 CLI，装没装与 Python 环境无关。
+
+    ``_attempted`` 只记「探测失败过」，**不能**当成「已注册」的凭据：注册表是
+    可被 ``clear()`` 清空的全局状态（测试大量用到），清空后若被它挡住，该后端会
+    永远报「未知 backend」（pi / dsh / openai-agents / antigravity / claude-agent
+    都踩过这个坑）。真正「在不在」只问注册表。
+    """
+    kind = "opencode"
+    if kind in registry.available_kinds():
+        return
+    if kind in _attempted:
+        return
+
+    from .opencode_backend import OpenCodeBackend, is_available
+
+    if not is_available():
+        _attempted.add(kind)
+        logger.info("未找到 opencode 可执行文件，opencode 后端不可用（其它后端不受影响）")
+        return
+
+    registry.register(OpenCodeBackend())

@@ -32,7 +32,36 @@ AI 对话运行时；其中唯一被外部依赖的 `DashboardService` 已迁至
 | 能挂起等外部系统决策 | 钩子内 `await fetch(...)`（实测 allow/reject/timeout 三路） |
 | 能吃下 430 个 MCP 工具 | 实测 `make mcp-verify` 真握手：注册表与线上均 430（2026-11-24）。早期日志 `fachuan: connected, 378 tools` 是工具面扩张前的记录 |
 
-对照：DSH 的 Python SDK 实测收不到审批事件；goose 的 ACP 协议支持但本地网关不兼容。
+对照：DSH 的 Python SDK 实测收不到审批事件。
+
+> **goose 那条旧结论已撤回（2026-11-24）**：原先写的是「goose 的 ACP 协议支持但本地网关不兼容」。
+> 现在它原生支持 LiteLLM provider 与自定义 provider（`base_url` / `headers` / `auth.command`），
+> 当年真正踩的多半是**代理没剔**（内网网关 + Clash = 「502 无 body」，同 `dsh_config.without_proxy_env`）。
+> 但 goose 走不通的是**另一处**：它的 `session/request_permission` 只给 `title` + `rawInput`，
+> **没有工具名**，而且 MCP 工具在审批那一刻 `rawInput` 还是空的 → 四级审批退化成「按标题猜」。
+> 结论不变、理由换了：不是网关。详见 `docs/harness/backend/opencode-probe.md` 的对照段。
+
+## 2.1 第六个后端：opencode（ACP）
+
+`kind="opencode"`，走 `opencode acp` 子进程（ACP over stdio）。**选它是因为协议面对得上**：
+
+| 硬约束 | opencode 的满足方式 |
+|:-|:-|
+| 工具调用前能**阻塞**等人工审批 | `session/request_permission` 往返（实测批准/拒绝两路都通） |
+| 能吃下 430 个 MCP 工具 | `session/new` 的 `mcpServers` 直挂共享 MCP（带律师 token + tier 头），实测 `inputTokens≈80810` |
+| 工具名能进审批口径 | 审批请求的 `title` 就是工具 id（`fachuan_x`），归一化成 `mcp__fachuan__x` 后再判级 |
+| 走律所网关 | 自定义 provider（`@ai-sdk/openai-compatible` + `baseURL`），模型全部来自 `LLMProvider` |
+| 逐字流 / 用量 | `agent_message_chunk`（一轮 630 块）+ `prompt` 的 `usage` |
+
+**它做不到的两件事**（如实写在 `capabilities` 里）：不能换 system prompt（ACP 没开该能力 →
+综合结论 lane 不用它，与 dsh 同待遇）、不能插话（只有 `session/cancel`）。
+
+**踩过的三个坑**（细节见 `docs/harness/backend/opencode-probe.md` 与模块 docstring）：
+内置 14 个工具必须用**自定义 agent** 关掉（顶层 `tools` 无效）、工具名前缀要反向归一
+（不归一会静默降级成低风险）、配置目录一隔离就得软链共享 `node_modules`（否则模型不可用）。
+
+**并发画像**：8 路全链路 29.3s（full 工具面）/ **11.6s（`FACHUAN_OPENCODE_TOOL_TIER=lite`）**，
+pi 基线 6.9s；8 路峰值 RSS ~4.5GB vs pi 3.2GB。压测脚本 `backend/devtools/load_test_agent.py`。
 
 ## 3. 高并发：共享 MCP 是关键
 

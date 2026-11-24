@@ -40,6 +40,7 @@ router = Router(tags=["Agent 会话"], auth=JWTOrSessionAuth())
 _BACKEND_LABELS: dict[str, tuple[str, str]] = {
     "pi": ("Pi", "通用 agent 运行时，工具面与技能最全"),
     "dsh": ("DeepSeek Harness", "DeepSeek 官方 harness 运行时"),
+    "opencode": ("opencode", "开源 coding agent（ACP 协议接入，工具面来自共享 MCP）"),
 }
 
 #: dsh 的 Python SDK 模块名（可用性自检用）。
@@ -123,6 +124,24 @@ def _dsh_probe() -> tuple[bool, str]:
     return True, ""
 
 
+def _opencode_probe() -> tuple[bool, str]:
+    """opencode 后端现在能不能用：**只看可执行文件在不在**。
+
+    刻意不查 ``LLMProvider``——那不是「这个运行时能不能用」，而是「整条 AI 平台
+    配没配」，pi / claude-agent / antigravity 也都不在这里拦（见
+    ``test_non_dsh_backends_are_available_without_probing_llm_provider``）。
+    网关缺失会在真正开跑时报 ``BackendError(UNAVAILABLE)``，文案更具体。
+
+    也不拉子进程：切换器每次打开都会调本端点，为一次探测拉起 bun 运行时会把面板拖慢。
+    """
+    # 延迟 import：``opencode_backend`` 只在注册了它时才需要
+    from ..backends.opencode_backend import is_available
+
+    if not is_available():
+        return False, "未找到 opencode 可执行文件（请先安装 opencode，或设置 FACHUAN_OPENCODE_BIN）"
+    return True, ""
+
+
 def _models_for_kind(kind: str, models: list[str]) -> list[str]:
     """某个后端实际能用的模型（平台清单按运行时收窄）。
 
@@ -151,6 +170,8 @@ def _collect_backend_options() -> list[BackendOptionOut]:
     for kind in registered:
         if kind == "dsh":
             available, reason = _dsh_probe()
+        elif kind == "opencode":
+            available, reason = _opencode_probe()
         else:
             available, reason = True, ""
         options.append(
@@ -186,6 +207,16 @@ def _collect_backend_options() -> list[BackendOptionOut]:
                 {},
                 available=False,
                 reason="未注册 AntigravityBackend（缺 google-antigravity SDK 或平台无对应 wheel）",
+                models=[],
+            )
+        )
+    if "opencode" not in registered:
+        options.append(
+            _backend_option(
+                "opencode",
+                {},
+                available=False,
+                reason="未注册 OpenCodeBackend（未找到 opencode 可执行文件，或接入未完成）",
                 models=[],
             )
         )
