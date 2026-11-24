@@ -47,9 +47,11 @@ def ensure_registered() -> None:
         # pi 在就说明主路径可用；dsh / openai-agents 是可选后端，单独补（缺 SDK 的
         # 部署里上面这个条件会一直成立，不能因为可选后端缺席就每次都重跑一遍）。
         _register_dsh()
-        _register_openai_agents()
         _register_antigravity()
         _register_claude_agent()
+        _register_opencode()
+        _register_codex()
+        _register_cline()
         return
 
     # 延迟 import：pi_backend 会连带拉起 pi 的 rpc / 池依赖。
@@ -61,9 +63,11 @@ def ensure_registered() -> None:
         registry.register(PiBackend())
     _registered = True
     _register_dsh()
-    _register_openai_agents()
     _register_antigravity()
     _register_claude_agent()
+    _register_opencode()
+    _register_codex()
+    _register_cline()
 
 
 def _register_dsh() -> None:
@@ -104,34 +108,6 @@ def _register_dsh() -> None:
         logger.info("deepseek-harness SDK 未安装，dsh 后端不可用（pi 不受影响）")
         return
     registry.register(DshBackend())
-
-
-def _register_openai_agents() -> None:
-    """注册 openai-agents 后端；SDK 没装时**静默降级**（只登记一次）。
-
-    与 :func:`_register_dsh` 同构，理由也相同：``openai_agents_backend`` 顶层
-    ``import agents``（SDK 未装时 import 必炸），而这是一个**可选后端**——缺依赖
-    不该让 pi 会话跟着起不来。缺包时这些会话在 ``registry.get("openai-agents")``
-    拿到 ``LookupError``，消息里带已注册清单，足以定位。
-
-    ``_attempted`` 只记「import 失败过」，**不能**当成「已注册」的凭据：注册表是
-    可被 ``clear()`` 清空的全局状态，清空后若被它挡住，该后端会永远报「未知
-    backend」（pi 与 dsh 都踩过这个坑）。真正「在不在」只问注册表。
-    """
-    kind = "openai-agents"
-    if kind in registry.available_kinds():
-        return
-    if kind in _attempted:
-        return
-
-    try:
-        from .openai_agents_backend import OpenAiAgentsBackend
-    except ImportError:
-        # 缺 openai-agents：记录后当作「本部署没有这个后端」。
-        _attempted.add(kind)
-        logger.info("openai-agents SDK 未安装，openai-agents 后端不可用（pi 不受影响）")
-        return
-    registry.register(OpenAiAgentsBackend())
 
 
 def _register_antigravity() -> None:
@@ -192,3 +168,80 @@ def _register_claude_agent() -> None:
     from .claude_agent_backend import ClaudeAgentBackend
 
     registry.register(ClaudeAgentBackend())
+
+
+def _register_opencode() -> None:
+    """注册 opencode 后端；二进制没装时**静默降级**（只登记一次）。
+
+    与其它可选后端同构。差异只有一处：可用性判据不是 Python 包，而是
+    ``opencode`` 可执行文件（``shutil.which`` 一次，不拉进程）——它是个
+    独立 CLI，装没装与 Python 环境无关。
+
+    ``_attempted`` 只记「探测失败过」，**不能**当成「已注册」的凭据：注册表是
+    可被 ``clear()`` 清空的全局状态（测试大量用到），清空后若被它挡住，该后端会
+    永远报「未知 backend」（pi / dsh / openai-agents / antigravity / claude-agent
+    都踩过这个坑）。真正「在不在」只问注册表。
+    """
+    kind = "opencode"
+    if kind in registry.available_kinds():
+        return
+    if kind in _attempted:
+        return
+
+    from .opencode_backend import OpenCodeBackend, is_available
+
+    if not is_available():
+        _attempted.add(kind)
+        logger.info("未找到 opencode 可执行文件，opencode 后端不可用（其它后端不受影响）")
+        return
+
+    registry.register(OpenCodeBackend())
+
+
+def _register_codex() -> None:
+    """注册 codex 后端；可执行文件缺失时静默降级（只登记一次）。
+
+    与 opencode 同构：判据是可执行文件而不是 Python 包。``_attempted`` 只记
+    「探测失败过」，不能当成「已注册」——注册表可被 ``clear()`` 清空（测试大量用到），
+    清空后若被它挡住，该后端会永远报「未知 backend」。
+    """
+    kind = "codex"
+    if kind in registry.available_kinds():
+        return
+    if kind in _attempted:
+        return
+
+    from .codex_backend import CodexBackend, is_available
+
+    if not is_available():
+        _attempted.add(kind)
+        logger.info("未找到 codex 可执行文件，codex 后端不可用（其它后端不受影响）")
+        return
+
+    registry.register(CodexBackend())
+
+
+def _register_cline() -> None:
+    """注册 cline 后端；node 或桥脚本缺失时静默降级（只登记一次）。
+
+    判据是「node 在 + 桥脚本在」，与 opencode/codex 同构（看可执行文件而不是
+    Python 包）。``@cline/core`` 本身不在这里探测：它由桥在运行期按
+    ``FACHUAN_CLINE_SDK`` 解析，缺了会在第一轮报 UNAVAILABLE（文案里带路径）。
+
+    ``_attempted`` 只记「探测失败过」，不能当成「已注册」——注册表可被
+    ``clear()`` 清空（测试大量用到），清空后被它挡住会永远报「未知 backend」。
+    """
+    kind = "cline"
+    if kind in registry.available_kinds():
+        return
+    if kind in _attempted:
+        return
+
+    from .cline_backend import ClineBackend, is_available
+
+    if not is_available():
+        _attempted.add(kind)
+        logger.info("未找到 node 或 cline 桥脚本，cline 后端不可用（其它后端不受影响）")
+        return
+
+    registry.register(ClineBackend())
