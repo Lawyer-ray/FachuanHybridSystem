@@ -40,7 +40,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 
@@ -130,23 +130,20 @@ class _Handler(BaseHTTPRequestHandler):
         payload = self.rfile.read(length) if length else b""
         headers = {"content-type": "application/json", "authorization": f"Bearer {lease.api_key}"}
         headers.update(lease.extra_headers)
-        base = lease.base_url.rstrip("/")
+        # SSRF 闸门（CodeQL `Partial server-side request forgery`）：**host 一律从租约
+        # 里取、绝不从请求路径拼**。客户端只能影响 path，scheme/netloc 全部来自这张
+        # 进程内表（`Lease.base_url`），所以出网目标恒等于配置的网关。
+        parts = urlsplit(lease.base_url)
+        scheme, netloc = parts.scheme, parts.netloc
+        base_path = parts.path.rstrip("/")
         # 网关的 base_url 通常已经带 ``/v1``，而 codex 发来的路径也以 ``/v1`` 开头——
         # 直接拼会得到 ``/v1/v1/responses``（实测 404）。只在这一处去重。
-        if base.endswith("/v1") and tail.startswith("/v1"):
-            base = base[: -len("/v1")]
-        url = base + tail
-        # SSRF 闸门（CodeQL `Partial server-side request forgery`）：请求路径虽然被
-        # 白名单限定，但它仍会拼进最终 URL，所以**再校验一次的 scheme/host/port 必须
-        # 与租约里的网关完全一致**——绝不能转发到客户端指定的第三方地址。
-        base_parts, final_parts = urlsplit(base), urlsplit(url)
-        if (final_parts.scheme, final_parts.hostname, final_parts.port) != (
-            base_parts.scheme,
-            base_parts.hostname,
-            base_parts.port,
-        ) or final_parts.scheme not in {"http", "https"}:
-            self._fail(403, "codex proxy: upstream host mismatch")
+        if base_path.endswith("/v1") and tail.startswith("/v1"):
+            base_path = base_path[: -len("/v1")]
+        if scheme not in {"http", "https"} or not netloc:
+            self._fail(403, "codex proxy: bad lease")
             return
+        url = urlunsplit((scheme, netloc, base_path + tail, "", ""))
         request = urllib.request.Request(url, data=payload, method="POST", headers=headers)  # noqa: S310 - scheme 已白名单
         try:
             with _OPENER.open(request, timeout=UPSTREAM_TIMEOUT) as upstream:
