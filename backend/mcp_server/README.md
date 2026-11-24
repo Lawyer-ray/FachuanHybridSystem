@@ -1,6 +1,6 @@
 # mcp_server —— 法穿 AI Copilot 的工具面
 
-> 409 个 MCP 工具（2026-10-25），streamable-http :8011 共享一份常驻进程，
+> 430 个 MCP 工具（2026-11-24，`make mcp-verify` 实测注册表与线上一致），streamable-http :8011 共享一份常驻进程，
 > 服务 `apps/agent` 的 pi 会话；也可 stdio 单进程跑（开发/手工）。
 
 ## 架构速览
