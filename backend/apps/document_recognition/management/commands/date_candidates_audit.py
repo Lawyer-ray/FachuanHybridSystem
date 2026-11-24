@@ -32,7 +32,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from apps.document_recognition.models import DateCandidateStatus, DocumentRecognitionTask
 
@@ -58,8 +58,10 @@ class Command(BaseCommand):
             qs = qs.filter(source_court_sms_id=options["sms"])
         if options["task"]:
             qs = qs.filter(id=options["task"])
-        tasks = list(qs.order_by("id")[: int(options["limit"])])
         apply = bool(options["apply"])
+        if apply and not (options["sms"] or options["task"]):
+            raise CommandError("--apply 必须配合 --sms 或 --task 限定范围（避免一条命令改全表）")
+        tasks = list(qs.order_by("id")[: int(options["limit"])])
 
         total_drop = total_update = total_keep = 0
         manual_review: list[str] = []
@@ -99,6 +101,12 @@ class Command(BaseCommand):
             for row in pending:
                 key = (row.due_at.date(), row.reminder_type)
                 label = f"task={task.id} row={row.id} {row.due_at.date()} {row.reminder_type}"
+                if key not in fresh and row.derivation not in ("rule_relative", "rule_period"):
+                    # 明文日期（LLM 读到 / 正则读到）复现不出来，很可能是重跑条件不同
+                    # （task.raw_text 落库时已截断到 10000 字），不能因此判它该丢。
+                    total_keep += 1
+                    self.stdout.write(f"[SKIP] {label} | 明文日期无法复现，需人工判断（不写库）")
+                    continue
                 if key not in fresh:
                     total_drop += 1
                     self.stdout.write(f"[DROP] {label} | {task.original_filename[:30]}")

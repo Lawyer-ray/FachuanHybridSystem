@@ -338,3 +338,68 @@ class TestAnchorNote:
 
     def test_unknown_kind_is_empty(self) -> None:
         assert anchor_note_for(kind=AnchorKind.UNKNOWN, anchor_at=None, delivery_date=None) == ""
+
+
+# ---------------------------------------------------------------------------
+# 回归：审计发现的一批「假阴性」（本该报却被误杀）
+# ---------------------------------------------------------------------------
+
+
+class TestFalseNegativeRegressions:
+    """这些句子都是真实法院文书的标准句式，改动前会被闸门误杀。"""
+
+    @pytest.mark.parametrize(
+        "sentence,core,expected_document",
+        [
+            # 答辩期：起诉状副本随通知书一并送达，「收到起诉状副本之日」就是本次送达
+            (
+                "你方应在收到起诉状副本之日起十五日内向本院提交答辩状",
+                "收到起诉状副本之日起十五日内",
+                AnchorDocument.SELF,
+            ),
+            # 保全续封：句子里是「申请延长查封期限」，不能被"选择性申请"闸吞掉
+            (
+                "需要继续查封的，应在收到本通知之日起七日内向本院申请延长查封期限",
+                "收到本通知之日起七日内",
+                AnchorDocument.SELF,
+            ),
+        ],
+    )
+    def test_procedural_deadlines_survive(self, sentence: str, core: str, expected_document: AnchorDocument) -> None:
+        verdict = _verdict(sentence, core)
+        assert verdict.document is expected_document
+
+    def test_unknown_anchor_is_kept_with_flag_not_dropped(self) -> None:
+        """锚点判断不出来时**保留**并标 `anchor_unknown`（漏报真期限比多报更贵）。"""
+        verdict = AnchorVerdict(AnchorDocument.SELF, AnchorKind.UNKNOWN)
+        decision = decide_candidate(
+            derivation="rule_relative",
+            anchor=verdict,
+            role=DocumentRole.CARRIER,
+            confidence=0.9,
+            due_at=datetime(2026, 12, 9),
+            today=TODAY,
+        )
+        assert decision.keep is True
+        assert "anchor_unknown" in decision.flags
+        assert decision.default_checked is False
+
+    def test_long_quoted_foreign_notice_is_not_self(self) -> None:
+        """长书名号的《…交费通知书》必须能被抓成 subject，不能回落成自指。"""
+        sentence = "应自收到《广东省人民法院诉讼费用交费通知书》之日起七日内交纳诉讼费用"
+        verdict = _verdict(sentence, "收到《广东省人民法院诉讼费用交费通知书》之日起七日内")
+        assert verdict.document is AnchorDocument.FUTURE_DOCUMENT
+
+    def test_rule_absolute_keeps_low_context_score(self) -> None:
+        """明文日期不能因为口径固定成 0.85 就抹平上下文得分。"""
+        raw = confidence_for(
+            derivation="rule_absolute",
+            anchor=AnchorVerdict(AnchorDocument.SELF, AnchorKind.UNKNOWN),
+            role=DocumentRole.CARRIER,
+            raw=0.0,
+        )
+        assert raw == 0.0
+
+    @pytest.mark.parametrize("sentence", ["申请延长查封期限", "申请继续冻结账户", "申请续封"])
+    def test_custody_extension_is_not_optional_motion(self, sentence: str) -> None:
+        assert is_optional_motion(sentence)[0] is False

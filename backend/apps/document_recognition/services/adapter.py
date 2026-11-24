@@ -38,6 +38,7 @@ class CourtDocumentRecognitionServiceAdapter:
         known_party_names: list[str] | None = None,
         known_document_type: str | None = None,
         received_at: Any | None = None,
+        sibling_documents: list[str] | None = None,
     ) -> RecognitionResponse:
         """
         识别文书并绑定案件
@@ -53,6 +54,9 @@ class CourtDocumentRecognitionServiceAdapter:
             known_document_type: 来源管线判定的文书类型（可选，仅在分类器认不出时兑底）
             received_at: 文书送达/收到时间（法院短信 ``CourtSMS.received_at``，
                 「送达之日起 N 日」类期限的起算锚点）
+            sibling_documents: 同一条短信里其他文书的显示名（判定「期限归属别份文书」用）。
+                手工上传场景传 None。**注意：本参数必须一路透传到识别服务**，
+                漏传会让管线只能把「锚点在别份文书」判成"未知"（同样丢弃，但原因说不清）。
 
         Returns:
             RecognitionResponse 对象
@@ -69,6 +73,7 @@ class CourtDocumentRecognitionServiceAdapter:
                 known_party_names=known_party_names,
                 known_document_type=known_document_type,
                 received_at=received_at,
+                sibling_documents=sibling_documents,
             ),
         )
 

@@ -156,7 +156,13 @@ def _suppressed_candidate_rows(task: Any) -> list["SuppressedCandidateOutSchema"
     留痕的意义：律师问「这份文书为什么没生成日期提醒」时，能直接展开看到
     「锚点在尚未产生的裁判文书」这类人话原因，而不是去翻日志。
     """
-    from apps.document_recognition.services.date_candidate_service import _reminder_type_label
+    from apps.reminders.models import ReminderType
+
+    def _label(reminder_type: str) -> str:
+        try:
+            return str(ReminderType(reminder_type).label)
+        except ValueError:
+            return reminder_type
 
     rows: list[SuppressedCandidateOutSchema] = []
     for item in task.suppressed_candidates or []:
@@ -166,7 +172,7 @@ def _suppressed_candidate_rows(task: Any) -> list["SuppressedCandidateOutSchema"
             SuppressedCandidateOutSchema(
                 due_at=str(item.get("due_at") or ""),
                 reminder_type=str(item.get("reminder_type") or ""),
-                reminder_type_label=_reminder_type_label(str(item.get("reminder_type") or "other")),
+                reminder_type_label=_label(str(item.get("reminder_type") or "other")),
                 anchor_document=str(item.get("anchor_document") or ""),
                 reason=str(item.get("reason") or ""),
                 context_text=str(item.get("context_text") or ""),

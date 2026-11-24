@@ -35,13 +35,12 @@ from .data_classes import DocumentType
 from .date_candidate_policy import DERIVATION_LABELS
 from .date_candidate_policy import EFFECTIVE_FIRST_NOTE as _policy_effective_first_note
 from .date_candidate_policy import (
-    FLAG_DISCARDED,
+    FLAG_ANCHOR_FOREIGN_LLM,
     FLAG_DUPLICATE,
     FLAG_GENERIC_BOILERPLATE,
     AnchorDocument,
     AnchorKind,
     AnchorVerdict,
-    CandidateDecision,
     DocumentRole,
     anchor_note_for,
     classify_document_role,
@@ -621,6 +620,22 @@ def _match_relative_draft_by_fingerprint(
     return None
 
 
+def _self_title_keywords(text: str) -> tuple[str, ...]:
+    """从文首标题里取本文书自身的文书类型名（判决书/裁定书/调解书/…）。
+
+    用途：锚点归属判定里区分「收到裁定书之日起五日内申请复议」（本份裁定）
+    与「裁判文书送达之日起三日内」（尚未产生的那份）。
+    """
+    from .date_candidate_policy import CARRIER_TITLE_KEYWORDS
+
+    # 只看真正的标题区（文首 24 字，且不含书名号内的内容）：
+    # 若扫整段文首，正文里「应自收到《…交费通知书》」会把别份文书的名字
+    # 误当成"本文书类型名"，反而把本该丢弃的外来锚点判成自指（实测踩到）。
+    head = re.sub(r"\s+", "", (text or "")[:24])
+    head = head.split("《", 1)[0]
+    return tuple(kw for kw in CARRIER_TITLE_KEYWORDS if kw in head)
+
+
 def _suppress(
     bucket: list[dict[str, Any]] | None,
     *,
@@ -656,6 +671,7 @@ def _apply_relative_deadline_rules(
     delivery_date: datetime | None = None,
     role: DocumentRole = DocumentRole.CARRIER,
     sibling_documents: Sequence[str] = (),
+    self_titles: Sequence[str] = (),
     suppressed: list[dict[str, Any]] | None = None,
 ) -> list[DateCandidateDraft]:
     """相对期限推算（确定性规则，不依赖 LLM）。
@@ -736,6 +752,7 @@ def _apply_relative_deadline_rules(
             match_start=m.start(),
             match_end=m.end(),
             sibling_documents=sibling_documents,
+            self_titles=self_titles,
         )
         if verdict.document is not AnchorDocument.SELF:
             logger.info(
@@ -988,6 +1005,9 @@ def build_date_candidates(
     extractor = regex_extractor or _RegexCandidateExtractor()
     default_type = DEFAULT_TYPE_BY_DOCUMENT_TYPE.get(document_type, "other")
     siblings = tuple(sibling_documents or ())
+    # 本文书自己的类型名（如「裁定书」）：复议期句子里写的是「收到裁定书之日起五日内」，
+    # 指的是本份裁定而非别份，必须让锚点判定知道这件事。
+    self_titles = _self_title_keywords(text)
     # 文书角色：这份文书到底承不承载本案期限（内容判据，不看文件名）
     role, role_reason = classify_document_role(text=text)
     logger.info("文书角色判定: %s | %s", role.value, role_reason)
@@ -1019,18 +1039,13 @@ def build_date_candidates(
         # LLM 自报的起算锚归属（anchor_hint）：它说锚在别处（尚未产生的裁判文书/
         # 另一份具名文书）时，本条就是不可算的——直接丢弃并留痕，不信它的日期。
         anchor_hint = str(getattr(event, "anchor_hint", "self") or "self")
-        if anchor_hint in ("future_document", "other_document"):
-            reason = "LLM 判定锚点在别份文书（" + anchor_hint + "），本条现在算不出真日期"
-            logger.info("丢弃锚点在别份文书的 LLM 日期事件: %s | %s", parsed.date(), reason)
-            _suppress(
-                suppressed_out,
-                deadline=parsed,
-                event_type=event_type,
-                context=context,
-                verdict=None,
-                reason=reason,
-            )
-            continue
+        # LLM 说「锚在别份文书」时不直接采信它的日期，但也不直接丢：
+        # 模型标错一次的代价是漏掉真期限（如把「本份执行通知书」标成 other_document）。
+        # 保留草稿 + 打 flag + 不默认勾，把「到底是不是别份文书的期限」交回确定性层
+        # 与律师本人判断（详见 date_candidate_policy 的设计原则 P1/P5）。
+        llm_foreign_anchor = anchor_hint in ("future_document", "other_document")
+        if llm_foreign_anchor:
+            logger.info("LLM 判定锚点在别份文书（%s），保留为待核对候选: %s", anchor_hint, parsed.date())
         drafts[(parsed, event_type)] = DateCandidateDraft(
             due_at=parsed,
             reminder_type=event_type,
@@ -1040,6 +1055,7 @@ def build_date_candidates(
             derivation="llm_absolute",
             anchor_document="self",
             anchor_kind=AnchorKind.EFFECTIVE_DATE.value if anchor_hint == "effective" else "",
+            review_flags=(FLAG_ANCHOR_FOREIGN_LLM,) if llm_foreign_anchor else (),
         )
 
     # 2. 正则候选（透出全部，含上下文与类型推断）
@@ -1078,6 +1094,7 @@ def build_date_candidates(
         delivery_date=received_at,
         role=role,
         sibling_documents=siblings,
+        self_titles=self_titles,
         suppressed=suppressed_out,
     )
 
@@ -1170,8 +1187,14 @@ def build_date_candidates(
                 reason=decision.reason,
             )
             continue
-        draft.review_flags = decision.flags
+        merged_flags: list[str] = list(draft.review_flags)
+        for flag in decision.flags:
+            if flag not in merged_flags:
+                merged_flags.append(flag)
+        draft.review_flags = tuple(merged_flags)
         draft.confidence = decision.confidence
+        if merged_flags and draft.default_checked:
+            draft.default_checked = False
         draft.default_checked = decision.default_checked
         if not draft.anchor_document:
             draft.anchor_document = AnchorDocument.SELF.value
@@ -1288,6 +1311,19 @@ def reconcile_source_candidates(source_court_sms_id: int) -> int:
     if not tasks:
         return 0
 
+    # 复活孤儿：被折叠过的行若权威行已被删（duplicate_of SET_NULL），它不该永远消失
+    for task in tasks:
+        for row in task.date_candidates.all():
+            if (
+                row.status == DateCandidateStatus.SKIPPED
+                and row.duplicate_of_id is None
+                and FLAG_DUPLICATE in (row.review_flags or [])
+            ):
+                row.status = DateCandidateStatus.PENDING
+                row.review_flags = [f for f in (row.review_flags or []) if f != FLAG_DUPLICATE]
+                row.save(update_fields=["status", "review_flags", "updated_at"])
+                logger.info("恢复孤儿候选: candidate=%s（权威行已不存在）", row.id)
+
     groups: dict[tuple[Any, Any, str], list[tuple[Any, Any]]] = {}
     for task in tasks:
         for row in task.date_candidates.all():
@@ -1300,6 +1336,11 @@ def reconcile_source_candidates(source_court_sms_id: int) -> int:
     touched: set[int] = set()
     for items in groups.values():
         if len(items) < 2:
+            continue
+        # 只折**跨任务**的重复：同一份文书里两条同类型同日期（如交费通知书把受理费与
+        # 保全费都写成"七日内"）是两条不同的义务，折掉一条就等于漏一条。
+        task_ids = {task.id for task, _row in items}
+        if len(task_ids) < 2:
             continue
         items.sort(
             key=lambda pair: (
@@ -1361,14 +1402,14 @@ def list_candidates(task: Any) -> list[dict[str, Any]]:
             "derivation_label": DERIVATION_LABELS.get(row.derivation, ""),
             "review_flags": list(row.review_flags or []),
             "default_checked": bool(row.default_checked),
-            "anchor_note": _anchor_note_for_row(row, task),
+            "anchor_note": _anchor_note_for_row(row),
             "duplicate_of_id": row.duplicate_of_id,
         }
         for row in task.date_candidates.select_related("reminder").order_by("due_at", "id")
     ]
 
 
-def _anchor_note_for_row(row: Any, task: Any) -> str:
+def _anchor_note_for_row(row: Any) -> str:
     """按行上存的锚类型即时渲染「起算点」文案（不在库里存冗余文案）。"""
     try:
         kind = AnchorKind(row.anchor_kind) if row.anchor_kind else AnchorKind.UNKNOWN

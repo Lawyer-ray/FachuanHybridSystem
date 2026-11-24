@@ -79,6 +79,8 @@ FLAG_LOW_CONFIDENCE = "low_confidence"
 FLAG_FAR_FUTURE = "far_future"
 FLAG_DUPLICATE = "duplicate"
 FLAG_DISCARDED = "discarded_by_gate"
+FLAG_ANCHOR_UNKNOWN = "anchor_unknown"
+FLAG_ANCHOR_FOREIGN_LLM = "anchor_foreign_llm"
 
 #: 复核标记 → 给律师看的人话（前端直接展示；后端是单一来源）
 FLAG_LABELS: dict[str, str] = {
@@ -88,6 +90,8 @@ FLAG_LABELS: dict[str, str] = {
     FLAG_FAR_FUTURE: "远期日期（超过 10 年）",
     FLAG_DUPLICATE: "同批已有一条更权威的同日期候选",
     FLAG_DISCARDED: "已被规则过滤（不进日历）",
+    FLAG_ANCHOR_UNKNOWN: "起算点无法判断，请核对原文",
+    FLAG_ANCHOR_FOREIGN_LLM: "AI 认为起算点在别份文书，请核对",
 }
 
 #: 推算方式 → 中文标签（前端"来源"那一行直接显示，避免前后端各写一份口径）
@@ -115,7 +119,7 @@ LOW_CONFIDENCE_THRESHOLD = 0.5
 # ---------------------------------------------------------------------------
 
 #: 硬性期限载体（文首标题名）。这些文书即便 OCR 吃掉了落款日期，也一定是本案文书。
-_CARRIER_TITLE_KEYWORDS: tuple[str, ...] = (
+CARRIER_TITLE_KEYWORDS: tuple[str, ...] = (
     "传票",
     "开庭通知",
     "应诉通知书",
@@ -248,7 +252,7 @@ def classify_document_role(*, text: str, filename: str = "") -> tuple[DocumentRo
     head = re.sub(r"\s+", "", body[:80])
     tail_hint = filename or ""
 
-    for keyword in _CARRIER_TITLE_KEYWORDS:
+    for keyword in CARRIER_TITLE_KEYWORDS:
         if keyword in head:
             return DocumentRole.CARRIER, f"文首命中期限载体类型名「{keyword}」"
 
@@ -257,11 +261,14 @@ def classify_document_role(*, text: str, filename: str = "") -> tuple[DocumentRo
         return DocumentRole.CARRIER, f"文中有具体落款日期 {issue.date().isoformat()}（本案专属）"
 
     generic_hit = next((kw for kw in _GENERIC_TITLE_KEYWORDS if kw in head or kw in tail_hint), "")
-    if generic_hit:
-        return DocumentRole.GENERIC_NOTICE, f"无落款日期且命中通用告知类型名「{generic_hit}」"
-    if not _CASE_NUMBER_RE.search(body):
+    # 有案号 = 本案专属文本：《举证须知》《应诉须知》这类带案号的"须知"是给本案的，
+    # 不能因为标题里有"须知"两字就把它的期限全部抑制掉。
+    has_case_number = bool(_CASE_NUMBER_RE.search(body))
+    if generic_hit and not has_case_number:
+        return DocumentRole.GENERIC_NOTICE, f"无落款日期、无案号且命中通用告知类型名「{generic_hit}」"
+    if not has_case_number:
         return DocumentRole.GENERIC_NOTICE, "无落款日期且全文无案号（判断为非本案专用文本）"
-    return DocumentRole.CARRIER, "保守放行：有案号但未命中通用告知类型名"
+    return DocumentRole.CARRIER, "保守放行：有案号（本案专属文本）"
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +287,7 @@ _DOC_NOUN = (
 #: 语序一：<文书>送达/签收之日起（如「裁判文书送达之日起三日内」）
 _ANCHOR_PRE_RE = re.compile(rf"(?P<subject>《[^》]{{1,30}}》|{_DOC_NOUN})\s*(?:送达|签收)")
 #: 语序二：收到/签收 + <文书> + 之日起（如「收到《缴费通知书》之日起七日内」）
-_ANCHOR_POST_RE = re.compile(r"(?:收到|接到|收悉|签收)(?P<subject>[^，。；;\n]{0,14}?)(?:之|次)?(?:日起?|后)")
+_ANCHOR_POST_RE = re.compile(r"(?:收到|接到|收悉|签收)(?P<subject>[^，。；;\n]{0,30}?)(?:之|次)?(?:日起?|后)")
 
 #: 自指词：锚点就是本份文书（原文常省略主语，如「收到次日起七日内」）
 _SELF_MARKERS: tuple[str, ...] = (
@@ -295,6 +302,13 @@ _SELF_MARKERS: tuple[str, ...] = (
     "本规则",
     "本须知",
     "本书",
+    # 起诉状/答辩状副本随应诉/受理通知书一并送达，「收到起诉状副本之日起十五日内答辩」
+    # 的起算点就是本次送达——旧实现把它归成"锚点无法判断"直接丢掉，答辩期整条消失。
+    "起诉状副本",
+    "起诉书副本",
+    "答辩状副本",
+    "申请书副本",
+    "起诉状",
 )
 
 #: 生效起算（业务口径：保留候选但标待确认，见 EFFECTIVE_FIRST_NOTE）
@@ -456,11 +470,13 @@ def parse_anchor_clause(
             clipped,
         )
 
-    # f) 判断不出 → 不采信
+    # f) 判断不出：**保留但标"起算点无法判断"**（不默认勾选）。
+    # 为什么不直接丢：漏报一个真期限（答辩期、举证期）比多给一条待核对的候选更贵；
+    # 而"不可解释"的候选已经被 flags 挡在默认勾选之外，不会一键写进日历。
     return AnchorVerdict(
-        AnchorDocument.OTHER_CASE,
+        AnchorDocument.SELF,
         AnchorKind.UNKNOWN,
-        "无法判断锚点归属，按不可信处理",
+        "无法判断锚点归属，需人工核对原文",
         clipped,
     )
 
@@ -484,7 +500,21 @@ _OPTIONAL_MOTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 #: 保留词：这些是律师真正要跟的救济/程序期限，即使句中有"申请"也不得丢弃。
 #: 「复议」尤其关键——裁定书「五日内申请复议」是律师唯一的救济窗口。
-_OPTIONAL_KEEP_WORDS: tuple[str, ...] = ("复议", "上诉", "答辩", "管辖", "举证期限")
+_OPTIONAL_KEEP_WORDS: tuple[str, ...] = (
+    "复议",
+    "上诉",
+    "答辩",
+    "管辖",
+    "举证期限",
+    # 保全续封/续冻是要跟的死线：「申请延长查封期限」不能被"申请延期"一并吞掉
+    "续封",
+    "续冻",
+    "续行",
+    "延长查封",
+    "延长冻结",
+    "继续查封",
+    "继续冻结",
+)
 
 
 def is_optional_motion(sentence: str) -> tuple[bool, str]:
@@ -532,7 +562,9 @@ def confidence_for(*, derivation: str, anchor: AnchorVerdict, role: DocumentRole
     if derivation == "rule_relative":
         return 0.45 if anchor.kind is AnchorKind.EFFECTIVE_DATE else 0.90
     if derivation == "rule_absolute":
-        return 0.85
+        # 不能写死 0.85：那会把上下文得分（可能 0.0）与陈旧降权（0.3）一起抹平，
+        # 让"零语义支撑的正则日期"重新变回默认勾选。
+        return min(float(raw), 0.85)
     return float(raw)
 
 
@@ -561,6 +593,8 @@ def decide_candidate(
     flags: list[str] = []
     if anchor.kind is AnchorKind.EFFECTIVE_DATE:
         flags.append(FLAG_ANCHOR_EFFECTIVE)
+    if anchor.kind is AnchorKind.UNKNOWN:
+        flags.append(FLAG_ANCHOR_UNKNOWN)
     if role is DocumentRole.GENERIC_NOTICE:
         flags.append(FLAG_GENERIC_BOILERPLATE)
     if (due_at.date() - today).days > FAR_FUTURE_DAYS:
@@ -570,7 +604,11 @@ def decide_candidate(
 
     reason = ""
     keep = True
-    if anchor.document is not AnchorDocument.SELF:
+    if anchor.kind is AnchorKind.UNKNOWN:
+        # 锚点判断不出来：保留（宁可让律师看一条待核对的，也不静默漏掉答辩期/举证期），
+        # 但带 flag、不默认勾选。
+        keep = True
+    elif anchor.document is not AnchorDocument.SELF:
         keep = False
         reason = anchor.reason or "锚点不在本份文书上，期限归属别处"
     elif role is DocumentRole.GENERIC_NOTICE and derivation == "rule_relative":

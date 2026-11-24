@@ -72,13 +72,18 @@ def _load_sibling_documents(task: Any) -> list[str]:
     from apps.document_recognition.models import DocumentRecognitionTask
 
     try:
-        rows = DocumentRecognitionTask.objects.filter(source_court_sms_id=sms_id).values_list(
-            "source_document_path", "original_filename"
+        # 排除本文书自身：交费通知书里会写「按《诉讼费用交费通知书》载明的账号交纳」，
+        # 若自身也在"同批清单"里，这类自引会被判成"期限归属另一份文书"而误丢。
+        own = Path(task.source_document_path or task.file_path or "").name
+        rows = (
+            DocumentRecognitionTask.objects.filter(source_court_sms_id=sms_id)
+            .exclude(id=task.id)
+            .values_list("source_document_path", "original_filename")
         )
         names: list[str] = []
         for path, filename in rows:
             name = Path(path).name if path else str(filename or "")
-            if name:
+            if name and name != own:
                 names.append(name)
         return names
     except DatabaseError:  # pragma: no cover - 读失败只降级为"无同批清单"
