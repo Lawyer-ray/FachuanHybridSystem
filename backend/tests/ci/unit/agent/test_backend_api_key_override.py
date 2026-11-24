@@ -56,15 +56,7 @@ def _ctx(*, api_key: str | None) -> RunContext:
     )
 
 
-# ── openai-agents ───────────────────────────────────────────────────
 
-
-def _openai_module() -> Any:
-    """``openai_agents_backend`` 顶层 ``import agents``：SDK 没装时跳过这一路。"""
-    pytest.importorskip("agents", reason="openai-agents SDK 未安装，跳过 openai-agents 后端用例")
-    from apps.agent.backends import openai_agents_backend
-
-    return openai_agents_backend
 
 
 def _gateway_settings(**overrides: Any) -> Any:
@@ -93,56 +85,6 @@ def _patch_next_key(monkeypatch: pytest.MonkeyPatch, replacement: Any) -> None:
     """
     monkeypatch.setattr("apps.agent.pi.model_config._next_key", replacement)
 
-
-class TestOpenAiAgentsKey:
-    """``gateway_from_settings`` / ``_resolve_gateway`` 的 key 选择。"""
-
-    def test_settings_key_override_skips_rotation(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        module = _openai_module()
-        rotated: list[list[str]] = []
-
-        def _next(keys: list[str], **_kw: object) -> str:
-            rotated.append(keys)
-            return "rotated"
-
-        _patch_next_key(monkeypatch, _next)
-        gateway = module.gateway_from_settings(_gateway_settings(), None, api_key=_SECRET)
-        assert gateway == ("http://gw.internal:4000/v1", _SECRET, "kimi-2.6")
-        assert rotated == [], "编排层指定了 key 就不许再轮转（会把分配结果覆盖掉）"
-
-    def test_settings_without_key_still_rotates(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """兼容底线：不传 ``api_key`` 时行为与引入该参数前逐字一致。"""
-        module = _openai_module()
-        _patch_next_key(monkeypatch, lambda keys, **_kw: "rotated")
-        gateway = module.gateway_from_settings(_gateway_settings(), None)
-        assert gateway is not None
-        assert gateway[1] == "rotated"
-
-    def test_backend_resolves_gateway_with_ctx_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """调用方必须把 ``ctx.api_key`` 真的传下去——参数加了但没接线等于没做。"""
-        module = _openai_module()
-        monkeypatch.setattr(module, "get_gateway_settings", lambda hint: _gateway_settings())
-        _patch_next_key(monkeypatch, lambda keys, **_kw: pytest.fail("ctx.api_key 有值时不得轮转"))
-        resolved = asyncio.run(module.OpenAiAgentsBackend()._resolve_gateway(_ctx(api_key=_SECRET)))
-        assert resolved.api_key == _SECRET
-
-    def test_backend_falls_back_without_ctx_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        module = _openai_module()
-        monkeypatch.setattr(module, "get_gateway_settings", lambda hint: _gateway_settings())
-        _patch_next_key(monkeypatch, lambda keys, **_kw: "rotated")
-        resolved = asyncio.run(module.OpenAiAgentsBackend()._resolve_gateway(_ctx(api_key=None)))
-        assert resolved.api_key == "rotated"  # pragma: allowlist secret
-
-    def test_key_never_logged(self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
-        module = _openai_module()
-        monkeypatch.setattr(module, "get_gateway_settings", lambda hint: _gateway_settings())
-        # 这条路径目前**一行日志都不打**，所以断言的是「将来加的日志不许带明文 key」。
-        with caplog.at_level(logging.DEBUG):
-            asyncio.run(module.OpenAiAgentsBackend()._resolve_gateway(_ctx(api_key=_SECRET)))
-        assert _SECRET not in caplog.text
-
-
-# ── dsh ────────────────────────────────────────────────────────────
 
 
 def _dsh_provider(**overrides: Any) -> Any:

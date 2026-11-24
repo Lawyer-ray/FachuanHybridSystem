@@ -306,10 +306,13 @@ class CodexBackend:
                     event = json.loads(line)
                 except json.JSONDecodeError:
                     continue
+                if event.get("type") == "turn.failed":
+                    # 不在这里拼 error 帧：错误事件只有一个投影点（``apps.agent.errors.project``），
+                    # 手写会让该路径在前端丢掉 ``code``。记下来，收尾时抛给编排层。
+                    message = (event.get("error") or {}).get("message") or "codex 本轮失败"
+                    failure = failure or BackendError(BackendErrorKind.UNKNOWN, str(message)[:300])
+                    continue
                 for frame in self._translate(event, started):
-                    if frame.get("type") == "error":
-                        failure = failure or BackendError(BackendErrorKind.UNKNOWN, str(frame.get("message") or ""))
-                        continue
                     yield {**frame, "agent": self.kind, "run_id": ctx.run_id}
         finally:
             if proc.returncode is None:
@@ -350,9 +353,6 @@ class CodexBackend:
     def _translate(self, event: dict[str, Any], started: set[str]) -> list[dict[str, Any]]:
         """一条 codex JSONL → 零个或多个契约事件。"""
         kind = str(event.get("type") or "")
-        if kind == "turn.failed":
-            message = ((event.get("error") or {}).get("message")) or "codex 本轮失败"
-            return [{"type": "error", "message": str(message)[:300], "code": "backend_failed"}]
         if kind == "turn.completed":
             usage = self._usage(event.get("usage"))
             return [usage] if usage else []

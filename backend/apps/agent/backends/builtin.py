@@ -47,7 +47,6 @@ def ensure_registered() -> None:
         # pi 在就说明主路径可用；dsh / openai-agents 是可选后端，单独补（缺 SDK 的
         # 部署里上面这个条件会一直成立，不能因为可选后端缺席就每次都重跑一遍）。
         _register_dsh()
-        _register_openai_agents()
         _register_antigravity()
         _register_claude_agent()
         _register_opencode()
@@ -63,7 +62,6 @@ def ensure_registered() -> None:
         registry.register(PiBackend())
     _registered = True
     _register_dsh()
-    _register_openai_agents()
     _register_antigravity()
     _register_claude_agent()
     _register_opencode()
@@ -108,34 +106,6 @@ def _register_dsh() -> None:
         logger.info("deepseek-harness SDK 未安装，dsh 后端不可用（pi 不受影响）")
         return
     registry.register(DshBackend())
-
-
-def _register_openai_agents() -> None:
-    """注册 openai-agents 后端；SDK 没装时**静默降级**（只登记一次）。
-
-    与 :func:`_register_dsh` 同构，理由也相同：``openai_agents_backend`` 顶层
-    ``import agents``（SDK 未装时 import 必炸），而这是一个**可选后端**——缺依赖
-    不该让 pi 会话跟着起不来。缺包时这些会话在 ``registry.get("openai-agents")``
-    拿到 ``LookupError``，消息里带已注册清单，足以定位。
-
-    ``_attempted`` 只记「import 失败过」，**不能**当成「已注册」的凭据：注册表是
-    可被 ``clear()`` 清空的全局状态，清空后若被它挡住，该后端会永远报「未知
-    backend」（pi 与 dsh 都踩过这个坑）。真正「在不在」只问注册表。
-    """
-    kind = "openai-agents"
-    if kind in registry.available_kinds():
-        return
-    if kind in _attempted:
-        return
-
-    try:
-        from .openai_agents_backend import OpenAiAgentsBackend
-    except ImportError:
-        # 缺 openai-agents：记录后当作「本部署没有这个后端」。
-        _attempted.add(kind)
-        logger.info("openai-agents SDK 未安装，openai-agents 后端不可用（pi 不受影响）")
-        return
-    registry.register(OpenAiAgentsBackend())
 
 
 def _register_antigravity() -> None:
