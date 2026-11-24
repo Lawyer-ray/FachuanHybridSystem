@@ -40,6 +40,8 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
 
+from apps.cases.domain.party_status import DEFENDANT_SIDE_STATUSES, PLAINTIFF_SIDE_STATUSES, THIRD_SIDE_STATUSES
+
 logger = logging.getLogger("apps.document_recognition")
 
 # ---------------------------------------------------------------------------
@@ -537,33 +539,155 @@ def is_optional_motion(sentence: str) -> tuple[bool, str]:
 
 
 # ---------------------------------------------------------------------------
+# 期间长度（「举证期限为十五日」这类，与「…之日起 N 日内」是两种写法）
+# ---------------------------------------------------------------------------
+
+#: 期间长度句式：<期限名> + 可选口径词 + N 日/天
+#: 口径词决定这条是「法院给本案指定的期限」还是「法定下限/上限」——
+#: 《民诉法解释》99 条写的「一审普通程序不得少于十五日」就是下限，
+#: 按"送达+15天"当死线会让律师提前放弃举证或误判已过期。
+_PERIOD_LENGTH_RE = re.compile(
+    r"(?P<label>举证期限|答辩期限|举证期间|提交证据的期限)"
+    r"(?P<mod>不得少于|不得超过|不超过|应当为|为|是|共)?"
+    r"\s*(?P<num>[0-9]{1,3}|[一二三四五六七八九十两]{1,3})\s*(?:个)?(?:日|天)"
+)
+
+#: 程序类型分档：一份文书里同时出现 ≥2 档（普通/简易/小额）且没指定本案适用哪档时，
+#: 等于有 2 个以上互斥的候选日期，系统无权替法院选 —— 不产日期，只留提示。
+_PROGRAM_TIER_KEYWORDS: tuple[str, ...] = ("普通程序", "简易程序", "小额诉讼")
+_PERIOD_DAY_NUM_RE = re.compile(r"([0-9]{1,3}|[一二三四五六七八九十两]{1,3})\s*(?:个)?(?:日|天)")
+
+#: 起算句：「自（当事人）收到 X 之日起计算」——期间长度的锚点
+_PERIOD_ANCHOR_RE = re.compile(r"(?:自|从)?[^。；\n]{0,12}?收到[^。；\n]{0,24}?之日起(?:计算|起算)?")
+
+#: 法定下限/上限口径词
+_STATUTORY_BOUND_MODS: frozenset[str] = frozenset({"不得少于", "不得超过", "不超过"})
+
+
+def _cn_or_arabic_to_int(value: str) -> int | None:
+    """「十五」→ 15；「15」→ 15（期间长度只处理 1~365 天）。"""
+    if value.isdigit():
+        return int(value)
+    return _parse_cn_day_month(value)
+
+
+@dataclass(frozen=True)
+class PeriodLengthVerdict:
+    """「举证期限为 N 日」这类写法的判定结果。"""
+
+    tiers: dict[str, int]
+    stated_days: int | None
+    is_statutory_bound: bool
+    matched_text: str
+    reason: str
+
+
+def extract_period_length_verdict(text: str) -> PeriodLengthVerdict:
+    """抽取「举证期限为十五日」这类**期间长度**写法，并判断能不能算成日期。
+
+    判定优先级（法律口径，逐条都有真实代价）：
+
+    1. 同时出现 ≥2 档程序类型（普通/简易/小额）→ 不能算（三个互斥日期，且文书
+       没指定本案适用哪档）。实测样本：《举证通知书》一句里列 15/5/3 三档。
+    2. 命中法定口径词（不得少于/不得超过/不超过）→ 不能算。那是**下限/上限**
+       （《民诉法解释》99 条），不是本案指定期限，当死线用会让律师提前放弃举证。
+    3. 明写了 N 日但全文找不到起算句（「自收到 X 之日起计算」）→ 不能算。
+    4. 以上都过 → 可算：起算点取本份文书送达日。
+    """
+    body = text or ""
+    tiers: dict[str, int] = {}
+    for sentence in re.split(r"[。；\n]", body):
+        tier = next((kw for kw in _PROGRAM_TIER_KEYWORDS if kw in sentence), "")
+        if not tier:
+            continue
+        num = _PERIOD_DAY_NUM_RE.search(sentence)
+        days = _cn_or_arabic_to_int(num.group(1)) if num else None
+        if days:
+            tiers[tier] = days
+
+    matched_text = ""
+    stated_days: int | None = None
+    is_statutory_bound = False
+    for m in _PERIOD_LENGTH_RE.finditer(body):
+        mod = m.group("mod") or ""
+        days = _cn_or_arabic_to_int(m.group("num"))
+        if days is None:
+            continue
+        if not matched_text:
+            matched_text = m.group(0)
+        if mod in _STATUTORY_BOUND_MODS:
+            is_statutory_bound = True
+        elif days and stated_days is None:
+            stated_days = days
+
+    if len(tiers) >= 2:
+        detail = "/".join(f"{tier}{days}日" for tier, days in sorted(tiers.items(), key=lambda kv: -kv[1]))
+        return PeriodLengthVerdict(
+            tiers=tiers,
+            stated_days=None,
+            is_statutory_bound=is_statutory_bound,
+            matched_text=matched_text,
+            reason=f"文书含多档期限（{detail}）且未指定本案适用哪种程序，无法确定截止日，请与书记员确认",
+        )
+    if is_statutory_bound:
+        return PeriodLengthVerdict(
+            tiers=tiers,
+            stated_days=None,
+            is_statutory_bound=True,
+            matched_text=matched_text,
+            reason=f"文书给的是法定下限/上限（{matched_text or '期限长度'}），不是本案指定期限",
+        )
+    if stated_days is None:
+        return PeriodLengthVerdict(
+            tiers=tiers, stated_days=None, is_statutory_bound=False, matched_text=matched_text, reason=""
+        )
+    if not period_length_anchor(body):
+        # stated_days 置空：没有起算句就不能算日期，调用方不应拿送达日硬凑一个
+        return PeriodLengthVerdict(
+            tiers=tiers,
+            stated_days=None,
+            is_statutory_bound=False,
+            matched_text=matched_text,
+            reason="文书给了期限长度但没有起算点（未写明自收到何文书之日起算），无法算截止日",
+        )
+    return PeriodLengthVerdict(
+        tiers=tiers,
+        stated_days=stated_days,
+        is_statutory_bound=False,
+        matched_text=matched_text,
+        reason="",
+    )
+
+
+def period_length_anchor(text: str) -> str:
+    """期间长度的起算句（「自收到本通知书之日起计算」），找不到返回空串。"""
+    m = _PERIOD_ANCHOR_RE.search(text or "")
+    return m.group(0).strip() if m else ""
+
+
+def period_length_event_type(text: str) -> str:
+    """期间长度对应的提醒类型：「举证」→ 举证到期日；「答辩」→ 补正/材料提交期限。"""
+    body = text or ""
+    if "答辩" in body:
+        return "submission_deadline"
+    return "evidence_deadline"
+
+
+# ---------------------------------------------------------------------------
 # 当事人地位闸：举证期限只在我方处于**防守方**时才需要律师跟进
 # ---------------------------------------------------------------------------
 
 #: 防守方诉讼地位：拿举证期限、答辩期当自己死线的当事人。
 #: —— 我方是原告/申请人/上诉人时，举证已随起诉状/申请书提交，逾期举证主要是
-#: 对方（被告/被申请人/被上诉人）的证据失权风险，与我们的日历无关（业务口径）。
-DEFENSIVE_PARTY_ROLES: frozenset[str] = frozenset(
-    {
-        "defendant",
-        "respondent",
-        "appellee",
-        "third",
-        "criminal_defendant",
-        "orig_defendant",
-        "orig_third",
-    }
-)
+#: 对方（被告/被申请人/被上诉人）的证据失权风险，与我们的日历无关（业务口径 2026-11-24）。
+#:
+#: **不在这里自建集合**：诉讼地位的唯一权威是 ``apps.cases.domain.party_status``
+#: （生产库中英文混存，自建副本必然漏掉中文那批——历史上已经漂移过三次）。
+#: 该模块是纯 Python（不 import Django），因此本模块仍可脱离框架单测。
+DEFENSIVE_PARTY_ROLES: frozenset[str] = DEFENDANT_SIDE_STATUSES | THIRD_SIDE_STATUSES
 
 #: 进攻方诉讼地位（我方主动发起）：这类角色不需要跟"举证期限/答辩期"。
-OFFENSIVE_PARTY_ROLES: frozenset[str] = frozenset(
-    {
-        "plaintiff",
-        "applicant",
-        "appellant",
-        "orig_plaintiff",
-    }
-)
+OFFENSIVE_PARTY_ROLES: frozenset[str] = PLAINTIFF_SIDE_STATUSES
 
 #: 「防守型」条款的识别词：只有这些条款受当事人地位闸约束，
 #: 上诉期/缴费期/开庭时间/保全到期对所有地位都成立，不受影响。

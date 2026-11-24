@@ -47,9 +47,16 @@ from .date_candidate_policy import (
     classify_document_role,
     confidence_for,
     decide_candidate,
+    extract_period_length_verdict,
 )
 from .date_candidate_policy import find_issue_date as _policy_find_issue_date
-from .date_candidate_policy import is_optional_motion, parse_anchor_clause, party_role_verdict
+from .date_candidate_policy import (
+    is_optional_motion,
+    parse_anchor_clause,
+    party_role_verdict,
+    period_length_anchor,
+    period_length_event_type,
+)
 
 logger = logging.getLogger("apps.document_recognition")
 
@@ -1067,7 +1074,8 @@ def build_date_candidates(
         )
 
     # 2. 正则候选（透出全部，含上下文与类型推断）
-    for candidate in extractor.extract_datetime_candidates(text):
+    def _merge_regex_candidate(candidate: dict[str, Any]) -> None:
+        """把一条正则候选并入草稿表（同日期同类型去重、LLM 优先）。"""
         parsed = candidate["datetime"]
         reminder_type = candidate.get("reminder_type") or default_type
         key = (parsed, reminder_type)
@@ -1089,6 +1097,15 @@ def build_date_candidates(
             if not existing.context_text:
                 existing.context_text = str(candidate.get("context_text", ""))[:255]
 
+    for candidate in extractor.extract_datetime_candidates(text):
+        _merge_regex_candidate(candidate)
+
+    # 2.5 纯日期（无时刻）兜底：DATETIME_PATTERNS 全部要求时刻，
+    #     「本案举证期限至 2027-01-10 止」这类只有 LLM 能抓；LLM 熔断时就全空。
+    #     门槛由 mixin 内的"上下文必须命中期限词"保证，不会成片抓叙事日期。
+    for candidate in extractor.extract_date_only_candidates(text):
+        _merge_regex_candidate(candidate)
+
     # 3. 期间结构后处理：起始日剔除、到期日算术校正、相对期限推算、同上下文去重
     drafts_list = _apply_period_rules(text, list(drafts.values()))
     for draft in drafts_list:
@@ -1096,6 +1113,48 @@ def build_date_candidates(
             draft.derivation = "rule_period"
         if not draft.anchor_document:
             draft.anchor_document = "self"
+    # 3.2 期间长度（「举证期限为十五日」）：与「…之日起 N 日内」是两种写法，
+    #     前者是法院给本案**指定**的期限长度，必须能算；但法定下限/多档程序不算。
+    period_verdict = extract_period_length_verdict(text)
+    period_context = period_length_anchor(text) or period_verdict.matched_text
+    period_type = period_length_event_type(text)
+    anchor_day = received_at.date() if received_at else None
+    if anchor_day is None:
+        issue = _find_issue_date(text)
+        anchor_day = issue.date() if issue else None
+    if period_verdict.stated_days is not None and not period_verdict.reason and anchor_day is not None:
+        period_due = datetime.combine(anchor_day, datetime.min.time()) + timedelta(days=period_verdict.stated_days)
+        drafts_list.append(
+            DateCandidateDraft(
+                due_at=period_due,
+                reminder_type=period_type,
+                context_text=(period_context or period_verdict.matched_text)[:255],
+                source="regex",
+                confidence=0.9,
+                anchor_kind=AnchorKind.SERVICE_OF_SELF.value if received_at else AnchorKind.ISSUE_DATE_OF_SELF.value,
+                anchor_at=anchor_day,
+                anchor_document=AnchorDocument.SELF.value,
+                derivation="rule_period",
+                anchor_note=anchor_note_for(
+                    kind=AnchorKind.SERVICE_OF_SELF if received_at else AnchorKind.ISSUE_DATE_OF_SELF,
+                    anchor_at=anchor_day,
+                    delivery_date=anchor_day,
+                    days=period_verdict.stated_days,
+                ),
+            )
+        )
+        logger.info("期间长度推算候选: 届满=%s (%s + %d天)", period_due.date(), anchor_day, period_verdict.stated_days)
+    elif period_verdict.reason:
+        # 算不出来的要留痕：多档程序 / 法定下限 / 无起算点，都可能在律师追问时被问到
+        _suppress(
+            suppressed_out,
+            deadline=datetime.combine(anchor_day or timezone.localdate(), datetime.min.time()),
+            event_type=period_type,
+            context=period_context or period_verdict.matched_text,
+            verdict=None,
+            reason=period_verdict.reason,
+        )
+
     drafts_list = _apply_relative_deadline_rules(
         text,
         drafts_list,
