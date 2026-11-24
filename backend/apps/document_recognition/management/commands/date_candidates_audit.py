@@ -46,7 +46,7 @@ class Command(BaseCommand):
         parser.add_argument("--apply", action="store_true", default=False, help="实际写库；不传则只打印清单")
         parser.add_argument("--limit", type=int, default=500, help="最多处理多少个任务（默认 500）")
 
-    def handle(self, *args: Any, **options: Any) -> None:  # type: ignore[no-untyped-def]  # pragma: no cover
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
         from apps.document_recognition.services.data_classes import DocumentType
         from apps.document_recognition.services.date_candidate_service import (
             build_date_candidates,
