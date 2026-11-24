@@ -358,7 +358,12 @@ class TestRelativeDeadlineRules:
         assert drafts[0].due_at == datetime(2026, 10, 17)
         assert drafts[0].reminder_type == "payment_deadline"
         assert drafts[0].source == "regex"
-        assert drafts[0].confidence == 0.85
+        # 置信度口径变更（2026-11-24）：确定性规则 + 已验证的自指锚点 = 0.90，
+        # 高于旧的固定 0.85；而且能否默认勾选只认 review_flags，不认分数。
+        assert drafts[0].confidence == 0.90
+        assert drafts[0].derivation == "rule_relative"
+        assert drafts[0].anchor_document == "self"
+        assert drafts[0].default_checked is True
         assert "7日内" in drafts[0].context_text
 
     def test_cn_seven_days(self):
@@ -555,12 +560,20 @@ class TestCourtDocumentAnalysisFields:
         assert analysis.document_type == "other"
         assert analysis.case_number is None
 
-    def test_analysis_prompt_covers_relative_deadline(self):
-        """prompt 必须教 LLM 对相对期限表述做锚点推算，且禁止拿落款日当事件日。"""
+    def test_analysis_prompt_forbids_date_arithmetic(self):
+        """prompt 必须**禁止** LLM 做日期推算，并要求每条 key_events 标注 anchor_hint。
+
+        口径变更（docs/analysis/date-candidate-provenance-2026-11-24/SUMMARY.md §7）：
+        LLM 只做语义、代码只做算术。旧口径让模型按落款日推「落款+N 天」，与确定性层
+        按送达日推算冲突，同一句期限会产出两条互相矛盾的候选（2026-11-24 实测）。
+        """
         from apps.document_recognition.services.document_analyzer import ANALYSIS_PROMPT
 
-        assert "相对表述" in ANALYSIS_PROMPT
-        assert "起算当日不计入" in ANALYSIS_PROMPT
+        assert "不做任何日期推算" in ANALYSIS_PROMPT
+        assert "anchor_hint" in ANALYSIS_PROMPT
+        assert "{delivery_date_hint}" in ANALYSIS_PROMPT
+        assert "通用规则说明" in ANALYSIS_PROMPT
+        # 旧口径的两条禁令必须保留（无年份不补、不虚构）
         assert "切勿把落款日期本身" in ANALYSIS_PROMPT
         assert "不要虚构日期" in ANALYSIS_PROMPT
 
@@ -593,6 +606,8 @@ class TestCourtDocumentAnalysisFields:
         assert event.event_type == "other"
         assert event.context == ""
         assert event.confidence == 0.7
+        # 新增字段默认 self：LLM 没标注时按「本份文书自身」处理，归属判定仍归确定性层
+        assert event.anchor_hint == "self"
 
 
 # ---------------------------------------------------------------------------
@@ -981,6 +996,14 @@ class TestPersistAndRefreshStatus:
             "source": "llm",
             "confidence": 0.9,
             "anchor_note": "",
+            # 出处字段（2026-11-24 新增）：一条候选必须能回答「依据哪份文书、
+            # 起算锚是什么、怎么算出来的、要不要人工看」
+            "anchor_kind": "",
+            "anchor_at": None,
+            "anchor_document": "",
+            "derivation": "",
+            "review_flags": [],
+            "default_checked": False,
         }
 
 

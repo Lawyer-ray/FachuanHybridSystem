@@ -186,3 +186,44 @@ class TestAllBackendsBlackout:
         assert first.error is not None and first.error.startswith("llm_unavailable")
         assert second.error is not None and second.error.startswith("llm_unavailable")
         assert llm.chat.call_count == 2
+
+
+class TestDeliveryHint:
+    """送达日只作为提示词背景注入，绝不参与日期算术。
+
+    口径见 docs/analysis/date-candidate-provenance-2026-11-24/SUMMARY.md §7：
+    LLM 只做语义，算术归确定性层；两层锚点口径必须唯一（旧口径 LLM 用落款日、
+    确定性层用送达日，同一句期限会产出两条矛盾候选）。
+    """
+
+    def test_none_returns_forbidden_hint(self) -> None:
+        from apps.document_recognition.services.document_analyzer import _delivery_hint
+
+        assert _delivery_hint(None) == "（未提供送达日，禁止推算日期）"
+
+    def test_with_date_formats_and_forbids_arithmetic(self) -> None:
+        from apps.document_recognition.services.document_analyzer import _delivery_hint
+
+        hint = _delivery_hint(datetime(2026, 11, 24, 11, 13))
+        assert "2026-11-24" in hint
+        assert "禁止" in hint
+
+    def test_prompt_carries_hint_and_keeps_no_filtering(self) -> None:
+        """提示词必须带上送达日背景；且 analyze_document 不因它过滤 key_events。"""
+        llm = _llm_returning(
+            '{"document_type": "other", "confidence": 0.9, "key_events": '
+            '[{"datetime": "2026-12-01", "event_type": "payment_deadline", '
+            '"context": "自收到本通知之日起七日内交纳", "confidence": 0.9, "anchor_hint": "self"}]}'
+        )
+
+        outcome = analyze_document(
+            "案件受理费请你方于收到本通知次日起七日内向本院交纳",
+            llm_service=llm,
+            delivery_date=datetime(2026, 11, 24, 11, 13),
+        )
+
+        prompt = llm.chat.call_args_list[0].kwargs["messages"][0]["content"]
+        assert "2026-11-24" in prompt
+        assert outcome.analysis is not None
+        assert len(outcome.analysis.key_events) == 1
+        assert outcome.analysis.key_events[0].anchor_hint == "self"

@@ -59,8 +59,13 @@ export const EXTRACTION_METHOD_LABELS: Record<string, string> = {
   text_extraction: '文本提取',
 }
 
-/** 候选默认勾选的置信度阈值：低于此值默认不勾，交人工判断 */
-export const DEFAULT_CHECK_CONFIDENCE = 0.5
+/** 候选提取来源展示（llm / merged / regex / text） */
+export const SOURCE_LABELS: Record<string, string> = {
+  llm: 'AI',
+  merged: 'AI+规则',
+  regex: '规则',
+  text: '文字',
+}
 
 /** 分屏预览左栏宽度（%）：默认值、拖拽范围与 localStorage 记忆键 */
 export const DEFAULT_SPLIT_PCT = 52

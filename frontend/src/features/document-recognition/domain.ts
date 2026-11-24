@@ -1,6 +1,6 @@
 /** 纯领域逻辑：候选行归一化与不可变更新（vitest 单测点）。 */
 
-import { ACCEPT_EXTENSIONS, DEFAULT_CHECK_CONFIDENCE, MAX_FILE_MB } from './constants'
+import { ACCEPT_EXTENSIONS, MAX_FILE_MB, SOURCE_LABELS } from './constants'
 import type { CaseRecommendation, ContactInfo, DateCandidate, TaskOut } from './types'
 import { toLocalInputValue } from '@/lib/date'
 import { withAuthToken } from '@/lib/token'
@@ -31,6 +31,14 @@ export interface CandidateRow {
   confidence: number | null
   status: 'pending' | 'confirmed' | 'skipped'
   reminderId: number | null
+  /** 后端复核标记（duplicate / discarded_by_gate 等），驱动置灰与徽标 */
+  reviewFlags: string[]
+  /** 后端给的起算点说明，空串表示没有可展示的推导依据 */
+  anchorNote: string
+  /** 后端给的推导中文标签（候选来源行的首选文案） */
+  derivationLabel: string
+  /** 后端算好的默认勾选；文字路径无后端，取初始勾选 true */
+  defaultChecked: boolean
 }
 
 /** naive 本地值 → 展示文本 "MM-DD HH:mm" */
@@ -42,18 +50,12 @@ export function formatDueLocal(value: string): string {
   return `${md}日 ${time}`
 }
 
-/** 候选默认勾选策略：置信度缺失（规则/合并路径，已过确定性规则）默认勾；
- *  置信度低于阈值（LLM 低置信）默认不勾，交人工判断。 */
-export function shouldDefaultCheck(confidence: number | null): boolean {
-  return confidence == null || confidence >= DEFAULT_CHECK_CONFIDENCE
-}
-
-/** 识别任务的候选 → 行（按 shouldDefaultCheck 决定初始勾选、可编辑） */
+/** 识别任务的候选 → 行（默认勾选只认后端 default_checked，前端不再按分数猜） */
 export function rowsFromTask(task: TaskOut): CandidateRow[] {
   return (task.date_candidates ?? []).map((c: DateCandidate) => ({
     key: `c-${c.id}`,
     candidateId: c.id,
-    checked: c.status === 'pending' && shouldDefaultCheck(c.confidence ?? null),
+    checked: c.status === 'pending' && (c.default_checked ?? false),
     dueLocal: toLocalInputValue(c.due_at),
     reminderType: c.reminder_type,
     label: c.reminder_type_label,
@@ -63,7 +65,35 @@ export function rowsFromTask(task: TaskOut): CandidateRow[] {
     confidence: c.confidence ?? null,
     status: c.status,
     reminderId: c.reminder_id ?? null,
+    reviewFlags: c.review_flags ?? [],
+    anchorNote: c.anchor_note ?? '',
+    derivationLabel: c.derivation_label ?? '',
+    defaultChecked: c.default_checked ?? false,
   }))
+}
+
+/** 候选来源行：后端推导标签优先，其次提取来源中文，最后原值（空则交给调用方收起整行） */
+export function candidateSourceLine(row: CandidateRow): string {
+  return row.derivationLabel || SOURCE_LABELS[row.source] || row.source
+}
+
+/** 候选起算点行：后端没给起算点说明时返回空串（不渲染） */
+export function candidateAnchorLine(row: CandidateRow): string {
+  return row.anchorNote
+}
+
+const REVIEW_FLAG_LABELS: Record<string, string> = {
+  anchor_effective: '起算点待确认',
+  generic_boilerplate: '通用文书',
+  low_confidence: '低置信',
+  far_future: '远期日期',
+  duplicate: '重复项',
+  discarded_by_gate: '已过滤',
+}
+
+/** 复核标记 → 中文徽标；未知标记原样返回（后端新增标记不被吞掉） */
+export function flagLabel(flag: string): string {
+  return REVIEW_FLAG_LABELS[flag] ?? flag
 }
 
 /** 推荐案件自动预选：首位高分（≥80）且明显领先次位（≥15 分）时预选，
@@ -124,6 +154,10 @@ export function rowsFromParsed(parsed: ParsedCandidate[]): CandidateRow[] {
     confidence: null,
     status: 'pending',
     reminderId: null,
+    reviewFlags: [],
+    anchorNote: '',
+    derivationLabel: '',
+    defaultChecked: true,
   }))
 }
 

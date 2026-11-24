@@ -122,7 +122,16 @@ class DocumentRecognitionTask(models.Model):
     重跑（retry）复用同一行，而"重新送识别"走的是新建行。
     """
     classification_hint = models.CharField(max_length=32, blank=True, default="", verbose_name="文书类型提示")
-    """来源管线给出的文书类型提示（仅在分类器认不出时兑底，非空即表示用了兜底）。"""
+    """来源管线给出的文书类型提示（仅在分类器认不出时兜底，非空即表示用了兜底）。"""
+    suppressed_candidates = models.JSONField(default=list, blank=True, verbose_name="被过滤的日期候选")
+    """被日期闸门过滤掉的候选项（留痕，供「为什么没提醒我」追问）。
+
+    法院送达的 8~12 份文书里，大部分是通用告知/须知类，正文里的「N 日内」讲的不是
+    本案期限（如「申请不予公布的，至迟应在裁判文书送达之日起三日内」）。这类候选
+    现在会被直接丢弃，但**丢弃也要留一行**——律师问「这份文书为什么没生成提醒」时
+    必须答得出，且后续调参需要回放。每项形如
+    ``{due_at, reminder_type, reason, context_text, anchor_document}``。
+    """
     created_by: Any = models.ForeignKey(
         "organization.Lawyer",
         on_delete=models.SET_NULL,
@@ -151,7 +160,17 @@ class DocumentRecognitionTask(models.Model):
 
 
 class DocumentRecognitionDateCandidate(models.Model):
-    """文书识别出的关键日期候选（律师逐条人工确认后才写入重要日期提醒）。"""
+    """文书识别出的关键日期候选（律师逐条人工确认后才写入重要日期提醒）。
+
+    **为什么有出处字段（2026-11-24 事故复盘）**：历史上候选只存
+    ``(due_at, reminder_type, context_text, source, confidence)``，表达不了
+    「这个期限依据哪份文书、起算锚是什么、现在到底能不能算」。结果是所有语义判断
+    都塌缩成 ``confidence`` 一个数字：通用须知里「收到《缴费通知书》之日起七日内」
+    被按「收到本短信 + 7 天」算出一个日期，还打了 0.85、默认勾选。
+    现在一条候选必须能回答「谁对谁、何时、依据哪份文书、锚点是什么」，
+    判据与口径见 ``date_candidate_policy`` 与
+    ``docs/analysis/date-candidate-provenance-2026-11-24/SUMMARY.md``。
+    """
 
     id: int
     task: Any = models.ForeignKey(
@@ -198,6 +217,46 @@ class DocumentRecognitionDateCandidate(models.Model):
         verbose_name="确认人",
     )
     confirmed_at = models.DateTimeField(null=True, blank=True, verbose_name="确认时间")
+    # —— 出处（provenance）：一条候选凭什么可信 ——
+    anchor_kind = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        verbose_name="起算锚类型",
+        help_text="service_of_self=本份文书送达日；issue_date_of_self=文书落款日；"
+        "effective_date=判决生效日；foreign_document=锚点在别的文书；unknown=无法判断",
+    )
+    anchor_at = models.DateField(null=True, blank=True, verbose_name="起算锚日期")
+    """锚点自身的日期（送达日/落款日）。与 due_at 一起才能复算「锚 + N 天」。"""
+    anchor_document = models.CharField(
+        max_length=16,
+        blank=True,
+        default="",
+        verbose_name="锚点文书归属",
+        help_text="self=本文书；other_in_batch=同批另一份文书；future_document=尚未产生的文书；other_case=他案文书",
+    )
+    derivation = models.CharField(
+        max_length=24,
+        blank=True,
+        default="",
+        verbose_name="推算方式",
+        help_text="llm_absolute=LLM 读到的明文日期；rule_absolute=正则读到的明文日期；"
+        "rule_period=期间结构推算；rule_relative=相对期限（锚 + N 天）推算",
+    )
+    review_flags = models.JSONField(default=list, blank=True, verbose_name="复核标记")
+    """空列表 = 可以默认勾选。非空必须人工看：anchor_effective / generic_boilerplate /
+    low_confidence / far_future / duplicate / discarded_by_gate。"""
+    default_checked = models.BooleanField(default=False, verbose_name="默认勾选")
+    """后端算好的默认勾选策略（= review_flags 为空且未被丢弃）。前端不再按裸分数判断。"""
+    duplicate_of: Any = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="duplicates",
+        verbose_name="权威候选",
+    )
+    """批内去重：指向同一条短信里更权威的那条候选（本行随之 skipped）。"""
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 

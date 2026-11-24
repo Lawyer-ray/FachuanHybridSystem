@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  candidateAnchorLine,
+  candidateSourceLine,
   fileRejectReason,
+  flagLabel,
   formatContacts,
   formatDueLocal,
   patchRow,
@@ -16,6 +19,28 @@ import {
 } from './domain'
 import { toLocalInputValue } from '@/lib/date'
 import type { CaseRecommendation, TaskOut } from './types'
+
+function makeRow(over: Partial<CandidateRow> = {}): CandidateRow {
+  return {
+    key: 'c-1',
+    candidateId: 1,
+    checked: true,
+    dueLocal: '2026-10-15T09:30',
+    reminderType: 'hearing',
+    label: '开庭',
+    contextText: '',
+    content: '',
+    source: 'llm',
+    confidence: null,
+    status: 'pending',
+    reminderId: null,
+    reviewFlags: [],
+    anchorNote: '',
+    derivationLabel: '',
+    defaultChecked: true,
+    ...over,
+  }
+}
 
 describe('toLocalInputValue', () => {
   it('带时区偏移的 ISO 转成本地 datetime-local 值', () => {
@@ -72,6 +97,7 @@ describe('rowsFromTask', () => {
         status: 'pending',
         reminder_id: null,
         confirmed_at: null,
+        default_checked: true,
       },
       {
         id: 12,
@@ -116,9 +142,9 @@ describe('rowsFromParsed / 选择过滤', () => {
 
   it('selectedPendingRows 只取勾选的识别候选（文字行不混入）', () => {
     const mixed: CandidateRow[] = [
-      { key: 'c-1', candidateId: 1, checked: true, dueLocal: '2026-10-15T09:30', reminderType: 'hearing', label: '开庭', contextText: '', content: '', source: 'llm', confidence: 0.9, status: 'pending', reminderId: null },
-      { key: 'c-2', candidateId: 2, checked: false, dueLocal: '2026-10-16T09:30', reminderType: 'other', label: '其他', contextText: '', content: '', source: 'regex', confidence: null, status: 'pending', reminderId: null },
-      { key: 't-0', candidateId: null, checked: true, dueLocal: '2026-10-17T09:30', reminderType: 'other', label: '其他', contextText: '', content: 'x', source: 'text', confidence: null, status: 'pending', reminderId: null },
+      makeRow({ key: 'c-1', candidateId: 1, checked: true, reminderType: 'hearing', label: '开庭', source: 'llm', confidence: 0.9 }),
+      makeRow({ key: 'c-2', candidateId: 2, checked: false, reminderType: 'other', label: '其他', source: 'regex' }),
+      makeRow({ key: 't-0', candidateId: null, checked: true, content: 'x', source: 'text' }),
     ]
     const picked = selectedPendingRows(mixed)
     expect(picked).toHaveLength(1)
@@ -127,9 +153,7 @@ describe('rowsFromParsed / 选择过滤', () => {
 })
 
 describe('patchRow', () => {
-  const rows: CandidateRow[] = [
-    { key: 'a', candidateId: 1, checked: true, dueLocal: '2026-10-15T09:30', reminderType: 'hearing', label: '开庭', contextText: '', content: '', source: 'llm', confidence: null, status: 'pending', reminderId: null },
-  ]
+  const rows: CandidateRow[] = [makeRow({ key: 'a', candidateId: 1 })]
 
   it('不可变更新目标行，其他行引用不变', () => {
     const next = patchRow(rows, 'a', { checked: false, reminderType: 'other' })
@@ -152,8 +176,8 @@ describe('fileRejectReason', () => {
   })
 })
 
-describe('shouldDefaultCheck（默认勾选策略）', () => {
-  it('高置信与缺失置信度默认勾选，低置信默认不勾', () => {
+describe('rowsFromTask 默认勾选（只认后端 default_checked）', () => {
+  it('后端默认勾选才勾，缺失或 false 不勾，与 confidence 无关', () => {
     const t = {
       task_id: 2,
       status: 'success',
@@ -163,13 +187,56 @@ describe('shouldDefaultCheck（默认勾选策略）', () => {
       binding_mode: 'standalone',
       date_confirmation_status: 'pending',
       date_candidates: [
-        { id: 21, due_at: '2026-10-15T01:30:00+00:00', reminder_type: 'hearing', reminder_type_label: '开庭', context_text: '', source: 'llm', confidence: 0.9, status: 'pending', reminder_id: null, confirmed_at: null },
-        { id: 22, due_at: '2026-10-20T00:00:00+00:00', reminder_type: 'other', reminder_type_label: '其他', context_text: '', source: 'regex', confidence: null, status: 'pending', reminder_id: null, confirmed_at: null },
-        { id: 23, due_at: '2026-11-01T00:00:00+00:00', reminder_type: 'other', reminder_type_label: '其他', context_text: '', source: 'llm', confidence: 0.3, status: 'pending', reminder_id: null, confirmed_at: null },
+        { id: 21, due_at: '2026-10-15T01:30:00+00:00', reminder_type: 'hearing', reminder_type_label: '开庭', context_text: '', source: 'llm', confidence: 0.3, status: 'pending', reminder_id: null, confirmed_at: null, default_checked: true },
+        { id: 22, due_at: '2026-10-20T00:00:00+00:00', reminder_type: 'other', reminder_type_label: '其他', context_text: '', source: 'regex', confidence: 0.9, status: 'pending', reminder_id: null, confirmed_at: null, default_checked: false },
+        { id: 23, due_at: '2026-11-01T00:00:00+00:00', reminder_type: 'other', reminder_type_label: '其他', context_text: '', source: 'llm', confidence: null, status: 'pending', reminder_id: null, confirmed_at: null },
       ],
     } as unknown as TaskOut
     const rows = rowsFromTask(t)
-    expect(rows.map((r) => r.checked)).toEqual([true, true, false])
+    expect(rows.map((r) => r.checked)).toEqual([true, false, false])
+    expect(rows.map((r) => r.defaultChecked)).toEqual([true, false, false])
+  })
+})
+
+describe('candidateSourceLine（候选来源行）', () => {
+  it('优先后端推导标签', () => {
+    expect(candidateSourceLine(makeRow({ derivationLabel: '按送达日推算', source: 'llm' }))).toBe('按送达日推算')
+  })
+
+  it('无推导标签时回落提取来源中文', () => {
+    expect(candidateSourceLine(makeRow({ source: 'llm' }))).toBe('AI')
+    expect(candidateSourceLine(makeRow({ source: 'merged' }))).toBe('AI+规则')
+  })
+
+  it('未知来源原样返回', () => {
+    expect(candidateSourceLine(makeRow({ source: 'custom' }))).toBe('custom')
+  })
+})
+
+describe('candidateAnchorLine（候选起算点行）', () => {
+  it('有起算点说明时原样返回', () => {
+    expect(candidateAnchorLine(makeRow({ anchorNote: '起算点：本份文书送达日 2026-11-24 + 7 天' }))).toBe(
+      '起算点：本份文书送达日 2026-11-24 + 7 天',
+    )
+  })
+
+  it('缺失时返回空串（调用方据此收起整行）', () => {
+    expect(candidateAnchorLine(makeRow())).toBe('')
+  })
+})
+
+describe('flagLabel（复核标记中文）', () => {
+  it('词表内的标记翻译为中文', () => {
+    expect(flagLabel('anchor_effective')).toBe('起算点待确认')
+    expect(flagLabel('generic_boilerplate')).toBe('通用文书')
+    expect(flagLabel('low_confidence')).toBe('低置信')
+    expect(flagLabel('far_future')).toBe('远期日期')
+    expect(flagLabel('duplicate')).toBe('重复项')
+    expect(flagLabel('discarded_by_gate')).toBe('已过滤')
+  })
+
+  it('未知标记原样返回，不吞掉后端新增标记', () => {
+    expect(flagLabel('brand_new_flag')).toBe('brand_new_flag')
   })
 })
 

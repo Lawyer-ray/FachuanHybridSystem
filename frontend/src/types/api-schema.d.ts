@@ -9947,6 +9947,10 @@ export interface paths {
         /**
          * 删除转换记录
          * @description 删除单条转换记录（产物文件随信号清理）。
+         *
+         *     S29-10（2026-11-23 二轮审计）：原实现在 API 层先 ``get_record`` 取实例、再自己
+         *     ``record.delete()`` —— 删除绕过服务层（四层架构门禁只机揃 queryset 写法，实例方法
+         *     抓不到）。现在只调 ``DocConvertRecordService.delete_record``（内部完成属主校验 + 删除）。
          */
         delete: operations["apps_doc_convert_api_doc_convert_api_delete_convert_record"];
         options?: never;
@@ -10562,9 +10566,13 @@ export interface paths {
          * Get Dashboard Stats
          * @description 返回仪表盘聚合统计数据。
          *
-         *     9 条独立 DB 查询通过 asyncio.gather 并发执行，
-         *     延迟从 9 次串行降低到最慢那一次。
-         *     用 Semaphore 限制并发为 4，避免线程池耗尽和 DB 连接暴涨。
+         *     9 条独立 DB 查询的并发编排（asyncio.gather + Semaphore(4)）与读范围口径
+         *     都在 ``DashboardService.agather_payload`` 内，本层只构造请求上下文后转发。
+         *
+         *     S23-05（2026-11-23 二轮审计）：原实现由本函数 import service 模块的 9 个
+         *     ``_`` 前缀私有查询函数自行并发（同时留下一个从未使用的 ``DashboardService()``
+         *     实例），跨层绑死私有符号、读范围口径也无法在 service 内统一加门禁；
+         *     现在改为只依赖 service 的公开方法。
          */
         get: operations["apps_core_api_dashboard_api_get_dashboard_stats"];
         put?: never;
@@ -10774,6 +10782,11 @@ export interface paths {
          * @description P2-1 SSE 断线重连：回放 last_event_id 之后的事件。
          *
          *     前端断线重连时先调此端点取缺失事件再续 SSE。Redis 不可用返回空。
+         *
+         *     S16-01（2026-11-23 二轮审计）：原实现直接 `replay_events(session_id, ...)`，
+         *     **没有任何行级校验** —— 任意登录用户拿到 session_id 就能读走他人会话的事件流
+         *     （含提问原文与工具入参）。与同文件其它端点对齐：一律先按 `user_id` 取会话，
+         *     取不到按 404 处理（不泄露会话是否存在）。
          */
         get: operations["apps_agent_api_chat_api_replay_sse_events"];
         put?: never;
@@ -11956,8 +11969,7 @@ export interface paths {
          * @description 把已转换的 .docx 以 file-url 写入 macOS 系统剪贴板（同 Finder ⌘C）。
          *
          *     浏览器写不了文件类剪贴板；后端与用户同机时由此落板，微信 ⌘V 直接粘出文件。
-         *     产物物理文件是 UUID 命名（下载端点靠响应头改名），粘贴方读的是路径 basename，
-         *     所以先在临时目录按「原名.docx」复制一份再落板。
+         *     暂存复制（原名.docx）与属主校验均在服务层（`stage_items_for_clipboard`）。
          *     非 macOS 后端返回 reason=unsupported，前端降级复制文件名。
          */
         post: operations["apps_doc_converter_api_doc_converter_api_copy_items_to_clipboard"];
@@ -12894,6 +12906,13 @@ export interface components {
             content: string;
             /** Created At */
             created_at: string;
+            /**
+             * Metadata
+             * @default {}
+             */
+            metadata: {
+                [key: string]: unknown;
+            };
         };
         /**
          * PromptTemplateSyncResponse
@@ -14885,6 +14904,11 @@ export interface components {
              * @default
              */
             matched_case_name: string;
+            /**
+             * Matched Case Visible
+             * @default true
+             */
+            matched_case_visible: boolean;
             /**
              * Reason
              * @default
@@ -18406,6 +18430,57 @@ export interface components {
              * @description 确认时间
              */
             confirmed_at?: string | null;
+            /**
+             * Anchor Kind
+             * @description 起算锚类型 service_of_self/issue_date_of_self/effective_date/foreign_document/unknown
+             * @default
+             */
+            anchor_kind: string;
+            /**
+             * Anchor At
+             * @description 起算锚日期（YYYY-MM-DD）
+             */
+            anchor_at?: string | null;
+            /**
+             * Anchor Document
+             * @description 锚点文书归属 self/other_in_batch/future_document/other_case
+             * @default
+             */
+            anchor_document: string;
+            /**
+             * Derivation
+             * @description 推算方式 llm_absolute/rule_absolute/rule_period/rule_relative
+             * @default
+             */
+            derivation: string;
+            /**
+             * Derivation Label
+             * @description 推算方式中文标签（后端单一来源，前端直接显示）
+             * @default
+             */
+            derivation_label: string;
+            /**
+             * Review Flags
+             * @description 复核标记；空列表才允许默认勾选
+             */
+            review_flags?: string[];
+            /**
+             * Default Checked
+             * @description 后端算好的默认勾选（前端不再按置信度自行判断）
+             * @default false
+             */
+            default_checked: boolean;
+            /**
+             * Anchor Note
+             * @description 起算点人话说明，如「起算点：本份文书送达日 2026-11-24 + 7 天」
+             * @default
+             */
+            anchor_note: string;
+            /**
+             * Duplicate Of Id
+             * @description 批内去重时指向的权威候选ID
+             */
+            duplicate_of_id?: number | null;
         };
         /**
          * RecognitionResultSchema
@@ -18459,6 +18534,48 @@ export interface components {
             degraded?: boolean | null;
         };
         /**
+         * SuppressedCandidateOutSchema
+         * @description 被日期闸门过滤掉的候选（留痕，供「为什么没提醒」追问）。
+         */
+        SuppressedCandidateOutSchema: {
+            /**
+             * Due At
+             * @description 当年算出的日期
+             * @default
+             */
+            due_at: string;
+            /**
+             * Reminder Type
+             * @description 提醒类型
+             * @default
+             */
+            reminder_type: string;
+            /**
+             * Reminder Type Label
+             * @description 提醒类型名称
+             * @default
+             */
+            reminder_type_label: string;
+            /**
+             * Anchor Document
+             * @description 锚点文书归属
+             * @default
+             */
+            anchor_document: string;
+            /**
+             * Reason
+             * @description 过滤原因（人话）
+             * @default
+             */
+            reason: string;
+            /**
+             * Context Text
+             * @description 原文上下文
+             * @default
+             */
+            context_text: string;
+        };
+        /**
          * TaskStatusResponseSchema
          * @description 任务状态响应
          */
@@ -18507,6 +18624,17 @@ export interface components {
              * @description 日期确认进度 none/pending/partial/complete
              */
             date_confirmation_status?: string | null;
+            /**
+             * Suppressed Count
+             * @description 被过滤的候选数（通用文书/锚点指向他文书/选择性申请等）
+             * @default 0
+             */
+            suppressed_count: number;
+            /**
+             * Suppressed Items
+             * @description 被过滤候选明细（留痕，可展开查看）
+             */
+            suppressed_items?: components["schemas"]["SuppressedCandidateOutSchema"][];
             /** Error Message */
             error_message?: string | null;
             /** Created At */

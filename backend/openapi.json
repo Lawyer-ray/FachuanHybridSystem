@@ -23820,7 +23820,7 @@
             "description": "OK"
           }
         },
-        "description": "删除单条转换记录（产物文件随信号清理）。",
+        "description": "删除单条转换记录（产物文件随信号清理）。\n\nS29-10（2026-11-23 二轮审计）：原实现在 API 层先 ``get_record`` 取实例、再自己\n``record.delete()`` —— 删除绕过服务层（四层架构门禁只机揃 queryset 写法，实例方法\n抓不到）。现在只调 ``DocConvertRecordService.delete_record``（内部完成属主校验 + 删除）。",
         "tags": [
           "要素式转换"
         ],
@@ -24789,7 +24789,7 @@
             }
           }
         },
-        "description": "返回仪表盘聚合统计数据。\n\n9 条独立 DB 查询通过 asyncio.gather 并发执行，\n延迟从 9 次串行降低到最慢那一次。\n用 Semaphore 限制并发为 4，避免线程池耗尽和 DB 连接暴涨。",
+        "description": "返回仪表盘聚合统计数据。\n\n9 条独立 DB 查询的并发编排（asyncio.gather + Semaphore(4)）与读范围口径\n都在 ``DashboardService.agather_payload`` 内，本层只构造请求上下文后转发。\n\nS23-05（2026-11-23 二轮审计）：原实现由本函数 import service 模块的 9 个\n``_`` 前缀私有查询函数自行并发（同时留下一个从未使用的 ``DashboardService()``\n实例），跨层绑死私有符号、读范围口径也无法在 service 内统一加门禁；\n现在改为只依赖 service 的公开方法。",
         "tags": [
           "仪表盘"
         ],
@@ -25323,7 +25323,7 @@
             "description": "OK"
           }
         },
-        "description": "P2-1 SSE 断线重连：回放 last_event_id 之后的事件。\n\n前端断线重连时先调此端点取缺失事件再续 SSE。Redis 不可用返回空。",
+        "description": "P2-1 SSE 断线重连：回放 last_event_id 之后的事件。\n\n前端断线重连时先调此端点取缺失事件再续 SSE。Redis 不可用返回空。\n\nS16-01（2026-11-23 二轮审计）：原实现直接 `replay_events(session_id, ...)`，\n**没有任何行级校验** —— 任意登录用户拿到 session_id 就能读走他人会话的事件流\n（含提问原文与工具入参）。与同文件其它端点对齐：一律先按 `user_id` 取会话，\n取不到按 404 处理（不泄露会话是否存在）。",
         "tags": [
           "Agent 对话"
         ],
@@ -27864,7 +27864,7 @@
             }
           }
         },
-        "description": "把已转换的 .docx 以 file-url 写入 macOS 系统剪贴板（同 Finder ⌘C）。\n\n浏览器写不了文件类剪贴板；后端与用户同机时由此落板，微信 ⌘V 直接粘出文件。\n产物物理文件是 UUID 命名（下载端点靠响应头改名），粘贴方读的是路径 basename，\n所以先在临时目录按「原名.docx」复制一份再落板。\n非 macOS 后端返回 reason=unsupported，前端降级复制文件名。",
+        "description": "把已转换的 .docx 以 file-url 写入 macOS 系统剪贴板（同 Finder ⌘C）。\n\n浏览器写不了文件类剪贴板；后端与用户同机时由此落板，微信 ⌘V 直接粘出文件。\n暂存复制（原名.docx）与属主校验均在服务层（`stage_items_for_clipboard`）。\n非 macOS 后端返回 reason=unsupported，前端降级复制文件名。",
         "tags": [
           "DOC 转 DOCX"
         ],
@@ -29806,6 +29806,12 @@
           "created_at": {
             "title": "Created At",
             "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Metadata",
+            "type": "object"
           }
         },
         "required": [
@@ -35263,6 +35269,11 @@
             "default": "",
             "title": "Matched Case Name",
             "type": "string"
+          },
+          "matched_case_visible": {
+            "default": true,
+            "title": "Matched Case Visible",
+            "type": "boolean"
           },
           "reason": {
             "default": "",
@@ -42277,6 +42288,74 @@
             ],
             "description": "确认时间",
             "title": "Confirmed At"
+          },
+          "anchor_kind": {
+            "default": "",
+            "description": "起算锚类型 service_of_self/issue_date_of_self/effective_date/foreign_document/unknown",
+            "title": "Anchor Kind",
+            "type": "string"
+          },
+          "anchor_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "起算锚日期（YYYY-MM-DD）",
+            "title": "Anchor At"
+          },
+          "anchor_document": {
+            "default": "",
+            "description": "锚点文书归属 self/other_in_batch/future_document/other_case",
+            "title": "Anchor Document",
+            "type": "string"
+          },
+          "derivation": {
+            "default": "",
+            "description": "推算方式 llm_absolute/rule_absolute/rule_period/rule_relative",
+            "title": "Derivation",
+            "type": "string"
+          },
+          "derivation_label": {
+            "default": "",
+            "description": "推算方式中文标签（后端单一来源，前端直接显示）",
+            "title": "Derivation Label",
+            "type": "string"
+          },
+          "review_flags": {
+            "description": "复核标记；空列表才允许默认勾选",
+            "items": {
+              "type": "string"
+            },
+            "title": "Review Flags",
+            "type": "array"
+          },
+          "default_checked": {
+            "default": false,
+            "description": "后端算好的默认勾选（前端不再按置信度自行判断）",
+            "title": "Default Checked",
+            "type": "boolean"
+          },
+          "anchor_note": {
+            "default": "",
+            "description": "起算点人话说明，如「起算点：本份文书送达日 2026-11-24 + 7 天」",
+            "title": "Anchor Note",
+            "type": "string"
+          },
+          "duplicate_of_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "批内去重时指向的权威候选ID",
+            "title": "Duplicate Of Id"
           }
         },
         "required": [
@@ -42403,6 +42482,49 @@
         "title": "RecognitionResultSchema",
         "type": "object"
       },
+      "SuppressedCandidateOutSchema": {
+        "description": "被日期闸门过滤掉的候选（留痕，供「为什么没提醒」追问）。",
+        "properties": {
+          "due_at": {
+            "default": "",
+            "description": "当年算出的日期",
+            "title": "Due At",
+            "type": "string"
+          },
+          "reminder_type": {
+            "default": "",
+            "description": "提醒类型",
+            "title": "Reminder Type",
+            "type": "string"
+          },
+          "reminder_type_label": {
+            "default": "",
+            "description": "提醒类型名称",
+            "title": "Reminder Type Label",
+            "type": "string"
+          },
+          "anchor_document": {
+            "default": "",
+            "description": "锚点文书归属",
+            "title": "Anchor Document",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "description": "过滤原因（人话）",
+            "title": "Reason",
+            "type": "string"
+          },
+          "context_text": {
+            "default": "",
+            "description": "原文上下文",
+            "title": "Context Text",
+            "type": "string"
+          }
+        },
+        "title": "SuppressedCandidateOutSchema",
+        "type": "object"
+      },
       "TaskStatusResponseSchema": {
         "description": "任务状态响应",
         "properties": {
@@ -42510,6 +42632,20 @@
             ],
             "description": "日期确认进度 none/pending/partial/complete",
             "title": "Date Confirmation Status"
+          },
+          "suppressed_count": {
+            "default": 0,
+            "description": "被过滤的候选数（通用文书/锚点指向他文书/选择性申请等）",
+            "title": "Suppressed Count",
+            "type": "integer"
+          },
+          "suppressed_items": {
+            "description": "被过滤候选明细（留痕，可展开查看）",
+            "items": {
+              "$ref": "#/components/schemas/SuppressedCandidateOutSchema"
+            },
+            "title": "Suppressed Items",
+            "type": "array"
           },
           "error_message": {
             "anyOf": [

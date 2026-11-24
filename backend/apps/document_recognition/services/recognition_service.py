@@ -65,6 +65,9 @@ class CourtDocumentRecognitionService:
         self._last_outcome: Any = None
         # 本次 run 指定的模型（用户上传时选择；None 走统一 LLM 层默认）
         self._run_llm_model: str | None = None
+        # 本次 run 的文书送达/收到时间（法院短信 received_at）：只作为提示词背景，
+        # 让 LLM 知道哪些相对期限已经可以确定；**不**让它拿它做日期算术。
+        self._run_delivery_date: Any = None
 
     def _reset_run_state(self) -> None:
         """每次识别入口复位观测性游标。
@@ -76,6 +79,7 @@ class CourtDocumentRecognitionService:
         """
         self._last_outcome = None
         self._run_llm_model = None
+        self._run_delivery_date = None
 
     def _analysis_lookup(self, text: str) -> Any:
         """按原文 memoize 的共享结构化分析（document_analyzer）。"""
@@ -83,7 +87,7 @@ class CourtDocumentRecognitionService:
             return self._analysis_cache[text]
         from .document_analyzer import analyze_document
 
-        outcome = analyze_document(text, model=self._run_llm_model)
+        outcome = analyze_document(text, model=self._run_llm_model, delivery_date=self._run_delivery_date)
         self._analysis_cache[text] = outcome
         self._last_outcome = outcome
         return outcome
@@ -161,15 +165,35 @@ class CourtDocumentRecognitionService:
         outcome = self._analysis_cache.get(text)
         return outcome.analysis if outcome is not None else None
 
-    def _build_date_candidates(self, text: str, doc_type: Any, received_at: Any | None = None) -> list[dict[str, Any]]:
+    def _build_date_candidates(
+        self,
+        text: str,
+        doc_type: Any,
+        received_at: Any | None = None,
+        sibling_documents: Any | None = None,
+        suppressed_out: list[dict[str, Any]] | None = None,
+    ) -> list[dict[str, Any]]:
         """构建多日期候选（LLM key_events + 正则候选合并去重），序列化为 dict 列表。
 
         ``received_at`` 是文书的送达/收到时间：法院短信场景传 ``CourtSMS.received_at``，
         用于「送达之日起 N 日」类期限的起算（见 date_candidate_service）。
+
+        ``sibling_documents`` 是同一条短信里其他文书的显示名：用来判定
+        「应自收到《缴费通知书》之日起七日内」的期限归属别份文书，本文书不该报。
+
+        ``suppressed_out`` 收集被闸门丢弃的候选（通用文书/锚点指向他文书/选择性申请），
+        调用方落库留痕，供「为什么没提醒」追问。
         """
         from .date_candidate_service import build_date_candidates
 
-        drafts = build_date_candidates(text, self._cached_analysis(text), doc_type, received_at=received_at)
+        drafts = build_date_candidates(
+            text,
+            self._cached_analysis(text),
+            doc_type,
+            received_at=received_at,
+            sibling_documents=sibling_documents,
+            suppressed_out=suppressed_out,
+        )
         return [draft.to_dict() for draft in drafts]
 
     def _extract_doc_info(self, doc_type: Any, text: str) -> tuple[Any, Any]:
@@ -269,6 +293,7 @@ class CourtDocumentRecognitionService:
         known_party_names: list[str] | None = None,
         known_document_type: str | None = None,
         received_at: Any | None = None,
+        sibling_documents: list[str] | None = None,
     ) -> RecognitionResponse:
         """识别文书并绑定案件
 
@@ -286,6 +311,9 @@ class CourtDocumentRecognitionService:
             received_at: 文书送达/收到时间（法院短信 ``CourtSMS.received_at``）。
                 「如不服本判决，可在判决书送达之日起十五日内上诉」的起算点是**送达日**，
                 不是落款日；传入它才能算出正确的上诉期届满日。
+            sibling_documents: 同一条短信里其他文书的显示名。用于判定
+                「应自收到《缴费通知书》之日起七日内」这类条款的期限归属**别份**文书
+                （本文书不该报，交给那份文书自己算）。
 
         Requirements: 4.5, 4.6, 4.7, 6.2, 8.1, 8.2, 8.3, 8.4
         """
@@ -301,6 +329,7 @@ class CourtDocumentRecognitionService:
         )
         self._reset_run_state()
         self._run_llm_model = llm_model
+        self._run_delivery_date = received_at
 
         try:
             extraction_result = self.text_extraction.extract_text(file_path)
@@ -359,7 +388,14 @@ class CourtDocumentRecognitionService:
                     },
                 )
                 case_number = hint_case_number
-            date_candidates = self._build_date_candidates(extraction_result.text, doc_type, received_at)
+            suppressed_candidates: list[dict[str, Any]] = []
+            date_candidates = self._build_date_candidates(
+                extraction_result.text,
+                doc_type,
+                received_at,
+                sibling_documents,
+                suppressed_candidates,
+            )
             if key_time is None and date_candidates:
                 # 候选落库时按本地时区 make_aware；key_time 兜底取首选候选，同样补时区
                 key_time = datetime.fromisoformat(date_candidates[0]["due_at"])
@@ -413,6 +449,7 @@ class CourtDocumentRecognitionService:
                 date_candidates=date_candidates,
                 party_names=party_names,
                 classification_hint=classification_hint,
+                suppressed_candidates=suppressed_candidates,
             )
 
         except (ValidationException, ServiceUnavailableError, RecognitionTimeoutError):

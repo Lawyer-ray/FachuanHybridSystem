@@ -50,6 +50,10 @@ function makeTextRow(key: string, over: Partial<CandidateRow> = {}): CandidateRo
     confidence: null,
     status: 'pending',
     reminderId: null,
+    reviewFlags: [],
+    anchorNote: '',
+    derivationLabel: '',
+    defaultChecked: true,
     ...over,
   }
 }
@@ -232,6 +236,7 @@ describe('RecognizeDialog 文件模式', () => {
           status: 'pending',
           reminder_id: null,
           confirmed_at: null,
+          default_checked: true,
         },
       ],
     })

@@ -69,6 +69,8 @@ export function RecognizeSplitPane({
   onSkip,
   onRevoke,
 }: Props) {
+  const suppressedCount = task?.suppressed_count ?? 0
+  const suppressedItems = task?.suppressed_items ?? []
   return (
     <div ref={bodyRef} className={cn('flex min-h-0 flex-1 pt-1 lg:overflow-hidden', resizing && 'pointer-events-none')}>
       {hasPreview && (
@@ -143,6 +145,18 @@ export function RecognizeSplitPane({
             ) : undefined
           }
         >
+          {suppressedCount > 0 && (
+            <details className="mb-2 rounded-[7px] border border-border bg-secondary/40 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+              <summary className="cursor-pointer select-none">另有 {suppressedCount} 条已过滤</summary>
+              <ul className="mt-1 flex flex-col gap-0.5">
+                {suppressedItems.map((s, i) => (
+                  <li key={`${s.due_at ?? ''}-${i}`} className="leading-[1.5]">
+                    {[s.reminder_type_label ?? '', s.due_at ?? '', s.reason ?? ''].filter(Boolean).join(' · ')}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
           <DateCandidateList
             rows={rows}
             interactive={isFileMode}

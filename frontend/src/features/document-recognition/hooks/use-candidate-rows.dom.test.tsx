@@ -155,6 +155,10 @@ describe('useCandidateRows', () => {
         confidence: null,
         status: 'pending',
         reminderId: null,
+        reviewFlags: [],
+        anchorNote: '',
+        derivationLabel: '',
+        defaultChecked: true,
       },
     ]
     const { result, rerender } = renderHook(
@@ -185,6 +189,10 @@ describe('useCandidateRows', () => {
       confidence: null,
       status: 'pending',
       reminderId: null,
+      reviewFlags: [],
+      anchorNote: '',
+      derivationLabel: '',
+      defaultChecked: true,
     })
     const { result, rerender } = renderHook(
       ({ rows }: { rows: CandidateRow[] }) => useCandidateRows(false, null, rows),

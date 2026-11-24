@@ -291,6 +291,9 @@ class RecognitionResponse:
             由 worker 落库为 DocumentRecognitionDateCandidate 行
         classification_hint: 来源管线（法院短信）给出的文书类型提示，
             落库为 DocumentRecognitionTask.classification_hint，供前端标注「按短信类型推定」
+        suppressed_candidates: 被日期闸门丢弃的候选（通用文书里的相对期限、锚点指向
+            尚未产生的裁判文书/同批另一份文书、选择性申请类条款…），落库留痕，
+            供律师追问「这份文书为什么没生成提醒」时查看。
     """
 
     recognition: RecognitionResult
@@ -299,6 +302,7 @@ class RecognitionResponse:
     date_candidates: list[dict[str, Any]] = field(default_factory=list)
     party_names: list[str] = field(default_factory=list)
     classification_hint: str = ""
+    suppressed_candidates: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """序列化为字典"""
@@ -308,6 +312,7 @@ class RecognitionResponse:
             "file_path": self.file_path,
             "date_candidates": self.date_candidates,
             "party_names": self.party_names,
+            "suppressed_candidates": self.suppressed_candidates,
         }
 
     @classmethod
@@ -323,4 +328,5 @@ class RecognitionResponse:
             file_path=data.get("file_path", ""),
             date_candidates=list(data.get("date_candidates") or []),
             party_names=list(data.get("party_names") or []),
+            suppressed_candidates=list(data.get("suppressed_candidates") or []),
         )

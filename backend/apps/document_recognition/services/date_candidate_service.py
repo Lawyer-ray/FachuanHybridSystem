@@ -19,8 +19,9 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from django.db import transaction
@@ -31,6 +32,24 @@ from apps.reminders.models import ReminderType
 
 from ._datetime_extraction_mixin import DatetimeExtractionMixin
 from .data_classes import DocumentType
+from .date_candidate_policy import DERIVATION_LABELS
+from .date_candidate_policy import EFFECTIVE_FIRST_NOTE as _policy_effective_first_note
+from .date_candidate_policy import (
+    FLAG_DISCARDED,
+    FLAG_DUPLICATE,
+    FLAG_GENERIC_BOILERPLATE,
+    AnchorDocument,
+    AnchorKind,
+    AnchorVerdict,
+    CandidateDecision,
+    DocumentRole,
+    anchor_note_for,
+    classify_document_role,
+    confidence_for,
+    decide_candidate,
+)
+from .date_candidate_policy import find_issue_date as _policy_find_issue_date
+from .date_candidate_policy import is_optional_motion, parse_anchor_clause
 
 logger = logging.getLogger("apps.document_recognition")
 
@@ -140,10 +159,8 @@ _RELATIVE_ACTION_RE = re.compile(rf"{_REL_DAYS_GROUP}日内[^，。；;\n]{{0,16
 # 即：宁可给一个明确标注「待确认起算点」的保守日期，也不默默丢弃律师需要的期限。
 _EFFECTIVE_FIRST_RE = re.compile(r"(?:发生法律效力|生效|确定法律效力)")
 
-# 前端据此显示提示文案（放在这里做单一来源，前后端不各写一份口径）
-EFFECTIVE_FIRST_NOTE = (
-    "起算点为判决生效之日（送达后 15 日内无人上诉才生效），此处按送达日给的保守日期，请与书记员确认生效日后改期"
-)
+# 起算点提示文案的单一来源在 date_candidate_policy（前后端都不各写一份）
+EFFECTIVE_FIRST_NOTE = _policy_effective_first_note
 
 # 相对期限的事件类型：按动作动词判（「保全费…交纳」须判 payment 而非被名词「保全」带偏）
 # 顺序有讲究：先匹配到的赢，所以「上诉」必须排在「申请」之前
@@ -282,27 +299,12 @@ def _parse_cn_year(text: str) -> int | None:
 
 
 def _find_issue_date(text: str) -> datetime | None:
-    """文书签发/落款日期：取全文**最后一个**「YYYY年M月D日」（阿拉伯或中文数字）。
+    """文书签发/落款日期（口径入口，实现已下沉到 ``date_candidate_policy``）。
 
-    落款惯例在文末（如「打印日期：二〇二五年十一月十一日」），取最后一个
-    可避开正文中其他业务日期（开庭日、举证截止日等）。
+    保留本函数名是因为既有单测与调用方都用它；真正的实现在 policy 模块里，
+    与「文书角色判定」共用同一份正则，避免两处口径漂移。
     """
-    found: list[datetime] = []
-    for m in _ISSUE_DATE_RE.finditer(text):
-        try:
-            found.append(datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))))
-        except ValueError:
-            continue
-    for m in _ISSUE_DATE_CN_RE.finditer(text):
-        year, month, day = _parse_cn_year(m.group(1)), _parse_cn_number(m.group(2)), _parse_cn_number(m.group(3))
-        if year is None or month is None or day is None:
-            continue
-        try:
-            found.append(datetime(year, month, day))
-        except ValueError:
-            continue
-    valid = [dt for dt in found if 2020 <= dt.year <= 2030]
-    return valid[-1] if valid else None
+    return _policy_find_issue_date(text)
 
 
 def _has_explicit_year(parsed: datetime, context: str, text: str) -> bool:
@@ -619,11 +621,42 @@ def _match_relative_draft_by_fingerprint(
     return None
 
 
+def _suppress(
+    bucket: list[dict[str, Any]] | None,
+    *,
+    deadline: datetime,
+    event_type: str,
+    context: str,
+    verdict: AnchorVerdict | None,
+    reason: str,
+) -> None:
+    """把被闸门丢弃的候选记入留痕桶（落库到 task.suppressed_candidates）。
+
+    为什么不硬删：律师问「这份文书里写了期限，为什么没提醒我」时必须答得出；
+    后续调参也需要回放。每项只留最小可核查事实：日期、类型、原因、原文片段。
+    """
+    if bucket is None:
+        return
+    bucket.append(
+        {
+            "due_at": deadline.date().isoformat(),
+            "reminder_type": event_type,
+            "anchor_document": verdict.document.value if verdict else "",
+            "anchor_kind": verdict.kind.value if verdict else "",
+            "reason": reason,
+            "context_text": context[:255],
+        }
+    )
+
+
 def _apply_relative_deadline_rules(
     text: str,
     drafts: list[DateCandidateDraft],
     *,
     delivery_date: datetime | None = None,
+    role: DocumentRole = DocumentRole.CARRIER,
+    sibling_documents: Sequence[str] = (),
+    suppressed: list[dict[str, Any]] | None = None,
 ) -> list[DateCandidateDraft]:
     """相对期限推算（确定性规则，不依赖 LLM）。
 
@@ -647,14 +680,29 @@ def _apply_relative_deadline_rules(
     认领分三轮，避免多期限句互相争抢同一条候选（context 精确匹配优先于
     指纹兜底）：1) 原文表述出现在候选 context → 校正该候选；2) 未认领事件
     按「同类型且日期=锚日」指纹认领；3) 仍未认领（LLM 漏提）→ 补正则候选。
+
+    **三道前置闸门（2026-11-24 事故根治，口径见 date_candidate_policy）**：
+
+    进到这里之前，每一句「收到/送达 X 之日起 N 日内」必须先过：
+    1) 锚点归属：X 必须指向**本文书**。指向尚未产生的裁判文书、同批另一份
+       文书或他案函件的，一律丢弃——「告知书」里「至迟应在裁判文书送达之日起
+       三日内提出」曾被按「收到告知书 + 3 天」编成一个日期，而那份裁判文书
+       根本还没产生；
+    2) 选择性申请：申请不予公布/延期/证人出庭/鉴定/取证/回避这类「想做才做」
+       的条款不进日历（业务口径 2026-11-24）；
+    3) 文书角色：通用告知/须知类文书上的相对期限属于通则说明，不是本案期限。
+    被丢弃的记入 ``suppressed`` 留痕，不静默消失。
     """
     if not text:
         return drafts
 
     if delivery_date is not None:
         anchor = datetime.combine(delivery_date.date(), datetime.min.time())
+        anchor_kind = AnchorKind.SERVICE_OF_SELF
     else:
-        anchor = _find_issue_date(text)
+        issue = _find_issue_date(text)
+        anchor = issue
+        anchor_kind = AnchorKind.ISSUE_DATE_OF_SELF
     if anchor is None:
         return drafts
 
@@ -664,13 +712,70 @@ def _apply_relative_deadline_rules(
         ctx_from = max(sent_start, sent_start + m.start() - 20)
         ctx_to = min(sent_start + sent_len, sent_start + m.end() + 25)
         context = text[ctx_from:ctx_to].strip()
+        deadline = anchor + timedelta(days=days)
+        event_type = _relative_event_type(context)
+        sentence = text[sent_start : sent_start + sent_len]
+
+        # ① 选择性申请类：想做才做的事，法院没给本案指定期限
+        optional, optional_reason = is_optional_motion(context)
+        if optional:
+            logger.info("丢弃选择性申请类期限: %s | %s", deadline.date(), optional_reason)
+            _suppress(
+                suppressed,
+                deadline=deadline,
+                event_type=event_type,
+                context=context,
+                verdict=None,
+                reason=optional_reason,
+            )
+            continue
+
+        # ② 锚点归属：期限句讲的到底是哪一份文书
+        verdict = parse_anchor_clause(
+            sentence=sentence,
+            match_start=m.start(),
+            match_end=m.end(),
+            sibling_documents=sibling_documents,
+        )
+        if verdict.document is not AnchorDocument.SELF:
+            logger.info(
+                "丢弃非自指锚点的期限: %s | 锚=%s | %s",
+                deadline.date(),
+                verdict.document.value,
+                verdict.reason,
+            )
+            _suppress(
+                suppressed,
+                deadline=deadline,
+                event_type=event_type,
+                context=context,
+                verdict=verdict,
+                reason=verdict.reason or "锚点不在本份文书上",
+            )
+            continue
+
+        # ③ 文书角色：通用告知类文书里的相对期限是通则说明
+        if role is DocumentRole.GENERIC_NOTICE:
+            logger.info("丢弃通用告知类文书上的相对期限: %s | %s", deadline.date(), context[:40])
+            _suppress(
+                suppressed,
+                deadline=deadline,
+                event_type=event_type,
+                context=context,
+                verdict=verdict,
+                reason="通用告知类文书里的相对期限属于通则说明，不是本案期限",
+            )
+            continue
+
         events.append(
             {
                 "core": m.group(0)[:18],
                 "days": days,
-                "deadline": anchor + timedelta(days=days),
+                "deadline": deadline,
                 "context": context,
-                "event_type": _relative_event_type(context),
+                "event_type": event_type,
+                "verdict": verdict,
+                "anchor_kind": verdict.kind if verdict.kind is not AnchorKind.UNKNOWN else anchor_kind,
                 "claimed": False,
             }
         )
@@ -689,7 +794,16 @@ def _apply_relative_deadline_rules(
                 event["context"][:40],
             )
             draft.due_at = datetime.combine(event["deadline"].date(), draft.due_at.time())
-        draft.confidence = max(draft.confidence, 0.9)
+        # 被确定性规则校正/认领过的候选：出处字段一律以规则层为准。
+        # ``source`` 保持原值（llm/regex/merged）不动——它表达"这条最初从哪来"，
+        # 而"日期是怎么算出来的"由 ``derivation`` 表达，两者不要混在一起。
+        draft.derivation = "rule_relative"
+        draft.anchor_kind = event["anchor_kind"].value
+        draft.anchor_document = event["verdict"].document.value
+        draft.anchor_at = anchor.date()
+        draft.confidence = confidence_for(
+            derivation="rule_relative", anchor=event["verdict"], role=role, raw=max(draft.confidence, 0.9)
+        )
         claimed_drafts.add(id(draft))
         event["claimed"] = True
 
@@ -719,7 +833,17 @@ def _apply_relative_deadline_rules(
                 reminder_type=event["event_type"],
                 context_text=event["context"][:255],
                 source="regex",
-                confidence=0.85,
+                confidence=confidence_for(derivation="rule_relative", anchor=event["verdict"], role=role, raw=0.9),
+                anchor_kind=event["anchor_kind"].value,
+                anchor_at=anchor.date(),
+                anchor_document=event["verdict"].document.value,
+                derivation="rule_relative",
+                anchor_note=anchor_note_for(
+                    kind=event["anchor_kind"],
+                    anchor_at=anchor.date(),
+                    delivery_date=delivery_date.date() if delivery_date else None,
+                    days=event["days"],
+                ),
             )
         )
         logger.info(
@@ -747,17 +871,27 @@ def _dedupe_same_context(drafts: list[DateCandidateDraft]) -> list[DateCandidate
 
 @dataclass
 class DateCandidateDraft:
-    """合并后的日期候选（落库前的内存形态）。"""
+    """合并后的日期候选（落库前的内存形态）。
+
+    ``anchor_*`` / ``derivation`` / ``review_flags`` 是「候选的出处」：这条日期
+    依据哪份文书、起算锚是什么、怎么算出来的、要不要人工看。2026-11-24 的事故
+    就是因为只有 ``confidence`` 一个数字，无法区分「规则算出来的」与「原文写明的」。
+    """
 
     due_at: datetime
     reminder_type: str
     context_text: str
     source: str  # llm | regex | merged
     confidence: float
-    # 起算点提示（非空时前端在确认弹窗里显示）。目前只有一种：
-    # "effective_first" = 原文是「本判决发生法律效力之日起 N 日」，日期按送达日+ N 天
-    # 保守给出，真实起算点是判决生效日（需与书记员确认）。
+    # 起算点人话说明（如「起算点：本份文书送达日 2026-11-24 + 7 天」）。
     anchor_note: str = ""
+    # 出处字段（取值域见 date_candidate_policy）
+    anchor_kind: str = ""
+    anchor_at: date | None = None
+    anchor_document: str = ""
+    derivation: str = ""
+    review_flags: tuple[str, ...] = ()
+    default_checked: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -767,6 +901,12 @@ class DateCandidateDraft:
             "source": self.source,
             "confidence": self.confidence,
             "anchor_note": self.anchor_note,
+            "anchor_kind": self.anchor_kind,
+            "anchor_at": self.anchor_at.isoformat() if self.anchor_at else None,
+            "anchor_document": self.anchor_document,
+            "derivation": self.derivation,
+            "review_flags": list(self.review_flags),
+            "default_checked": self.default_checked,
         }
 
 
@@ -802,6 +942,24 @@ def _normalize_aware(dt: datetime) -> datetime:
     return dt if dt.tzinfo else make_aware(dt)
 
 
+def _verdict_from_draft(draft: DateCandidateDraft) -> AnchorVerdict:
+    """从草稿的出处字段还原 AnchorVerdict（供统一裁决）。
+
+    明文绝对日期（llm_absolute / rule_absolute）本来就没有起算锚，
+    ``anchor_kind`` 留空 → 归为 UNKNOWN；这不会导致丢弃，因为丢弃只看
+    ``anchor_document`` 与「通用文书 + 规则推算」两个条件。
+    """
+    try:
+        document = AnchorDocument(draft.anchor_document or AnchorDocument.SELF.value)
+    except ValueError:
+        document = AnchorDocument.OTHER_CASE
+    try:
+        kind = AnchorKind(draft.anchor_kind) if draft.anchor_kind else AnchorKind.UNKNOWN
+    except ValueError:
+        kind = AnchorKind.UNKNOWN
+    return AnchorVerdict(document=document, kind=kind, reason="")
+
+
 def build_date_candidates(
     text: str,
     analysis: Any | None,
@@ -809,6 +967,8 @@ def build_date_candidates(
     *,
     regex_extractor: Any | None = None,
     received_at: datetime | None = None,
+    sibling_documents: Sequence[str] | None = None,
+    suppressed_out: list[dict[str, Any]] | None = None,
 ) -> list[DateCandidateDraft]:
     """合并 LLM key_events 与正则候选为去重后的候选列表。
 
@@ -819,9 +979,18 @@ def build_date_candidates(
         received_at: 文书送达/收到时间（法院短信的 ``CourtSMS.received_at``）。
             传入时作为「送达之日起 N 日」类期限的起算锚点（见
             ``_apply_relative_deadline_rules``）；None 则回落到落款日。
+        sibling_documents: 同一条短信/同批次的其他文书显示名。用来把
+            「应自收到《缴费通知书》之日起七日内」判成"期限归属另一份文书"（丢弃）。
+        suppressed_out: 出参：被闸门丢弃的候选会追加到这里，调用方落库到
+            ``task.suppressed_candidates`` 留痕（律师问「为什么没提醒」时能答）。
+            用出参而不是改返回值，是为了不打断既有的 list 返回约定与全部现有单测。
     """
     extractor = regex_extractor or _RegexCandidateExtractor()
     default_type = DEFAULT_TYPE_BY_DOCUMENT_TYPE.get(document_type, "other")
+    siblings = tuple(sibling_documents or ())
+    # 文书角色：这份文书到底承不承载本案期限（内容判据，不看文件名）
+    role, role_reason = classify_document_role(text=text)
+    logger.info("文书角色判定: %s | %s", role.value, role_reason)
 
     drafts: dict[tuple[datetime, str], DateCandidateDraft] = {}
 
@@ -847,12 +1016,30 @@ def build_date_candidates(
                 context[:40],
             )
             continue
+        # LLM 自报的起算锚归属（anchor_hint）：它说锚在别处（尚未产生的裁判文书/
+        # 另一份具名文书）时，本条就是不可算的——直接丢弃并留痕，不信它的日期。
+        anchor_hint = str(getattr(event, "anchor_hint", "self") or "self")
+        if anchor_hint in ("future_document", "other_document"):
+            reason = "LLM 判定锚点在别份文书（" + anchor_hint + "），本条现在算不出真日期"
+            logger.info("丢弃锚点在别份文书的 LLM 日期事件: %s | %s", parsed.date(), reason)
+            _suppress(
+                suppressed_out,
+                deadline=parsed,
+                event_type=event_type,
+                context=context,
+                verdict=None,
+                reason=reason,
+            )
+            continue
         drafts[(parsed, event_type)] = DateCandidateDraft(
             due_at=parsed,
             reminder_type=event_type,
             context_text=context,
             source="llm",
             confidence=float(getattr(event, "confidence", 0.7) or 0.7),
+            derivation="llm_absolute",
+            anchor_document="self",
+            anchor_kind=AnchorKind.EFFECTIVE_DATE.value if anchor_hint == "effective" else "",
         )
 
     # 2. 正则候选（透出全部，含上下文与类型推断）
@@ -869,6 +1056,8 @@ def build_date_candidates(
                 context_text=str(candidate.get("context_text", ""))[:255],
                 source="regex",
                 confidence=regex_confidence,
+                derivation="rule_absolute",
+                anchor_document="self",
             )
         else:
             existing.source = "merged"
@@ -878,7 +1067,19 @@ def build_date_candidates(
 
     # 3. 期间结构后处理：起始日剔除、到期日算术校正、相对期限推算、同上下文去重
     drafts_list = _apply_period_rules(text, list(drafts.values()))
-    drafts_list = _apply_relative_deadline_rules(text, drafts_list, delivery_date=received_at)
+    for draft in drafts_list:
+        if not draft.derivation:
+            draft.derivation = "rule_period"
+        if not draft.anchor_document:
+            draft.anchor_document = "self"
+    drafts_list = _apply_relative_deadline_rules(
+        text,
+        drafts_list,
+        delivery_date=received_at,
+        role=role,
+        sibling_documents=siblings,
+        suppressed=suppressed_out,
+    )
 
     # 4. 陈旧候选降置信（改判文书可能含历史日期，折叠而非丢弃）
     today = timezone.localdate()
@@ -924,11 +1125,58 @@ def build_date_candidates(
             )
 
     # 4.6 标注「生效之日起算」的履行期限（不丢弃，见 _EFFECTIVE_FIRST_RE 注释）
+    #
+    # 旧实现把置信度压到**恰好 0.5**，而前端阈值是「>= 0.5 就默认勾」——
+    # 「降一档、默认不勾」的意图反向失效（2026-11-24 审计发现）。现在改成
+    # 只打锚点标记，由下面的 decide_candidate 统一下调置信度并挂 flag，
+    # 默认勾选只看 flags，不再有压线边界。
     for draft in drafts_list:
-        if _is_effective_first_derived(draft, text):
+        if draft.anchor_kind == AnchorKind.EFFECTIVE_DATE.value or _is_effective_first_derived(draft, text):
+            draft.anchor_kind = AnchorKind.EFFECTIVE_DATE.value
             draft.anchor_note = EFFECTIVE_FIRST_NOTE
-            # 起算点不确定 → 降一档，默认不勾，逼律师看一眼
-            draft.confidence = min(draft.confidence, 0.5)
+
+    # 4.7 逐条裁决：该留还是该丢、带哪些复核标记、能不能默认勾。
+    # 这里是「provenance 策略」的唯一出口，前端不再按裸分数自己判断。
+    decided: list[DateCandidateDraft] = []
+    for draft in drafts_list:
+        verdict = _verdict_from_draft(draft)
+        confidence = confidence_for(
+            derivation=draft.derivation or "llm_absolute",
+            anchor=verdict,
+            role=role,
+            raw=draft.confidence,
+        )
+        decision = decide_candidate(
+            derivation=draft.derivation or "llm_absolute",
+            anchor=verdict,
+            role=role,
+            confidence=confidence,
+            due_at=draft.due_at,
+            today=today,
+        )
+        if not decision.keep:
+            logger.info(
+                "丢弃候选: %s %s | %s",
+                draft.due_at.date(),
+                draft.reminder_type,
+                decision.reason,
+            )
+            _suppress(
+                suppressed_out,
+                deadline=draft.due_at,
+                event_type=draft.reminder_type,
+                context=draft.context_text,
+                verdict=verdict,
+                reason=decision.reason,
+            )
+            continue
+        draft.review_flags = decision.flags
+        draft.confidence = decision.confidence
+        draft.default_checked = decision.default_checked
+        if not draft.anchor_document:
+            draft.anchor_document = AnchorDocument.SELF.value
+        decided.append(draft)
+    drafts_list = decided
 
     # 5. 名额分配：**未过期候选优先占 MAX_CANDIDATES 名额**。
     # 判决书正文里密布已发生的事实日期（立案/签约/对账/落款），它们不是“提醒”，
@@ -963,6 +1211,12 @@ def persist_candidates(task: Any, drafts: list[DateCandidateDraft]) -> int:
             context_text=draft.context_text,
             source=draft.source,
             confidence=draft.confidence,
+            anchor_kind=draft.anchor_kind,
+            anchor_at=draft.anchor_at,
+            anchor_document=draft.anchor_document,
+            derivation=draft.derivation,
+            review_flags=list(draft.review_flags),
+            default_checked=draft.default_checked,
             status=DateCandidateStatus.PENDING,
         )
         for draft in drafts
@@ -996,8 +1250,98 @@ def refresh_task_confirmation_status(task: Any) -> None:
         task.save(update_fields=["date_confirmation_status"])
 
 
+#: 推算方式的权威度（越小越权威）：LLM 读到的原文日期 > 正则明文日期 > 相对期限推算 > 期间推算
+_DERIVATION_AUTHORITY: dict[str, int] = {
+    "llm_absolute": 0,
+    "rule_absolute": 1,
+    "rule_relative": 2,
+    "rule_period": 3,
+}
+
+
+def reconcile_source_candidates(source_court_sms_id: int) -> int:
+    """批内去重：一条法院短信的多份文书常报出同一天同一类型的期限。
+
+    真实场景（2026-11-24）：《诉讼费退费缴费须知》与《诉讼费用交费通知书》
+    都指向「12-01 前交受理费」——须知里的那句只是复述交费通知书的规则，
+    真期限由交费通知书自己报。两条都留在确认弹窗里，律师无法判断该勾哪一条。
+
+    口径（业务 2026-11-24 拍板）：
+    - **只收敛"完全相同键"**：同一案件 + 同一天 + 同一提醒类型；
+    - **同类型但日期不同、同日不同类型一律都留**——不做冲突裁决，因为
+      冲突本身（两份文书各说一个日期）就是律师必须立刻知道的信息；
+    - 权威度排序：非通用文书 > 通用文书；llm_absolute > rule_absolute >
+      rule_relative > rule_period；同类取 context 更长者；再不行取小 id。
+
+    幂等：只动 ``pending`` 行，已确认/已忽略的一律不碰；可反复调用。
+
+    Returns:
+        本次被折叠掉的行数。
+    """
+    from apps.document_recognition.models import DateCandidateStatus, DocumentRecognitionTask
+
+    tasks = list(
+        DocumentRecognitionTask.objects.filter(source_court_sms_id=source_court_sms_id).prefetch_related(
+            "date_candidates"
+        )
+    )
+    if not tasks:
+        return 0
+
+    groups: dict[tuple[Any, Any, str], list[tuple[Any, Any]]] = {}
+    for task in tasks:
+        for row in task.date_candidates.all():
+            if row.status != DateCandidateStatus.PENDING or row.duplicate_of_id:
+                continue
+            key = (task.case_id, row.due_at.date(), row.reminder_type)
+            groups.setdefault(key, []).append((task, row))
+
+    folded = 0
+    touched: set[int] = set()
+    for items in groups.values():
+        if len(items) < 2:
+            continue
+        items.sort(
+            key=lambda pair: (
+                1 if FLAG_GENERIC_BOILERPLATE in (pair[1].review_flags or []) else 0,
+                _DERIVATION_AUTHORITY.get(pair[1].derivation, 9),
+                -len(pair[1].context_text or ""),
+                pair[1].id,
+            )
+        )
+        winner_task, winner = items[0]
+        for task, row in items[1:]:
+            row.duplicate_of = winner
+            row.status = DateCandidateStatus.SKIPPED
+            flags = list(row.review_flags or [])
+            if FLAG_DUPLICATE not in flags:
+                flags.append(FLAG_DUPLICATE)
+            row.review_flags = flags
+            row.default_checked = False
+            row.save(update_fields=["duplicate_of", "status", "review_flags", "default_checked", "updated_at"])
+            folded += 1
+            touched.add(task.id)
+            logger.info(
+                "批内去重折叠: task=%s candidate=%s (%s) → 权威 candidate=%s (task=%s)",
+                task.id,
+                row.id,
+                row.due_at.date(),
+                winner.id,
+                winner_task.id,
+            )
+
+    for task in tasks:
+        if task.id in touched:
+            refresh_task_confirmation_status(task)
+    return folded
+
+
 def list_candidates(task: Any) -> list[dict[str, Any]]:
-    """候选行序列化（API/admin 共用）。"""
+    """候选行序列化（API/admin 共用）。
+
+    除了日期与类型，必须把**出处**一并透出：律师要靠「来源 + 起算点」判断
+    这条日期靠不靠得住；旧实现算好了 anchor_note 却在落库前丢掉，前端从来没显示过。
+    """
     return [
         {
             "id": row.id,
@@ -1010,9 +1354,31 @@ def list_candidates(task: Any) -> list[dict[str, Any]]:
             "status": row.status,
             "reminder_id": row.reminder_id,
             "confirmed_at": row.confirmed_at.isoformat() if row.confirmed_at else None,
+            "anchor_kind": row.anchor_kind,
+            "anchor_at": row.anchor_at.isoformat() if row.anchor_at else None,
+            "anchor_document": row.anchor_document,
+            "derivation": row.derivation,
+            "derivation_label": DERIVATION_LABELS.get(row.derivation, ""),
+            "review_flags": list(row.review_flags or []),
+            "default_checked": bool(row.default_checked),
+            "anchor_note": _anchor_note_for_row(row, task),
+            "duplicate_of_id": row.duplicate_of_id,
         }
         for row in task.date_candidates.select_related("reminder").order_by("due_at", "id")
     ]
+
+
+def _anchor_note_for_row(row: Any, task: Any) -> str:
+    """按行上存的锚类型即时渲染「起算点」文案（不在库里存冗余文案）。"""
+    try:
+        kind = AnchorKind(row.anchor_kind) if row.anchor_kind else AnchorKind.UNKNOWN
+    except ValueError:
+        return ""
+    if kind is AnchorKind.UNKNOWN and row.derivation in ("llm_absolute", "rule_absolute"):
+        return "原文写明，无需推算"
+    anchor_at = row.anchor_at
+    days = (row.due_at.date() - anchor_at).days if anchor_at else None
+    return anchor_note_for(kind=kind, anchor_at=anchor_at, delivery_date=None, days=days)
 
 
 def _reminder_type_label(reminder_type: str) -> str:
