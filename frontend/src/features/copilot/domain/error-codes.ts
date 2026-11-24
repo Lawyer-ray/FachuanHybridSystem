@@ -25,6 +25,9 @@ export type ErrorCode =
   | 'context_exceeded'
   | 'upstream_timeout'
   | 'tool_args_invalid'
+  | 'session_not_found'
+  | 'auth_failed'
+  | 'too_many_agents'
   | 'unknown'
 
 /**
@@ -109,6 +112,27 @@ export const CODE_TABLE: Record<ErrorCode, CodeProfile> = {
     hint: '模型给工具的参数不合法，这轮工具调用被后端拒了。原样重发大概率同样报错，把「诊断」发给管理员。',
     resendable: false,
   },
+  session_not_found: {
+    kind: 'history',
+    severity: 'error',
+    // 不写「请重试」：会话都不存在了，原样再发只会再撞一次同样 404。
+    // 也不写「请联系管理员」：这是律师自己能处理的事（重开一个对话）。
+    hint: '这个会话在服务端已不存在（被删除、或换了环境/账号）。点「新开会话」重新问一次即可——原来的上下文不会跟过去，需要的话把它一并带上。',
+    resendable: false,
+  },
+  auth_failed: {
+    kind: 'network',
+    severity: 'error',
+    // 后端 docstring：重试无用 → 必须重新登录或找管理员换凭证
+    hint: '身份凭证失效或未配置（后端签不出访问凭证、或上游返回 401/403）。重发一百次也一样——重新登录，仍不行就把「诊断」发给管理员。',
+    resendable: false,
+  },
+  too_many_agents: {
+    kind: 'capability',
+    severity: 'warn',
+    hint: '一次同时问的栏数超过后端上限。先取消勾选一栏再发，不必新开会话。',
+    resendable: false,
+  },
   unknown: {
     kind: 'unknown',
     severity: 'error',
@@ -129,6 +153,11 @@ export const CODE_TABLE: Record<ErrorCode, CodeProfile> = {
 const CODE_ALIAS: Record<string, ErrorCode> = {
   context_overflow: 'context_exceeded',
   unavailable: 'backend_unavailable',
+  // 后端 `QuotaExceededError` 的 code 是 `quota_exceeded`（errors.py），而本表
+  // 建表时写成了 `quota_exhausted`。两个都不能改（一个在后端契约里、一个已是
+  // 本表现有值），用别名接上——否则「执行位满 / 排队超时」这类最需要建议的错误
+  // 会落 unknown，律师看到的是一张什么都点不了的红卡。
+  quota_exceeded: 'quota_exhausted',
 }
 
 /**

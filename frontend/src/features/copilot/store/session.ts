@@ -5,8 +5,11 @@
  * localStorage 在 persistence.ts、crossfade 在 transitions.ts。
  */
 
+import { HTTPError } from 'ky'
+
 import * as copilotApi from '../api'
 import { HISTORY_PAGE_SIZE, historyToMessages, oldestDbId } from '../domain'
+import { encodeError } from '../domain/error'
 import { storeSession } from '../persistence'
 import { withViewTransition } from '../transitions'
 import type { CopilotState } from '../types'
@@ -130,10 +133,24 @@ export const createSessionSlice: Slice<SessionSlice> = (set, get) => ({
           })
         })
       }
-    } catch {
+    } catch (err) {
       if (get().sessionId === id) {
+        // 404 = 这个 id 在服务端已经不存在（DB 重置、换了环境/账号、会话被删）。
+        // 与「网络抖了一下」区分开：前者重试无用，要给「新开会话」的出路，
+        // 否则律师只能看着一句「加载会话历史失败」发呆。
+        const gone = err instanceof HTTPError && err.response.status === 404
         withViewTransition(() => {
-          set({ lastError: '加载会话历史失败', historyLoadError: true, loadingHistory: false })
+          set({
+            lastError: gone
+              ? encodeError({
+                  code: 'session_not_found',
+                  message: '这个会话在服务端已经不存在',
+                  detail: { session_id: id },
+                })
+              : '加载会话历史失败',
+            historyLoadError: true,
+            loadingHistory: false,
+          })
         })
       }
     }

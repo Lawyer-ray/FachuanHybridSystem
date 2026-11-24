@@ -7,6 +7,7 @@
  */
 
 import { agentOf, narrowCitations, parseSseEvent, runIdOf, takeSseFrames } from './domain'
+import type { ErrorInput } from './domain'
 import type { AgentStreamEvent, CitationRef } from './types'
 
 type ToolCallEvent = Extract<AgentStreamEvent, { type: 'tool_call' }>
@@ -99,7 +100,18 @@ export interface StreamHandlers {
    * 真正开多栏的 store 必须实现它。
    */
   onDegraded?(reason: string): void
-  onError(message: string, origin: EventOrigin): void
+  /**
+   * 后端 `error` 帧。
+   *
+   * 传**整个结构体**（`message` + `code` / `scope` / `detail`）而不是光一个
+   * `message`：后端从 2026-10 起就在帧上给了这三件套（`sse_types.py` 的
+   * `ErrorMessage`），而这里曾经只转发 `event.message`，把 `code` / `scope` /
+   * `detail` 全扔了。后果链：`lastError` 变成裸文案 → `classifyError` 拿不到
+   * code → 一律落 `unknown` → 律师看到「未知错误｜请联系管理员」，而诊断里
+   * 连 `detail.session_id` 都没有（2026-11-24 实测：`session_not_found` 就是
+   * 这么被报成 unknown 的）。写方直接交给 `encodeError` 即可（见 lane-lifecycle）。
+   */
+  onError(err: ErrorInput, origin: EventOrigin): void
   /**
    * 某一方跑完。
    *
@@ -247,9 +259,13 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
           }
           break
         case 'error':
-          // 每个失败方只发一条（后端保证不堆两条），这里按来源挂到对应栏
+          // 每个失败方只发一条（后端保证不堆两条），这里按来源挂到对应栏。
+          // 四件套整包转发——少传一个字段，前端就少一条可执行建议（见 onError 注释）。
           h.onProgress()
-          h.onError(event.message, origin)
+          h.onError(
+            { message: event.message, code: event.code, scope: event.scope, detail: event.detail },
+            origin,
+          )
           break
         case 'done': {
           // 按栏记账（只认显式 agent）：收尾时要能回答「哪一栏没等到 done」
