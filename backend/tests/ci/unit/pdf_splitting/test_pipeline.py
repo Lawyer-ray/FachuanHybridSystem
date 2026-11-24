@@ -685,3 +685,61 @@ class TestSegmentBackendHonesty:
         assert summary["segment_rule_batches"] == 1
         assert summary["segment_total_batches"] == 7
         assert summary["segment_llm_fallback_reason"] == ""
+
+
+class TestDuplicatePageDedupe:
+    """一式三份：重复页只 OCR 一次，其余页继承文字。
+
+    真实 40 页立案材料扫描件里 27 页是副本，本机 OCR 取字从 97s 降到 56.5s
+    （fast 档，冷缓存）；balanced 档 418s → 155s。
+    """
+
+    def test_重复页只送代表作进OCR(self, tmp_path: Path) -> None:
+        pdf = tmp_path / "dup.pdf"
+        # 4 页：A / A / B / A —— 相同文本渲染相同 → 第 2、4 页应判为第 1 页的副本
+        # 用**画线**而不是插文字造扫描页：插文字会生成文本层，那几页会走「文本层直取」
+        # 根本不进 OCR；而且只在页顶写 4 个字母时两页墨迹差不到 0.001，指纹分不开。
+        # 18 行 vs 5 行才像真实页（整页密排 vs 半页）。
+        with fitz.open() as doc:
+            for line_count in (18, 18, 0, 18):
+                page = doc.new_page()
+                for index in range(line_count):
+                    y = 90 + index * 28
+                    page.draw_line((72, y), (520, y), color=(0, 0, 0), width=2)
+                if line_count == 0:  # 第 3 页：整块墨（模拟版式完全不同的另一种材料）
+                    page.draw_rect(fitz.Rect(60, 60, 540, 760), color=None, fill=(0, 0, 0))
+            doc.save(pdf.as_posix())
+        handler = _StubOCRHandler(
+            backend=None,  # 无云端 → 走本机 OCR（去重只在这条路径生效）
+            local={
+                1: OCRPageResult(page_no=1, text="第一页内容", source_method="local_ocr", ocr_failed=False),
+                3: OCRPageResult(page_no=3, text="第三页内容", source_method="local_ocr", ocr_failed=False),
+            },
+        )
+        pages, summary = PageTextExtractor(ocr_handler=handler).extract(
+            pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY
+        )
+
+        assert handler.local_calls == [[1, 3]], "重复页不应再送 OCR"
+        assert [p.source_method for p in pages] == ["local_ocr", "dedupe_copy", "local_ocr", "dedupe_copy"]
+        assert pages[1].text == pages[0].text
+        assert pages[3].text == pages[0].text
+        assert summary["dedupe_skipped_pages"] == 2
+        assert summary["dedupe_filled_pages"] == 2
+
+    def test_云端路径不做去重(self, tmp_path: Path) -> None:
+        """云端是整本一次解析，少送几页省不掉往返，反而让页序对齐更复杂。"""
+        pdf = tmp_path / "dup2.pdf"
+        _make_pdf(pdf, [None, None])
+        handler = _StubOCRHandler(
+            cloud={
+                1: OCRPageResult(page_no=1, text="同一页", source_method="mineru_ocr", ocr_failed=False),
+                2: OCRPageResult(page_no=2, text="同一页", source_method="mineru_ocr", ocr_failed=False),
+            }
+        )
+        pages, summary = PageTextExtractor(ocr_handler=handler).extract(
+            pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY
+        )
+
+        assert all(p.source_method != "dedupe_copy" for p in pages)
+        assert summary["dedupe_skipped_pages"] == 0

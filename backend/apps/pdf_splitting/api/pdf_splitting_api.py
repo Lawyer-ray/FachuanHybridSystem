@@ -15,6 +15,7 @@ from apps.core.http.download import build_download_response
 from apps.core.security import get_request_access_context
 from apps.pdf_splitting.services import PdfSplitJobService, PdfSplitService
 from apps.pdf_splitting.services.split.export_utils import export_segment_pdf
+from apps.pdf_splitting.services.split.page_fingerprint import page_signature as _page_signature
 from apps.pdf_splitting.services.storage import PdfSplitStorage
 
 router = Router(tags=["PDF 拆解"])
@@ -53,53 +54,6 @@ def _parse_segment_ids(raw: str) -> list[int] | None:
             errors={"ids": invalid},
         )
     return [int(token) for token in tokens]
-
-
-#: 页指纹的渲染分辨率。为什么不是 36 dpi：真实 40 页扫描样本实测（2026-11-24），
-#: 36 dpi + 16×16 灰度均值下「真副本」（0.003–0.012）与「非同页」（0.008–0.017）的
-#: 距离区间重叠——密排正文的 A4 在粗网格上几乎同构；100 dpi 下逐页二值化后两簇才
-#: 分开（0.008–0.024 vs 0.042–0.049），容差取在中间。
-_FINGERPRINT_DPI = 100
-
-#: 块边长（像素）：100 dpi 下每块≈2mm，一个汉字约占 2×2 块。
-#: 再细一半则扫描噪点开始主导，再粗一半则回到「版式被抹平」的 16×16 那一步。
-_FINGERPRINT_POOL = 8
-
-
-def _page_signature(page: fitz.Page) -> list[float]:
-    """单页指纹：100 dpi 灰度 → 逐页二值化 → 8×8 块内墨点占比（行优先展平）。
-
-    维度 ≈ (宽//8)×(高//8)，A4 约 15038 维。长度随页面尺寸变化，同一任务的页面
-    同尺寸即可；长度不同的两份签名由 ``signature_distance`` 直接判 1.0（＝不同页），
-    这里不做二次判断。
-
-    逐页二值化（阈值取该页灰度中位水平 ``low + (high-low)/2``）是抗纸张亮度与扫描
-    曝光的关键：不二值化时平均灰度距离被纸底亮度主导——同文书的两份扫件（纸底差
-    6/255）反而比两份不同文书更「不像」。
-
-    这里只产出**可比的向量**，判据不在这里：两页算不算「同一页」的容差是
-    ``apps/cases/services/material/scan_archive_naming.py`` 的
-    ``SAME_PAGE_MAX_DISTANCE``，副本分组也由那边的 ``group_copies`` 做。
-    """
-    pixmap = page.get_pixmap(dpi=_FINGERPRINT_DPI, colorspace=fitz.csGRAY, alpha=False)
-    width, height, samples = pixmap.width, pixmap.height, pixmap.samples
-    low, high = min(samples), max(samples)
-    threshold = low + 0.5 * (high - low)
-    # 先查表二值化成 0/1，再按块求和：块内 sum 直接就是墨点数。逐像素比较慢一个
-    # 量级（A4 每页约 97 万像素），而这里每页只做 15038 次小块求和。
-    ink_mask = samples.translate(bytes(1 if value <= threshold else 0 for value in range(256)))
-    blocks_per_row = width // _FINGERPRINT_POOL
-    signature: list[float] = []
-    for block_y in range(height // _FINGERPRINT_POOL):
-        row_start = block_y * _FINGERPRINT_POOL * width
-        for block_x in range(blocks_per_row):
-            left = row_start + block_x * _FINGERPRINT_POOL
-            ink = 0
-            for line in range(_FINGERPRINT_POOL):
-                start = left + line * width
-                ink += sum(ink_mask[start : start + _FINGERPRINT_POOL])
-            signature.append(ink / (_FINGERPRINT_POOL * _FINGERPRINT_POOL))
-    return signature
 
 
 def _segment_pdf_and_signatures(
