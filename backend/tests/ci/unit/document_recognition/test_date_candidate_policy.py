@@ -33,6 +33,7 @@ from apps.document_recognition.services.date_candidate_policy import (
     has_concrete_issue_date,
     is_optional_motion,
     parse_anchor_clause,
+    party_role_verdict,
 )
 
 TODAY = date(2026, 11, 24)
@@ -403,3 +404,73 @@ class TestFalseNegativeRegressions:
     @pytest.mark.parametrize("sentence", ["申请延长查封期限", "申请继续冻结账户", "申请续封"])
     def test_custody_extension_is_not_optional_motion(self, sentence: str) -> None:
         assert is_optional_motion(sentence)[0] is False
+
+
+# ---------------------------------------------------------------------------
+# 当事人地位闸：举证期限只在我方是防守方时才需要跟（业务口径 2026-11-24）
+# ---------------------------------------------------------------------------
+
+
+class TestPartyRoleGate:
+    """我方是原告/申请人/上诉人时，举证期限与答辩期是**对方**的义务，不该进我方日历。
+
+    实测案例（2026-11-24 佛山南海一条送达短信）：该案我方（赛羽极限）是原告，
+    法院却把《举证通知书》一并送达——文书长得一模一样，只有"我方在那个案子里是
+    什么地位"能区分"要不要跟"。
+    """
+
+    @pytest.mark.parametrize("role", ["defendant", "respondent", "appellee", "third", "criminal_defendant"])
+    def test_defensive_roles_keep_evidence_deadline(self, role: str) -> None:
+        ok, reason = party_role_verdict([role], "自收到本通知书之日起十五日内提交证据材料")
+        assert ok is True
+        assert reason == ""
+
+    @pytest.mark.parametrize("role", ["plaintiff", "applicant", "appellant"])
+    def test_offensive_roles_drop_evidence_deadline(self, role: str) -> None:
+        ok, reason = party_role_verdict([role], "自收到本通知书之日起十五日内提交证据材料")
+        assert ok is False
+        assert "对方" in reason
+
+    def test_unknown_role_keeps_with_flag(self) -> None:
+        ok, reason = party_role_verdict(None, "举证期限为十五日")
+        assert ok is None
+        assert "未确认" in reason
+
+    @pytest.mark.parametrize(
+        "context",
+        [
+            "如不服本判决，可以在判决书送达之日起十五日内向本院递交上诉状",
+            "请你方于收到本通知次日起七日内向本院交纳诉讼费",
+            "本院定于2026年12月1日开庭",
+            "冻结期限至2027年8月2日止",
+        ],
+    )
+    def test_non_defensive_clauses_ignore_party_role(self, context: str) -> None:
+        """上诉期/缴费期/开庭/保全到期对所有诉讼地位都成立，不受这道闸影响。"""
+        assert party_role_verdict(["plaintiff"], context) == (True, "")
+
+    def test_offensive_role_candidate_is_dropped_with_reason(self) -> None:
+        decision = decide_candidate(
+            derivation="rule_relative",
+            anchor=_self_verdict(),
+            role=DocumentRole.CARRIER,
+            confidence=0.9,
+            due_at=datetime(2026, 12, 9),
+            today=TODAY,
+            party_role_ok=False,
+        )
+        assert decision.keep is False
+
+    def test_unknown_party_role_is_flagged_not_default_checked(self) -> None:
+        decision = decide_candidate(
+            derivation="rule_relative",
+            anchor=_self_verdict(),
+            role=DocumentRole.CARRIER,
+            confidence=0.9,
+            due_at=datetime(2026, 12, 9),
+            today=TODAY,
+            party_role_ok=None,
+        )
+        assert decision.keep is True
+        assert "party_role_unknown" in decision.flags
+        assert decision.default_checked is False

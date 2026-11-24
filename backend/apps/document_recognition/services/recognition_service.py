@@ -165,12 +165,41 @@ class CourtDocumentRecognitionService:
         outcome = self._analysis_cache.get(text)
         return outcome.analysis if outcome is not None else None
 
+    def _our_party_roles(self, case_id: int | None) -> list[str] | None:
+        """取我方在该案的诉讼地位（只取 ``Client.is_our_client=True`` 的当事人）。
+
+        业务口径（2026-11-24）：举证期限/答辩期只在我方是**被告、被申请人、被上诉人、
+        第三人**时才需要律师跟进——我方是原告/申请人/上诉人时，举证已随起诉状/申请书
+        提交，逾期举证主要是对方的证据失权风险，跟我们的日历无关。
+
+        拿不到（未绑定案件 / 案件没有标记我方当事人 / 服务异常）返回 None，
+        由判定层保留候选并标 ``party_role_unknown``（不默认勾），而不是当成"我方是原告"丢掉。
+        """
+        if not case_id:
+            return None
+        from django.db import DatabaseError
+
+        try:
+            parties = self.binding_service.case_service.get_case_parties_internal(int(case_id))
+        except (AttributeError, TypeError, ValueError, DatabaseError):
+            # 读我方地位失败不能让整次识别失败：按"未知"处理（保留候选 + 不默认勾）
+            logger.warning("读取案件当事人失败，当事人地位按未知处理: case_id=%s", case_id, exc_info=True)
+            return None
+        roles = [
+            str(getattr(party, "legal_status", "") or "").strip()
+            for party in parties or []
+            if getattr(party, "is_our_client", False)
+        ]
+        roles = [role for role in roles if role]
+        return roles or None
+
     def _build_date_candidates(
         self,
         text: str,
         doc_type: Any,
         received_at: Any | None = None,
         sibling_documents: Any | None = None,
+        our_party_roles: Any | None = None,
         suppressed_out: list[dict[str, Any]] | None = None,
     ) -> list[dict[str, Any]]:
         """构建多日期候选（LLM key_events + 正则候选合并去重），序列化为 dict 列表。
@@ -192,6 +221,7 @@ class CourtDocumentRecognitionService:
             doc_type,
             received_at=received_at,
             sibling_documents=sibling_documents,
+            our_party_roles=our_party_roles,
             suppressed_out=suppressed_out,
         )
         return [draft.to_dict() for draft in drafts]
@@ -394,6 +424,7 @@ class CourtDocumentRecognitionService:
                 doc_type,
                 received_at,
                 sibling_documents,
+                self._our_party_roles(prebound_case_id),
                 suppressed_candidates,
             )
             if key_time is None and date_candidates:

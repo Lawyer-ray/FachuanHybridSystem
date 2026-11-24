@@ -80,6 +80,7 @@ FLAG_FAR_FUTURE = "far_future"
 FLAG_DUPLICATE = "duplicate"
 FLAG_DISCARDED = "discarded_by_gate"
 FLAG_ANCHOR_UNKNOWN = "anchor_unknown"
+FLAG_PARTY_ROLE_UNKNOWN = "party_role_unknown"
 FLAG_ANCHOR_FOREIGN_LLM = "anchor_foreign_llm"
 
 #: 复核标记 → 给律师看的人话（前端直接展示；后端是单一来源）
@@ -92,6 +93,7 @@ FLAG_LABELS: dict[str, str] = {
     FLAG_DISCARDED: "已被规则过滤（不进日历）",
     FLAG_ANCHOR_UNKNOWN: "起算点无法判断，请核对原文",
     FLAG_ANCHOR_FOREIGN_LLM: "AI 认为起算点在别份文书，请核对",
+    FLAG_PARTY_ROLE_UNKNOWN: "未确认我方诉讼地位，请核对是否我方义务",
 }
 
 #: 推算方式 → 中文标签（前端"来源"那一行直接显示，避免前后端各写一份口径）
@@ -535,6 +537,66 @@ def is_optional_motion(sentence: str) -> tuple[bool, str]:
 
 
 # ---------------------------------------------------------------------------
+# 当事人地位闸：举证期限只在我方处于**防守方**时才需要律师跟进
+# ---------------------------------------------------------------------------
+
+#: 防守方诉讼地位：拿举证期限、答辩期当自己死线的当事人。
+#: —— 我方是原告/申请人/上诉人时，举证已随起诉状/申请书提交，逾期举证主要是
+#: 对方（被告/被申请人/被上诉人）的证据失权风险，与我们的日历无关（业务口径）。
+DEFENSIVE_PARTY_ROLES: frozenset[str] = frozenset(
+    {
+        "defendant",
+        "respondent",
+        "appellee",
+        "third",
+        "criminal_defendant",
+        "orig_defendant",
+        "orig_third",
+    }
+)
+
+#: 进攻方诉讼地位（我方主动发起）：这类角色不需要跟"举证期限/答辩期"。
+OFFENSIVE_PARTY_ROLES: frozenset[str] = frozenset(
+    {
+        "plaintiff",
+        "applicant",
+        "appellant",
+        "orig_plaintiff",
+    }
+)
+
+#: 「防守型」条款的识别词：只有这些条款受当事人地位闸约束，
+#: 上诉期/缴费期/开庭时间/保全到期对所有地位都成立，不受影响。
+DEFENSIVE_ONLY_KEYWORDS: tuple[str, ...] = ("举证", "提交证据", "证据材料", "答辩")
+
+
+def is_defensive_only_clause(context: str) -> bool:
+    """这条期限是不是"只对防守方有意义"的（举证期限 / 答辩期）。"""
+    text = context or ""
+    return any(keyword in text for keyword in DEFENSIVE_ONLY_KEYWORDS)
+
+
+def party_role_verdict(our_party_roles: Sequence[str] | None, context: str) -> tuple[bool | None, str]:
+    """当事人地位闸：我方是否为该条款的义务人。
+
+    Returns:
+        (True, "")                 —— 与地位无关，或我方确为防守方 → 放行
+        (False, 人话原因)          —— 我方是原告/申请人/上诉人 → 丢弃
+        (None, 人话原因)           —— 拿不到我方地位 → 保留但标 flag（不默认勾）
+    """
+    if not is_defensive_only_clause(context):
+        return True, ""
+    roles = {str(r).strip().lower() for r in (our_party_roles or []) if str(r).strip()}
+    if not roles:
+        return None, "未确认该案我方诉讼地位，无法判断举证/答辩期限是否我方义务"
+    if roles & DEFENSIVE_PARTY_ROLES:
+        return True, ""
+    if roles & OFFENSIVE_PARTY_ROLES:
+        return False, "我方在本案是原告/申请人/上诉人，举证期限是对方的义务，不生成提醒"
+    return None, f"我方诉讼地位「{'/'.join(sorted(roles))}」不在已知防守方范围内，请人工核对"
+
+
+# ---------------------------------------------------------------------------
 # 置信度与默认勾选
 # ---------------------------------------------------------------------------
 
@@ -576,6 +638,7 @@ def decide_candidate(
     confidence: float,
     due_at: datetime,
     today: date,
+    party_role_ok: bool | None = True,
 ) -> CandidateDecision:
     """该留还是该丢；留下时带哪些复核标记、能不能默认勾选。
 
@@ -595,6 +658,8 @@ def decide_candidate(
         flags.append(FLAG_ANCHOR_EFFECTIVE)
     if anchor.kind is AnchorKind.UNKNOWN:
         flags.append(FLAG_ANCHOR_UNKNOWN)
+    if party_role_ok is None:
+        flags.append(FLAG_PARTY_ROLE_UNKNOWN)
     if role is DocumentRole.GENERIC_NOTICE:
         flags.append(FLAG_GENERIC_BOILERPLATE)
     if (due_at.date() - today).days > FAR_FUTURE_DAYS:
@@ -604,7 +669,10 @@ def decide_candidate(
 
     reason = ""
     keep = True
-    if anchor.kind is AnchorKind.UNKNOWN:
+    if party_role_ok is False:
+        keep = False
+        reason = "该期限不是我方义务（当事人地位不符）"
+    elif anchor.kind is AnchorKind.UNKNOWN:
         # 锚点判断不出来：保留（宁可让律师看一条待核对的，也不静默漏掉答辩期/举证期），
         # 但带 flag、不默认勾选。
         keep = True

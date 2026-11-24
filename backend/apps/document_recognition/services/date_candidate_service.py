@@ -41,6 +41,7 @@ from .date_candidate_policy import (
     AnchorDocument,
     AnchorKind,
     AnchorVerdict,
+    CandidateDecision,
     DocumentRole,
     anchor_note_for,
     classify_document_role,
@@ -48,7 +49,7 @@ from .date_candidate_policy import (
     decide_candidate,
 )
 from .date_candidate_policy import find_issue_date as _policy_find_issue_date
-from .date_candidate_policy import is_optional_motion, parse_anchor_clause
+from .date_candidate_policy import is_optional_motion, parse_anchor_clause, party_role_verdict
 
 logger = logging.getLogger("apps.document_recognition")
 
@@ -167,7 +168,9 @@ EFFECTIVE_FIRST_NOTE = _policy_effective_first_note
 _RELATIVE_EVENT_TYPES: list[tuple[str, tuple[str, ...]]] = [
     ("payment_deadline", ("交纳", "缴纳", "缴款", "缴费", "付款", "支付", "付清")),
     ("appeal_deadline", ("上诉",)),
-    ("evidence_deadline", ("举证",)),
+    # 「提交证据材料 / 证据目录」也是举证期限的标准写法；只列「举证」会让这类句子
+    # 落成 other，而 other 一旦过期就会被"纯历史过滤"删掉，律师连"举证期已过"都看不到。
+    ("evidence_deadline", ("举证", "提交证据", "证据材料", "证据目录")),
     # 「复议」是裁定书特有的救济期限（如「自收到裁定书之日起五日内申请复议」）。
     # ReminderType 没有复议类，归到 submission_deadline（向法院提交/申请的期限）。
     # 缺这条会落到 other → 过期后被「纯历史过滤」删掉，律师就完全看不到
@@ -985,6 +988,7 @@ def build_date_candidates(
     regex_extractor: Any | None = None,
     received_at: datetime | None = None,
     sibling_documents: Sequence[str] | None = None,
+    our_party_roles: Sequence[str] | None = None,
     suppressed_out: list[dict[str, Any]] | None = None,
 ) -> list[DateCandidateDraft]:
     """合并 LLM key_events 与正则候选为去重后的候选列表。
@@ -998,6 +1002,10 @@ def build_date_candidates(
             ``_apply_relative_deadline_rules``）；None 则回落到落款日。
         sibling_documents: 同一条短信/同批次的其他文书显示名。用来把
             「应自收到《缴费通知书》之日起七日内」判成"期限归属另一份文书"（丢弃）。
+        our_party_roles: 我方在该案的诉讼地位（``CaseParty.legal_status``，只取
+            ``Client.is_our_client=True`` 的当事人）。用于「举证期限只在我方是
+            被告/被申请人/被上诉人/第三人时才需要跟」这条业务口径；None 表示
+            拿不到地位 → 保留候选但标 ``party_role_unknown``、不默认勾。
         suppressed_out: 出参：被闸门丢弃的候选会追加到这里，调用方落库到
             ``task.suppressed_candidates`` 留痕（律师问「为什么没提醒」时能答）。
             用出参而不是改返回值，是为了不打断既有的 list 返回约定与全部现有单测。
@@ -1163,6 +1171,7 @@ def build_date_candidates(
             role=role,
             raw=draft.confidence,
         )
+        party_role_ok, party_role_reason = party_role_verdict(our_party_roles, draft.context_text)
         decision = decide_candidate(
             derivation=draft.derivation or "llm_absolute",
             anchor=verdict,
@@ -1170,7 +1179,16 @@ def build_date_candidates(
             confidence=confidence,
             due_at=draft.due_at,
             today=today,
+            party_role_ok=party_role_ok,
         )
+        if party_role_ok is False:
+            decision = CandidateDecision(
+                keep=False,
+                flags=decision.flags,
+                confidence=decision.confidence,
+                default_checked=False,
+                reason=party_role_reason,
+            )
         if not decision.keep:
             logger.info(
                 "丢弃候选: %s %s | %s",
