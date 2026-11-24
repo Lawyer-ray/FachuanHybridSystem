@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from apps.agent.backends.base import BackendError, BackendErrorKind
@@ -85,7 +87,8 @@ def test_typed_error_projects_code_scope_and_detail() -> None:
     assert frame["type"] == "error"
     assert frame["code"] == "rate_limited"
     assert frame["scope"] == "account"
-    assert frame["message"] == "网关限流"
+    # message 用类级文案（不再取 ``str(exc)``：抛错点可能把上游原文塞进构造参数）
+    assert frame["message"] == "模型网关限流，请稍后重试"
     assert frame["detail"] == {"backend": "pi", "model": "kimi-2.6", "retry_after_seconds": 60}
     assert frame["agent"] == "pi"
     assert frame["run_id"] == "s-1:pi:3"
@@ -178,7 +181,9 @@ def test_backend_error_kind_maps_to_stable_code(kind: BackendErrorKind) -> None:
     assert (frame["code"], frame["scope"]) == expected
     # 用户看到的是中文兜底文案；Go/SDK 的原话放 detail（magpie 的 detail 同款用法）
     assert frame["message"] == default_message_for(frame["code"])
-    assert frame["detail"]["reason"] == "底层原文"
+    # 客户端只拿分类结论；异常原文不得出现在整帧任何字段（防 SSE 堆栈外泄）
+    assert frame["detail"]["reason"] == "upstream_error"
+    assert "底层原文" not in json.dumps(frame, ensure_ascii=False)
     assert frame["detail"]["retryable"] is (kind is BackendErrorKind.RATE_LIMITED)
 
 
@@ -193,7 +198,8 @@ def test_pi_not_available_is_backend_unavailable() -> None:
     assert frame["code"] == "backend_unavailable"
     assert frame["scope"] == "model"
     assert frame["message"] == "pi 运行时不可用，请联系管理员（详见服务端日志）"
-    assert frame["detail"]["reason"] == "找不到 pi 可执行文件"
+    assert frame["detail"]["reason"] == "pi_unavailable"
+    assert "找不到 pi 可执行文件" not in json.dumps(frame, ensure_ascii=False)
 
 
 def test_pool_queue_timeout_is_quota_exceeded() -> None:
@@ -222,7 +228,9 @@ def test_pi_error_message_classification(text: str, code: str) -> None:
     """``PiError`` 只能看消息（pi 把失败原因包成同一个类型），按优先级归类。"""
     frame = project(PiError(text))
     assert frame["code"] == code
-    assert frame["detail"]["reason"] == text
+    # reason 只记分类结论（异常原文只进 logger）
+    assert frame["detail"]["reason"] == code
+    assert text not in json.dumps(frame, ensure_ascii=False)
 
 
 def test_pi_error_keeps_legacy_message_when_unclassified() -> None:
@@ -243,7 +251,8 @@ def test_unknown_exception_carries_exc_type_for_triage() -> None:
     frame = project(ValueError("boom"))
     assert frame["code"] == "unknown"
     assert frame["scope"] == "unknown"
-    assert frame["detail"] == {"reason": "boom", "exc_type": "ValueError"}
+    assert frame["detail"] == {"reason": "unclassified", "exc_type": "ValueError"}
+    assert "boom" not in json.dumps(frame, ensure_ascii=False)
 
 
 @pytest.mark.parametrize(
