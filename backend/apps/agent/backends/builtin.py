@@ -51,6 +51,7 @@ def ensure_registered() -> None:
         _register_antigravity()
         _register_claude_agent()
         _register_opencode()
+        _register_codex()
         return
 
     # 延迟 import：pi_backend 会连带拉起 pi 的 rpc / 池依赖。
@@ -66,6 +67,7 @@ def ensure_registered() -> None:
     _register_antigravity()
     _register_claude_agent()
     _register_opencode()
+    _register_codex()
 
 
 def _register_dsh() -> None:
@@ -222,3 +224,26 @@ def _register_opencode() -> None:
         return
 
     registry.register(OpenCodeBackend())
+
+
+def _register_codex() -> None:
+    """注册 codex 后端；可执行文件缺失时静默降级（只登记一次）。
+
+    与 opencode 同构：判据是可执行文件而不是 Python 包。``_attempted`` 只记
+    「探测失败过」，不能当成「已注册」——注册表可被 ``clear()`` 清空（测试大量用到），
+    清空后若被它挡住，该后端会永远报「未知 backend」。
+    """
+    kind = "codex"
+    if kind in registry.available_kinds():
+        return
+    if kind in _attempted:
+        return
+
+    from .codex_backend import CodexBackend, is_available
+
+    if not is_available():
+        _attempted.add(kind)
+        logger.info("未找到 codex 可执行文件，codex 后端不可用（其它后端不受影响）")
+        return
+
+    registry.register(CodexBackend())

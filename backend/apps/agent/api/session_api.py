@@ -41,6 +41,7 @@ _BACKEND_LABELS: dict[str, tuple[str, str]] = {
     "pi": ("Pi", "通用 agent 运行时，工具面与技能最全"),
     "dsh": ("DeepSeek Harness", "DeepSeek 官方 harness 运行时"),
     "opencode": ("opencode", "开源 coding agent（ACP 协议接入，工具面来自共享 MCP）"),
+    "codex": ("codex", "OpenAI 官方 coding agent（exec --json 接入，工具面来自共享 MCP）"),
 }
 
 #: dsh 的 Python SDK 模块名（可用性自检用）。
@@ -142,6 +143,15 @@ def _opencode_probe() -> tuple[bool, str]:
     return True, ""
 
 
+def _codex_probe() -> tuple[bool, str]:
+    """codex 后端能不能用：只看可执行文件（与 opencode 同口径，不拉进程、不查库）。"""
+    from ..backends.codex_backend import is_available
+
+    if not is_available():
+        return False, "未找到 codex 可执行文件（请先安装 codex，或设置 FACHUAN_CODEX_BIN）"
+    return True, ""
+
+
 def _models_for_kind(kind: str, models: list[str]) -> list[str]:
     """某个后端实际能用的模型（平台清单按运行时收窄）。
 
@@ -172,6 +182,8 @@ def _collect_backend_options() -> list[BackendOptionOut]:
             available, reason = _dsh_probe()
         elif kind == "opencode":
             available, reason = _opencode_probe()
+        elif kind == "codex":
+            available, reason = _codex_probe()
         else:
             available, reason = True, ""
         options.append(
