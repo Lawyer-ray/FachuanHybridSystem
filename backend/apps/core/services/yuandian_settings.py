@@ -163,17 +163,24 @@ def _read_stored_value(service: SystemConfigService, config_key: str) -> str:
     try:
         value = str(service.get_value(config_key, "") or "").strip()
     except _READ_ERRORS as exc:
+        # 不记 ``config_key`` 原值：它在 CodeQL 眼里属敏感数据源
+        # （py/clear-text-logging-sensitive-data，本仓库门禁阈值 0）。改记一个**布尔标记**
+        # ——"这次失败的是不是 API keys 那一项"是排障时真正需要的信息，其余键靠调用栈定位。
         logger.warning(
             "读取元典系统配置失败，按未配置处理",
-            extra={"config_key": config_key, "error_type": type(exc).__name__},
+            extra={
+                "is_api_keys": config_key == API_KEYS_CONFIG_KEY,
+                "error_type": type(exc).__name__,
+            },
         )
         return ""
     # ``get_value`` 解密失败时不抛，而是原样返回密文（见 ``system_config_service._maybe_decrypt``）。
     # 不拦下来，密文会被当成一把 key 发给元典，换来一条看不懂的 401。
     if SecretCodec().is_encrypted(value):
+        # 同上：不带 ``config_key`` 原值（敏感数据源），改记布尔标记 + 固定分类。
         logger.warning(
             "元典系统配置解密失败（加密密钥可能已轮换），按未配置处理；请在管理后台重新保存该配置",
-            extra={"config_key": config_key, "error_type": "DecryptFailed"},
+            extra={"is_api_keys": config_key == API_KEYS_CONFIG_KEY, "error_type": "DecryptFailed"},
         )
         return ""
     return value

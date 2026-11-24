@@ -183,7 +183,8 @@ class TestLoadYuandianSettings:
 
         assert settings.api_keys == ()
         record = next(r for r in caplog.records if r.name == settings_module.__name__)
-        assert record.config_key == API_KEYS_CONFIG_KEY  # type: ignore[attr-defined]
+        # 不再记 config_key 原值（CodeQL 判敏感），改记「失败的是不是 API keys 那一项」
+        assert record.is_api_keys is True  # type: ignore[attr-defined]
         assert record.error_type == "SynchronousOnlyOperation"  # type: ignore[attr-defined]
 
     def test_undecryptable_value_is_not_used_as_key(self, caplog: pytest.LogCaptureFixture) -> None:
