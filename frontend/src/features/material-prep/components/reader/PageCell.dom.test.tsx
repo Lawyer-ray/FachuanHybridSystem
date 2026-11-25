@@ -334,3 +334,20 @@ describe('定位框的百分比基准必须与页面图像一致', () => {
     expect(layer.contains(footer!)).toBe(false)
   })
 })
+
+// ── 回归：悬停才显形的转正按钮依赖页卡根节点上的 `group` ──────────
+//
+// 真实故障：按钮写的是 `group-hover:opacity-100`，而根节点忘了加 `group`，
+// 于是按钮永远 `opacity-0`——DOM 里查得到、屏幕上永远看不见，用户直接报
+// 「没有旋转功能」。类名不算实现细节，这里就是它的断言。
+
+describe('PageCell：转正按钮可见性', () => {
+  it('根节点带 group，悬停显形的按钮才可能显形', () => {
+    const { container } = render(
+      <PageCell messageId={1} mi={0} p={1} mat={{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 1 } as never} />,
+    )
+    const card = container.firstElementChild as HTMLElement
+    expect(card.className).toContain('group')
+    container.remove()
+  })
+})

@@ -1,4 +1,4 @@
-import { ChevronDown, Loader2, Minus, Plus } from 'lucide-react'
+import { ChevronDown, Loader2, Minus, Plus, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -44,6 +44,7 @@ export function ReaderToolbar({
   onSetCols,
   colsDisabled,
   onResetSegments,
+  rotation,
   onAutoSplit,
   autoSplitRunning,
   autoSplitProgress,
@@ -73,6 +74,13 @@ export function ReaderToolbar({
   onSetCols: (n: number) => void
   colsDisabled: boolean
   onResetSegments: () => void
+  /** 页转正：作用范围（选中页/当前段/全部）+ 动作 */
+  rotation: {
+    label: string
+    count: number
+    rotatedCount: number
+    rotate: (deg: number) => void
+  }
   onAutoSplit: () => void
   autoSplitRunning: boolean
   autoSplitProgress: string
@@ -109,6 +117,51 @@ export function ReaderToolbar({
         <Plus className="h-3.5 w-3.5" />
         追加材料
       </button>
+
+      {/* 转正（人工）：倒着送纸扫出来的页在这里转回来。
+          为什么必须有这个常驻入口：单页按钮挂在页卡右上角、只在悬停时显形，
+          而「整份都倒了」是这批材料的常态——让律师逐页去找一个看不见的按钮
+          等于没有这个功能（实测被这么反馈过）。 */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={`转正：${rotation.label}`}
+            title={`转正 ${rotation.label}（倒着扫描的页转回来）`}
+            disabled={rotation.count === 0}
+            className={cn(PBTN, 'gap-1 disabled:cursor-not-allowed disabled:opacity-40')}
+          >
+            <RotateCw className="h-3.5 w-3.5" />
+            转正
+            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-[210px]">
+          <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+            作用范围：{rotation.label}
+          </DropdownMenuLabel>
+          <DropdownMenuItem onSelect={() => rotation.rotate(90)} className="text-[12.5px]">
+            顺时针旋转 90°
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => rotation.rotate(-90)} className="text-[12.5px]">
+            逆时针旋转 90°
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => rotation.rotate(180)} className="text-[12.5px]">
+            旋转 180°（倒着扫描最常见）
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => rotation.rotate(0)}
+            disabled={rotation.rotatedCount === 0}
+            className="text-[12.5px]"
+          >
+            重置方向{rotation.rotatedCount > 0 ? `（已转 ${rotation.rotatedCount} 页）` : ''}
+          </DropdownMenuItem>
+          <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+            勾选页后只转所选；未勾选时转当前段
+          </DropdownMenuLabel>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <span className="h-4 w-px flex-none bg-border max-[760px]:hidden" />
 

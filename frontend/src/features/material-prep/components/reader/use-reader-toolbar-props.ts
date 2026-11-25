@@ -1,5 +1,6 @@
 import { toast } from 'sonner'
 
+import { rotationTargetOf } from './rotation-target'
 import { useReaderStoreFields } from './use-reader-store-fields'
 import { countUnclassified, isAutoSegName } from '../../draft'
 import type { DraftState } from '../../types'
@@ -32,6 +33,8 @@ export function useReaderToolbarProps(params: {
   onFocusSeg: (si: number) => void
   /** 「追加材料」按钮要触发的隐藏 input 元素（回调 ref 已由 Hook 落到自己的 ref 上） */
   addInput: HTMLInputElement | null
+  /** 左栏当前选中段的下标（决定「转正」默认作用在哪一段） */
+  focusedSeg: number
   autoSplit: ReturnType<typeof useAutoSplit>
 }) {
   const {
@@ -55,6 +58,10 @@ export function useReaderToolbarProps(params: {
   // 直接取 store 里的稳定动作引用（zustand action 引用恒不变），不再每个 render
   // 新建箭头——否则工具栏 memo 失效
   const st = useReaderStoreFields()
+
+  // 「转正」的作用范围（选中页 → 当前段 → 全部）：律师第一反应是「整份都倒了」，
+  // 不该逼他先勾 37 页；而只放反一页时勾一页即可。落点写进标签，避免盲按。
+  const rotationTarget = rotationTargetOf(draft, st.selPages, params.focusedSeg)
 
   // 归案唯一入口：没归完类不打开弹窗，跳到第一个未归类的段并提示
   //（未归类 = 名字仍是系统默认名；改名是唯一的归类入口）
@@ -101,6 +108,17 @@ export function useReaderToolbarProps(params: {
       if (n > 1) onCollapsePanels()
     },
     onResetSegments,
+    // 页转正（人工）：90 / -90 / 180 叠加，0 = 重置方向
+    rotation: {
+      label: rotationTarget.label,
+      count: rotationTarget.refs.length,
+      rotatedCount: rotationTarget.rotatedCount,
+      rotate: (deg: number) => {
+        if (!rotationTarget.refs.length) return
+        if (deg === 0) st.resetPagesRotation(rotationTarget.refs)
+        else st.rotatePages(rotationTarget.refs, deg)
+      },
+    },
     onAutoSplit: () => void autoSplit.run(),
     autoSplitRunning: autoSplit.running,
     autoSplitProgress: autoSplit.progress,
