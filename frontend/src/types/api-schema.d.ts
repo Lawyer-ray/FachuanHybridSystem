@@ -19762,6 +19762,13 @@ export interface components {
             /** Source Message Id */
             source_message_id?: number | null;
             /**
+             * Last Decision Action
+             * @default
+             */
+            last_decision_action: string;
+            /** Last Decision At */
+            last_decision_at?: string | null;
+            /**
              * Created At
              * Format: date-time
              */

@@ -53,6 +53,9 @@ RUN_OUT_FIELDS = {
     "findings",
     "coverage",
     "source_message_id",
+    # 最近一次裁决：前端靠它判断「这行还需不需要处理」，不能只看 state
+    "last_decision_action",
+    "last_decision_at",
     "created_at",
 }
 

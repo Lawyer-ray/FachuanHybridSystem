@@ -20,6 +20,7 @@ from apps.cases.models import CaseAssignment
 from apps.core.exceptions import register_exception_handlers
 from apps.doc_verify.api import router
 from apps.doc_verify.models import CaptureSource, OutboundArtifact, VerificationRun, VerifyState
+from apps.doc_verify.services.verify import decision as decision_service
 from apps.testing.factories import CaseFactory, LawyerFactory
 
 PDF_SHA = hashlib.sha256(b"%PDF-1.7 outbound").hexdigest()
@@ -118,3 +119,26 @@ def test_pending_route_is_mounted() -> None:
     """
     match = resolve("/api/v1/doc-verify/pending")
     assert "pending" in str(match.route)
+
+
+@pytest.mark.django_db
+def test_history_row_exposes_the_latest_decision(client: TestClient) -> None:
+    """历史行必须能说清「这行处置过没有」。
+
+    只看 `state` 是不够的：`changed` 也可能是三天前已经采纳过的。前端据此决定要不要
+    给人「去处理」入口，判错就是把已处置的件重新推到律师面前。
+    """
+    case = CaseFactory()
+    me = LawyerFactory()
+    CaseAssignment.objects.create(case=case, lawyer=me)
+    run = _pending_run(_artifact(case))
+
+    fresh = client.get(f"/doc-verify/runs?case_id={case.pk}", auth=me).json()["items"][0]
+    assert fresh["last_decision_action"] == ""
+    assert fresh["last_decision_at"] is None
+
+    decision_service.record_decision(verification=run, action="accept", reason="客户已说明", decided_by=me)
+
+    decided = client.get(f"/doc-verify/runs?case_id={case.pk}", auth=me).json()["items"][0]
+    assert decided["last_decision_action"] == "accept"
+    assert decided["last_decision_at"] is not None

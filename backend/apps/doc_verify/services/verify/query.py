@@ -38,7 +38,9 @@ def get_artifact(artifact_id: int) -> OutboundArtifact:
 
 def get_run(run_id: int) -> VerificationRun:
     """按 id 取核对运行；不存在时给 404。"""
-    run = VerificationRun.objects.select_related("artifact__case").filter(id=run_id).first()
+    run = (
+        VerificationRun.objects.select_related("artifact__case").prefetch_related("decisions").filter(id=run_id).first()
+    )
     if run is None:
         raise NotFoundError(message=f"核对运行不存在：{run_id}", errors={"run_id": run_id})
     return run
@@ -48,6 +50,7 @@ def run_detail(run: VerificationRun) -> dict[str, Any]:
     """一次核对的对外形状（详情、清单、历史共用同一份，避免两处字段漂移）。"""
     artifact = run.artifact
     case = artifact.case
+    latest = _latest_decision(run)
     return {
         "id": run.id,
         "artifact_id": run.artifact_id,
@@ -64,8 +67,22 @@ def run_detail(run: VerificationRun) -> dict[str, Any]:
         "findings": list(run.findings or []),
         "coverage": dict(run.coverage or {}),
         "source_message_id": run.source_message_id,
+        # 最近一次裁决：前端据此判断「这行还需不需要处理」。
+        # 没有它就只能在 state 上猜——而 `changed` 也可能是三天前已经采纳过的。
+        "last_decision_action": getattr(latest, "action", "") or "",
+        "last_decision_at": getattr(latest, "decided_at", None),
         "created_at": run.created_at,
     }
+
+
+def _latest_decision(run: VerificationRun) -> Any | None:
+    """最近一次裁决（`VerificationDecision.Meta.ordering` 是 -decided_at，取第一条）。
+
+    列表查询都 `prefetch_related("decisions")`，所以这里不产生额外查询；
+    真漏了 prefetch 也只是慢一点，不会错。
+    """
+    decisions = list(run.decisions.all())
+    return decisions[0] if decisions else None
 
 
 def list_unverified(case_id: int) -> list[dict[str, Any]]:
@@ -78,6 +95,7 @@ def list_unverified(case_id: int) -> list[dict[str, Any]]:
         )
         .exclude(decisions__action__in=DECIDED_ACTIONS)
         .select_related("artifact__case")
+        .prefetch_related("decisions")
         .order_by("-created_at", "-id")
     )
     return [run_detail(run) for run in runs]
@@ -126,6 +144,7 @@ def list_pending(*, user: Any, limit: int = 100) -> list[dict[str, Any]]:
         )
         .exclude(decisions__action__in=DECIDED_ACTIONS)
         .select_related("artifact__case")
+        .prefetch_related("decisions")
         .order_by("-created_at", "-id")
     )
     visible = accessible_case_ids(user)

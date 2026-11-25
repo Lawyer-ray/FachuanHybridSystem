@@ -68,6 +68,9 @@ class VerifyRunOut(Schema):
     findings: list[FindingOut]
     coverage: dict[str, Any]
     source_message_id: int | None = None
+    #: 最近一次裁决动作（accept/reject/reissue）；空串 = 还没人处置过
+    last_decision_action: str = ""
+    last_decision_at: datetime | None = None
     created_at: datetime
 
 

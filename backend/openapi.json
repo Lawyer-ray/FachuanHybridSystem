@@ -45031,6 +45031,23 @@
             ],
             "title": "Source Message Id"
           },
+          "last_decision_action": {
+            "default": "",
+            "title": "Last Decision Action",
+            "type": "string"
+          },
+          "last_decision_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Decision At"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
