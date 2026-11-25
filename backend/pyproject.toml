@@ -31,7 +31,12 @@ dependencies = [
     # --- 异步 I/O ---
     "aiofiles>=24.1.0",
     # --- LLM / AI ---
-    "openai>=2.53.0",
+    # 钉死而不是范围：依赖图里没有任何东西给 openai 设上界（`openai-agents==0.25.0`
+    # 只写 `{ name = "openai" }`，无 specifier），所以 `uv lock --upgrade` 可以一路
+    # 解析到 4.x。而它是 LLM 网关的唯一 SDK，挂了就是分段/起草/识别/agent 一起挂，
+    # 且失败形态多半是流式帧形状变了——单测与 CI 都拦不住。
+    # 与同一簇的 openai-agents / deepseek-harness-sdk / claude-agent-sdk 保持一致（都是 `==`）。
+    "openai==3.57.0",
     "huggingface-hub>=2.0.0",  # v2 移除 resume_download 参数（本项目未使用，安全）
     # DeepSeek Harness Python SDK：第二个 agent 运行时（与 pi 并存，会话级切换）。
     # 会连带装同版本 deepseek-harness-runtime-bin（平台二进制 wheel）。

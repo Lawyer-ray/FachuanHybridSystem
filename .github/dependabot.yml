@@ -5,7 +5,32 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    # 分组策略：**不能让「挂了就是大面积故障」的包和大部队挤在一单里**。
+    #
+    # 背景（2026-11-25 实测）：原来只有一个 `python: patterns: ["*"]`，17 个包打成
+    # 一单、+385/−360 行、标题只写 "bump the python group with 14 updates"。
+    # `openai` 3.52→3.57 那几行就埋在里面，靠人/靠 AI 逐包拆 diff 才发现。
+    # 而 dependabot 的 `uv` 生态是跑 `uv lock --upgrade`，一旦赶上某包发大版本，
+    # 大版本升级同样会滑进这一单——CI 还可能是绿的（单测覆盖不到流式帧形状这类变化）。
+    #
+    # 所以把 critical 组单列出来：它们的 diff 会独立成 PR，标题直接点名，
+    # 评审时不会和十几个 patch 级升级混在一起。
     groups:
+      critical-backend-deps:
+        patterns:
+          - "openai"
+          - "openai-agents"
+          - "deepseek-harness-sdk"
+          - "claude-agent-sdk"
+          - "google-antigravity"
+          - "django"
+          - "django-*"
+          - "pydantic"
+          - "pydantic-core"
+          - "opencv-python-headless"
+          - "pymupdf"
+          - "psycopg"
+          - "psycopg-*"
       python:
         patterns:
           - "*"

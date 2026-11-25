@@ -1586,7 +1586,7 @@ requires-dist = [
     { name = "markdown", specifier = ">=3.10.3" },
     { name = "mcp", extras = ["cli"], specifier = ">=2.2.0" },
     { name = "onnxruntime", specifier = ">=1.32.0" },
-    { name = "openai", specifier = ">=2.53.0" },
+    { name = "openai", specifier = "==3.57.0" },
     { name = "openai-agents", specifier = "==0.25.0" },
     { name = "opencv-python-headless", specifier = "==5.1.0.95" },
     { name = "openpyxl", specifier = "==3.1.5" },
