@@ -50,6 +50,46 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }))
 
+// 右栏面板会去拉清单/版本：这里给「还没审过 + 没有历史版本」的最小回执，
+// 免得测试真去打网络（打不到就会一直停在 loading，断言无从下手）
+vi.mock('./doc-review-api', () => ({
+  fetchLatestRun: vi.fn(async (kind: string, ownerId: number, subpath: string) => ({
+    id: 0,
+    owner_kind: kind,
+    owner_id: ownerId,
+    subpath,
+    stance: 'neutral',
+    contract_type: '',
+    status: 'none',
+    playbook_key: '',
+    playbook_version: null,
+    summary: {},
+    error_message: '',
+    created_at: new Date().toISOString(),
+    finished_at: null,
+    findings: [],
+  })),
+  listSnapshots: vi.fn(async () => ({ items: [] })),
+  startReview: vi.fn(async () => ({ run_id: 1, status: 'queued', queued: true, hint: '' })),
+  decideFinding: vi.fn(),
+  bulkAccept: vi.fn(),
+  restoreSnapshot: vi.fn(),
+  REJECT_REASONS: [],
+  SEVERITY_LABEL: { high: '高', medium: '中', low: '低' },
+  DELIVERY_LABEL: { revision: '修订', comment: '批注', both: '修订+批注', list_only: '仅清单' },
+  STATUS_LABEL: {
+    proposed: '待决',
+    accepted: '已采纳',
+    rejected: '已驳回',
+    stale: '锚点失效',
+    moot: '已消解',
+    merged: '已合并',
+    unanchored: '锚不到',
+  },
+  REJECT_REASON_LABEL: {},
+  SNAPSHOT_REASON_LABEL: {},
+}))
+
 import { toast } from 'sonner'
 
 import { FilePreview } from './FilePreview'
@@ -163,10 +203,19 @@ describe('FilePreview', () => {
     expect(onBack).toHaveBeenCalledTimes(2)
   })
 
-  it('docx 显示 AI 审查并可触发', () => {
+  it('docx 的「AI 审查」在当前页打开风险清单，而不是跳去另一个复审台', async () => {
     const { onReview } = setup()
     fireEvent.click(screen.getByRole('button', { name: /AI 审查/ }))
-    expect(onReview).toHaveBeenCalledWith({ subpath: '1-合同/a.docx', name: '顾问合同.docx' })
+
+    // 清单在**当前这一屏**出现：审查结论挂在当前文件上，不再是一次上传产生的新任务
+    expect(await screen.findByText('风险清单')).toBeTruthy()
+    expect(onReview).not.toHaveBeenCalled()
+  })
+
+  it('「版本」在当前页打开版本历史', async () => {
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: /版本/ }))
+    expect(await screen.findByText('版本历史')).toBeTruthy()
   })
 })
 

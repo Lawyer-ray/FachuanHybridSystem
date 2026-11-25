@@ -41,6 +41,12 @@ DANGER_PATTERNS: tuple[str, ...] = (
     # 真正改律师文件**的工具，原先因为它只命中 WRITE_PREFIXES 而被判 MEDIUM（免审批、
     # 不落 AgentApproval），等于最危险的那个反而无人闸门。
     "rewrite_",
+    # 文档工作面（2026-11-26）：这三个都会**真的改/建律师的文件**。
+    # 用完整工具名做子串，避免把 read_folder_file / list_folder_files 这类读工具
+    # 或只写库的 create_folder_binding 一起升成高危（那会给日常操作加摩擦）。
+    "apply_document_revisions",
+    "add_document_comments",
+    "create_folder_file",
     "delete",
     "remove_",
     "destroy",

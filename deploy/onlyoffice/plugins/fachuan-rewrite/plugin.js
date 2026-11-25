@@ -150,6 +150,24 @@
   */
   var COMMAND_TIMEOUT_MS = 8000;
 
+  /* AI 修订的署名（与 backend/apps/doc_workspace/services/docx/revision.py 的
+     AI_AUTHOR 必须完全一致）。同一份文档里出现两个 AI 作者名，律师在
+     「审阅」面板里会看到两个「人」，按作者过滤的统计也全废。 */
+  var AI_AUTHOR = "法穿AI";
+
+  /* 开修订模式。
+
+     DS 10.x 才有 SetAssistantTrackRevisions(isTrack, assistantName)（给 AI 修订
+     单独署名）；9.4 实测**不存在**（typeof 探测见 hello 回执的 caps）。
+     所以这里做能力守卫：有就用（未来升级 DS 自动获得署名分离），没有就退回
+     普通修订 —— 退回去的时候修订会记在当前登录用户名下，由后端在保存回写时
+     按文本指纹改写作者（见 onlyoffice/services/author_normalizer.py）。 */
+  var TRACK_REVISIONS_JS = [
+    "if (typeof doc.SetAssistantTrackRevisions === 'function') {",
+    "  try { doc.SetAssistantTrackRevisions(true, '" + AI_AUTHOR + "'); } catch (e) { doc.SetTrackRevisions(true) }",
+    "} else { doc.SetTrackRevisions(true) }"
+  ];
+
   var ADAPTERS = {
 
     /* ---------------- Word（docx）---------------- */
@@ -166,12 +184,122 @@
         Asc.scope.key = JSON.stringify(payload);
         window.Asc.plugin.callCommand(kernelFn([
           "var s = JSON.parse(Asc.scope.key);",
-          "var doc = Api.GetDocument();",
-          "doc.SetTrackRevisions(true);",              /* 关键：先开修订模式 */
+          "var doc = Api.GetDocument();"
+        ].concat(TRACK_REVISIONS_JS).concat([
           "var hit = __find(doc, s.orig);",
           "if (!hit.ok) return { ok: false, reason: '原文未找到（可能已被改写）' };",
           "Api.ReplaceTextSmart([s.sug], false, true);",
           "return { ok: true, how: hit.how, n: hit.n || 1 };"
+        ])), false);
+      },
+
+      /* 批注（不改正文的意见）。
+
+         AddComment 作用于**当前选区**，所以先把原文 __find 出来选中再调。
+         QuoteText 由 DS 自己记录（不用我们把锚点位置算出来），这是 9.4 上
+         唯一可行的批注锚定方式。
+
+         为什么必须开修订模式再挂批注：不开的话，被批注的文本在被改写时
+         批注会漂移；开了修订，DS 会把批注挂在修订后的范围上。 */
+      comments: function (payload, done) {
+        var items = (payload && payload.comments) || [];
+        if (!items.length) return done({ ok: false, reason: "没有要添加的批注" });
+        var results = [];
+        var index = 0;
+        function next() {
+          if (index >= items.length) return done({ ok: true, results: results });
+          var item = items[index];
+          var seq = index;
+          index += 1;
+          Asc.scope.key = JSON.stringify({ orig: String(item.orig || "") });
+          window.Asc.plugin.callCommand(kernelFn([
+            "var s = JSON.parse(Asc.scope.key);",
+            "var doc = Api.GetDocument();",
+            "var hit = __find(doc, s.orig);",
+            "if (!hit.ok) return { ok: false, reason: '原文未找到' };",
+            "return { ok: true, how: hit.how };"
+          ]), false);
+          /* callCommand 的回调走 onCommandCallback；这里临时接一手，拿到定位
+             结果立刻发 AddComment，再进下一条 —— 串行才能保证
+             「选中的确实是这一条要评论的文字」。 */
+          var prev = window.Asc.plugin.onCommandCallback;
+          window.Asc.plugin.onCommandCallback = function (res) {
+            window.Asc.plugin.onCommandCallback = prev;
+            if (!res || !res.ok) {
+              results.push({ index: seq, ok: false, reason: (res && res.reason) || "定位失败" });
+              return next();
+            }
+            var data = {
+              UserName: AI_AUTHOR,
+              QuoteText: String(item.orig || ""),
+              Text: String(item.text || ""),
+              /* Time 必须是**毫秒时间戳（数字）**。
+
+                 DS 内核（`BinaryCommentsTableWriter.WriteComment`）做的是：
+                   new Date(comment.m_sTime - 0).toISOString()...
+                 那个 `- 0` 会把值强制成数字，传 ISO 字符串就得到 NaN，
+                 异常是 `RangeError: Invalid time value`，后果不是「批注时间不对」
+                 而是**整份文档保存失败**（回调 status=3，律师以为存上了其实没存）。
+                 真机实测（9.4.0.1 Build 129）。 */
+              Time: Date.now()
+            };
+            var received = false;
+            function finish(commentId) {
+              if (received) return;
+              received = true;
+              results.push({ index: seq, ok: true, commentId: commentId || "" });
+              next();
+            }
+            try {
+              window.Asc.plugin.executeMethod("AddComment", [data], finish);
+            } catch (e) {
+              results.push({ index: seq, ok: false, reason: String(e.message || e) });
+              return next();
+            }
+            /* AddComment 的回调在部分构建里不回 commentId，甚至不回调；
+               不能让一条批注把整批卡死，所以给一个短兜底。 */
+            setTimeout(function () { finish("") }, 1500);
+          };
+        }
+        next();
+      },
+
+      getComments: function (payload, done) {
+        try {
+          window.Asc.plugin.executeMethod("GetAllComments", null, function (items) {
+            var list = items || [];
+            var out = [];
+            for (var i = 0; i < list.length; i += 1) {
+              var c = list[i] || {};
+              var reply = c.Data || c;
+              out.push({
+                commentId: c.Id || c.id || "",
+                quote: (reply && (reply.QuoteText || reply.quoteText)) || "",
+                text: (reply && (reply.Text || reply.text)) || "",
+                userName: (reply && (reply.UserName || reply.userName)) || "",
+                solved: !!(reply && (reply.Solved || reply.solved))
+              });
+            }
+            done({ ok: true, comments: out });
+          });
+        } catch (e) {
+          done({ ok: false, reason: String(e.message || e) });
+        }
+      },
+
+      /* 内核能力探测：升级 DS 前先知道哪些 API 真的在。
+         回执进 hello/ready，页面侧据此决定走哪条分支，不靠猜。 */
+      capabilities: function (payload, done) {
+        window.Asc.plugin.callCommand(kernelFn([
+          "var doc = Api.GetDocument();",
+          "function has(o, n) { try { return typeof o[n] === 'function' } catch (e) { return false } }",
+          "return {",
+          "  ok: true,",
+          "  assistantTrackRevisions: has(doc, 'SetAssistantTrackRevisions'),",
+          "  trackRevisions: has(doc, 'SetTrackRevisions'),",
+          "  contentControl: has(doc, 'AddContentControl'),",
+          "  revisionCount: (typeof doc.GetAllRevisionChanges === 'function')",
+          "};"
         ]), false);
       },
       bulk: function (accept, done) {
@@ -324,6 +452,29 @@
       }, d.payload || {}, "applied");
       return;
     }
+    if (d.action === "add-comments") {
+      runWithCallback(function (a, p, done) {
+        if (!a.ready()) return done({ ok: false, reason: "不支持的文档类型" });
+        if (typeof a.comments !== "function") return done({ ok: false, reason: "当前文档类型不支持批注" });
+        a.comments(p, done);
+      }, d.payload || {}, "commented");
+      return;
+    }
+    if (d.action === "get-comments") {
+      runWithCallback(function (a, p, done) {
+        if (!a.ready()) return done({ ok: false, reason: "不支持的文档类型" });
+        if (typeof a.getComments !== "function") return done({ ok: false, reason: "当前文档类型不支持批注" });
+        a.getComments(p, done);
+      }, d.payload || {}, "comments");
+      return;
+    }
+    if (d.action === "capabilities") {
+      runWithCallback(function (a, p, done) {
+        if (!a.ready()) return done({ ok: false, reason: "不支持的文档类型" });
+        a.capabilities(p, done);
+      }, d.payload || {}, "capabilities");
+      return;
+    }
     if (d.action === "accept-all" || d.action === "reject-all") {
       var accept = d.action === "accept-all";
       runWithCallback(function (a, p, done) {
@@ -345,6 +496,10 @@
     post({ type: "ready", editorType: editorType(), supported: !!(adapter() && adapter().ready()) });
     watchSelection();
   };
+
+  /* 供页面在 hello/ready 之后主动查能力（返回值进入 capabilities 回执）。
+     不能往 Asc.plugin 上挂自己的字段：`Asc.scope` 只能传字符串、对象会被
+     静默丢弃（红线见文件头）。所以用消息 action，不用全局变量。 */
   window.Asc.plugin.button = function () { window.Asc.plugin.executeCommand("close", "") };
   window.Asc.plugin.onContextMenuClick = function (id) {
     if (id === "fachuanAiRewrite" || (id && id.id === "fachuanAiRewrite")) getSelection();

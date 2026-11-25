@@ -1,0 +1,44 @@
+{
+  "_comment": "已知的 OpenAPI 组件名冲突（棘轮基线）。只许减少，不许增加。修掉一对就删对应条目——基线里的条目失效（不再冲突或文件没了）会让测试直接红，逼着清理。",
+  "_incident": "2026-11-26：apps/doc_workspace 的 FindingOut 静默覆盖了 apps/doc_verify 的同名组件，CaseVerifyCard.tsx 编译不过。加这条守门时顺带查出下面 10 处存量冲突。",
+  "ActionOut": [
+    "apps/contracts/api/invoice_intake_api.py",
+    "apps/contracts/api/payment_intake_api.py"
+  ],
+  "CaseOut": [
+    "apps/cases/schemas/case_schemas.py",
+    "apps/contracts/schemas/lawyer_schemas.py"
+  ],
+  "ConfirmIn": [
+    "apps/contracts/api/invoice_intake_api.py",
+    "apps/contracts/api/payment_intake_api.py"
+  ],
+  "ErrorResponse": [
+    "apps/litigation_ai/api/mock_trial_schemas.py",
+    "apps/litigation_ai/api/schemas.py"
+  ],
+  "FolderBrowseEntrySchema": [
+    "apps/cases/schemas/folder_binding_schemas.py",
+    "apps/contracts/schemas/folder_binding_schemas.py"
+  ],
+  "FolderBrowseResponseSchema": [
+    "apps/cases/schemas/folder_binding_schemas.py",
+    "apps/contracts/schemas/folder_binding_schemas.py"
+  ],
+  "ReasonIn": [
+    "apps/contracts/api/invoice_intake_api.py",
+    "apps/contracts/api/payment_intake_api.py"
+  ],
+  "ScanOut": [
+    "apps/contracts/api/invoice_intake_api.py",
+    "apps/contracts/api/payment_intake_api.py"
+  ],
+  "SessionOut": [
+    "apps/agent/schemas/session_schemas.py",
+    "apps/social_auth/api/social_auth_schemas.py"
+  ],
+  "TaskOut": [
+    "apps/agent/schemas/task_schemas.py",
+    "apps/core/api/task_queue_api.py"
+  ]
+}

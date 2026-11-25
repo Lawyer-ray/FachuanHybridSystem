@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, CopyPlus, Download, FileSearch, Loader2, Save } from 'lucide-react'
+import { ArrowLeft, CopyPlus, Download, FileSearch, History, Loader2, Save, X } from 'lucide-react'
 
 import { OfficeView, type OfficeEditorHandle } from '@/components/shared/onlyoffice/OfficeView'
-import type { FolderOwnerKind } from '../../api'
+import { cn } from '@/lib/utils'
+import { folderFileUrl, type FolderOwnerKind } from '../../api'
+import { ReviewPanel } from './ReviewPanel'
+import { VersionHistoryPanel } from './VersionHistoryPanel'
+import { useCanvasPresence } from './use-canvas-presence'
 import { canSaveAs } from './use-save-as'
 import { useFolderSave } from './use-folder-save'
 import { useLiveRewriteApply } from './use-live-rewrite-apply'
@@ -51,10 +55,24 @@ export function FilePreview({
   // AI 直改覆写该文件的次数：>0 时作为 version 换 key 重载画布，修订痕迹才可见
   const rewriteNonce = useFileRewriteNonce(kind, ownerId, file.subpath)
   // 就地落修订通道（合同/案件 docx 通用）：AI 覆写成功时免重载直接在画布里长出修订
+  /**
+   * 右栏面板：风险清单 / 版本历史。
+   *
+   * **审查不再跳到另一个页面**：结论挂在当前这份文件上，点到哪条就在画布里
+   * 定位到哪一段。旧的上传式复审台留在这里只会让律师误点进另一条流程。
+   */
+  const [panel, setPanel] = useState<'none' | 'findings' | 'versions'>('none')
+  /** 画布当前选区：用来把「框选的一段」反查成清单里的某一条 */
+  const [selection, setSelection] = useState('')
+
   const liveApply = useLiveRewriteApply({
     enabled: isDocx,
     key: `${kind}:${ownerId}:${file.subpath}`,
+    // 就地落笔成功后要拿它登记「画布已同步」，口径与签配置的 file_url 逐字一致
+    fileUrl: folderFileUrl(kind, ownerId, file.subpath),
   })
+  // 告诉后端「这份文件的画布开着」：AI 写完盘据此决定要不要下发画布重放
+  useCanvasPresence(kind, ownerId, file.subpath, isDocx)
 
   /**
    * 触发保存（DS forcesave → 回调落盘）。
@@ -150,28 +168,95 @@ export function FilePreview({
         {onReview && isDocx && (
           <button
             type="button"
-            onClick={() => onReview({ subpath: file.subpath, name: file.name })}
-            className="inline-flex h-[30px] flex-none items-center gap-1.5 rounded-[8px] border border-border bg-card px-2.5 text-[12px] font-[550] text-secondary-foreground transition-colors hover:bg-secondary"
+            onClick={() => setPanel((p) => (p === 'findings' ? 'none' : 'findings'))}
+            aria-pressed={panel === 'findings'}
+            className={cn(
+              'inline-flex h-[30px] flex-none items-center gap-1.5 rounded-[8px] border px-2.5 text-[12px] font-[550] transition-colors',
+              panel === 'findings'
+                ? 'border-foreground bg-foreground text-background'
+                : 'border-border bg-card text-secondary-foreground hover:bg-secondary',
+            )}
           >
             <FileSearch className="size-3.5" />
             AI 审查
           </button>
         )}
+
+        {isDocx && (
+          <button
+            type="button"
+            onClick={() => setPanel((p) => (p === 'versions' ? 'none' : 'versions'))}
+            aria-pressed={panel === 'versions'}
+            className={cn(
+              'inline-flex h-[30px] flex-none items-center gap-1.5 rounded-[8px] border px-2.5 text-[12px] font-[550] transition-colors',
+              panel === 'versions'
+                ? 'border-foreground bg-foreground text-background'
+                : 'border-border bg-card text-secondary-foreground hover:bg-secondary',
+            )}
+          >
+            <History className="size-3.5" />
+            版本
+          </button>
+        )}
       </div>
 
-      {/* 文档占满剩余空间：OnlyOffice 自带分页与缩放，别再额外挤压 */}
-      <div className="min-h-0 flex-1 bg-[#f6f6f7]">
-        <OfficeView
-          fileUrl={fileUrl}
-          fileName={file.name}
-          mode={isDocx ? 'edit' : 'view'}
-          version={rewriteNonce ? String(rewriteNonce) : ''}
-          onEditorReady={(h) => {
-            editorRef.current = h
-            setReady(!!h)
-            liveApply.onEditorReady(h)
-          }}
-        />
+      <div className="flex min-h-0 flex-1">
+        {/* 文档占满剩余空间：OnlyOffice 自带分页与缩放，别再额外挤压 */}
+        <div className="min-h-0 min-w-0 flex-1 bg-[#f6f6f7]">
+          <OfficeView
+            fileUrl={fileUrl}
+            fileName={file.name}
+            mode={isDocx ? 'edit' : 'view'}
+            version={rewriteNonce ? String(rewriteNonce) : ''}
+            onEditorReady={(h) => {
+              editorRef.current = h
+              setReady(!!h)
+              liveApply.onEditorReady(h)
+            }}
+            // 选区只存在于 DS 内核：靠插件桥递出来，才能把「框选的一段」反查成清单条目
+            onPluginMessage={(msg) => {
+              if (msg.type === 'selection') setSelection(msg.text)
+            }}
+          />
+        </div>
+
+        {panel !== 'none' && (
+          <div className="flex w-[340px] flex-none flex-col border-l border-border">
+            <div className="flex flex-none justify-end border-b border-border bg-card px-1 py-0.5">
+              <button
+                type="button"
+                onClick={() => setPanel('none')}
+                aria-label="收起右栏"
+                className="rounded-[6px] p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1">
+              {panel === 'findings' ? (
+                <ReviewPanel
+                  kind={kind}
+                  ownerId={ownerId}
+                  subpath={file.subpath}
+                  selection={selection}
+                  onLocate={(finding) => {
+                    // 送进画布定位：锚点用「要替换的原文」优先，退回 quote
+                    editorRef.current?.sendToPlugin('locate', finding.suggestion_original || finding.quote)
+                  }}
+                  onChanged={() => onSaved?.()}
+                  onOpenDoc={() => setPanel('none')}
+                />
+              ) : (
+                <VersionHistoryPanel
+                  kind={kind}
+                  ownerId={ownerId}
+                  subpath={file.subpath}
+                  onRestored={() => onSaved?.()}
+                />
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

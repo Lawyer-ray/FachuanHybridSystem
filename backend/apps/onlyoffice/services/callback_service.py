@@ -17,6 +17,7 @@ max），不是用户级——两名律师同开同一文档是同一个 DS 协�
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Any
 from uuid import UUID, uuid5
 
@@ -171,6 +172,89 @@ def register_save_as_intent(*, task_type: str, user: Any, source_path: str, name
     return session
 
 
+def ack_canvas_synced(*, task_type: str, user: Any, source_path: str) -> bool:
+    """把「这份画布已与磁盘一致」这个事实登记回会话。
+
+    ## 为什么必须有这一步
+
+    AI 就地落修订（插件桥 `apply-revision`）成功时，**画布和磁盘都已经变了**，
+    但前端刻意不重载画布（免整页重建）。而后端只把 `external_write_seq` 抬了
+    一代，`canvas_seq` 仍是旧快照——于是判据 `doc_seq > canvas_seq` 恒真，律师
+    在这份画布上**之后的所有保存都会被当成旧画布丢掉**，且因为应答 `error:0`
+    而完全静默。
+
+    正确语义是「画布已同步」：把本会话的 `canvas_seq` **单向上对齐**到文档级
+    外写代次。注意方向：绝不能改成「让 canvas_seq 跟着计数器一起涨」——那样
+    判据恒假，守门人变死代码（见 `models.py` 里 canvas_seq 的注释）。
+
+    只有前端在**收到插件成功回执**后才允许调它：落笔失败时画布确实还是旧的，
+    此时对齐等于亲手拆掉守门人。
+
+    Returns: 找到并更新了会话返回 True；没有会话（未打开过）返回 False。
+    """
+    session = find_session_for_source(task_type=task_type, user=user, source_path=source_path)
+    if session is None:
+        return False
+    target = _doc_external_seq(session.task_id, session.task_type)
+    fields: list[str] = []
+    if int(session.canvas_seq or 0) != target:
+        session.canvas_seq = target
+        fields.append("canvas_seq")
+    if session.last_save_dropped_at is not None:
+        # 一次性信号：画布对齐了，「上次保存被丢弃」的提示就没有意义了
+        session.last_save_dropped_at = None
+        fields.append("last_save_dropped_at")
+    if not fields:
+        return True
+    session.save(update_fields=[*fields, "updated_at"])
+    logger.info(
+        "画布已与磁盘对齐: task_type=%s task=%s canvas_seq=%d",
+        session.task_type,
+        session.task_id,
+        target,
+    )
+    return True
+
+
+@dataclass(frozen=True)
+class CanvasState:
+    """前端查一次就能知道「我这份画布还能不能安全保存」。"""
+
+    stale: bool
+    """True = 磁盘比画布新（AI 改过而画布没落到），此刻保存会被丢弃。"""
+
+    reason: str
+    """给律师看的文案；不 stale 时为空串。"""
+
+    dropped_at: Any
+    """最近一次「保存被丢弃」的发生时间；None = 从未丢过。"""
+
+
+_NO_SESSION_STATE = CanvasState(stale=False, reason="", dropped_at=None)
+
+
+def canvas_state_for(*, task_type: str, user: Any, source_path: str) -> CanvasState:
+    """读取当前用户在该文件上的画布状态（未打开过文档时返回非 stale）。"""
+    session = find_session_for_source(task_type=task_type, user=user, source_path=source_path)
+    if session is None:
+        return _NO_SESSION_STATE
+    reason = stale_canvas_reason(session)
+    return CanvasState(stale=bool(reason), reason=reason, dropped_at=session.last_save_dropped_at)
+
+
+def record_save_dropped(session: EditorSession, status: int) -> None:
+    """记下「这次保存被丢弃」：前端据此把它说出来，而不是让律师以为已存。"""
+    session.last_callback_status = status
+    session.last_save_dropped_at = timezone.now()
+    session.save(update_fields=["last_callback_status", "last_save_dropped_at", "updated_at"])
+    logger.warning(
+        "已记录被丢弃的保存（内容未落盘）: task=%s key=%s status=%s",
+        session.task_id,
+        session.document_key,
+        status,
+    )
+
+
 def load_session_by_key(key: str) -> EditorSession | None:
     """按回调里的 key 找会话。
 
@@ -236,7 +320,7 @@ def handle_save_callback(session: EditorSession, url: str, status: int) -> bool:
             session.task_id,
             session.document_key,
         )
-        record_callback_status(session, status)
+        record_save_dropped(session, status)
         return True
     try:
         data = _download_edited_docx(url)

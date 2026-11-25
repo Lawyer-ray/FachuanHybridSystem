@@ -7812,6 +7812,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/onlyoffice/canvas-state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 该文件上当前用户画布是否落后于磁盘
+         * @description 保存之后立刻查一次，把「本次保存被丢弃」这件事说给律师听。
+         *
+         *     `stale=true` 表示磁盘比画布新（AI 改过、而这份画布没落到），此时在画布上
+         *     再点保存会被主动丢弃（见 `callback_service.stale_canvas_reason`）。
+         *     `dropped_at` 非空 = 至少丢过一次保存，内容**没落盘**。
+         */
+        get: operations["apps_onlyoffice_api_onlyoffice_api_get_canvas_state"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onlyoffice/canvas-ack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 登记「这份画布已与磁盘一致」
+         * @description 插件把 AI 修订就地落进画布**且成功**之后调用。
+         *
+         *     为什么只有前端能调、且只在成功回执后调：落笔失败时画布确实还是旧的，
+         *     此时对齐代次等于亲手拆掉「旧画布不得覆盖 AI 修订」的守门人。
+         *     不调它的后果是：律师在这份画布上后续每一次保存都被当成旧画布静默丢弃。
+         */
+        post: operations["apps_onlyoffice_api_onlyoffice_api_ack_canvas"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/onlyoffice/callback": {
         parameters: {
             query?: never;
@@ -7857,6 +7905,350 @@ export interface paths {
          *     会出现「签名对象错位 → 稳定 403」。
          */
         get: operations["apps_onlyoffice_api_onlyoffice_api_serve_file"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/apply-batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 一次落多条修订（全或无）
+         * @description 十条修订里有一条定位不到，就**一个字都不写**。
+         *
+         *     半改过的文件既不是原稿也不是审完稿，律师无法判断哪几条生效了。
+         */
+        post: operations["apps_doc_workspace_api_write_api_apply_batch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 给若干段挂 Word 原生批注（不改正文）
+         * @description 批注不做全或无：部分成功仍是一份完整可用的文档。
+         */
+        post: operations["apps_doc_workspace_api_write_api_apply_comments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/canvas-presence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 登记/注销「这份文件的画布开着」
+         * @description 前端在 `OfficeView` 就绪时登记，每 30 秒心跳续期，卸载时注销。
+         *
+         *     后端用它决定「写完盘要不要同时下发画布重放」，**不用它决定写不写盘**
+         *     （写盘永远做，否则重放失败就等于内容丢了）。
+         */
+        post: operations["apps_doc_workspace_api_write_api_canvas_presence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 把一段原文改写为 Word 修订痕迹写回原文件
+         * @description 落笔一条修订。
+         *
+         *     失败（找不到原文 / 原文不唯一 / 含有不可切分元素）时返回 `applied=false` +
+         *     可读 `reason`，**不抛 500**：模型要能据 reason 自纠（把选区加长或换写法），
+         *     抛异常只会让它当整次调用失败。
+         *
+         *     真正的并发冲突（mtime 变了）走 `ConflictError` → 全局处理器映射成 **409**：
+         *     这不是「模型做错了」，而是「文件被别人改过」，必须让调用方重新读一遍再决定。
+         */
+        post: operations["apps_doc_workspace_api_write_api_apply_span"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 文件里已有的修订（AI 避免重复提同一件事） */
+        get: operations["apps_doc_workspace_api_write_api_list_revisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 在文件夹里新建 docx（同名不覆盖）
+         * @description 新建文件。同名会自动加序号（`_unique_destination`），**绝不覆盖**已有文件。
+         */
+        post: operations["apps_doc_workspace_api_write_api_create_file"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 按模板起草一份文书并落进项目文件夹
+         * @description 模板 + 事实 → 成稿 → 落盘 → （可选）自动排一轮审查。
+         *
+         *     **不做整篇自由生成**：模板是律所已验证的资产，模型只能填槽，不能改结构
+         *     （`draft_service._assert_skeleton_intact` 会炸）。
+         */
+        post: operations["apps_doc_workspace_api_write_api_draft_document"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 该文件的版本时间线（新→旧）
+         * @description **只列不取正文**：列表用在右栏时间线里，正文走单独端点按需拉。
+         */
+        get: operations["apps_doc_workspace_api_snapshot_api_list_snapshots"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/snapshots/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 回滚到某一版（回滚本身可回滚） */
+        post: operations["apps_doc_workspace_api_snapshot_api_restore_snapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 与历史某一版对照（段落级、确定性）
+         * @description 「跟上一版比，改了什么」——由代码算段落 diff，不经过模型。
+         */
+        get: operations["apps_doc_workspace_api_snapshot_api_compare_versions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/review/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 发起一轮审查（异步）
+         * @description 建轮次 → 丢后台。立刻返回 `run_id`，前端据此轮询状态。
+         *
+         *     **不产生第二份 docx**：轮次只是「一次审查动作」，内容仍然是文件夹里那份文件。
+         */
+        post: operations["apps_doc_workspace_api_review_api_start_review"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/review/runs/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 该文件最近一轮审查（含清单） */
+        get: operations["apps_doc_workspace_api_review_api_latest_run"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/review/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 轮次详情（含清单） */
+        get: operations["apps_doc_workspace_api_review_api_get_run"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/review/findings/{finding_id}/decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 逐条决策（采纳即落笔）
+         * @description `accept` 会**真的改文件**（修订 / 批注）；`reject` / `moot` 只改状态。
+         *
+         *     锚点失效时返回 `stale=true` 且文件零改动——绝不降级成「改到最像的那一段」。
+         */
+        post: operations["apps_doc_workspace_api_review_api_decide_finding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/review/runs/{run_id}/bulk-accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 按严重度批量采纳（不可撤销）
+         * @description 批量采纳。**必须显式 `confirm=true`**：落笔即写文件，撤销要走版本回滚。
+         */
+        post: operations["apps_doc_workspace_api_review_api_bulk_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/review/runs/{run_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 一页纸（Top-3，带量化后果） */
+        post: operations["apps_doc_workspace_api_review_api_build_report"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/review/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 枚举字典（前端下拉与筛选用）
+         * @description 把枚举一次性给前端，避免前后端各写一份字符串常量然后漂移。
+         */
+        get: operations["apps_doc_workspace_api_review_api_review_meta"];
         put?: never;
         post?: never;
         delete?: never;
@@ -21550,6 +21942,677 @@ export interface components {
              * @default
              */
             reason: string;
+        };
+        /**
+         * OoCanvasStateOut
+         * @description 前端查一次就能回答「这份画布还能不能安全保存」。
+         */
+        OoCanvasStateOut: {
+            /** Stale */
+            stale: boolean;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Dropped At */
+            dropped_at?: string | null;
+        };
+        /** OoCanvasAckIn */
+        OoCanvasAckIn: {
+            /** File Url */
+            file_url: string;
+        };
+        /**
+         * DocWriteResultOut
+         * @description 一条写路径的统一回执。
+         *
+         *     `applied=false` 且 `mode=canvas` 表示「已下发画布、未落盘」（前端编排流程）；
+         *     `applied=false` 且 `reason` 非空才是真的失败。
+         */
+        DocWriteResultOut: {
+            /** Applied */
+            applied: boolean;
+            /**
+             * Mode
+             * @default disk
+             */
+            mode: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Failed Index */
+            failed_index?: number | null;
+            /**
+             * Count
+             * @default 0
+             */
+            count: number;
+            /**
+             * Rev Ids
+             * @default []
+             */
+            rev_ids: number[];
+            /**
+             * Comment Ids
+             * @default []
+             */
+            comment_ids: number[];
+            /**
+             * Failures
+             * @default []
+             */
+            failures: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Author
+             * @default
+             */
+            author: string;
+            /**
+             * File Url
+             * @default
+             */
+            file_url: string;
+            /**
+             * Mirror To Canvas
+             * @default false
+             */
+            mirror_to_canvas: boolean;
+            /**
+             * Patches
+             * @default []
+             */
+            patches: {
+                [key: string]: string;
+            }[];
+            /**
+             * Wrote Disk
+             * @default true
+             */
+            wrote_disk: boolean;
+        };
+        /** DocApplyBatchIn */
+        DocApplyBatchIn: {
+            /** Kind */
+            kind: string;
+            /** Owner Id */
+            owner_id: number;
+            /** Subpath */
+            subpath: string;
+            /** Patches */
+            patches: components["schemas"]["DocPatchIn"][];
+            /** Base Mtime */
+            base_mtime?: number | null;
+        };
+        /** DocPatchIn */
+        DocPatchIn: {
+            /** Selection */
+            selection: string;
+            /** Suggested */
+            suggested: string;
+        };
+        /** DocApplyCommentsIn */
+        DocApplyCommentsIn: {
+            /** Kind */
+            kind: string;
+            /** Owner Id */
+            owner_id: number;
+            /** Subpath */
+            subpath: string;
+            /** Comments */
+            comments: components["schemas"]["DocCommentIn"][];
+            /** Base Mtime */
+            base_mtime?: number | null;
+        };
+        /** DocCommentIn */
+        DocCommentIn: {
+            /** Selection */
+            selection: string;
+            /** Text */
+            text: string;
+        };
+        /** DocPresenceIn */
+        DocPresenceIn: {
+            /** Kind */
+            kind: string;
+            /** Owner Id */
+            owner_id: number;
+            /** Subpath */
+            subpath: string;
+            /**
+             * Open
+             * @default true
+             */
+            open: boolean;
+        };
+        /** DocApplySpanOut */
+        DocApplySpanOut: {
+            /** Applied */
+            applied: boolean;
+            /**
+             * Mode
+             * @default disk
+             */
+            mode: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Candidates
+             * @default 0
+             */
+            candidates: number;
+            /**
+             * How
+             * @default
+             */
+            how: string;
+            /**
+             * Author
+             * @default
+             */
+            author: string;
+            /**
+             * Rev Ids
+             * @default []
+             */
+            rev_ids: number[];
+            /**
+             * File Url
+             * @default
+             */
+            file_url: string;
+            /**
+             * Mirror To Canvas
+             * @default false
+             */
+            mirror_to_canvas: boolean;
+        };
+        /**
+         * DocApplySpanIn
+         * @description 一段原文 → 一段改写，以修订痕迹写回原文件。
+         */
+        DocApplySpanIn: {
+            /** Kind */
+            kind: string;
+            /** Owner Id */
+            owner_id: number;
+            /** Subpath */
+            subpath: string;
+            /** Selection */
+            selection: string;
+            /** Suggested */
+            suggested: string;
+            /** Base Mtime */
+            base_mtime?: number | null;
+        };
+        /** DocRevisionListOut */
+        DocRevisionListOut: {
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["DocRevisionOut"][];
+        };
+        /** DocRevisionOut */
+        DocRevisionOut: {
+            /** Paragraph Index */
+            paragraph_index: number;
+            /** Author */
+            author: string;
+            /** Original */
+            original: string;
+            /** Suggested */
+            suggested: string;
+            /**
+             * Rev Ids
+             * @default []
+             */
+            rev_ids: number[];
+        };
+        /** DocCreateFileOut */
+        DocCreateFileOut: {
+            /** Created */
+            created: boolean;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Subpath
+             * @default
+             */
+            subpath: string;
+            /**
+             * File Url
+             * @default
+             */
+            file_url: string;
+        };
+        /** DocCreateFileIn */
+        DocCreateFileIn: {
+            /** Kind */
+            kind: string;
+            /** Owner Id */
+            owner_id: number;
+            /**
+             * Subpath Dir
+             * @default
+             */
+            subpath_dir: string;
+            /** Name */
+            name: string;
+            /**
+             * Paragraphs
+             * @default []
+             */
+            paragraphs: string[];
+            /**
+             * Markdown
+             * @default
+             */
+            markdown: string;
+        };
+        /** DocDraftOut */
+        DocDraftOut: {
+            /** Created */
+            created: boolean;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Subpath
+             * @default
+             */
+            subpath: string;
+            /**
+             * File Url
+             * @default
+             */
+            file_url: string;
+            /**
+             * Filled
+             * @default {}
+             */
+            filled: {
+                [key: string]: string;
+            };
+            /**
+             * Pending
+             * @default []
+             */
+            pending: string[];
+            /**
+             * Slot Fill Rate
+             * @default 0
+             */
+            slot_fill_rate: number;
+            /** Review Run Id */
+            review_run_id?: number | null;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /** DocDraftIn */
+        DocDraftIn: {
+            /** Kind */
+            kind: string;
+            /** Owner Id */
+            owner_id: number;
+            /**
+             * Subpath Dir
+             * @default
+             */
+            subpath_dir: string;
+            /** Name */
+            name: string;
+            /** Template Id */
+            template_id: number;
+            /**
+             * Facts
+             * @default {}
+             */
+            facts: {
+                [key: string]: string;
+            };
+            /**
+             * Auto Review
+             * @default true
+             */
+            auto_review: boolean;
+            /**
+             * Stance
+             * @default neutral
+             */
+            stance: string;
+            /**
+             * Contract Type
+             * @default
+             */
+            contract_type: string;
+        };
+        /** DocSnapshotListOut */
+        DocSnapshotListOut: {
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["DocSnapshotOut"][];
+        };
+        /** DocSnapshotOut */
+        DocSnapshotOut: {
+            /** Seq */
+            seq: number;
+            /** Sha256 */
+            sha256: string;
+            /** Size */
+            size: number;
+            /** Reason */
+            reason: string;
+            /** Actor Kind */
+            actor_kind: string;
+            /** Actor Id */
+            actor_id?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** DocRestoreOut */
+        DocRestoreOut: {
+            /** Restored */
+            restored: boolean;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Seq
+             * @default 0
+             */
+            seq: number;
+            /**
+             * Sha256
+             * @default
+             */
+            sha256: string;
+            /**
+             * Previous Seq
+             * @default 0
+             */
+            previous_seq: number;
+        };
+        /** DocRestoreIn */
+        DocRestoreIn: {
+            /** Kind */
+            kind: string;
+            /** Owner Id */
+            owner_id: number;
+            /** Subpath */
+            subpath: string;
+            /** Seq */
+            seq: number;
+        };
+        /** DocCompareOut */
+        DocCompareOut: {
+            /** Found */
+            found: boolean;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Seq
+             * @default 0
+             */
+            seq: number;
+            /**
+             * Total Paragraphs
+             * @default 0
+             */
+            total_paragraphs: number;
+            /**
+             * Changed Paragraphs
+             * @default 0
+             */
+            changed_paragraphs: number;
+            /**
+             * Unchanged
+             * @default true
+             */
+            unchanged: boolean;
+            /**
+             * Changed Indices
+             * @default []
+             */
+            changed_indices: number[];
+            /**
+             * Old Sha256
+             * @default
+             */
+            old_sha256: string;
+        };
+        /** DocStartReviewOut */
+        DocStartReviewOut: {
+            /** Run Id */
+            run_id: number;
+            /** Status */
+            status: string;
+            /** Queued */
+            queued: boolean;
+            /**
+             * Hint
+             * @default
+             */
+            hint: string;
+        };
+        /** DocStartReviewIn */
+        DocStartReviewIn: {
+            /** Kind */
+            kind: string;
+            /** Owner Id */
+            owner_id: number;
+            /** Subpath */
+            subpath: string;
+            /**
+             * Stance
+             * @default neutral
+             */
+            stance: string;
+            /**
+             * Contract Type
+             * @default
+             */
+            contract_type: string;
+            /** Playbook Id */
+            playbook_id?: number | null;
+        };
+        /** DocFindingOut */
+        DocFindingOut: {
+            /** Id */
+            id: number;
+            /** Ordinal */
+            ordinal: number;
+            /** Verdict */
+            verdict: string;
+            /** Severity */
+            severity: string;
+            /** Kind */
+            kind: string;
+            /** Clause Type */
+            clause_type: string;
+            /** Rule Key */
+            rule_key: string;
+            /** Legal Basis */
+            legal_basis: string;
+            /** Quote */
+            quote: string;
+            /** Title */
+            title: string;
+            /** Reason */
+            reason: string;
+            /** Suggestion Original */
+            suggestion_original: string;
+            /** Suggestion Replacement */
+            suggestion_replacement: string;
+            /** Suggestion Note */
+            suggestion_note: string;
+            /** Delivery */
+            delivery: string;
+            /** Status */
+            status: string;
+            /** Reject Reason Code */
+            reject_reason_code: string;
+            /** Reject Note */
+            reject_note: string;
+            /**
+             * Docx Rev Ids
+             * @default []
+             */
+            docx_rev_ids: number[];
+            /**
+             * Comment Ids
+             * @default []
+             */
+            comment_ids: number[];
+        };
+        /** DocReviewRunOut */
+        DocReviewRunOut: {
+            /** Id */
+            id: number;
+            /** Owner Kind */
+            owner_kind: string;
+            /** Owner Id */
+            owner_id: number;
+            /** Subpath */
+            subpath: string;
+            /** Stance */
+            stance: string;
+            /** Contract Type */
+            contract_type: string;
+            /** Status */
+            status: string;
+            /** Playbook Key */
+            playbook_key: string;
+            /** Playbook Version */
+            playbook_version?: number | null;
+            /**
+             * Summary
+             * @default {}
+             */
+            summary: {
+                [key: string]: unknown;
+            };
+            /**
+             * Error Message
+             * @default
+             */
+            error_message: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at?: string | null;
+            /**
+             * Findings
+             * @default []
+             */
+            findings: components["schemas"]["DocFindingOut"][];
+        };
+        /** DocDecideOut */
+        DocDecideOut: {
+            /** Ok */
+            ok: boolean;
+            /**
+             * Status
+             * @default
+             */
+            status: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Stale
+             * @default false
+             */
+            stale: boolean;
+            /**
+             * Rev Ids
+             * @default []
+             */
+            rev_ids: number[];
+            /**
+             * Comment Ids
+             * @default []
+             */
+            comment_ids: number[];
+        };
+        /** DocDecideIn */
+        DocDecideIn: {
+            /** Action */
+            action: string;
+            /**
+             * Reason Code
+             * @default
+             */
+            reason_code: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** DocBulkAcceptOut */
+        DocBulkAcceptOut: {
+            /** Accepted */
+            accepted: number;
+            /** Stale */
+            stale: number;
+            /** Failed */
+            failed: number;
+            /**
+             * Details
+             * @default []
+             */
+            details: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** DocBulkAcceptIn */
+        DocBulkAcceptIn: {
+            /**
+             * Severity
+             * @default
+             */
+            severity: string;
+            /**
+             * Kinds
+             * @default []
+             */
+            kinds: string[];
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
         };
         /** ExpressQueryTaskOut */
         ExpressQueryTaskOut: {
@@ -37694,6 +38757,50 @@ export interface operations {
             };
         };
     };
+    apps_onlyoffice_api_onlyoffice_api_get_canvas_state: {
+        parameters: {
+            query: {
+                file_url: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OoCanvasStateOut"];
+                };
+            };
+        };
+    };
+    apps_onlyoffice_api_onlyoffice_api_ack_canvas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OoCanvasAckIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     apps_onlyoffice_api_onlyoffice_api_document_callback: {
         parameters: {
             query?: never;
@@ -37718,6 +38825,406 @@ export interface operations {
                 src: string;
                 sig: string;
             };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_doc_workspace_api_write_api_apply_batch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocApplyBatchIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocWriteResultOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_write_api_apply_comments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocApplyCommentsIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocWriteResultOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_write_api_canvas_presence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocPresenceIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_doc_workspace_api_write_api_apply_span: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocApplySpanIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocApplySpanOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_write_api_list_revisions: {
+        parameters: {
+            query: {
+                kind: string;
+                owner_id: number;
+                subpath: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocRevisionListOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_write_api_create_file: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocCreateFileIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocCreateFileOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_write_api_draft_document: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocDraftIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocDraftOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_snapshot_api_list_snapshots: {
+        parameters: {
+            query: {
+                kind: string;
+                owner_id: number;
+                subpath: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocSnapshotListOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_snapshot_api_restore_snapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocRestoreIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocRestoreOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_snapshot_api_compare_versions: {
+        parameters: {
+            query: {
+                kind: string;
+                owner_id: number;
+                subpath: string;
+                seq: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocCompareOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_review_api_start_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocStartReviewIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocStartReviewOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_review_api_latest_run: {
+        parameters: {
+            query: {
+                kind: string;
+                owner_id: number;
+                subpath: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocReviewRunOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_review_api_get_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocReviewRunOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_review_api_decide_finding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                finding_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocDecideIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocDecideOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_review_api_bulk_accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocBulkAcceptIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocBulkAcceptOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_review_api_build_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_doc_workspace_api_review_api_review_meta: {
+        parameters: {
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;

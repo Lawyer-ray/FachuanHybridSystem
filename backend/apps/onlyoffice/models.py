@@ -41,6 +41,19 @@ class EditorSession(models.Model):
     saved_version = models.IntegerField("保存回写轮次", default=0)
     last_callback_status = models.IntegerField("最近一次 DS 回调状态码", default=0)
     last_saved_at = models.DateTimeField("最近一次保存回写时间", null=True, blank=True)
+    last_save_dropped_at = models.DateTimeField(
+        # **为什么必须落库而不是只打日志**：过期画布的保存会被主动丢弃（见
+        # callback_service.stale_canvas_reason），但为了不让 DS 无限重试，
+        # 应答的仍是 {"error": 0}——DS 认为保存成功、随即清掉临时副本。
+        # 律师侧因此看不到任何异常，而这次编辑已经永久丢失。
+        #
+        # 落一个时间戳，前端才能在保存后查一次 `GET /onlyoffice/canvas-state`
+        # 并把「本次保存已被忽略，请重新打开」显式说给律师听。
+        # 语义是**一次性信号**：`ack_canvas_synced()` 对齐画布代次时清空。
+        "最近一次被丢弃的保存时间（过期画布，内容未落盘）",
+        null=True,
+        blank=True,
+    )
     prev_output_file = models.CharField(
         "保存回写前的产物路径留档（物理文件保留，可手工恢复）",
         max_length=500,

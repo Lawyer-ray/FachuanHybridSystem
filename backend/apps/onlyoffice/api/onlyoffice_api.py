@@ -16,6 +16,7 @@ callback 端点验签 → 下载 → 经 contract_review service 落回任务产
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 from urllib.parse import quote
 
@@ -27,6 +28,8 @@ from apps.core.security.auth import JWTOrSessionAuth
 
 from ..config import aget_config, get_config
 from ..services.callback_service import (
+    ack_canvas_synced,
+    canvas_state_for,
     get_or_refresh_session,
     handle_save_callback,
     load_session_by_key,
@@ -130,6 +133,62 @@ async def get_editor_config(  # pragma: no cover
         user_name=user_name,
     )
     return EditorConfigOut(enabled=True, docserver_url=cfg.docserver_url, config=config)
+
+
+class OoCanvasStateOut(Schema):
+    """前端查一次就能回答「这份画布还能不能安全保存」。"""
+
+    stale: bool
+    reason: str = ""
+    dropped_at: datetime | None = None
+
+
+class OoCanvasAckIn(Schema):
+    file_url: str
+
+
+def _task_type_of(file_url: str) -> str | None:
+    """站内路径 → 业务域 key（未注册的路径返回 None）。"""
+    from ..services.domain_registry import domain_for_path
+
+    hit = domain_for_path(file_url)
+    return hit[0].key if hit is not None else None
+
+
+@router.get("/canvas-state", response=OoCanvasStateOut, summary="该文件上当前用户画布是否落后于磁盘")
+async def get_canvas_state(request: HttpRequest, file_url: str) -> Any:
+    """保存之后立刻查一次，把「本次保存被丢弃」这件事说给律师听。
+
+    `stale=true` 表示磁盘比画布新（AI 改过、而这份画布没落到），此时在画布上
+    再点保存会被主动丢弃（见 `callback_service.stale_canvas_reason`）。
+    `dropped_at` 非空 = 至少丢过一次保存，内容**没落盘**。
+    """
+    user = getattr(request, "auth", None)
+    task_type = _task_type_of(file_url)
+    if user is None or task_type is None:
+        return OoCanvasStateOut(stale=False)
+    state = await sync_to_async(canvas_state_for, thread_sensitive=True)(
+        task_type=task_type, user=user, source_path=file_url
+    )
+    return OoCanvasStateOut(stale=state.stale, reason=state.reason, dropped_at=state.dropped_at)
+
+
+@router.post("/canvas-ack", summary="登记「这份画布已与磁盘一致」")
+async def ack_canvas(request: HttpRequest, payload: OoCanvasAckIn) -> dict[str, Any]:
+    """插件把 AI 修订就地落进画布**且成功**之后调用。
+
+    为什么只有前端能调、且只在成功回执后调：落笔失败时画布确实还是旧的，
+    此时对齐代次等于亲手拆掉「旧画布不得覆盖 AI 修订」的守门人。
+    不调它的后果是：律师在这份画布上后续每一次保存都被当成旧画布静默丢弃。
+    """
+    user = getattr(request, "auth", None)
+    task_type = _task_type_of(payload.file_url)
+    if user is None or task_type is None:
+        return {"ok": False, "reason": "该路径未注册 OnlyOffice 业务域"}
+    ok = await sync_to_async(ack_canvas_synced, thread_sensitive=True)(
+        task_type=task_type, user=user, source_path=payload.file_url
+    )
+    return {"ok": ok}
 
 
 @router.post("/callback", auth=None, summary="OnlyOffice 文档状态回调（DS 调用）")

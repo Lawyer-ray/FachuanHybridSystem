@@ -61,6 +61,10 @@ MULTI_LANE_WRITE_TOOLS: frozenset[str] = frozenset(
         # 主写工具（rewrite_folder_file 与 apply_file_write_patches）
         "rewrite_folder_file",
         "apply_file_write_patches",
+        # 文档工作面：批量落笔 / 写批注 / 新建文件（都是真实写盘）
+        "apply_document_revisions",
+        "add_document_comments",
+        "create_folder_file",
         # 归档/同步：会重建绑定目录里的整批文件（判 MEDIUM，走不到审批层）
         "generate_archive_folder",
         "sync_case_materials",

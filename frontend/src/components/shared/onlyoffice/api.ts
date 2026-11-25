@@ -41,3 +41,36 @@ export async function getEditorConfig(
   const qs = new URLSearchParams({ file_url: fileUrl, file_name: fileName, mode, version })
   return onlyofficeApi().get(`editor-config?${qs.toString()}`).json<EditorConfigPayload>()
 }
+
+/**
+ * 这份画布还能不能安全保存。
+ *
+ * `stale=true` = 磁盘比画布新（多半是 AI 直改过而画布没落到）。此时在画布上
+ * 点保存会被后端**主动丢弃**，但为了不让 DS 无限重试，应答仍是 `error:0`——
+ * 所以「保存成功」的提示可能是假的，必须靠这个接口把它说出来。
+ */
+export interface CanvasStatePayload {
+  stale: boolean
+  reason: string
+  /** 最近一次「保存被丢弃」的时间（ISO）；null = 从未丢过 */
+  dropped_at: string | null
+}
+
+export async function getCanvasState(fileUrl: string): Promise<CanvasStatePayload> {
+  const qs = new URLSearchParams({ file_url: fileUrl })
+  return onlyofficeApi().get(`canvas-state?${qs.toString()}`).json<CanvasStatePayload>()
+}
+
+/**
+ * 登记「这份画布已与磁盘一致」。
+ *
+ * **只能在插件把 AI 修订就地落进画布且回执 ok 之后调用**。不调它，后端会一直
+ * 认为画布落后于磁盘（`canvas_seq < external_write_seq`），于是律师在这份画布上
+ * 之后每一次保存都被当成旧画布静默丢弃——这正是「AI 改完再改就白改」的根因。
+ * 落笔失败时调它更危险：等于亲手拆掉「旧画布不得覆盖 AI 修订」的守门人。
+ */
+export async function ackCanvasSynced(fileUrl: string): Promise<{ ok: boolean; reason?: string }> {
+  return onlyofficeApi()
+    .post('canvas-ack', { json: { file_url: fileUrl } })
+    .json<{ ok: boolean; reason?: string }>()
+}

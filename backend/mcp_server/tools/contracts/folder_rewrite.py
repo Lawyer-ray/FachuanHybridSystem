@@ -51,6 +51,16 @@ def rewrite_folder_file(
         int | None,
         Field(description="案件 ID(文件在案件绑定文件夹);来自 [已引用文件：…] 引用里的 case_id", ge=1),
     ] = None,
+    base_mtime: Annotated[
+        float | None,
+        Field(
+            description=(
+                "打开文件时拿到的 mtime(秒, 浮点)。**强烈建议传**：传了才做乐观锁校验——"
+                "律师在你读文件之后自己改过并保存了，这里会返回 409 而不是把他的修改覆盖掉。"
+                "值来自 read_folder_file 回执里的 mtime/modified_at"
+            )
+        ),
+    ] = None,
 ) -> dict[str, Any]:
     """把文档里的一段原文替换为改写文本，**以 Word 修订痕迹写回原文件**。
 
@@ -91,15 +101,23 @@ def rewrite_folder_file(
     if not (replacement or "").strip():
         raise ValueError("replacement 不能为空")
 
-    # 落盘由后端做（复用 DocxRevisionTool + 各自的行级 ACL）。MCP 进程不该自己
-    # 解析文件夹路径、也不该自己拼 docx——单一写入口。
+    # 落盘由后端做（各自的行级 ACL + 修订写入）。MCP 进程不该自己解析文件夹路径、
+    # 也不该自己拼 docx——单一写入口。
+    #
+    # 端点已从 `/contract-review/direct-edit/apply`（挂在一个即将移除的 app 下）
+    # 换成 `/doc-workspace/apply`：它不需要 task_id、不产生第二份产物 docx，
+    # 而且**支持 base_mtime 乐观锁**（旧端点没有，等于 AI 的写权限比律师还大）。
+    kind = "case" if case_id is not None else "contract"
+    owner_id = int(case_id if case_id is not None else contract_id or 0)
     result: dict[str, Any] = client.post(
-        "/contract-review/direct-edit/apply",
+        "/doc-workspace/apply",
         json={
+            "kind": kind,
+            "owner_id": owner_id,
             "subpath": subpath.strip(),
             "selection": original,
             "suggested": replacement,
-            **({"contract_id": contract_id} if contract_id is not None else {"case_id": case_id}),
+            "base_mtime": base_mtime,
         },
     )
     return result

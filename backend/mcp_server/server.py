@@ -18,7 +18,9 @@ from mcp_server.plugin_tools import register_plugin_tools
 from mcp_server.tools import (
     add_case_party,
     add_contract_party,
+    add_document_comments,
     analyze_template,
+    apply_document_revisions,
     apply_file_write_patches,
     approve_workflow_step,
     archive_pdf_split_to_case_folder,
@@ -66,6 +68,7 @@ from mcp_server.tools import (
     create_document_template,
     create_export,
     create_folder_binding,
+    create_folder_file,
     create_folder_template,
     create_full_case,
     create_grant,
@@ -288,7 +291,9 @@ from mcp_server.tools import (
     list_credentials,
     list_doc_convert_types,
     list_doc_converter_jobs,
+    list_document_findings,
     list_document_parsing_records,
+    list_document_revisions,
     list_document_templates,
     list_enterprise_providers,
     list_failed_tasks,
@@ -364,6 +369,7 @@ from mcp_server.tools import (
     restore_memory,
     resubmit_task,
     retry_sms_processing,
+    review_folder_file,
     rewrite_folder_file,
     save_archive_overrides,
     save_case_note,
@@ -1315,6 +1321,13 @@ _t(read_folder_file)
 _t(rewrite_folder_file)
 _t(propose_write_patch)
 _t(apply_file_write_patches)
+# 文档工作面：以「项目文件夹里的那一份文件」为坐标的审查与落笔
+_t(review_folder_file)
+_t(list_document_findings)
+_t(list_document_revisions)
+_t(apply_document_revisions)
+_t(add_document_comments)
+_t(create_folder_file)
 
 # 期限聚合：跨案件/合同/日志汇总到期事项
 _t(list_upcoming_deadlines)

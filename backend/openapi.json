@@ -19181,6 +19181,75 @@
         ]
       }
     },
+    "/api/v1/onlyoffice/canvas-state": {
+      "get": {
+        "operationId": "apps_onlyoffice_api_onlyoffice_api_get_canvas_state",
+        "summary": "该文件上当前用户画布是否落后于磁盘",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "file_url",
+            "schema": {
+              "title": "File Url",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OoCanvasStateOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "保存之后立刻查一次，把「本次保存被丢弃」这件事说给律师听。\n\n`stale=true` 表示磁盘比画布新（AI 改过、而这份画布没落到），此时在画布上\n再点保存会被主动丢弃（见 `callback_service.stale_canvas_reason`）。\n`dropped_at` 非空 = 至少丢过一次保存，内容**没落盘**。",
+        "tags": [
+          "OnlyOffice"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/onlyoffice/canvas-ack": {
+      "post": {
+        "operationId": "apps_onlyoffice_api_onlyoffice_api_ack_canvas",
+        "summary": "登记「这份画布已与磁盘一致」",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "插件把 AI 修订就地落进画布**且成功**之后调用。\n\n为什么只有前端能调、且只在成功回执后调：落笔失败时画布确实还是旧的，\n此时对齐代次等于亲手拆掉「旧画布不得覆盖 AI 修订」的守门人。\n不调它的后果是：律师在这份画布上后续每一次保存都被当成旧画布静默丢弃。",
+        "tags": [
+          "OnlyOffice"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OoCanvasAckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/onlyoffice/callback": {
       "post": {
         "operationId": "apps_onlyoffice_api_onlyoffice_api_document_callback",
@@ -19229,6 +19298,727 @@
         "description": "DS 拉取源文件。\n\nDS 在独立容器里、无法携带 Authorization 头，且会重试，所以走本端点的\n`?src=&sig=` 签名鉴权（见 signing.sign_file_token），而不是一次性下载票据。\n\n`src` 只允许站内相对路径（必须以 `/api/` 开头且不含 `://`）——否则就成了\n任意 URL 的开放代理。注意 Django 解析查询串时**已经解码过一次**，这里\n不得再 unquote：签名与验签必须作用于同一字符串，否则含 % 编码的路径\n会出现「签名对象错位 → 稳定 403」。",
         "tags": [
           "OnlyOffice"
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/apply-batch": {
+      "post": {
+        "operationId": "apps_doc_workspace_api_write_api_apply_batch",
+        "summary": "一次落多条修订（全或无）",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocWriteResultOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "十条修订里有一条定位不到，就**一个字都不写**。\n\n半改过的文件既不是原稿也不是审完稿，律师无法判断哪几条生效了。",
+        "tags": [
+          "文档工作面"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocApplyBatchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/comments": {
+      "post": {
+        "operationId": "apps_doc_workspace_api_write_api_apply_comments",
+        "summary": "给若干段挂 Word 原生批注（不改正文）",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocWriteResultOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "批注不做全或无：部分成功仍是一份完整可用的文档。",
+        "tags": [
+          "文档工作面"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocApplyCommentsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/canvas-presence": {
+      "post": {
+        "operationId": "apps_doc_workspace_api_write_api_canvas_presence",
+        "summary": "登记/注销「这份文件的画布开着」",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "前端在 `OfficeView` 就绪时登记，每 30 秒心跳续期，卸载时注销。\n\n后端用它决定「写完盘要不要同时下发画布重放」，**不用它决定写不写盘**\n（写盘永远做，否则重放失败就等于内容丢了）。",
+        "tags": [
+          "文档工作面"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocPresenceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/apply": {
+      "post": {
+        "operationId": "apps_doc_workspace_api_write_api_apply_span",
+        "summary": "把一段原文改写为 Word 修订痕迹写回原文件",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocApplySpanOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "落笔一条修订。\n\n失败（找不到原文 / 原文不唯一 / 含有不可切分元素）时返回 `applied=false` +\n可读 `reason`，**不抛 500**：模型要能据 reason 自纠（把选区加长或换写法），\n抛异常只会让它当整次调用失败。\n\n真正的并发冲突（mtime 变了）走 `ConflictError` → 全局处理器映射成 **409**：\n这不是「模型做错了」，而是「文件被别人改过」，必须让调用方重新读一遍再决定。",
+        "tags": [
+          "文档工作面"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocApplySpanIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/revisions": {
+      "get": {
+        "operationId": "apps_doc_workspace_api_write_api_list_revisions",
+        "summary": "文件里已有的修订（AI 避免重复提同一件事）",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "owner_id",
+            "schema": {
+              "title": "Owner Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "subpath",
+            "schema": {
+              "title": "Subpath",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocRevisionListOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "文档工作面"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/files": {
+      "post": {
+        "operationId": "apps_doc_workspace_api_write_api_create_file",
+        "summary": "在文件夹里新建 docx（同名不覆盖）",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCreateFileOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "新建文件。同名会自动加序号（`_unique_destination`），**绝不覆盖**已有文件。",
+        "tags": [
+          "文档工作面"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocCreateFileIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/draft": {
+      "post": {
+        "operationId": "apps_doc_workspace_api_write_api_draft_document",
+        "summary": "按模板起草一份文书并落进项目文件夹",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocDraftOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "模板 + 事实 → 成稿 → 落盘 → （可选）自动排一轮审查。\n\n**不做整篇自由生成**：模板是律所已验证的资产，模型只能填槽，不能改结构\n（`draft_service._assert_skeleton_intact` 会炸）。",
+        "tags": [
+          "文档工作面"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocDraftIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/snapshots": {
+      "get": {
+        "operationId": "apps_doc_workspace_api_snapshot_api_list_snapshots",
+        "summary": "该文件的版本时间线（新→旧）",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "owner_id",
+            "schema": {
+              "title": "Owner Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "subpath",
+            "schema": {
+              "title": "Subpath",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocSnapshotListOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "**只列不取正文**：列表用在右栏时间线里，正文走单独端点按需拉。",
+        "tags": [
+          "文档工作面"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/snapshots/restore": {
+      "post": {
+        "operationId": "apps_doc_workspace_api_snapshot_api_restore_snapshot",
+        "summary": "回滚到某一版（回滚本身可回滚）",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocRestoreOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "文档工作面"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocRestoreIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/compare": {
+      "get": {
+        "operationId": "apps_doc_workspace_api_snapshot_api_compare_versions",
+        "summary": "与历史某一版对照（段落级、确定性）",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "owner_id",
+            "schema": {
+              "title": "Owner Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "subpath",
+            "schema": {
+              "title": "Subpath",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "seq",
+            "schema": {
+              "title": "Seq",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCompareOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "「跟上一版比，改了什么」——由代码算段落 diff，不经过模型。",
+        "tags": [
+          "文档工作面"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/review/runs": {
+      "post": {
+        "operationId": "apps_doc_workspace_api_review_api_start_review",
+        "summary": "发起一轮审查（异步）",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocStartReviewOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "建轮次 → 丢后台。立刻返回 `run_id`，前端据此轮询状态。\n\n**不产生第二份 docx**：轮次只是「一次审查动作」，内容仍然是文件夹里那份文件。",
+        "tags": [
+          "文档工作面"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocStartReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/review/runs/latest": {
+      "get": {
+        "operationId": "apps_doc_workspace_api_review_api_latest_run",
+        "summary": "该文件最近一轮审查（含清单）",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "owner_id",
+            "schema": {
+              "title": "Owner Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "subpath",
+            "schema": {
+              "title": "Subpath",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocReviewRunOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "文档工作面"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/review/runs/{run_id}": {
+      "get": {
+        "operationId": "apps_doc_workspace_api_review_api_get_run",
+        "summary": "轮次详情（含清单）",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "schema": {
+              "title": "Run Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocReviewRunOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "文档工作面"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/review/findings/{finding_id}/decide": {
+      "post": {
+        "operationId": "apps_doc_workspace_api_review_api_decide_finding",
+        "summary": "逐条决策（采纳即落笔）",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "finding_id",
+            "schema": {
+              "title": "Finding Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocDecideOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "`accept` 会**真的改文件**（修订 / 批注）；`reject` / `moot` 只改状态。\n\n锚点失效时返回 `stale=true` 且文件零改动——绝不降级成「改到最像的那一段」。",
+        "tags": [
+          "文档工作面"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocDecideIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/review/runs/{run_id}/bulk-accept": {
+      "post": {
+        "operationId": "apps_doc_workspace_api_review_api_bulk_accept",
+        "summary": "按严重度批量采纳（不可撤销）",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "schema": {
+              "title": "Run Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocBulkAcceptOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "批量采纳。**必须显式 `confirm=true`**：落笔即写文件，撤销要走版本回滚。",
+        "tags": [
+          "文档工作面"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocBulkAcceptIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/review/runs/{run_id}/report": {
+      "post": {
+        "operationId": "apps_doc_workspace_api_review_api_build_report",
+        "summary": "一页纸（Top-3，带量化后果）",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "schema": {
+              "title": "Run Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "文档工作面"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/review/meta": {
+      "get": {
+        "operationId": "apps_doc_workspace_api_review_api_review_meta",
+        "summary": "枚举字典（前端下拉与筛选用）",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "把枚举一次性给前端，避免前后端各写一份字符串常量然后漂移。",
+        "tags": [
+          "文档工作面"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
         ]
       }
     },
@@ -49260,6 +50050,1216 @@
           "enabled"
         ],
         "title": "EditorConfigOut",
+        "type": "object"
+      },
+      "OoCanvasStateOut": {
+        "description": "前端查一次就能回答「这份画布还能不能安全保存」。",
+        "properties": {
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "dropped_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dropped At"
+          }
+        },
+        "required": [
+          "stale"
+        ],
+        "title": "OoCanvasStateOut",
+        "type": "object"
+      },
+      "OoCanvasAckIn": {
+        "properties": {
+          "file_url": {
+            "title": "File Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_url"
+        ],
+        "title": "OoCanvasAckIn",
+        "type": "object"
+      },
+      "DocWriteResultOut": {
+        "description": "一条写路径的统一回执。\n\n`applied=false` 且 `mode=canvas` 表示「已下发画布、未落盘」（前端编排流程）；\n`applied=false` 且 `reason` 非空才是真的失败。",
+        "properties": {
+          "applied": {
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "mode": {
+            "default": "disk",
+            "title": "Mode",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "failed_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Index"
+          },
+          "count": {
+            "default": 0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "rev_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rev Ids",
+            "type": "array"
+          },
+          "comment_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Comment Ids",
+            "type": "array"
+          },
+          "failures": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "author": {
+            "default": "",
+            "title": "Author",
+            "type": "string"
+          },
+          "file_url": {
+            "default": "",
+            "title": "File Url",
+            "type": "string"
+          },
+          "mirror_to_canvas": {
+            "default": false,
+            "title": "Mirror To Canvas",
+            "type": "boolean"
+          },
+          "patches": {
+            "default": [],
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Patches",
+            "type": "array"
+          },
+          "wrote_disk": {
+            "default": true,
+            "title": "Wrote Disk",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "applied"
+        ],
+        "title": "DocWriteResultOut",
+        "type": "object"
+      },
+      "DocApplyBatchIn": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "integer"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "patches": {
+            "items": {
+              "$ref": "#/components/schemas/DocPatchIn"
+            },
+            "title": "Patches",
+            "type": "array"
+          },
+          "base_mtime": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Mtime"
+          }
+        },
+        "required": [
+          "kind",
+          "owner_id",
+          "subpath",
+          "patches"
+        ],
+        "title": "DocApplyBatchIn",
+        "type": "object"
+      },
+      "DocPatchIn": {
+        "properties": {
+          "selection": {
+            "title": "Selection",
+            "type": "string"
+          },
+          "suggested": {
+            "title": "Suggested",
+            "type": "string"
+          }
+        },
+        "required": [
+          "selection",
+          "suggested"
+        ],
+        "title": "DocPatchIn",
+        "type": "object"
+      },
+      "DocApplyCommentsIn": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "integer"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "comments": {
+            "items": {
+              "$ref": "#/components/schemas/DocCommentIn"
+            },
+            "title": "Comments",
+            "type": "array"
+          },
+          "base_mtime": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Mtime"
+          }
+        },
+        "required": [
+          "kind",
+          "owner_id",
+          "subpath",
+          "comments"
+        ],
+        "title": "DocApplyCommentsIn",
+        "type": "object"
+      },
+      "DocCommentIn": {
+        "properties": {
+          "selection": {
+            "title": "Selection",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "selection",
+          "text"
+        ],
+        "title": "DocCommentIn",
+        "type": "object"
+      },
+      "DocPresenceIn": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "integer"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "open": {
+            "default": true,
+            "title": "Open",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "owner_id",
+          "subpath"
+        ],
+        "title": "DocPresenceIn",
+        "type": "object"
+      },
+      "DocApplySpanOut": {
+        "properties": {
+          "applied": {
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "mode": {
+            "default": "disk",
+            "title": "Mode",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "candidates": {
+            "default": 0,
+            "title": "Candidates",
+            "type": "integer"
+          },
+          "how": {
+            "default": "",
+            "title": "How",
+            "type": "string"
+          },
+          "author": {
+            "default": "",
+            "title": "Author",
+            "type": "string"
+          },
+          "rev_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rev Ids",
+            "type": "array"
+          },
+          "file_url": {
+            "default": "",
+            "title": "File Url",
+            "type": "string"
+          },
+          "mirror_to_canvas": {
+            "default": false,
+            "title": "Mirror To Canvas",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "applied"
+        ],
+        "title": "DocApplySpanOut",
+        "type": "object"
+      },
+      "DocApplySpanIn": {
+        "description": "一段原文 → 一段改写，以修订痕迹写回原文件。",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "integer"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "selection": {
+            "title": "Selection",
+            "type": "string"
+          },
+          "suggested": {
+            "title": "Suggested",
+            "type": "string"
+          },
+          "base_mtime": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Mtime"
+          }
+        },
+        "required": [
+          "kind",
+          "owner_id",
+          "subpath",
+          "selection",
+          "suggested"
+        ],
+        "title": "DocApplySpanIn",
+        "type": "object"
+      },
+      "DocRevisionListOut": {
+        "properties": {
+          "items": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DocRevisionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "DocRevisionListOut",
+        "type": "object"
+      },
+      "DocRevisionOut": {
+        "properties": {
+          "paragraph_index": {
+            "title": "Paragraph Index",
+            "type": "integer"
+          },
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "original": {
+            "title": "Original",
+            "type": "string"
+          },
+          "suggested": {
+            "title": "Suggested",
+            "type": "string"
+          },
+          "rev_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rev Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "paragraph_index",
+          "author",
+          "original",
+          "suggested"
+        ],
+        "title": "DocRevisionOut",
+        "type": "object"
+      },
+      "DocCreateFileOut": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          },
+          "subpath": {
+            "default": "",
+            "title": "Subpath",
+            "type": "string"
+          },
+          "file_url": {
+            "default": "",
+            "title": "File Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "created"
+        ],
+        "title": "DocCreateFileOut",
+        "type": "object"
+      },
+      "DocCreateFileIn": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "integer"
+          },
+          "subpath_dir": {
+            "default": "",
+            "title": "Subpath Dir",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "paragraphs": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Paragraphs",
+            "type": "array"
+          },
+          "markdown": {
+            "default": "",
+            "title": "Markdown",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "owner_id",
+          "name"
+        ],
+        "title": "DocCreateFileIn",
+        "type": "object"
+      },
+      "DocDraftOut": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          },
+          "subpath": {
+            "default": "",
+            "title": "Subpath",
+            "type": "string"
+          },
+          "file_url": {
+            "default": "",
+            "title": "File Url",
+            "type": "string"
+          },
+          "filled": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Filled",
+            "type": "object"
+          },
+          "pending": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Pending",
+            "type": "array"
+          },
+          "slot_fill_rate": {
+            "default": 0.0,
+            "title": "Slot Fill Rate",
+            "type": "number"
+          },
+          "review_run_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Run Id"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "created"
+        ],
+        "title": "DocDraftOut",
+        "type": "object"
+      },
+      "DocDraftIn": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "integer"
+          },
+          "subpath_dir": {
+            "default": "",
+            "title": "Subpath Dir",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "template_id": {
+            "title": "Template Id",
+            "type": "integer"
+          },
+          "facts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Facts",
+            "type": "object"
+          },
+          "auto_review": {
+            "default": true,
+            "title": "Auto Review",
+            "type": "boolean"
+          },
+          "stance": {
+            "default": "neutral",
+            "title": "Stance",
+            "type": "string"
+          },
+          "contract_type": {
+            "default": "",
+            "title": "Contract Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "owner_id",
+          "name",
+          "template_id"
+        ],
+        "title": "DocDraftIn",
+        "type": "object"
+      },
+      "DocSnapshotListOut": {
+        "properties": {
+          "items": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DocSnapshotOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "DocSnapshotListOut",
+        "type": "object"
+      },
+      "DocSnapshotOut": {
+        "properties": {
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "actor_kind": {
+            "title": "Actor Kind",
+            "type": "string"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seq",
+          "sha256",
+          "size",
+          "reason",
+          "actor_kind",
+          "created_at"
+        ],
+        "title": "DocSnapshotOut",
+        "type": "object"
+      },
+      "DocRestoreOut": {
+        "properties": {
+          "restored": {
+            "title": "Restored",
+            "type": "boolean"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "seq": {
+            "default": 0,
+            "title": "Seq",
+            "type": "integer"
+          },
+          "sha256": {
+            "default": "",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "previous_seq": {
+            "default": 0,
+            "title": "Previous Seq",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "restored"
+        ],
+        "title": "DocRestoreOut",
+        "type": "object"
+      },
+      "DocRestoreIn": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "integer"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "owner_id",
+          "subpath",
+          "seq"
+        ],
+        "title": "DocRestoreIn",
+        "type": "object"
+      },
+      "DocCompareOut": {
+        "properties": {
+          "found": {
+            "title": "Found",
+            "type": "boolean"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "seq": {
+            "default": 0,
+            "title": "Seq",
+            "type": "integer"
+          },
+          "total_paragraphs": {
+            "default": 0,
+            "title": "Total Paragraphs",
+            "type": "integer"
+          },
+          "changed_paragraphs": {
+            "default": 0,
+            "title": "Changed Paragraphs",
+            "type": "integer"
+          },
+          "unchanged": {
+            "default": true,
+            "title": "Unchanged",
+            "type": "boolean"
+          },
+          "changed_indices": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Changed Indices",
+            "type": "array"
+          },
+          "old_sha256": {
+            "default": "",
+            "title": "Old Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "found"
+        ],
+        "title": "DocCompareOut",
+        "type": "object"
+      },
+      "DocStartReviewOut": {
+        "properties": {
+          "run_id": {
+            "title": "Run Id",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "queued": {
+            "title": "Queued",
+            "type": "boolean"
+          },
+          "hint": {
+            "default": "",
+            "title": "Hint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "status",
+          "queued"
+        ],
+        "title": "DocStartReviewOut",
+        "type": "object"
+      },
+      "DocStartReviewIn": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "integer"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "stance": {
+            "default": "neutral",
+            "title": "Stance",
+            "type": "string"
+          },
+          "contract_type": {
+            "default": "",
+            "title": "Contract Type",
+            "type": "string"
+          },
+          "playbook_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playbook Id"
+          }
+        },
+        "required": [
+          "kind",
+          "owner_id",
+          "subpath"
+        ],
+        "title": "DocStartReviewIn",
+        "type": "object"
+      },
+      "DocFindingOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "ordinal": {
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "clause_type": {
+            "title": "Clause Type",
+            "type": "string"
+          },
+          "rule_key": {
+            "title": "Rule Key",
+            "type": "string"
+          },
+          "legal_basis": {
+            "title": "Legal Basis",
+            "type": "string"
+          },
+          "quote": {
+            "title": "Quote",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "suggestion_original": {
+            "title": "Suggestion Original",
+            "type": "string"
+          },
+          "suggestion_replacement": {
+            "title": "Suggestion Replacement",
+            "type": "string"
+          },
+          "suggestion_note": {
+            "title": "Suggestion Note",
+            "type": "string"
+          },
+          "delivery": {
+            "title": "Delivery",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "reject_reason_code": {
+            "title": "Reject Reason Code",
+            "type": "string"
+          },
+          "reject_note": {
+            "title": "Reject Note",
+            "type": "string"
+          },
+          "docx_rev_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Docx Rev Ids",
+            "type": "array"
+          },
+          "comment_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Comment Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "ordinal",
+          "verdict",
+          "severity",
+          "kind",
+          "clause_type",
+          "rule_key",
+          "legal_basis",
+          "quote",
+          "title",
+          "reason",
+          "suggestion_original",
+          "suggestion_replacement",
+          "suggestion_note",
+          "delivery",
+          "status",
+          "reject_reason_code",
+          "reject_note"
+        ],
+        "title": "DocFindingOut",
+        "type": "object"
+      },
+      "DocReviewRunOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "owner_kind": {
+            "title": "Owner Kind",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "integer"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "stance": {
+            "title": "Stance",
+            "type": "string"
+          },
+          "contract_type": {
+            "title": "Contract Type",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "playbook_key": {
+            "title": "Playbook Key",
+            "type": "string"
+          },
+          "playbook_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playbook Version"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Summary",
+            "type": "object"
+          },
+          "error_message": {
+            "default": "",
+            "title": "Error Message",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "findings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DocFindingOut"
+            },
+            "title": "Findings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "owner_kind",
+          "owner_id",
+          "subpath",
+          "stance",
+          "contract_type",
+          "status",
+          "playbook_key",
+          "created_at"
+        ],
+        "title": "DocReviewRunOut",
+        "type": "object"
+      },
+      "DocDecideOut": {
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "status": {
+            "default": "",
+            "title": "Status",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "stale": {
+            "default": false,
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "rev_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rev Ids",
+            "type": "array"
+          },
+          "comment_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Comment Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "DocDecideOut",
+        "type": "object"
+      },
+      "DocDecideIn": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "reason_code": {
+            "default": "",
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "DocDecideIn",
+        "type": "object"
+      },
+      "DocBulkAcceptOut": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "integer"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "details": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Details",
+            "type": "array"
+          }
+        },
+        "required": [
+          "accepted",
+          "stale",
+          "failed"
+        ],
+        "title": "DocBulkAcceptOut",
+        "type": "object"
+      },
+      "DocBulkAcceptIn": {
+        "properties": {
+          "severity": {
+            "default": "",
+            "title": "Severity",
+            "type": "string"
+          },
+          "kinds": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Kinds",
+            "type": "array"
+          },
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          }
+        },
+        "title": "DocBulkAcceptIn",
         "type": "object"
       },
       "ExpressQueryTaskOut": {

@@ -30,6 +30,7 @@ import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -187,6 +188,15 @@ def _bound_folder_domain(
             logger.info("文件夹文件已另存: %s=%s 源=%s 新=%s v%d", label, owner_id, subpath, new_subpath, version_tag)
             return f"{owner_id}:{new_subpath}"
 
+        _snapshot_before_overwrite(
+            kind=key.removesuffix("_folder"),
+            owner_id=owner_id,
+            subpath=subpath,
+            svc=svc,
+            owner=owner,
+            reason="editor_save",
+        )
+
         svc.save_file_content(
             owner_id=owner_id,
             subpath=subpath,
@@ -200,6 +210,56 @@ def _bound_folder_domain(
         )
         logger.info("文件夹文件已回写: %s=%s subpath=%s v%d", label, owner_id, subpath, version_tag)
         return f"{owner_id}:{subpath}"
+
+    def _snapshot_before_overwrite(
+        *,
+        kind: str,
+        owner_id: int,
+        subpath: str,
+        svc: Any,
+        owner: Any,
+        reason: str,
+    ) -> None:
+        """覆盖之前把旧内容存成快照。
+
+        **为什么要在这里做而不是在 `save_file_content` 里**：那是 `apps/core` 的
+        通用基础设施，让它反向 import 业务 app 会搞乱分层（core 不依赖任何
+        `apps.*`）。代价是「新增写路径要自己记得快照」——由结构测试兜住。
+
+        读取失败只记 warning 不阻断保存：拿不到旧字节时拒绝落盘会让律师的
+        编辑器从此永远存不上；而快照缺失是可观测、可修的数据缺陷，不是
+        静默丢内容。
+        """
+        try:
+            from apps.doc_workspace.services import snapshot_service
+
+            path = svc.resolve_file(
+                owner_id=owner_id,
+                user=owner,
+                org_access=getattr(owner, "org_access", None),
+                perm_open_access=False,
+                subpath=subpath,
+            )
+            old = Path(path).read_bytes()
+            snapshot_service.capture(
+                kind=kind,
+                owner_id=owner_id,
+                subpath=subpath,
+                data=old,
+                reason=reason,
+                actor_kind=snapshot_service.ActorKind.HUMAN,
+                actor_id=getattr(owner, "pk", None),
+            )
+        except (OSError, ValueError, RuntimeError, KeyError, AttributeError):
+            # 只接「读文件/写库/序列化」这几类可预期的失败。真正的编程错误（TypeError 等）
+            # 不在这里吞掉——快照是数据安全机制，静默吞掉意外异常等于把它变成摆设。
+            logger.warning(
+                "覆盖前快照失败（不影响本次保存）: %s=%s subpath=%s",
+                kind,
+                owner_id,
+                subpath,
+                exc_info=True,
+            )
 
     def _resolve_proxy(user: Any, owner_id: int, subpath: str) -> Any:
         """按签名用户身份解析文件夹里的文件（权限口径与 REST 端点一致）。

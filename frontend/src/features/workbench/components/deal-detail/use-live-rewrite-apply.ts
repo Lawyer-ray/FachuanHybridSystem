@@ -14,6 +14,7 @@
 
 import { useEffect, useRef } from 'react'
 
+import { ackCanvasSynced } from '@/components/shared/onlyoffice/api'
 import type { OfficeEditorHandle, PluginBridgeMessage } from '@/components/shared/onlyoffice/OfficeView'
 
 import { registerLiveRewriteApply } from './use-rewrite-refresh'
@@ -28,17 +29,33 @@ import { registerLiveRewriteApply } from './use-rewrite-refresh'
  */
 const APPLY_TIMEOUT_MS = 10000
 
-export function useLiveRewriteApply({ enabled, key }: {
+export function useLiveRewriteApply({ enabled, key, fileUrl }: {
   /** docx 才注册：插件只在 word 的 edit/review 态 autostart */
   enabled: boolean
   /** 与 use-rewrite-refresh 同口径的文件 key：`contract:${ownerId}:${subpath}` */
   key: string
+  /**
+   * 站内文件路径（与签配置同一个串）。**就地落笔成功后要拿它去登记画布已同步**，
+   * 漏掉这一步的后果见下面 `ackCanvasSynced` 的注释。
+   */
+  fileUrl: string
 }): {
   /** 挂到 OfficeView 的 onEditorReady（与既有句柄保存逻辑并联调用） */
   onEditorReady: (h: OfficeEditorHandle | null) => void
 } {
   const editorRef = useRef<OfficeEditorHandle | null>(null)
   const pluginReadyRef = useRef(false)
+  /**
+   * ack 需要 fileUrl，而消息监听 effect 只挂一次（不能把 fileUrl 放进它的依赖，
+   * 否则每换一次文件就重挂监听，还可能把在途回执丢掉）：用 ref 取最新值。
+   *
+   * ref 只能在 effect 里写（渲染期写 ref 会被 react-hooks/refs 拦）。这条
+   * effect 必须排在下面的监听 effect **之前**，否则首次挂载时 ref 还是旧值。
+   */
+  const fileUrlRef = useRef(fileUrl)
+  useEffect(() => {
+    fileUrlRef.current = fileUrl
+  }, [fileUrl])
   /** 在途一次 apply 的回执槽：插件是单槽回调，同 key 同时只该有一条 */
   const pendingRef = useRef<{ resolve: (ok: boolean) => void; timer: number } | null>(null)
 
@@ -51,7 +68,28 @@ export function useLiveRewriteApply({ enabled, key }: {
         const { resolve, timer } = pendingRef.current
         pendingRef.current = null
         window.clearTimeout(timer)
-        resolve(!!(d.result && d.result.ok))
+        if (!(d.result && d.result.ok)) {
+          resolve(false)
+          return
+        }
+        /**
+         * 画布上已经长出修订痕迹，但后端只知道「磁盘被外部写过」（external_write_seq
+         * 抬了一代，canvas_seq 还是旧的）。不把「画布已同步」登记回去，律师接着
+         * 在这份画布上编辑并保存时，后端会把这次保存当成**旧画布覆盖**而丢掉，
+         * 并且为了不让 DS 无限重试仍应答 `error:0` —— 律师看到「已保存」，
+         * 内容却没落盘。
+         *
+         * ack 失败就当作「就地落笔失败」返回 false：宁可降级成换 key 重载
+         * （慢但正确），也不能留一个「以为同步了、其实没同步」的画布。
+         */
+        const path = fileUrlRef.current
+        if (!path) {
+          resolve(false)
+          return
+        }
+        void ackCanvasSynced(path)
+          .then((r) => resolve(!!r.ok))
+          .catch(() => resolve(false))
       }
     }
     window.addEventListener('message', onMessage)
