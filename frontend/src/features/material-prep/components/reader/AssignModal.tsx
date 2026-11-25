@@ -37,7 +37,8 @@ export function AssignModal({
   // 「同时归档到案件文件夹」默认勾选。状态由 use-assign-launch 模块持有
   // （为什么不在本组件里、也没走 AssignInfo：见那边的注释），这里只是渲染镜像。
   const [archiveToFolder, setArchiveToFolder] = useState<boolean>(() => isArchiveToCaseFolderEnabled())
-  // 「回传后核对内容」同上：偏好由 use-assign-launch 模块持有，这里只是渲染镜像。
+  // 「回传后核对内容」的模块级偏好同上：新建案件直接按它落库。选中既有案件后
+  // 显示值改由该案的服务端策略决定（见 PolicyToggle），这份偏好只作读不到时的兜底。
   // 两个勾选都不随弹窗开关重置——它们是偏好，不是本次归案的参数。
   const [verifyAfterReturn, setVerifyAfterReturn] = useState<boolean>(() => isVerifyAfterReturnEnabled())
 
@@ -269,8 +270,11 @@ export function AssignModal({
             />
             同时归档到案件文件夹（按案件卷宗命名）
           </label>
-          {/* 回传后核对内容：勾了就按这个策略落库（归案成功后写，见 use-assign-launch） */}
+          {/* 回传后核对内容：选中了案件就以该案的**服务端策略**为准（切换即写库，见
+              PolicyToggle）；新建案件还没有案子可写，先按偏好，归案成功后由
+              use-assign-launch 落库 */}
           <PolicyToggle
+            caseId={target === 'existing' ? pickCase?.id : undefined}
             checked={verifyAfterReturn}
             onChange={(next) => {
               setVerifyAfterReturn(next)

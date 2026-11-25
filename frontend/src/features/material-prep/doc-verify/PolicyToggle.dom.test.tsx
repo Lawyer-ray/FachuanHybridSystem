@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 /**
- * 「回传后核对内容」勾选框（jsdom）。
+ * 「回传后核对内容」勾选框——**没有选中案件时**的偏好模式（jsdom）。
  *
- * 它是纯受控组件：勾选值来自 props、变化交给 onChange，组件自己不留状态。
+ * 这一支是纯受控组件：勾选值来自 props、变化交给 onChange，组件自己不留状态。
  * 锁三件事——文案（四类文书 + 副提示，律师据此知道勾了会发生什么）、
  * 勾选态跟随 props、点一下把**新值**交给回调（传反了等于偏好永远反着存）。
+ *
+ * 选中既有案件后（给了 `caseId`）勾选值改由该案的服务端策略决定，那一条路径的
+ * 断言在 `PolicyToggle.policy-sync.dom.test.tsx`。
  */
 import { fireEvent, render, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'

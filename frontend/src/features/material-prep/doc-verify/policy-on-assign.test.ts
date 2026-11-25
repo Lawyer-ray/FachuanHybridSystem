@@ -1,8 +1,13 @@
 /**
- * 归案成功 → 把「回传后核对内容」的策略写到案件上（node 环境）。
+ * 归案成功 → 把「回传后核对内容」的策略写到**新建出来的案件**上（node 环境）。
  *
- * 为什么这条接线值得单测：它是勾选框**唯一**的落库路径。勾了却没写库，界面照样
- * 打勾、客户回传后却什么也不核——这种「看起来生效」的失效没有任何报错。
+ * 为什么这条接线值得单测：新建案件时勾选框还没有案子可写，归案后的这一次
+ * `putPolicy` 是策略落库的唯一机会。勾了却没写库，界面照样打勾、客户回传后却
+ * 什么也不核——这种「看起来生效」的失效没有任何报错。
+ *
+ * 反方向同样要锁：**选中既有案件时这里一个字都不写**。那种情况勾选框已经在弹窗里
+ * 按该案的服务端值逐次 `putPolicy` 过了（见 `doc-verify/PolicyToggle.tsx`），归案后
+ * 再按模块偏好写一遍，会把律师刚才在弹窗里针对这个案子的选择覆盖成全局偏好。
  *
  * mock 的是 `@/lib/api` 的 `createApiClient`（不是 `./api`），所以要断言的正是
  * 真正发出去的请求：`PUT policy` 带哪个 `case_id`、`enabled` 跟不跟勾选走。
@@ -87,11 +92,11 @@ async function flush() {
   await Promise.resolve()
 }
 
-describe('归案成功 → 核对策略落库', () => {
-  it('勾着：按归案返回的 case id 写 enabled=true（改全部高风险类）', async () => {
+describe('归案成功 → 核对策略落库（只限新建案件）', () => {
+  it('新建案件 + 勾着：按归案返回的 case id 写 enabled=true（改全部高风险类）', async () => {
     const { hook } = useSetup()
 
-    await hook.onAssignConfirm({ target: 'existing', caseId: 42 })
+    await hook.onAssignConfirm({ target: 'new' })
     await flush()
 
     expect(kyMock.put).toHaveBeenCalledTimes(1)
@@ -101,11 +106,11 @@ describe('归案成功 → 核对策略落库', () => {
     )
   })
 
-  it('没勾：enabled=false（关掉的是这个案子的策略，不是全局偏好丢失）', async () => {
+  it('新建案件 + 没勾：enabled=false（关掉的是这个案子的策略，不是全局偏好丢失）', async () => {
     setVerifyAfterReturnEnabled(false)
     const { hook } = useSetup()
 
-    await hook.onAssignConfirm({ target: 'existing', caseId: 42 })
+    await hook.onAssignConfirm({ target: 'new' })
     await flush()
 
     expect(kyMock.put).toHaveBeenCalledWith(
@@ -118,7 +123,7 @@ describe('归案成功 → 核对策略落库', () => {
     kyMock.put.mockReturnValue({ json: () => Promise.reject(new Error('500')) })
     const { deps, hook } = useSetup()
 
-    await hook.onAssignConfirm({ target: 'existing', caseId: 42 })
+    await hook.onAssignConfirm({ target: 'new' })
     await flush()
 
     expect(kyMock.put).toHaveBeenCalledTimes(1)
@@ -133,9 +138,20 @@ describe('归案成功 → 核对策略落库', () => {
     assignApi.assignPack.mockRejectedValue({ name: 'HTTPError', data: { message: '材料包已删除' } })
     const { hook } = useSetup()
 
+    await hook.onAssignConfirm({ target: 'new' })
+    await flush()
+
+    expect(kyMock.put).not.toHaveBeenCalled()
+  })
+
+  it('选中既有案件：归案后不再写策略（弹窗里已按该案的服务端值写过）', async () => {
+    setVerifyAfterReturnEnabled(false)
+    const { hook } = useSetup()
+
     await hook.onAssignConfirm({ target: 'existing', caseId: 42 })
     await flush()
 
+    // 再按模块偏好写一遍，等于把律师刚才在这个弹窗里给该案单独做的选择覆盖成全局偏好
     expect(kyMock.put).not.toHaveBeenCalled()
   })
 

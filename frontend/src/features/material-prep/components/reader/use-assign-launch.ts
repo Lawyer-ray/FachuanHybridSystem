@@ -48,7 +48,10 @@ export function setVerifyAfterReturnEnabled(enabled: boolean): void {
 }
 
 /**
- * 归案成功后把「回传后核对内容」的策略写到案件上（fire-and-forget）。
+ * 新建案件归案成功后，把「回传后核对内容」的策略写到案件上（fire-and-forget）。
+ *
+ * 只服务新建案件：那时的勾选框没有案件可写，归案返回的 case id 是唯一落库机会。
+ * 选中既有案件时勾选框自己已经写过该案策略（见 `doc-verify/PolicyToggle.tsx`）。
  *
  * 为什么是附加动作、失败只记日志不 toast：此刻归案已经写库成功，策略没存上只是
  * 「客户回传时不会自动核对」，不能让律师以为归案失败（重试会建出第二个案子）。
@@ -217,7 +220,11 @@ export function useAssignLaunch(params: {
 
       // 回传后核对内容的策略：勾了=客户回传时自动比正文，没勾=不核。
       // 用归案**返回**的 case id（不是用户选的/猜的），新建案件时只有这里才拿得到。
-      saveVerifyPolicy(r.caseId)
+      //
+      // 只在**新建案件**时写：选中既有案件的话，勾选框已经在弹窗里按该案的服务端值
+      // 逐次 putPolicy 过了（见 doc-verify/PolicyToggle.tsx），这里再按模块偏好写一遍，
+      // 会把律师刚才在弹窗里针对这个案子的选择覆盖成全局偏好。
+      if (assign.target !== 'existing') saveVerifyPolicy(r.caseId)
 
       // 归案后跳到该项目，让用户看到结果（此前只弹 toast，用户以为没成）。
       //
