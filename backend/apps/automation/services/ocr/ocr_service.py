@@ -206,6 +206,21 @@ class OCRService:
         if self.provider == "paddleocr_api":
             return self._recognize_via_paddleocr_bytes(image_bytes)
 
+        return self.recognize_bytes_local(image_bytes)
+
+    def recognize_bytes_local(self, image_bytes: bytes) -> str:
+        """**只用本地 RapidOCR** 识图，一次云端调用都不发。
+
+        专供「云端版面调用刚刚失败过」的调用方（``ocr_handler._recognize_page``）：那里
+        已经付过一次云端代价（超时最坏 600s），再调 ``recognize_bytes`` 会**为同一页
+        第二次打云端**，等于把失效时的墙钟翻倍。走本方法只付一次云端代价就落到本地。
+
+        Args:
+            image_bytes: 图片字节数据
+
+        Returns:
+            识别出的文字内容（本地无结果时为空串）
+        """
         result = self.ocr(image_bytes)
         if result and result.txts:
             return "\n".join(result.txts)
@@ -266,10 +281,16 @@ class OCRService:
         """
         if self.provider != "paddleocr_api":
             return None
+        # 捕获口径与 ``_recognize_via_paddleocr_bytes`` 对齐：``PaddleOCRApiEngine`` 的
+        # 全部失败出口（未配置 / Key 全冷却 / 轮询 4xx / Job 失败 / 超时）都是
+        # ``RuntimeError``。漏掉它就等于漏掉兜底：``ocr_handler._recognize_page`` 直接
+        # 调本方法且不自身捕获，异常会穿到 ``_ocr_pages_worker`` 的 except 分支，那页就被
+        # 标成 ``ocr_failed``、**跳过本地 RapidOCR 兜底**（617-p12 整页丢字的帮凶）。
         try:
             return self.paddleocr_engine.recognize_bytes(image_bytes, is_pdf=False)
-        except (OSError, ValueError) as e:
+        except (OSError, ValueError, RuntimeError) as e:
             # 不在这层降级：调用方要的是版面结果，降级到纯文本会让它误以为拿到了版面。
+            # 返回 None 让调用方自行走「无版面」分支（那里才有纯文本兜底）。
             logger.warning("PaddleOCR 版面解析失败: %s", e)
             return None
 

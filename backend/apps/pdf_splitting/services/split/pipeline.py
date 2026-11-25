@@ -947,22 +947,12 @@ class PageTextExtractor:
             ),
         )
 
-        for page_no in [no for no in pending if cloud_results.get(no)]:
+        # 这里只处理**可用**页：空 / 退化 / 候选没覆盖的页已经在 `_parse_cloud` 里摘成
+        # 「残余页」并接力给下一个候选；所有候选都试完仍没救回来的页，落在下面的
+        # `local_fallback_pages` 里走本地 OCR。
+        for page_no in sorted(cloud_results):
             self._raise_if_cancelled(page_no)
             result = cloud_results[page_no]
-            if not result.text:
-                continue
-            if reason := degeneracy_reason(result.text):
-                # 云端「成功」但正文是废的（复读循环 / 空返回）。这类页**不能**当成功：
-                # 留着它就一路进 Markdown、进分段、进归案（实测一页 17000 字的复读正文）。
-                # 也**不写页缓存**——写进去就变成「这页永久是垃圾」，下一轮照样命中它。
-                # 清掉后它落在 local_fallback_pages 里，走本地 OCR 兜底。
-                stats["degenerate_pages"].append(page_no)
-                logger.warning(
-                    "pdf_split_cloud_page_degenerate",
-                    extra={"page_no": page_no, "reason": reason, "source": result.source_method[:32]},
-                )
-                continue
             self._ocr_handler.write_ocr_cache(
                 pdf_hash=pdf_hash,
                 profile_key=stats["cloud_cache_profile"],
@@ -1237,17 +1227,29 @@ class PageTextExtractor:
         on_batch_done: Any = None,
         on_progress: Any = None,
     ) -> dict[int, Any]:
-        """云端解析，**分批 + 断点续传**，按候选平台逐个尝试（容灾）。
+        """云端解析，**分批 + 断点续传**，按候选平台逐个尝试（容灾 + 残余页接力）。
 
         为什么不整本一次发：164 页的真实卷宗整本解析时长过久，进程中途一死
         （开发环境的 watchfiles 重启、生产环境的 OOM/部署）就把全部成果归零——
         实测同一份材料连续两次死在 135/164 且每次都从零开始。分批后每批
         完成即落盘，断在哪补哪。详见 `cloud_batch.py`。
 
-        容灾语义不变：auto 逐一尝试候选平台，锁定则只试一个。
-        """
-        from .cloud_batch import parse_in_batches
+        ## 残余页必须接力下一个候选（2026-11-25）
 
+        原实现是「任一候选返回非空字典就锁定并返回」，而「空页 / 退化页 / 候选没覆盖
+        的页」是**返回之后**才判的（`_resolve_pending_pages`）。于是候选 1（如 DeepSeek）
+        吐了复读/空返回的那些页永远接不到候选 2（如 MinerU 小批），直接掉进本地逐页
+        `parallel_ocr`：一份 37 页材料里 26 页逐页兜底，吃掉了 20.7 分钟里的大部分。
+
+        现在按**候选轮次**推进：每轮只解析「上一轮没拿到可用结果」的页；
+        `tried[页号]` 记着这页已经试过哪些候选，所以**同一候选不会对同一页调两次**。
+        全部候选都试完仍没有可用结果的页，才交给调用方走本地兜底。
+
+        Args:
+            on_batch_done: 每批落盘回调。**每一轮都要传下去**——断点续传的落盘点在这里，
+                接力轮次同样要落盘，否则候选 2 补回来的页在进程死掉后又要重新付费。
+            on_progress: `(resolved, total)`；多轮时已完成的页计入偏移，进度不回退。
+        """
         candidates: list[str] = stats.get("cloud_candidates") or []
         if not candidates:
             return {}
@@ -1256,45 +1258,157 @@ class PageTextExtractor:
         if not page_numbers:
             return {}
 
+        accepted: dict[int, Any] = {}
+        residual = list(page_numbers)
+        # 「这页已试过哪几个候选」的唯一状态：每轮挑候选前先看它，试完立刻记下
+        tried: dict[int, set[str]] = {page_no: set() for page_no in page_numbers}
         errors: list[str] = []
+        total = len(page_numbers)
+        resolved_before = 0
+        #: 第一个真正返回结果的候选（= 主平台）。stats 里 `cloud_backend` 是单一值，
+        #: 多轮接力时只由它写一次，后补的候选不会覆盖（避免同一字段被重复计数）。
+        primary: str | None = None
+
+        def round_progress(resolved: int, _batch_total: int) -> None:
+            if on_progress is not None:
+                on_progress(resolved_before + resolved, total)
+
         for index, backend in enumerate(candidates):
+            if not residual:
+                break
+            # 只把「这页还没试过这个候选」的页送出去：同一候选不得对同一页调两次
+            round_pages = [page_no for page_no in residual if backend not in tried[page_no]]
+            if not round_pages:
+                continue
+            for page_no in round_pages:
+                tried[page_no].add(backend)
             try:
-                # 整本云端解析也是长阻塞段（实测 MinerU 单路曾静默阻塞 4347s）：批级进度
-                # 回调之间有很长的沉默期，用心跳块兜住，看门狗才不会把在跑的任务判死。
-                with self._heartbeat_ctx():
-                    result = parse_in_batches(
-                        source_path=pdf_path,
-                        page_numbers=page_numbers,
-                        parse_one=lambda mini_path, _backend=backend: self._ocr_handler.parse_cloud_pages(
-                            pdf_path=mini_path, backend=_backend
-                        ),
-                        on_batch_done=on_batch_done,
-                        on_progress=on_progress,
-                    )
+                round_results = self._parse_cloud_round(
+                    pdf_path,
+                    backend=backend,
+                    page_numbers=round_pages,
+                    on_batch_done=on_batch_done,
+                    on_progress=round_progress,
+                )
             except Exception as exc:
                 logger.exception("pdf_split_cloud_ocr_failed", extra={"provider": backend})
                 errors.append(f"{backend}: {type(exc).__name__}: {str(exc)[:200]}")
                 continue
-            if not result:
+            if not round_results:
                 # 解析成功但一页都没出来：同样视为这次尝试失败，继续下一个
-                logger.warning("pdf_split_cloud_empty", extra={"provider": backend})
+                logger.warning("pdf_split_cloud_empty", extra={"provider": backend, "pages": len(round_pages)})
                 errors.append(f"{backend}: 返回空结果")
                 continue
-            # 命中：把实际生效的平台记进 stats，summary / 缓存档案都以它为准
-            if index > 0:
-                logger.info(
-                    "云端容灾生效：%s 失败后改用 %s",
-                    " -> ".join(candidates[:index]),
-                    backend,
+            # 命中：把实际生效的平台记进 stats，summary / 缓存档案都以它为准。
+            # 只在第一个返回结果的候选上写一次——后面的候选只是补残余页。
+            if primary is None:
+                primary = backend
+                stats["cloud_backend"] = backend
+                stats["cloud_succeeded"] = True
+                stats["cloud_failover_from"] = candidates[:index]
+                if index > 0:
+                    logger.info("云端容灾生效：%s 失败后改用 %s", " -> ".join(candidates[:index]), backend)
+            # `round_pages` 就是本轮之前的**全部**残余页（一个候选对每一页只试一次），
+            # 所以这里返回的残余集合是完整的：本轮没用上的页一页都不会被漏掉。
+            usable, residual = self._classify_cloud_round(round_results, round_pages, stats)
+            if usable and not accepted and primary != backend:
+                # 主平台「回了结果但一页可用都没有」（全空/全退化，实测 DeepSeek 整本
+                # 空返回会出现）：产物其实全部来自这个候选，平台归属必须改记它。
+                # 不改的话坐标系与摘要会把整本算到没出字的那个引擎头上（见
+                # `_actual_provider`：平台报错 → 绿框整体错位）。
+                logger.warning(
+                    "pdf_split_cloud_primary_no_usable_page",
+                    extra={"provider": primary, "fallback": backend, "pages": len(usable)},
                 )
-            stats["cloud_backend"] = backend
-            stats["cloud_succeeded"] = True
-            stats["cloud_failover_from"] = candidates[:index]
-            return result
+                stats["cloud_backend"] = backend
+                stats["cloud_failover_from"] = candidates[:index]
+                primary = backend
+            if usable and primary != backend:
+                logger.info(
+                    "云端残余页接力生效：%s 补回 %d 页（主平台 %s）",
+                    backend,
+                    len(usable),
+                    primary,
+                )
+            if not usable:
+                # 候选回了结果，但这一轮没有一页可用（全空/全退化/页码对不上）：
+                # 仍然要换下一个候选，并把原因留在 cloud_error 里（律师看得到）。
+                logger.warning("pdf_split_cloud_no_usable_page", extra={"provider": backend, "pages": len(round_pages)})
+                errors.append(f"{backend}: {len(round_pages)} 页均无可用的取字结果")
+            accepted.update(usable)
+            resolved_before += len(usable)
 
-        # 全部候选都失败
-        stats["cloud_error"] = " | ".join(errors).replace(pdf_path.as_posix(), "[source PDF]")[:800] or "云端解析失败"
-        return {}
+        # 所有候选都没给出**任何**可用页：把各平台错误汇总成回落原因
+        if not accepted:
+            stats["cloud_error"] = (
+                " | ".join(errors).replace(pdf_path.as_posix(), "[source PDF]")[:800] or "云端解析失败"
+            )
+        return accepted
+
+    def _parse_cloud_round(
+        self,
+        pdf_path: Path,
+        *,
+        backend: str,
+        page_numbers: list[int],
+        on_batch_done: Any,
+        on_progress: Any,
+    ) -> dict[int, Any]:
+        """用**一个**候选解析 `page_numbers`（可稀疏），返回整卷绝对页号的结果。
+
+        长阻塞段仍在这里包心跳：整本云端解析实测 MinerU 单路曾静默阻塞 4347s，
+        批级进度回调之间有很长的沉默期，不包心跳看门狗会把在跑的任务判死。
+        """
+        from .cloud_batch import parse_in_batches
+
+        with self._heartbeat_ctx():
+            return parse_in_batches(
+                source_path=pdf_path,
+                page_numbers=page_numbers,
+                parse_one=lambda mini_path: self._ocr_handler.parse_cloud_pages(pdf_path=mini_path, backend=backend),
+                on_batch_done=on_batch_done,
+                on_progress=on_progress,
+            )
+
+    def _classify_cloud_round(
+        self,
+        results: dict[int, Any],
+        page_numbers: list[int],
+        stats: dict[str, Any],
+    ) -> tuple[dict[int, Any], list[int]]:
+        """把一轮结果分成「可用页」与「残余页（空 / 退化 / 候选没覆盖）」。
+
+        退化页**不写页缓存**（批次回调 `_persist_cloud_batch` 已按批挡了一道，这里只
+        负责记账）：缓存是「这页已经取好了」的账本，写进去就变成永久垃圾。
+
+        `degenerate_pages` 只在**第一次**记一次：同一页可能被多个候选先后判成退化，
+        每轮都 append 会让 summary 里的退化页数虚高。
+        """
+        usable: dict[int, Any] = {}
+        residual: list[int] = []
+        for page_no in page_numbers:
+            self._raise_if_cancelled(page_no)
+            result = results.get(page_no)
+            text = str(getattr(result, "text", "") or "")
+            if not text:
+                # 空返回 / 候选压根没覆盖这一页：都算残余，交给下一个候选
+                residual.append(page_no)
+                continue
+            if reason := degeneracy_reason(text):
+                residual.append(page_no)
+                if page_no not in stats["degenerate_pages"]:
+                    stats["degenerate_pages"].append(page_no)
+                logger.warning(
+                    "pdf_split_cloud_page_degenerate",
+                    extra={
+                        "page_no": page_no,
+                        "reason": reason,
+                        "source": str(getattr(result, "source_method", ""))[:32],
+                    },
+                )
+                continue
+            usable[page_no] = result
+        return usable, residual
 
     # ------------------------------------------------------------------
     # 回调与摘要

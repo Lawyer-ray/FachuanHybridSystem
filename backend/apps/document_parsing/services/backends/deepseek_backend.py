@@ -57,6 +57,7 @@ import httpx
 
 from apps.document_parsing.exceptions.parsing_exceptions import DocumentParsingError
 from apps.document_parsing.protocols.document_parser_protocol import (
+    BLOCK_TYPE_IMAGE,
     ParseCoverage,
     ParsedBlock,
     ParsedDocument,
@@ -250,7 +251,11 @@ class DeepSeekOCRBackend:
             )
 
         layout = self._build_layout(pages)
-        text = "\n\n".join(page_text for _no, page_text in sorted(pages.items()))
+        # 顶层 ``text`` 从 ``layout["pages"]`` 拼，不从 ``pages`` 拼：后者是未剥标记的
+        # rich 原文，非 pdf_splitting 调用方（只读 ``parsed.text``）会拿到裸
+        # ``〈｜ref｜〉`` 与 ``[[x,y,x,y]]``。layout 里每页已过 ``_strip_layout_markers``
+        # （只剥版面标记、保留 ``<table>`` HTML），text 模式的正文本来就没有标记。
+        text = "\n\n".join(str(page_entry.get("text") or "") for page_entry in layout["pages"])
         elapsed = round(time.monotonic() - started, 2)
         logger.info(
             "DeepSeek OCR 完成: %s (%s 页, %s, %.2fs, 修补 %d 页)",
@@ -459,11 +464,16 @@ def _parse_rich_blocks(text: str) -> list[dict[str, Any]]:
         start = match.end()
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
         body = (text or "")[start:end].strip()
-        if not body:
+        block_type = normalize_block_type(match.group("type"))
+        # ``image`` 块标记后通常**没有正文**（整页照片的如实自述，实测 4/4 都是空 body）。
+        # 空 body 就丢的后果：``page_quality.rescue_image_region`` 的触发条件正是
+        # 「``type=="image"`` 且 ``text==""`` 且有 ``bbox``」，永远凑不齐 → 图片页
+        # 补救整条断路。所以只对 image 放行空 body，其余类型照旧跳过。
+        if not body and block_type != BLOCK_TYPE_IMAGE:
             continue
         blocks.append(
             {
-                "type": normalize_block_type(match.group("type")),
+                "type": block_type,
                 "text": body,
                 "bbox": [
                     float(match.group("x1")),
