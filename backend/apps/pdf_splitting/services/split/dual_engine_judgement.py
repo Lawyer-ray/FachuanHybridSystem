@@ -217,7 +217,8 @@ def _render_page(pdf_path: Path, page_no: int, dpi: int, angle: int) -> bytes:
         if page_no < 1 or page_no > doc.page_count:
             raise ValueError(f"页号越界: {page_no}/{doc.page_count}")
         pix = doc[page_no - 1].get_pixmap(dpi=dpi)
-        payload = pix.tobytes("png")
+        # fitz 的 stub 把 tobytes 标成 Any；显式标注避免 no-any-return（不改行为）
+        payload: bytes = pix.tobytes("png")
     if not angle:
         return payload
     # 引擎为识别把页**逆时针**转了 angle 度，它的框就在那个朝向里；我们照做一遍即可对齐。
