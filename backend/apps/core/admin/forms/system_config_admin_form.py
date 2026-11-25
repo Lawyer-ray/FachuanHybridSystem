@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any, cast
 
 from django import forms
@@ -10,6 +9,7 @@ from django.core.exceptions import ValidationError
 
 from apps.core.models import SystemConfig
 from apps.core.security.secret_codec import SecretCodec
+from apps.core.security.secret_display import count_segments
 
 #: 支持多凭证的配置项（每行一个，调用时自动轮询/切换）。
 #:
@@ -89,13 +89,10 @@ class SystemConfigAdminForm(forms.ModelForm):  # pragma: no cover
             hint = "支持多个 API Key，每行一个；也兼容逗号或分号分隔，调用时会自动轮询切换可用 Key。"
             # secret 配置不回显明文，用户看不到自己到底存了几个 Key。
             # 这里只报「已有 N 个」这个计数（不泄露任何片段），
-            # 让他能确认多 Key 是否真的存进去了。
+            # 让他能确认多 Key 是否真的存进去了。计数口径与「已存值」页共用同一实现，
+            # 避免两处各切一次导致「保存时说 3 个、查看时说 1 个」。
             if instance.is_secret and instance.value:
-                try:
-                    stored = SecretCodec().try_decrypt(str(instance.value)) or ""
-                except Exception:
-                    stored = ""
-                count = len([part for part in re.split(r"[\r\n,;]+", stored) if part.strip()])
+                count = count_segments(str(instance.value))
                 if count:
                     hint += f"（当前已保存 {count} 个 Key；留空提交则保持不变）"
             self.fields["value"].help_text = hint
