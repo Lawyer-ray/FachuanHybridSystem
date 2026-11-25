@@ -21,6 +21,11 @@ const api = vi.hoisted(() => ({
 }))
 vi.mock('../../api', () => api)
 
+// 策略落库走的是另一个模块：显式桩掉。不桩的话本用例会真的去发 PUT /policy，
+// 失败时多一条 warning，把「归档失败只多两条 warning」这条断言的计数打偏。
+const policyApi = vi.hoisted(() => ({ putPolicy: vi.fn().mockResolvedValue({}) }))
+vi.mock('../../doc-verify/api', () => policyApi)
+
 const toastMock = vi.hoisted(() => ({
   loading: vi.fn(),
   success: vi.fn(),

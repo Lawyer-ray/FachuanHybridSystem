@@ -66,7 +66,10 @@ function saveVerifyPolicy(caseId: number): void {
   // 与勾选框文案点名的四类一致。
   void putPolicy({ case_id: caseId, enabled: isVerifyAfterReturnEnabled(), doc_types: [] }).catch(
     (e: unknown) => {
-      console.warn('[doc-verify] 核对策略落库失败：', errMessage(e, '未知错误'))
+      // 只在**没存上**的时候说一句：此刻归案已写库成功，说清「不影响归案」，别让律师重试建出第二个案子。
+      // 用 warning 而不是 error：客户回传时不会自动核，但代码默认（高风险四类）仍会核，
+      // 后果是「多核了」或「回落默认」，不是「少核了没发现」。
+      toast.warning(`归案成功，但「回传后核对内容」的设置没存上（不影响本案）：${errMessage(e, '未知错误')}`)
     },
   )
 }

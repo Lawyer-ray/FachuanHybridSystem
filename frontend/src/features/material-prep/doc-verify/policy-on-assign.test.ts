@@ -13,14 +13,15 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('sonner', () => ({
-  toast: Object.assign(vi.fn(), {
+const toastMock = vi.hoisted(() =>
+  Object.assign(vi.fn(), {
     success: vi.fn(),
     error: vi.fn(),
     loading: vi.fn(),
     warning: vi.fn(),
   }),
-}))
+)
+vi.mock('sonner', () => ({ toast: toastMock }))
 
 const assignApi = vi.hoisted(() => ({
   assignPack: vi.fn(),
@@ -113,18 +114,19 @@ describe('归案成功 → 核对策略落库', () => {
     )
   })
 
-  it('策略没存上不影响归案：归案照常跳转，失败只落日志（不弹「归案失败」）', async () => {
+  it('策略没存上不影响归案：归案照常跳转，只多一条「不影响本案」的 warning', async () => {
     kyMock.put.mockReturnValue({ json: () => Promise.reject(new Error('500')) })
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { deps, hook } = useSetup()
 
     await hook.onAssignConfirm({ target: 'existing', caseId: 42 })
     await flush()
 
     expect(kyMock.put).toHaveBeenCalledTimes(1)
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('核对策略落库失败'), expect.anything())
+    // 静默失败最坏：界面打着勾、客户回传时却不核。至少要说一句，且说清「不影响归案」
+    expect(toastMock.warning).toHaveBeenCalledWith(expect.stringContaining('回传后核对内容'))
+    expect(toastMock.warning).toHaveBeenCalledWith(expect.stringContaining('不影响本案'))
+    expect(toastMock.error).not.toHaveBeenCalled()
     expect(deps.navigate).toHaveBeenCalledWith('/bank-litigation/42')
-    warn.mockRestore()
   })
 
   it('归案失败时一个字都不写（不能拿猜的 case id 去改策略）', async () => {
