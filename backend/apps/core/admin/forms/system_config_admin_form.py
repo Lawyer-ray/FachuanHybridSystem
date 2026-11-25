@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 
 from apps.core.models import SystemConfig
 from apps.core.security.secret_codec import SecretCodec
-from apps.core.security.secret_display import count_segments
+from apps.core.security.secret_display import SecretValueUndecryptable, reveal_stored_value
 
 #: 支持多凭证的配置项（每行一个，调用时自动轮询/切换）。
 #:
@@ -80,22 +80,22 @@ class SystemConfigAdminForm(forms.ModelForm):  # pragma: no cover
             )
 
         if instance.is_secret and instance.value:
-            # 安全审计：secret 值不再回显明文（原先 try_decrypt 后经 initial 渲染进 HTML），
-            # 改为"留空=不修改"：编辑页留空，clean() 时保留库中密文原值
-            self.initial["value"] = ""
-            self.fields["value"].help_text = "留空表示不修改原值（不回显已保存的敏感内容）"
+            # 2026-11-25 口径调整：直接把当前明文回填到「配置值」输入框。
+            # 原先是"留空=不修改 + 不回显"（v27.3.0 安全审计），代价是管理员完全看不到
+            # 自己存了什么，只能翻数据库。回填后「清空再保存」仍按原规则保留库中原值
+            # （见 clean()），所以不会因为误清空而丢配置。
+            try:
+                self.initial["value"] = reveal_stored_value(str(instance.value))
+            except SecretValueUndecryptable as exc:
+                self.initial["value"] = ""
+                self.fields["value"].help_text = str(exc)
+            else:
+                self.fields["value"].help_text = "已回填当前值（明文）。清空后保存会保留原值不变。"
 
         if instance.key in _MULTI_KEY_CONFIGS:
             hint = "支持多个 API Key，每行一个；也兼容逗号或分号分隔，调用时会自动轮询切换可用 Key。"
-            # secret 配置不回显明文，用户看不到自己到底存了几个 Key。
-            # 这里只报「已有 N 个」这个计数（不泄露任何片段），
-            # 让他能确认多 Key 是否真的存进去了。计数口径与「已存值」页共用同一实现，
-            # 避免两处各切一次导致「保存时说 3 个、查看时说 1 个」。
-            if instance.is_secret and instance.value:
-                count = count_segments(str(instance.value))
-                if count:
-                    hint += f"（当前已保存 {count} 个 Key；留空提交则保持不变）"
-            self.fields["value"].help_text = hint
+            existing = str(self.fields["value"].help_text or "")
+            self.fields["value"].help_text = f"{existing} {hint}".strip() if existing else hint
 
     def clean(self) -> dict[str, Any]:  # pragma: no cover
         """表单级清洗：secret 值加密落库。

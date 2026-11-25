@@ -13,7 +13,7 @@ from django.utils.html import format_html
 
 from apps.core.models import SystemConfig
 from apps.core.security.secret_codec import SecretCodec
-from apps.core.security.secret_display import describe_stored_value, mask_summary, reveal_stored_value
+from apps.core.security.secret_display import mask_summary
 
 from ._system_config_data import get_default_configs
 from .forms import SystemConfigAdminForm
@@ -38,57 +38,12 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
     change_list_template = "admin/core/systemconfig/change_list.html"
 
     fieldsets = (
-        ("基本信息", {"fields": ("key", "value", "stored_value_preview", "category", "description")}),
+        ("基本信息", {"fields": ("key", "value", "category", "description")}),
         ("安全设置", {"fields": ("is_secret", "is_active"), "classes": ("collapse",)}),
         ("时间信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
-    readonly_fields: ClassVar[list[str]] = ["stored_value_preview", "created_at", "updated_at"]
-
-    def get_fieldsets(self, request: Any, obj: Any = None) -> Any:  # pragma: no cover
-        """非敏感项的明文本来就在 value 输入框里，不再多挂一个只读块。"""
-        fieldsets = super().get_fieldsets(request, obj)
-        if obj is not None and obj.pk and obj.is_secret:
-            return fieldsets
-        return tuple(
-            (
-                title,
-                {
-                    **options,
-                    "fields": tuple(f for f in options.get("fields", ()) if f != "stored_value_preview"),
-                },
-            )
-            for title, options in fieldsets
-        )
-
-    def stored_value_preview(self, obj: Any) -> Any:  # pragma: no cover
-        """编辑页直接显示当前已存值（敏感项显示解密后的明文，只读）。
-
-        为什么是只读块而不是回填输入框：输入框留着「留空=不修改」的语义，
-        回填明文会让用户一提交就把同一份明文再加密一遍（并刷新审计时间），
-        回填掩码更糟——掩码会被当成新值写进库。只读块两者都避开，
-        同时不需要再点任何按钮、不额外开页面。
-        """
-        if obj is None or not obj.pk:
-            return ""
-
-        desc = describe_stored_value(obj.value, is_secret=True)
-        if desc.decrypt_failed:
-            return format_html('<div style="color:#b45309;font-weight:600">{}</div>', desc.failure_message)
-        if not desc.segment_count:
-            return format_html('<span style="color:#999">{}</span>', "未设置")
-
-        plain = reveal_stored_value(obj.value)
-        summary = format_html('<div style="color:#666;margin-bottom:4px">{}</div>', desc.summary)
-        box = format_html(
-            '<textarea readonly rows="{}" style="width:100%;font-family:ui-monospace,monospace;'
-            'background:#f8f8f8;padding:8px;border:1px solid #dcdcdc;border-radius:4px">{}</textarea>',
-            min(max(len(plain.splitlines()) + 1, 2), 12),
-            plain,
-        )
-        return format_html("<div>{}{}</div>", summary, box)
-
-    stored_value_preview.short_description = "当前值（明文）"  # type: ignore[attr-defined]
+    readonly_fields: ClassVar[list[str]] = ["created_at", "updated_at"]
 
     def category_display(self, obj: Any) -> Any:  # pragma: no cover
         """显示分类标签"""
