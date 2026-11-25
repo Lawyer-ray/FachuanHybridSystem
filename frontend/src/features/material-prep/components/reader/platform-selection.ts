@@ -39,12 +39,29 @@ export function cloudEngineLabel(engine: CloudEngine): string {
       return 'PaddleOCR-VL'
     case 'textin':
       return 'Textin'
+    case 'deepseek':
+      return 'DeepSeek'
   }
 }
 
-/** 勾了两个及以上才比对：一个引擎自己跟自己没有「分歧」可言 */
+/**
+ * 可参与**交叉比对**的引擎（后端 `duel_engines` 的合法取值）。
+ *
+ * DeepSeek 不在里面：后端 `DUAL_ENGINE_CHOICES` 只有 mineru / paddleocr_vl / textin，
+ * 它没有独立于 `cloud_backend` 的第二条通道。把它发进 `dual_engines` 会被后端
+ * 当作未知引擎丢掉——前端若还按「勾了两个就比对」显示「将交叉比对」，
+ * 就是在给一个不会发生的承诺。
+ */
+export const DUAL_CAPABLE: readonly CloudEngine[] = ['mineru', 'paddleocr_vl', 'textin']
+
+/** 所选引擎里**真正能比对**的那部分（按固定顺序） */
+export function dualEnginesOf(selection: CloudSelection): CloudEngine[] {
+  return normalizeCloudSelection(selection).filter((engine) => DUAL_CAPABLE.includes(engine))
+}
+
+/** 勾了两个及以上**可比对**的引擎才比对：一个引擎自己跟自己没有「分歧」可言 */
 export function crossChecks(selection: CloudSelection): boolean {
-  return selection.length >= 2
+  return dualEnginesOf(selection).length >= 2
 }
 
 /**
@@ -78,7 +95,9 @@ export interface BackendRequest {
  */
 // 类型用 `CloudBackend`（不含 'auto'）而不是 `CloudEngine`：这张表就是「哪些值
 // 可以当 cloud_backend」，写成 CloudEngine 会允许 paddleocr_vl 混进来。
-const PRIMARY_PREFERENCE: readonly Exclude<CloudBackend, 'auto'>[] = ['mineru', 'textin']
+/** 正主优先级。`deepseek` 排最后：同时勾了它和 MinerU 时，正主仍是 MinerU
+ *  （DeepSeek 走 auto 链兜底）；只勾它时才由它自己当正主。 */
+const PRIMARY_PREFERENCE: readonly Exclude<CloudBackend, 'auto'>[] = ['mineru', 'textin', 'deepseek']
 
 export function resolveBackendRequest(selection: CloudSelection): BackendRequest {
   // 先归一：勾选顺序不该影响发出的串（否则同样的两个引擎会发两种 dual_engines）
@@ -91,9 +110,11 @@ export function resolveBackendRequest(selection: CloudSelection): BackendRequest
   // 用户只勾了 paddleocr_vl（+ 可能的其它非注册引擎）时，正主只能退回 auto——
   // 那条路径会挑一个**已配置**的平台取字，而 paddleocr_vl 仍在 dual_engines 里参与比对。
   const preferred = PRIMARY_PREFERENCE.find((e) => picked.some((p) => p === e))
+  const dual = dualEnginesOf(picked)
   return {
     cloudBackend: preferred ?? 'auto',
-    dualEngines: crossChecks(picked) ? [...picked] : null,
+    // 只发**可比对**的引擎：勾了 DeepSeek 不该让 dual_engines 多出一个后端不认的值
+    dualEngines: dual.length >= 2 ? dual : null,
   }
 }
 
@@ -117,9 +138,15 @@ export function cloudSelectionSummary(selection: CloudSelection): string {
   const picked = normalizeCloudSelection(selection)
   const [first] = picked
   if (first === undefined) return '自动容灾'
-  if (!crossChecks(picked)) return `仅 ${cloudEngineLabel(first)}`
-  const names = picked.map(cloudShortLabel).join('+')
-  return picked.length === 2 ? `双引擎 · ${names}` : `${picked.length} 个引擎 · ${names}`
+  const dual = dualEnginesOf(picked)
+  if (dual.length < 2) {
+    // 勾了 DeepSeek + 一个可比对引擎：正主是那个可比对的引擎，DeepSeek 只是兜底。
+    // 必须说出来——否则用户以为自己开了交叉比对，实际没有。
+    const backup = picked.length > 1 ? `（${picked.map(cloudShortLabel).join(' + ')}，DeepSeek 仅兜底）` : ''
+    return `仅 ${cloudEngineLabel(first)}${backup}`
+  }
+  const names = dual.map(cloudShortLabel).join('+')
+  return dual.length === 2 ? `双引擎 · ${names}` : `${dual.length} 个引擎 · ${names}`
 }
 
 /** 页面框轴 / 标题里用的短名（`PaddleOCR-VL` → `VL`） */

@@ -1,4 +1,4 @@
-import type { EngineBlockRect, EngineDisagreement, EngineName, EngineVariant, Segment } from '../types'
+import type { CloudEngine, EngineBlockRect, EngineDisagreement, EngineName, EngineVariant, Segment } from '../types'
 
 /**
  * 双引擎交叉校验的纯逻辑：数据收窄、引擎命名、分组排序、「已核对」键、双框对照取框。
@@ -18,7 +18,7 @@ import type { EngineBlockRect, EngineDisagreement, EngineName, EngineVariant, Se
  */
 
 /** 引擎码 → 人话。唯一一处把引擎码翻译成中文名的地方，抽屉与页面框轴标注共用。 */
-export function engineLabel(engine: EngineName): string {
+export function engineLabel(engine: CloudEngine): string {
   switch (engine) {
     case 'mineru':
       return 'MinerU'
@@ -26,6 +26,8 @@ export function engineLabel(engine: EngineName): string {
       return 'PaddleOCR-VL'
     case 'textin':
       return 'TextIn'
+    case 'deepseek':
+      return 'DeepSeek'
     default:
       // 后端将来加引擎时原样显示，不丢信息（也不至于整条分歧消失）
       return engine
@@ -38,7 +40,7 @@ export function engineLabel(engine: EngineName): string {
  * 用短名而不是全名：框宽可能只有几十像素，`PaddleOCR-VL` 会盖掉框本身的内容。
  * 而律师只需要知道「这条线是主引擎还是副引擎」，全名在抽屉里已经给过了。
  */
-export function engineShortLabel(engine: EngineName): string {
+export function engineShortLabel(engine: CloudEngine): string {
   switch (engine) {
     case 'mineru':
       return 'MinerU'
@@ -46,6 +48,8 @@ export function engineShortLabel(engine: EngineName): string {
       return 'VL'
     case 'textin':
       return 'TextIn'
+    case 'deepseek':
+      return 'DeepSeek'
     default:
       return engine
   }

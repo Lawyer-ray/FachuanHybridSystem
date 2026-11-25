@@ -137,4 +137,32 @@ def get_ocr_configs() -> list[dict[str, Any]]:
             "value": "",
             "is_secret": True,
         },
+        {
+            "key": "DEEPSEEK_OCR_API_KEY",
+            "category": "ocr",
+            "description": (
+                "DeepSeek OCR API Key（文件解析/OCR，按页计费 1.5 元/1000 页）。"
+                "填了之后「解析平台」里会多出一个可选的 DeepSeek 引擎；"
+                "auto 模式下它排在 MinerU/Textin 之后作为兜底，想让它当首选请锁定它。"
+            ),
+            "value": "",
+            "is_secret": True,
+        },
+        {
+            "key": "DEEPSEEK_OCR_API_URL",
+            "category": "ocr",
+            "description": "DeepSeek OCR 接口地址（一般不用改）",
+            "value": "https://api.deepseek.com/v1/tools/ocr",
+            "is_secret": False,
+        },
+        {
+            "key": "DEEPSEEK_OCR_PURPOSE",
+            "category": "ocr",
+            "description": (
+                "DeepSeek 解析模式：text_recognition=只取文字（快、便宜、表格给出 HTML）；"
+                "rich_layout_recognition=带版面块与坐标（慢、退化率更高，但「原文坐标对照」需要它）"
+            ),
+            "value": "text_recognition",
+            "is_secret": False,
+        },
     ]

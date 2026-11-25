@@ -74,6 +74,8 @@ class PdfSplitCloudBackend(models.TextChoices):
     AUTO = "auto", "自动（优先 + 失败容灾）"
     MINERU = "mineru", "仅 MinerU"
     TEXTIN = "textin", "仅 Textin"
+    # 凭证在 SystemConfig 的 DEEPSEEK_OCR_API_KEY，不在「解析平台」管理页
+    DEEPSEEK = "deepseek", "仅 DeepSeek"
 
 
 #: 「交叉比对」可用的引擎码。与 `services/split/dual_engine.ENGINE_*` 逐字一致。

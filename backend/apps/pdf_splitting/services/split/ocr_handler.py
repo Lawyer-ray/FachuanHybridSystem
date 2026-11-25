@@ -40,7 +40,7 @@ _VL_LAYOUT_SIDE = 1000.0
 
 #: 云端平台的 source_method 前缀（``mineru_ocr`` / ``textin_empty`` …）。
 #: 缓存命中时靠它恢复真实来源——档案名记的是**首选**平台，容灾后可能名不副实。
-_CLOUD_METHOD_PREFIXES = ("mineru", "textin")
+_CLOUD_METHOD_PREFIXES = ("mineru", "textin", "deepseek")
 
 #: 单页云端 OCR 的**最坏**墙钟：一次调用最多能占到这么久才开始报错。
 #:
@@ -349,11 +349,16 @@ class OCRHandler:
         """按尝试顺序给出云端平台列表。
 
         ``auto`` 返回全部可用平台（首个失败可切下一个 = 容灾）；
-        锁定 mineru / textin 时只返回它本身（不允许偷偷降级）。
-        """
-        from apps.document_parsing.services.parser_factory import resolve_cloud_backends
+        锁定某个平台时只返回它本身（不允许偷偷降级）。
 
-        return [b for b in resolve_cloud_backends(cloud_backend) if b in {"mineru", "textin"}]
+        过滤集合直接取 ``CLOUD_BACKEND_CHOICES``：这里曾硬编码 ``{"mineru", "textin"}``，
+        新增平台忘了同步就会「注册了、也配了，却永远选不到」——而那种失效**不报错**，
+        只是静静回落本地 OCR。改从那一处派生，以后加平台只改一个地方。
+        """
+        from apps.document_parsing.services.parser_factory import CLOUD_BACKEND_CHOICES, resolve_cloud_backends
+
+        allowed = set(CLOUD_BACKEND_CHOICES)
+        return [b for b in resolve_cloud_backends(cloud_backend) if b in allowed]
 
     def parse_cloud_pages(self, *, pdf_path: Path, backend: str) -> dict[int, OCRPageResult]:
         """一次解析整份 PDF，并恢复各解析块对应的原始页码。"""

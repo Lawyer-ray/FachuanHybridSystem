@@ -138,7 +138,9 @@ def resolve_bbox_unit(backend: str | None) -> str:
     压根不产出 blocks，这里给什么单位都画不出框，不存在编造坐标。
     """
     name = str(backend or "").strip().lower()
-    if name in {"mineru", "local"}:
+    # deepseek 也是千分比：`rich_layout_recognition` 的标记里直接给 [[x1,y1,x2,y2]]，
+    # 原点左上、按页宽高归一化到 0–1000，与 MinerU 同量纲。
+    if name in {"mineru", "local", "deepseek"}:
         return "permille"
     if name == "textin":
         return "absolute"

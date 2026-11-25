@@ -20,8 +20,11 @@ type PdfSplitJobPayload = components['schemas']['PdfSplitJobOut']
 /** POST /pdf-splitting/jobs 的响应（生成物 PdfSplitJobSubmitOut） */
 type PdfSplitJobSubmit = components['schemas']['PdfSplitJobSubmitOut']
 
-/** 云端解析平台偏好：auto=优先+容灾；锁定值=只用它，失败不降级 */
-export type CloudBackend = 'auto' | 'mineru' | 'textin'
+/** 云端解析平台偏好：auto=优先+容灾；锁定值=只用它，失败不降级。
+ *
+ *  `deepseek` 与前两者的区别只有一处：它的凭证在系统配置（`DEEPSEEK_OCR_API_KEY`），
+ *  不在「解析平台」管理页。对前端调用方没有差别——都是发一个 `cloud_backend` 单值。 */
+export type CloudBackend = 'auto' | 'mineru' | 'textin' | 'deepseek'
 
 /**
  * 第二引擎（交叉比对用）：`paddleocr_vl` 不是可注册的解析平台

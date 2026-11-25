@@ -235,12 +235,28 @@ describe('ReaderToolbar：自动分段 split button', () => {
     unmount()
   })
 
-  it('解析平台是多选：三个引擎都能勾，且 PaddleOCR-VL 在列', async () => {
+  it('解析平台是多选：四个引擎都能勾，且 PaddleOCR-VL / DeepSeek 在列', async () => {
     const { unmount } = renderToolbar()
     await openSettings()
-    for (const name of ['MinerU', 'PaddleOCR-VL', 'Textin']) {
+    for (const name of ['MinerU', 'PaddleOCR-VL', 'Textin', 'DeepSeek']) {
       expect(screen.getByRole('menuitemcheckbox', { name: new RegExp(name) })).toBeTruthy()
     }
+    unmount()
+  })
+
+  it('DeepSeek 单独使用：说明它崩塌/需重试的代价，而不是「再勾一个可比对」', async () => {
+    const { unmount } = renderToolbar({ cloudSelection: ['deepseek'] })
+    await openSettings()
+    expect(screen.getByText(/仅 DeepSeek 取字/)).toBeTruthy()
+    expect(screen.queryByText(/将交叉比对/)).toBeNull()
+    unmount()
+  })
+
+  it('DeepSeek + MinerU 不出现「将交叉比对」（它不参与比对）', async () => {
+    const { unmount } = renderToolbar({ cloudSelection: ['mineru', 'deepseek'] })
+    await openSettings()
+    expect(screen.queryByText(/将交叉比对/)).toBeNull()
+    expect(screen.getByRole('menuitemcheckbox', { name: /DeepSeek/ }).getAttribute('aria-checked')).toBe('true')
     unmount()
   })
 
