@@ -127,6 +127,7 @@ INSTALLED_APPS = [
     "apps.legal_research",  # 6.5 案例检索（法律数据源）
     "apps.legal_solution",  # 6.6 法律服务方案
     "apps.enterprise_data",  # 6.6 企业数据查询（天眼查/企查查等）
+    "apps.doc_verify",  # 6.72 回传件内容核对（客户回传件的正文是否被改动）
     "apps.doc_convert",  # 6.7 要素式转换（传统文书转要素式文书）
     "apps.doc_converter",  # 6.71 DOC 批量转 DOCX
     "apps.agent",  # 6.85 Agent 运行时（pi）
