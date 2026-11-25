@@ -2,7 +2,7 @@ import { countRotated } from '../../draft'
 import type { DraftState, PageKey } from '../../types'
 
 /**
- * 「转正」按钮作用在哪些页。
+ * 「旋转」按钮作用在哪些页。
  *
  * ## 为什么要有优先级，而不是固定作用于选中页
  *
@@ -23,7 +23,7 @@ export interface RotationTarget {
   refs: PageKey[]
   /** 给人看的目标描述，直接进按钮 title 与菜单标题 */
   label: string
-  /** 目标里已经转过正的有几页（0 时「重置方向」置灰） */
+  /** 目标里已经旋转过的页数（0 时「重置旋转」置灰） */
   rotatedCount: number
 }
 
@@ -32,7 +32,7 @@ export function rotationTargetOf(
   selPages: readonly PageKey[],
   focusedSeg: number,
 ): RotationTarget {
-  if (!draft) return { refs: [], label: '没有可转的页', rotatedCount: 0 }
+  if (!draft) return { refs: [], label: '没有可旋转的页', rotatedCount: 0 }
 
   let refs: PageKey[]
   let label: string
@@ -52,7 +52,7 @@ export function rotationTargetOf(
   return { refs, label, rotatedCount: countRotatedFor(draft, refs) }
 }
 
-/** 把 `mi:page` 换成旋转表的键（`partIndex:page`）后数已转正的页数 */
+/** 把 `mi:page` 换成旋转表的键（`partIndex:page`）后数已旋转的页数 */
 function countRotatedFor(draft: DraftState, refs: readonly PageKey[]): number {
   const keys = refs.flatMap((ref) => {
     const mat = draft.mats[ref.mi]

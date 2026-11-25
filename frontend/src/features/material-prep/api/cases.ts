@@ -417,7 +417,7 @@ export async function assignPack(opts: AssignPackOptions): Promise<AssignResult>
   }
   // 旋转没落地同样是静默的：材料绑上了，但那份材料还是歪的/倒的。律师必须知道。
   if (rotationSkippedCount > 0) {
-    toast.warning(`有 ${rotationSkippedCount} 份材料未能转正，上传的是原始角度`, { id: 'assign-rotation' })
+    toast.warning(`有 ${rotationSkippedCount} 份材料的旋转未能生效，上传的是原始方向`, { id: 'assign-rotation' })
   }
 
   return { caseId, caseName, contractId, boundCount, unsplitCount }

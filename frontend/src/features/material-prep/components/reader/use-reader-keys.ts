@@ -39,7 +39,7 @@ export function useReaderKeys() {
         }
         return
       }
-      // 人工转正：只对「已选中的页」生效。没选中就不动——盲转当前页会让律师
+      // 旋转：只对「已选中的页」生效。没选中就不动——盲转当前页会让律师
       // 不知道该页到底转没转（页流里一屏十几页，转错一页很难找回来）。
       if ((e.key === 'r' || e.key === 'R') && !e.metaKey && !e.ctrlKey && !e.altKey) {
         if (s.selPages.length) {

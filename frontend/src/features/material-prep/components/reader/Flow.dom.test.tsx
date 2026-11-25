@@ -93,7 +93,6 @@ function renderFlow(props: Partial<Parameters<typeof Flow>[0]> = {}) {
       ocrPending={null}
       onOp={{ pickPage: vi.fn(), setValue: vi.fn() } as never}
       onToggleSel={onToggleSel}
-      onRotatePages={vi.fn()}
       onOcrBox={onOcrBox}
       onRequestDelete={onRequestDelete}
       {...props}
@@ -263,7 +262,6 @@ function renderFlowWithOp(over: Record<string, unknown> = {}) {
       ocrPending={null}
       onOp={{ pickPage: vi.fn(), setValue: vi.fn(), splitSeg, renameSeg, mergeSeg } as never}
       onToggleSel={vi.fn()}
-      onRotatePages={vi.fn()}
       onOcrBox={vi.fn()}
       onRequestDelete={onRequestDelete}
       {...over}

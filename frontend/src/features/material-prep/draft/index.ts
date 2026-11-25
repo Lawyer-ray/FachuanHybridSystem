@@ -24,7 +24,6 @@ export {
   countRotated,
   rotateNormRect,
   rotationsForRange,
-  rotatedRefsOf,
   firstRotationOf,
   joinRotationEncodings,
 } from './page-rotation'

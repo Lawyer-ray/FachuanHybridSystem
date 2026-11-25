@@ -16,7 +16,7 @@ export function PdfPageView({
   messageId,
   partIndex,
   pageNum,
-  /** 人工转正角度（叠加在页自身 /Rotate 之上）；变化必须重渲，见下方依赖数组 */
+  /** 页旋转角度（叠加在页自身 /Rotate 之上）；变化必须重渲，见下方依赖数组 */
   rotation = 0,
 }: {
   messageId: number

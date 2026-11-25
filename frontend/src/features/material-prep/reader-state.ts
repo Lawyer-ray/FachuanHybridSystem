@@ -90,8 +90,6 @@ export interface ReaderState {
   rotatePages: (refs: PageKey[], delta: number) => void
   /** 页旋转：这些页回正 */
   resetPagesRotation: (refs: PageKey[]) => void
-  /** 页旋转：全部回正 */
-  resetAllRotation: () => void
   /** 切换版面策略（影响下一次「自动分段」是否让电子页上云端）；按包落草稿 */
   setLayoutMode: (m: 'fast_text' | 'layout') => void
   /** 勾选 / 取消一个云端引擎（空集合即自动容灾）；按包落草稿 */

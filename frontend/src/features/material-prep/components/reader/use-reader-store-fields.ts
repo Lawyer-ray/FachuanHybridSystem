@@ -50,7 +50,6 @@ export function useReaderStoreFields() {
     // 页旋转（人工转正）：选择条 / 右键菜单 / 单页悬停按钮共用
     rotatePages: useReader((s) => s.rotatePages),
     resetPagesRotation: useReader((s) => s.resetPagesRotation),
-    resetAllRotation: useReader((s) => s.resetAllRotation),
     appendFiles: useReader((s) => s.appendFiles),
     // 内联箭头会让 Flow 的 cellPropsOf 依赖每次 render 变化，PageCell memo 全失效
     onToggleSel: useReader((s) => s.toggleSel),

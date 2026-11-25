@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { FileText, RotateCcw, RotateCw } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import type { BundleMat, RectPrecision, RotDeg } from '../../types'
 import { rotateNormRect } from '../../draft/page-rotation'
 import { rectPrecisionOf } from '../../types'
@@ -56,7 +56,6 @@ export const PageCell = memo(function PageCell({
   onContextMenu,
   onActivateHit,
   rotation = 0,
-  onRotate,
 }: {
   messageId: number
   mi: number
@@ -79,10 +78,8 @@ export const PageCell = memo(function PageCell({
   focusedHitKey?: string | null
   /** 双击某个定位框：把这块回传给 Markdown 面板（高亮 + 进入修改） */
   onActivateHit?: (key: string) => void
-  /** 人工转正角度（顺时针增量）。页转了，叠在页上的识别框也必须跟着转 */
+  /** 页旋转角度（顺时针增量）。页转了，叠在页上的识别框也必须跟着转 */
   rotation?: RotDeg
-  /** 单页旋转入口：delta=90/-90 叠加，「重置」传 0；右键菜单与悬停按钮共用 */
-  onRotate?: (deg: number) => void
   ocrRect?: PageRect | null
   onPickPage?: (mi: number, p: number) => void
   onOcrBox?: (mi: number, p: number, rect: PageRect) => void
@@ -183,9 +180,7 @@ export const PageCell = memo(function PageCell({
       className={cn(
         // w-full：撑满外层列宽（--mp-cw）。页卡自身不定宽时，骨架屏阶段会在
         // items-center 容器里被内容宽收缩成一条窄卡（手机上整页只剩中间一小条）
-        // group：页卡右上角的转正按钮靠 group-hover 显形。**少了它按钮永远
-        // opacity-0**——功能在 DOM 里但看不见（实测踩过：用户报「没有旋转功能」）
-        'group relative w-full select-text rounded-[7px] border bg-card text-[12.5px] leading-[1.9] text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.05),0_10px_26px_rgba(0,0,0,0.04)] transition-opacity',
+        'relative w-full select-text rounded-[7px] border bg-card text-[12.5px] leading-[1.9] text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.05),0_10px_26px_rgba(0,0,0,0.04)] transition-opacity',
         pickActive ? 'cursor-crosshair select-none' : selModeActive ? 'cursor-pointer' : 'cursor-default',
         selected && 'border-zinc-800 ring-2 ring-zinc-800/80',
         selModeActive && !selected && 'opacity-35',
@@ -291,24 +286,6 @@ export const PageCell = memo(function PageCell({
         )}
       </div>
 
-      {/* 单页旋转：悬停/键盘聚焦时出现。放在页脚上方的右下角，不挡识别框；
-          非 0 角度时页脚也挂一个角度徽标，让「这页转过」在长列表里可扫。 */}
-      {onRotate && (
-        <div className="absolute right-2 top-2 z-10 flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-          <RotateButton label="逆时针旋转 90°" onClick={() => onRotate(-90)}>
-            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-          </RotateButton>
-          <RotateButton label="顺时针旋转 90°" onClick={() => onRotate(90)}>
-            <RotateCw className="h-3.5 w-3.5" aria-hidden />
-          </RotateButton>
-          {rotation !== 0 && (
-            <RotateButton label="重置这一页的方向" onClick={() => onRotate(0)}>
-              <span className="text-[11px] leading-none">0°</span>
-            </RotateButton>
-          )}
-        </div>
-      )}
-
       {/* 选页已选：右上角黑圆勾（原型 .rp.picked::after） */}
       {selected && (
         <span className="pointer-events-none absolute right-3 top-3 grid h-[22px] w-[22px] place-items-center rounded-full bg-zinc-900 text-[13px] font-bold leading-none text-white">
@@ -321,7 +298,7 @@ export const PageCell = memo(function PageCell({
         {rotation !== 0 && (
           <span
             className="flex-none rounded-[4px] border border-status-blue/30 bg-status-blue-bg px-1 py-px text-[10px] font-medium text-status-blue"
-            title="这一页已人工转正；归案 / 归档 / 下载时会按这个方向输出"
+            title="这一页已旋转；归案 / 归档 / 下载时会按这个方向输出"
           >
             {rotation}°
           </span>
@@ -382,32 +359,6 @@ function PageBody({
   if (mat.k === 'photo')
     return <PhotoPageView messageId={messageId} partIndex={mat.partIndex} rotation={rotation} />
   return <OfficePlaceholder mat={mat} />
-}
-
-function RotateButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={(e) => {
-        // 页卡本身有点击语义（选页/拖框）：不拦住会把一次旋转变成一次选页
-        e.stopPropagation()
-        onClick()
-      }}
-      className="grid h-6 w-6 place-items-center rounded-[6px] border border-border bg-card/95 text-foreground/80 shadow-sm transition-colors hover:bg-secondary hover:text-foreground"
-    >
-      {children}
-    </button>
-  )
 }
 
 function OfficePlaceholder({ mat }: { mat: BundleMat }) {

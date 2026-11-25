@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 
 import type { DraftState, Inconsistency, OcrPending, PageKey, PageQuality } from '../../types'
-import { countRotated, groupBySeverity, uniqueDisagreementKeys } from '../../draft'
+import { groupBySeverity, uniqueDisagreementKeys } from '../../draft'
 import { useEngineAdopt } from './use-engine-adopt'
 import type { useReaderOcr } from './use-ocr'
 import { HintBar } from './HintBar'
@@ -49,8 +49,6 @@ export function ReaderBody({
   onToggleSel,
   onOcrBox,
   onRequestDelete,
-  onRotatePages,
-  onResetAllRotation,
   onFocusSeg,
   onRenameMat,
   onSetPickInfo,
@@ -96,9 +94,6 @@ export function ReaderBody({
   onToggleSel: (mi: number, p: number, shift: boolean) => void
   onOcrBox: ReturnType<typeof useReaderOcr>['onOcrBox']
   onRequestDelete: (picked: PageKey[]) => void
-  onRotatePages: (refs: PageKey[], deg: number) => void
-  /** 全部页回正（左下角「全部重置」） */
-  onResetAllRotation: () => void
   onFocusSeg: (si: number) => void
   onRenameMat: (mi: number) => void
   onSetPickInfo: (i: number) => void
@@ -226,7 +221,6 @@ export function ReaderBody({
         railWrapStyle={railWrapStyle}
         metaWrapStyle={metaWrapStyle}
         onCollapsePanels={onCollapsePanels}
-        onRotatePages={onRotatePages}
         draft={draft}
         pageQuality={pageQuality}
         inconsistencies={inconsistencies}
@@ -285,12 +279,6 @@ export function ReaderBody({
         onHideAutoSplit={onHideAutoSplit}
         selPages={selPages}
         selCount={selCount}
-        selRotatedCount={
-          selPages.filter((ref) => (draft.pageRot?.[`${draft.mats[ref.mi]?.partIndex}:${ref.p}`] ?? 0) !== 0).length
-        }
-        onRotatePages={(deg) => onRotatePages(selPages, deg)}
-        rotatedTotal={countRotated(draft.pageRot)}
-        onResetAllRotation={onResetAllRotation}
         selCross={selCross}
         onClearSel={onClearSel}
         onApplySel={onApplySel}

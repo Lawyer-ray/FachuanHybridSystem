@@ -19,8 +19,6 @@ function renderMenu(props: Partial<Parameters<typeof PageContextMenu>[0]> = {}) 
       y={100}
       title="第 1 页"
       count={1}
-      rotation={0}
-      onRotate={vi.fn()}
       onDelete={onDelete}
       onClose={onClose}
       {...props}

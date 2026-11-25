@@ -74,7 +74,7 @@ export function ReaderToolbar({
   onSetCols: (n: number) => void
   colsDisabled: boolean
   onResetSegments: () => void
-  /** 页转正：作用范围（选中页/当前段/全部）+ 动作 */
+  /** 页旋转：作用范围（选中页/当前段/全部）+ 动作 */
   rotation: {
     label: string
     count: number
@@ -118,27 +118,27 @@ export function ReaderToolbar({
         追加材料
       </button>
 
-      {/* 转正（人工）：倒着送纸扫出来的页在这里转回来。
-          为什么必须有这个常驻入口：单页按钮挂在页卡右上角、只在悬停时显形，
-          而「整份都倒了」是这批材料的常态——让律师逐页去找一个看不见的按钮
-          等于没有这个功能（实测被这么反馈过）。 */}
+      {/* 旋转：**唯一的旋转入口**。倒着送纸扫出来的页在这里转回来。
+          为什么只留这一个：页卡悬停按钮 / 右键菜单 / 选页浮条各有一份同样的动作，
+          四份入口说的是同一件事，既占地方又让人不确定该按哪个。收成一个带
+          作用范围的下拉，路径唯一。 */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            aria-label={`转正：${rotation.label}`}
-            title={`转正 ${rotation.label}（倒着扫描的页转回来）`}
+            aria-label={`旋转：${rotation.label}`}
+            title={`旋转页面（当前作用范围：${rotation.label}）`}
             disabled={rotation.count === 0}
             className={cn(PBTN, 'gap-1 disabled:cursor-not-allowed disabled:opacity-40')}
           >
             <RotateCw className="h-3.5 w-3.5" />
-            转正
+            旋转
             <ChevronDown className="h-3 w-3 text-muted-foreground" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[210px]">
           <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
-            作用范围：{rotation.label}
+            作用于 {rotation.label}
           </DropdownMenuLabel>
           <DropdownMenuItem onSelect={() => rotation.rotate(90)} className="text-[12.5px]">
             顺时针旋转 90°
@@ -147,7 +147,7 @@ export function ReaderToolbar({
             逆时针旋转 90°
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => rotation.rotate(180)} className="text-[12.5px]">
-            旋转 180°（倒着扫描最常见）
+            旋转 180°
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -155,10 +155,10 @@ export function ReaderToolbar({
             disabled={rotation.rotatedCount === 0}
             className="text-[12.5px]"
           >
-            重置方向{rotation.rotatedCount > 0 ? `（已转 ${rotation.rotatedCount} 页）` : ''}
+            重置旋转{rotation.rotatedCount > 0 ? `（已转 ${rotation.rotatedCount} 页）` : ''}
           </DropdownMenuItem>
           <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
-            勾选页后只转所选；未勾选时转当前段
+            勾选页后只旋转所选
           </DropdownMenuLabel>
         </DropdownMenuContent>
       </DropdownMenu>

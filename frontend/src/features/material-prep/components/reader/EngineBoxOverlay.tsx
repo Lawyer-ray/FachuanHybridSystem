@@ -61,7 +61,7 @@ export function EngineBoxOverlay({
   rotation = 0,
 }: {
   groups: EngineBoxGroup[]
-  /** 页的人工转正角度：页转了框必须跟着转，否则框会指到隔壁（比没有框更糟） */
+  /** 页旋转角度：页转了框必须跟着转，否则框会指到隔壁（比没有框更糟） */
   rotation?: RotDeg
 }) {
   // 一条分歧通常只对应一个块，所以按整组判断「本引擎坐标是否可信」。

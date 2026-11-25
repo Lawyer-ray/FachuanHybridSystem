@@ -27,7 +27,7 @@ function makeProps(over: Partial<ToolbarProps> = {}): ToolbarProps {
     onToggleMeta: vi.fn(),
     selMode: false,
     onToggleSelMode: vi.fn(),
-    // 转正：作用范围（默认空 → 按钮置灰，用例可覆盖）
+    // 旋转：作用范围（默认空 → 按钮置灰，用例可覆盖）
     rotation: { label: '当前段 0 页', count: 0, rotatedCount: 0, rotate: vi.fn() },
     onAddFiles: vi.fn(),
     zoomVal: 100,
@@ -404,8 +404,6 @@ describe('ReaderBody：自动分段进度面板接线', () => {
         railOpen={false}
         metaOpen={false}
         onOpenMeta={vi.fn()}
-        onRotatePages={vi.fn()}
-        onResetAllRotation={vi.fn()}
         onCollapsePanels={vi.fn()}
         railWrapCls=""
         metaWrapCls=""
@@ -478,31 +476,30 @@ describe('ReaderBody：自动分段进度面板接线', () => {
   })
 })
 
-// ── 转正入口（人工转正的可发现入口）───────────────────────────
+// ── 旋转入口（唯一入口）───────────────────────────────────
 //
-// 这次修的是一个「功能在、但看不见」的 bug：单页按钮挂 group-hover，而页卡
-// 根节点没有 `group` 类 → 永远 opacity-0。常驻工具栏入口是不再被漏掉的保证，
-// 所以这里锁它存在、能报告作用范围、三个角度都传得对。
+// 入口收敛成一个带作用范围的下拉（页卡悬停按钮 / 右键菜单 / 选页浮条的那几份
+// 已删）。这里锁它存在、能报告作用范围、三个角度都传得对。
 
-describe('ReaderToolbar：转正入口', () => {
-  it('常驻显示「转正」并报告作用范围（不写范围等于让律师盲按 37 页）', () => {
+describe('ReaderToolbar：旋转入口', () => {
+  it('常驻显示「旋转」并报告作用范围（不写范围等于让律师盲按 37 页）', () => {
     const rotation = { label: '当前段 37 页', count: 37, rotatedCount: 0, rotate: vi.fn() }
     render(<ReaderToolbar {...makeProps({ rotation })} />)
-    const trigger = screen.getByRole('button', { name: '转正：当前段 37 页' })
+    const trigger = screen.getByRole('button', { name: '旋转：当前段 37 页' })
     expect(trigger).toBeTruthy()
     fireEvent.keyDown(trigger, { key: 'Enter' })
-    expect(screen.getByText('作用范围：当前段 37 页')).toBeTruthy()
+    expect(screen.getByText('作用于 当前段 37 页')).toBeTruthy()
   })
 
   it('顺时针 / 逆时针 / 180° 各传对应角度', () => {
     const rotate = vi.fn()
     const rotation = { label: '所选 3 页', count: 3, rotatedCount: 0, rotate }
     render(<ReaderToolbar {...makeProps({ rotation })} />)
-    fireEvent.keyDown(screen.getByRole('button', { name: '转正：所选 3 页' }), { key: 'Enter' })
+    fireEvent.keyDown(screen.getByRole('button', { name: '旋转：所选 3 页' }), { key: 'Enter' })
     fireEvent.click(screen.getByText('顺时针旋转 90°'))
-    fireEvent.keyDown(screen.getByRole('button', { name: '转正：所选 3 页' }), { key: 'Enter' })
+    fireEvent.keyDown(screen.getByRole('button', { name: '旋转：所选 3 页' }), { key: 'Enter' })
     fireEvent.click(screen.getByText('逆时针旋转 90°'))
-    fireEvent.keyDown(screen.getByRole('button', { name: '转正：所选 3 页' }), { key: 'Enter' })
+    fireEvent.keyDown(screen.getByRole('button', { name: '旋转：所选 3 页' }), { key: 'Enter' })
     fireEvent.click(screen.getByText(/旋转 180°/))
     expect(rotate.mock.calls.map((c) => c[0])).toEqual([90, -90, 180])
   })
@@ -510,6 +507,6 @@ describe('ReaderToolbar：转正入口', () => {
   it('没有可转的页时按钮置灰（草稿未就绪）', () => {
     const rotation = { label: '没有可转的页', count: 0, rotatedCount: 0, rotate: vi.fn() }
     render(<ReaderToolbar {...makeProps({ rotation })} />)
-    expect((screen.getByRole('button', { name: '转正：没有可转的页' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: '旋转：没有可转的页' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })

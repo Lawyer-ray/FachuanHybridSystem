@@ -33,7 +33,6 @@ export function Flow({
   onToggleSel,
   onOcrBox,
   onRequestDelete,
-  onRotatePages,
 }: {
   draft: DraftState
   messageId: number
@@ -54,8 +53,6 @@ export function Flow({
   onToggleSel: (mi: number, p: number, shift: boolean) => void
   onOcrBox: (mi: number, p: number, rect: PageRect) => void
   onRequestDelete: (picked: PageKey[]) => void
-  /** 页旋转（人工转正）：refs 为要改的页，deg 90/-90/180 叠加、0 重置 */
-  onRotatePages: (refs: PageKey[], deg: number) => void
 }) {
   const { segs, mats, infos } = draft
   const picking = pickInfo >= 0
@@ -216,22 +213,14 @@ export function Flow({
       focusedHitKey: focusedBlockKey,
       onActivateHit,
       rotation: rotations[`${ref.mi}:${ref.p}`] ?? 0,
-      onRotate: (deg: number) => onRotatePages([ref], deg),
     }),
-    [messageId, mats, singleSource, picking, selMode, selKeys, marksOf, hitsOf, engineBoxesOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu, focusedBlockKey, onActivateHit, rotations, onRotatePages],
+    [messageId, mats, singleSource, picking, selMode, selKeys, marksOf, hitsOf, engineBoxesOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu, focusedBlockKey, onActivateHit, rotations],
   )
 
   const menuInSel = menu ? selKeys.has(`${menu.mi}:${menu.p}`) : false
   const menuTitle = menu
     ? `${mats[menu.mi]?.customName || mats[menu.mi]?.n || ''} · 第 ${menu.p} 页`
     : ''
-  /** 菜单里的「当前角度」：多选且角度不一致时传 null，不谎报某一个值 */
-  const menuRotation = useMemo(() => {
-    const targets: PageKey[] = menu ? (menuInSel ? selPages : [{ mi: menu.mi, p: menu.p }]) : []
-    const degrees = new Set(targets.map((ref) => rotations[`${ref.mi}:${ref.p}`] ?? 0))
-    return degrees.size === 1 ? ([...degrees][0] ?? 0) : null
-  }, [menu, menuInSel, selPages, rotations])
-  const menuTargets: PageKey[] = menu ? (menuInSel ? selPages : [{ mi: menu.mi, p: menu.p }]) : []
 
   return (
     <div
@@ -339,11 +328,6 @@ export function Flow({
           y={menu.y}
           title={menuTitle}
           count={menuInSel ? selPages.length : 1}
-          rotation={menuRotation}
-          onRotate={(deg) => {
-            onRotatePages(menuTargets, deg)
-            setMenu(null)
-          }}
           onDelete={() => {
             const target = menuInSel ? selPages : [{ mi: menu.mi, p: menu.p }]
             onRequestDelete(target)

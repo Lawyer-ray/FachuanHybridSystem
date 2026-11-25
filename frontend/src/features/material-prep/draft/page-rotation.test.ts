@@ -22,7 +22,6 @@ import {
   resetRefsRotation,
   rotateNormRect,
   rotateRefs,
-  rotatedRefsOf,
   rotatedSizeOf,
   rotationsForRange,
   setRefsRotation,
@@ -205,20 +204,6 @@ describe('rotationsForRange：给后端的编码', () => {
 
   it('区间反着传也按从小到大处理（调用方偶发笔误不该静默丢旋转）', () => {
     expect(rotationsForRange(map, 0, 4, 3)).toBe('3:180,4:270')
-  })
-})
-
-describe('rotatedRefsOf', () => {
-  it('只列非 0 的页，且能把键解析回 partIndex/page', () => {
-    const refs = rotatedRefsOf({ '0:2': 90, '1:7': 180 })
-    expect(refs).toHaveLength(2)
-    expect(refs).toContainEqual({ partIndex: 0, page: 2 })
-    expect(refs).toContainEqual({ partIndex: 1, page: 7 })
-  })
-
-  it('忽略脏键与 0 值', () => {
-    const map = { 'bad': 90, '0:0': 90, '0:5': 0 } as unknown as PageRotMap
-    expect(rotatedRefsOf(map)).toEqual([])
   })
 })
 

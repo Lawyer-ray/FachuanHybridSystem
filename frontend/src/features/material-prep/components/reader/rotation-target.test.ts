@@ -57,6 +57,6 @@ describe('rotationTargetOf', () => {
   it('没有草稿时不给出可点目标（按钮置灰而不是静默转错）', () => {
     const t = rotationTargetOf(null, [], 0)
     expect(t.refs).toEqual([])
-    expect(t.label).toBe('没有可转的页')
+    expect(t.label).toBe('没有可旋转的页')
   })
 })

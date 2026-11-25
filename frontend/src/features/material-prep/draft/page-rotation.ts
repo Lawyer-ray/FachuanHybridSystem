@@ -189,14 +189,6 @@ export function rotationsForRange(
   return parts.join(',')
 }
 
-/** 全包的页引用（「全部重置」用；只列真正有旋转的页，省得遍历几千页） */
-export function rotatedRefsOf(map: PageRotMap | undefined): PageRefKey[] {
-  if (!map) return []
-  return Object.keys(map)
-    .map((key) => parsePageRotKey(key))
-    .filter((ref): ref is PageRefKey => ref !== null && getPageRot(map, ref) !== 0)
-}
-
 /**
  * 从编码里取「这一份的旋转角度」（照片素材用）。
  *
