@@ -36,6 +36,9 @@ vi.mock('../inbox/hooks/use-sync-sources', () => ({ useSyncSources: syncMock.use
 vi.mock('../store', () => ({
   useReader: (sel: (s: typeof storeMock) => unknown) => sel(storeMock),
 }))
+// 回传件待核对入口要 QueryClient（跨案件清单）。这些用例只验证 DeskPage 自己的
+// 编排逻辑，与 inbox 角标同口径：打桩掉，别让一个提示组件成为 DeskPage 的测试前提。
+vi.mock('../doc-verify/PendingEntry', () => ({ PendingEntry: () => null }))
 vi.mock('../hooks/use-desk-keyboard', () => ({ useDeskKeyboard: vi.fn() }))
 vi.mock('../hooks/use-desk-ring', () => ({
   useDeskRing: () => ({ ringRef: { current: null }, ringStyle: {} }),

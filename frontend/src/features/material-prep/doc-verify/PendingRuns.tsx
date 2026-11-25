@@ -21,6 +21,7 @@ import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import {
   decideRun,
+  listPending,
   listUnverified,
   type DecisionAction,
   type FindingOut,
@@ -31,8 +32,8 @@ import {
 const FINDINGS_SHOWN = 3
 
 /** 待裁决清单的 query key（裁决成功后按它失效重拉）。 */
-function unverifiedKey(caseId: number) {
-  return ['doc-verify-unverified', caseId] as const
+function unverifiedKey(caseId: number | undefined) {
+  return ['doc-verify-unverified', caseId ?? 'all'] as const
 }
 
 interface SeverityStyle {
@@ -128,7 +129,7 @@ function FindingLine({ finding }: { finding: FindingOut }) {
 }
 
 /** 一件待裁决的回传件。 */
-function RunRow({ run, caseId }: { run: VerifyRunOut; caseId: number }) {
+function RunRow({ run, caseId }: { run: VerifyRunOut; caseId: number | undefined }) {
   const queryClient = useQueryClient()
   const decide = useMutation({
     mutationFn: (action: DecisionAction) => decideRun(run.id, { action, reason: '' }),
@@ -186,15 +187,18 @@ function RunRow({ run, caseId }: { run: VerifyRunOut; caseId: number }) {
  * 空态写「本案没有待核对的回传件」而不是整块隐藏：律师在材料归属里选案件时，
  * 「这个案子有没有东西等着我」本身就是答案，缺了它律师会以为是没加载出来。
  */
-export function PendingRuns({ caseId }: { caseId: number }) {
+export function PendingRuns({ caseId }: { caseId?: number }) {
+  const scoped = caseId !== undefined
   const { data, error, isPending, isError } = useQuery({
     queryKey: unverifiedKey(caseId),
-    queryFn: ({ signal }) => listUnverified(caseId, signal),
+    // 给了 caseId 就只看该案；没给就是跨案件清单（后端按可见性收窄）。
+    // 两条路径共用同一份行渲染与同一个裁决动作，避免「全局能看不能裁」的两套口径。
+    queryFn: ({ signal }) => (scoped ? listUnverified(caseId, signal) : listPending(50, signal)),
   })
 
   return (
     <section aria-label="待裁决的回传件" className="rounded-xl border border-border bg-secondary/30 p-3">
-      <div className="text-[12.5px] font-medium">待裁决的回传件</div>
+      <div className="text-[12.5px] font-medium">{scoped ? '待裁决的回传件' : '全部待裁决的回传件'}</div>
       {isPending && (
         <div className="mt-1.5 flex items-center gap-2 text-[12px] text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin" /> 加载中…
@@ -206,7 +210,9 @@ export function PendingRuns({ caseId }: { caseId: number }) {
         </div>
       )}
       {data?.length === 0 && (
-        <div className="mt-1.5 text-[12px] text-muted-foreground">本案没有待核对的回传件</div>
+        <div className="mt-1.5 text-[12px] text-muted-foreground">
+          {scoped ? '本案没有待核对的回传件' : '没有待核对的回传件'}
+        </div>
       )}
       {data?.map((run) => <RunRow key={run.id} run={run} caseId={caseId} />)}
     </section>

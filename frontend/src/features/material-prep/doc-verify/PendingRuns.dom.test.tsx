@@ -62,6 +62,8 @@ function runOf(over: Partial<VerifyRunOut> = {}): VerifyRunOut {
     id: 3,
     artifact_id: 9,
     case_id: 7,
+    // 跨案件清单靠它定位「是哪一件」，后端一定会给
+    case_name: '张三诉李四借款纠纷',
     doc_type: '起诉状',
     state: 'changed',
     state_label: '检出问题',

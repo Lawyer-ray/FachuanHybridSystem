@@ -47,6 +47,13 @@ export async function listUnverified(caseId: number, signal?: AbortSignal): Prom
     .json<VerifyRunOut[]>()
 }
 
+/** 跨案件的待裁决清单（材料准备页的全局入口用；后端按可见性收窄）。 */
+export async function listPending(limit = 50, signal?: AbortSignal): Promise<VerifyRunOut[]> {
+  return docVerifyApi
+    .get('pending', { searchParams: { limit }, signal })
+    .json<VerifyRunOut[]>()
+}
+
 /** 记录一条裁决（append-only）；accept/reject 之后该件即从待裁决清单消失。 */
 export async function decideRun(runId: number, decision: DecisionIn): Promise<DecisionOut> {
   return docVerifyApi.post(`runs/${runId}/decision`, { json: decision }).json<DecisionOut>()
