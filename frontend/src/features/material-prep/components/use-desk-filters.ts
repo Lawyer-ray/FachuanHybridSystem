@@ -4,6 +4,7 @@ import { isPackStage, parseStage, stageToQuery, type PrepStage } from '../stages
 import { useInboxList } from '../inbox/hooks/use-inbox'
 import { countUnread } from '../inbox/domain'
 import type { InboxSourceFilter } from '../inbox/types'
+import { rememberInboxSource, resolveInitialInboxSource } from '../inbox/default-source'
 import type { PackStatus } from '../types'
 import { STAGE_DEFAULT_VIEW } from './desk-toolbar-types'
 import type { DeskViewMode } from './desk-toolbar-types'
@@ -33,7 +34,21 @@ export function useDeskFilters() {
   // 收件箱的筛选以前是 InboxView 内部的本地 state，工具栏上提到页面级后
   // 必须跟着上提：工具栏与列表主体是兄弟节点，状态留在下面就会出现
   // 「点了药丸但列表不动」。InboxView 现在是受控组件，只认这里的值。
-  const [source, setSource] = useState<InboxSourceFilter>('all')
+  // 首屏档位：默认「邮箱」，本次会话内记住用户自己选过的档位（理由见
+  // inbox/default-source.ts 的模块文档——「全部」把邮箱与法院送达混成一条流，
+  // 律师每天先看的是邮箱）
+  const [source, setSourceState] = useState<InboxSourceFilter>(resolveInitialInboxSource)
+  /** 用户点档位：记住选择，离开页面再回来仍停在他上次看的那一档 */
+  const setSource = useCallback((next: InboxSourceFilter) => {
+    rememberInboxSource(next)
+    setSourceState(next)
+  }, [])
+  /**
+   * 程序改档（不记偏好）：深链接 `?message=` 的目标不在当前档位时，
+   * `useDeepLinkMessage` 会放开筛选把它找出来。那是临时覆盖，不是律师的选择；
+   * 记进偏好会让这次会话里每次回收件箱都被钉在「全部」。
+   */
+  const overrideSource = useCallback((next: InboxSourceFilter) => setSourceState(next), [])
   const [search, setSearch] = useState('')
   const [unreadOnly, setUnreadOnly] = useState(false)
 
@@ -92,6 +107,7 @@ export function useDeskFilters() {
     setSel,
     source,
     setSource,
+    overrideSource,
     search,
     setSearch,
     unreadOnly,

@@ -18,9 +18,16 @@ export { DeskPage } from './components/DeskPage'
  * 这里只能按丢弃处理（lib/reset-client-state 的顺序调整见交接报告）。
  */
 export async function resetMaterialPrepState(): Promise<void> {
-  const [store, persistence] = await Promise.all([import('./store'), import('./draft-persistence')])
+  const [store, persistence, inboxSource] = await Promise.all([
+    import('./store'),
+    import('./draft-persistence'),
+    import('./inbox/default-source'),
+  ])
   if (hasToken()) await persistence.flushPendingSave()?.catch(() => {})
   store.useReader.getState().resetAll()
+  // 收件箱的档位偏好是「本次会话记住用户自己选过的那一档」——换人登录必须清掉，
+  // 否则下一个人进来看到的是上一个人习惯的档位（同 reset-client-state 的主旨）
+  inboxSource.resetInboxSourcePreference()
 }
 
 /**

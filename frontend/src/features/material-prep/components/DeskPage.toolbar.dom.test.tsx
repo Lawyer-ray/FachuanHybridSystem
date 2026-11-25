@@ -87,7 +87,11 @@ describe('DeskPage：工具栏槽位随阶段变化', () => {
     expect(getByRole('button', { name: '法院短信' })).toBeTruthy()
     expect(getByRole('button', { name: /未读/ })).toBeTruthy()
     expect(getByLabelText('搜索收件箱')).toBeTruthy()
-    expect(getByRole('button', { name: /同步全部/ })).toBeTruthy()
+    // 默认档位是「邮箱」（见 inbox/default-source.ts），同步按钮跟着当前档位走
+    expect(getByRole('button', { name: /同步邮箱/ })).toBeTruthy()
+    // 首屏落在「邮箱」而不是「全部」：这是本页的默认值，也是最容易被改回去的一处
+    expect(getByRole('button', { name: '邮箱' }).getAttribute('aria-pressed')).toBe('true')
+    expect(getByRole('button', { name: '全部' }).getAttribute('aria-pressed')).toBe('false')
     // 收件箱是消息流：不提供「列表 / 卡片」切换
     expect(bar.textContent).not.toContain('卡片')
     unmount()
@@ -129,7 +133,7 @@ describe('DeskPage：收件箱筛选上提并透传', () => {
     const { unmount } = renderDesk('/material-prep')
 
     expect(ui.inbox).toMatchObject({
-      source: 'all',
+      source: 'imap',
       search: '',
       unreadOnly: false,
     })

@@ -56,6 +56,7 @@ export function DeskPage() {
     setSel,
     source,
     setSource,
+    overrideSource,
     search,
     setSearch,
     unreadOnly,
@@ -241,7 +242,8 @@ export function DeskPage() {
             tab={tab}
             viewMode={viewMode}
             source={source}
-            onSourceChange={setSource}
+            // 主区域这条只被深链接用来「放开筛选找目标消息」，不记进偏好
+            onSourceChange={overrideSource}
             search={search}
             onSearchChange={setSearch}
             unreadOnly={unreadOnly}
