@@ -1,7 +1,13 @@
-function enterprisePrefillApp() {
+function enterprisePrefillApp(options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const initialKeyword = typeof opts.initialKeyword === 'string' ? opts.initialKeyword : '';
+    const currentClientId = Number.isInteger(opts.currentClientId) && opts.currentClientId > 0 ? opts.currentClientId : null;
+
     return {
         provider: 'tianyancha',
-        keyword: '',
+        keyword: initialKeyword,
+        // 编辑页才有值：用于区分「查到的就是当前当事人」和「信用代码已被别人占用」
+        currentClientId: currentClientId,
         isSearching: false,
         isLoadingPrefill: false,
         searchError: '',
@@ -17,7 +23,7 @@ function enterprisePrefillApp() {
         isProviderReady: true,
         isLoadingStatuses: true,
         isFavorite: false,
-        systemConfigUrl: 'http://127.0.0.1:8002/admin/core/systemconfig/',
+        systemConfigUrl: '/admin/core/systemconfig/',
         _favKey: 'enterprise_prefill_favorite_provider',
 
         async init() {
@@ -106,6 +112,13 @@ function enterprisePrefillApp() {
             }
 
             return '';
+        },
+
+        isSameClient() {
+            if (!this.existingClient || !this.existingClient.id || !this.currentClientId) {
+                return false;
+            }
+            return Number(this.existingClient.id) === Number(this.currentClientId);
         },
 
         toggleFavorite() {
@@ -273,10 +286,12 @@ function enterprisePrefillApp() {
                 this.highlightField(field);
             });
 
-            this.applyMessage = '已自动填充企业信息，可直接保存或继续编辑';
+            this.applyMessage = this.currentClientId
+                ? '已把企业信息填入表单，核对后点页面底部「保存」生效（未保存前刷新页面即可放弃）'
+                : '已自动填充企业信息，可直接保存或继续编辑';
             setTimeout(() => {
                 this.applyMessage = '';
-            }, 3000);
+            }, 6000);
         },
 
         highlightField(field) {
