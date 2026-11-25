@@ -70,36 +70,39 @@ DOMAIN_TEXT = "text"
 #: （身份证 Mod-11 / USCC Mod-31 / Luhn），见简报 §10.4 的 L1 校验和。
 BLOCKED_DOMAINS: frozenset[str] = frozenset({"id_card", "uscc", "bank_card", "account_no"})
 
-# ── 配置键（值一律走 SystemConfigService，禁止写死在代码里）────────────────────
+# ── 只有两项走 SystemConfig，其余全是模块常量 ────────────────────────────────
+#
+# 判据：**因部署而异**的才进配置表（key、开关）；**实测出来的工程常数**留在代码里。
+# 后者写进 admin 只会给「有人随手调一下」开门，而且调坏了是静默的——阈值调松了不会报错，
+# 只会把更多错值采信成对的。仓库里同一个口径的例子：``credential_pool._COOLDOWN_SECONDS``、
+# ``wholebook_segment_detector._TOTAL_CHAR_BUDGET``、``cloud_batch.DEFAULT_BATCH_PAGES``。
 OCR_JUDGE_ENABLED_KEY = "OCR_JUDGE_ENABLED"
-OCR_JUDGE_API_URL_KEY = "OCR_JUDGE_API_URL"
 OCR_JUDGE_API_KEY_KEY = "OCR_JUDGE_API_KEY"  # pragma: allowlist secret —— 这是配置键名，不是密钥本身
-OCR_JUDGE_MODEL_KEY = "OCR_JUDGE_MODEL"
-OCR_JUDGE_MAX_CONCURRENCY_KEY = "OCR_JUDGE_MAX_CONCURRENCY"
-OCR_JUDGE_TIMEOUT_SECONDS_KEY = "OCR_JUDGE_TIMEOUT_SECONDS"
-OCR_JUDGE_RATIO_MIN_KEY = "OCR_JUDGE_RATIO_MIN"
-OCR_JUDGE_PROB_FLOOR_KEY = "OCR_JUDGE_PROB_FLOOR"
 
-DEFAULT_ENABLED = False
-DEFAULT_API_URL = "https://api.modelbest.cn/v1/chat/completions"
-DEFAULT_MODEL = "MiniCPM-OCR-Jev"
-DEFAULT_MAX_CONCURRENCY = 2
-DEFAULT_TIMEOUT_SECONDS = 180.0
-DEFAULT_RATIO_MIN = 10.0
-DEFAULT_PROB_FLOOR = 0.05
+#: 接口地址与模型名是**契约的一部分**：换模型意味着请求体里的 ``minicpm_ocr_jev`` 字段
+#: 语义也要跟着变，那不是改一个字符串能改的。所以写死。
+JUDGE_API_URL = "https://api.modelbest.cn/v1/chat/completions"
+JUDGE_MODEL = "MiniCPM-OCR-Jev"
 
-#: 键 → 「库里没有这个键」时 ``get_value`` 用的默认值（字符串形态，与配置口径一致）。
-#: 由上面的类型化默认值派生，同一个默认值不在两处各写一遍（``180`` vs ``180.0``
-#: 这类漂移最难发现）；``f"{x:g}"`` 保证是「180」「10」「0.05」这种最短可读形态。
+#: 进程内并发上限。实测 4 并发**立即 429**、2 稳定——这是供应商侧的硬墙，不是
+#: 「调大提速」的性能参数，因此不给配置项（``_HARD_CONCURRENCY_CAP`` 保持同值）。
+JUDGE_MAX_CONCURRENCY = 2
+
+#: 单次请求超时。实测中位 1.2s、最慢 10.03s，留足余量给拥塞。
+JUDGE_TIMEOUT_SECONDS = 180.0
+
+#: 相对倍数下限：胜者分 / 次高分。实测真错案例 55–1900 倍；汉字形近字的错值能拿 0.58
+#: （真值 0.994，仅 1.7 倍），定低了会把形近字误采信。
+JUDGE_RATIO_MIN = 10.0
+
+#: 胜者最低分。实测真值分数可以是 0.158（模糊证件块）——绝对值不可比，只作下限兜底，
+#: 不拿来当主判据。
+JUDGE_PROB_FLOOR = 0.05
+
+#: 只有这两个键可能出现在 SystemConfig 里；键 → 「库里没有」时的默认值。
 _CONFIG_DEFAULTS: dict[str, str] = {
-    OCR_JUDGE_ENABLED_KEY: "1" if DEFAULT_ENABLED else "0",
-    OCR_JUDGE_API_URL_KEY: DEFAULT_API_URL,
+    OCR_JUDGE_ENABLED_KEY: "0",
     OCR_JUDGE_API_KEY_KEY: "",
-    OCR_JUDGE_MODEL_KEY: DEFAULT_MODEL,
-    OCR_JUDGE_MAX_CONCURRENCY_KEY: str(DEFAULT_MAX_CONCURRENCY),
-    OCR_JUDGE_TIMEOUT_SECONDS_KEY: f"{DEFAULT_TIMEOUT_SECONDS:g}",
-    OCR_JUDGE_RATIO_MIN_KEY: f"{DEFAULT_RATIO_MIN:g}",
-    OCR_JUDGE_PROB_FLOOR_KEY: f"{DEFAULT_PROB_FLOOR:g}",
 }
 
 # ── 判定取值（下游依赖，改名字必须同步调用方）────────────────────────────────
@@ -207,13 +210,7 @@ class _Settings:
     """一次判定用的配置快照（每次判定现读一遍，线上改配置即时生效）。"""
 
     enabled: bool
-    api_url: str
     api_key: str
-    model: str
-    max_concurrency: int
-    timeout_seconds: float
-    ratio_min: float
-    prob_floor: float
 
 
 @dataclass(frozen=True)
@@ -351,8 +348,8 @@ def _judge(*, image_bytes: bytes, candidates: Sequence[str], domain: str, starte
     results = _score_all(settings=settings, image_data_url=_data_url(image_bytes), texts=distinct)
     judgement = _decide(
         scores=tuple(result.score for result in results),
-        ratio_min=settings.ratio_min,
-        prob_floor=settings.prob_floor,
+        ratio_min=JUDGE_RATIO_MIN,
+        prob_floor=JUDGE_PROB_FLOOR,
     )
     return _record(
         judgement,
@@ -452,7 +449,7 @@ def _score_candidate(*, settings: _Settings, image_data_url: str, text: str) -> 
 
     失败一律转成 :class:`CandidateScore` 而不是抛：本模块的契约是 fail-open。
     """
-    payload = _build_payload(image_data_url=image_data_url, text=text, model=settings.model)
+    payload = _build_payload(image_data_url=image_data_url, text=text, model=JUDGE_MODEL)
     slept_seconds = 0.0
     detail = "retries_exhausted"
     for attempt in range(1, _MAX_ATTEMPTS + 1):
@@ -638,13 +635,13 @@ def _headers(settings: _Settings) -> dict[str, str]:
 def _build_client(settings: _Settings) -> httpx.Client:
     """构造一次性客户端。``trust_env=False`` 是硬要求：实测本机代理环境变量会让上传/下载
     偶发失败、白重试一轮，判别式打分器必须直连。"""
-    return httpx.Client(timeout=settings.timeout_seconds, trust_env=False)
+    return httpx.Client(timeout=JUDGE_TIMEOUT_SECONDS, trust_env=False)
 
 
 def _post(*, settings: _Settings, payload: dict[str, Any]) -> httpx.Response:
     """发一次请求（不重试、不限流以外不做别的事）；异常由调用方按可重试处理。"""
-    with _GATE.slot(settings.max_concurrency), _build_client(settings) as client:
-        return client.post(settings.api_url, json=payload, headers=_headers(settings))
+    with _GATE.slot(JUDGE_MAX_CONCURRENCY), _build_client(settings) as client:
+        return client.post(JUDGE_API_URL, json=payload, headers=_headers(settings))
 
 
 def _sleep_before_retry(*, attempt: int, slept_seconds: float) -> float:
@@ -668,33 +665,12 @@ def _sleep_before_retry(*, attempt: int, slept_seconds: float) -> float:
 def _load_settings() -> _Settings:
     """每次判定现读一遍配置（线上热改即时生效，单测可直接 monkeypatch）。
 
-    解析失败一律 ``logger.warning`` 后退回默认值，**不抛**：配置是运维的「停用按钮」，
-    写错一个数字不该让整条判定链挂掉。
+    只读两项：开关与 key。接口地址、模型名、并发上限、超时、两个阈值都是模块常量
+    （见上方注释：工程常数不进配置表，避免被随手调坏且无声）。
     """
-    enabled_raw = _config_value(OCR_JUDGE_ENABLED_KEY)
-    concurrency_raw = _config_value(OCR_JUDGE_MAX_CONCURRENCY_KEY)
-    timeout_raw = _config_value(OCR_JUDGE_TIMEOUT_SECONDS_KEY)
-    ratio_raw = _config_value(OCR_JUDGE_RATIO_MIN_KEY)
-    floor_raw = _config_value(OCR_JUDGE_PROB_FLOOR_KEY)
     return _Settings(
-        enabled=_parse_bool(OCR_JUDGE_ENABLED_KEY, enabled_raw, default=DEFAULT_ENABLED),
-        api_url=_config_value(OCR_JUDGE_API_URL_KEY) or DEFAULT_API_URL,
+        enabled=_parse_bool(OCR_JUDGE_ENABLED_KEY, _config_value(OCR_JUDGE_ENABLED_KEY), default=False),
         api_key=_config_value(OCR_JUDGE_API_KEY_KEY),
-        model=_config_value(OCR_JUDGE_MODEL_KEY) or DEFAULT_MODEL,
-        max_concurrency=_parse_int(
-            OCR_JUDGE_MAX_CONCURRENCY_KEY,
-            concurrency_raw,
-            default=DEFAULT_MAX_CONCURRENCY,
-            minimum=1,
-        ),
-        timeout_seconds=_parse_float(
-            OCR_JUDGE_TIMEOUT_SECONDS_KEY,
-            timeout_raw,
-            default=DEFAULT_TIMEOUT_SECONDS,
-            minimum=1.0,
-        ),
-        ratio_min=_parse_float(OCR_JUDGE_RATIO_MIN_KEY, ratio_raw, default=DEFAULT_RATIO_MIN, minimum=1.0),
-        prob_floor=_parse_float(OCR_JUDGE_PROB_FLOOR_KEY, floor_raw, default=DEFAULT_PROB_FLOOR, minimum=0.0),
     )
 
 
@@ -718,36 +694,6 @@ def _parse_bool(key: str, raw: str, *, default: bool) -> bool:
         return False
     _warn_invalid(key=key, raw=value, fallback=default)
     return default
-
-
-def _parse_int(key: str, raw: str, *, default: int, minimum: int) -> int:
-    text = raw.strip()
-    if not text:
-        return default
-    try:
-        parsed = int(float(text))
-    except ValueError:
-        _warn_invalid(key=key, raw=text, fallback=default)
-        return default
-    if parsed < minimum:
-        _warn_invalid(key=key, raw=text, fallback=default)
-        return default
-    return parsed
-
-
-def _parse_float(key: str, raw: str, *, default: float, minimum: float) -> float:
-    text = raw.strip()
-    if not text:
-        return default
-    try:
-        parsed = float(text)
-    except ValueError:
-        _warn_invalid(key=key, raw=text, fallback=default)
-        return default
-    if not math.isfinite(parsed) or parsed < minimum:
-        _warn_invalid(key=key, raw=text, fallback=default)
-        return default
-    return parsed
 
 
 def _warn_invalid(*, key: str, raw: str, fallback: object) -> None:

@@ -60,13 +60,7 @@ def _settings(**overrides: Any) -> judge._Settings:
     """一份「已启用、参数即默认值」的配置快照（用例只改自己关心的那几项）。"""
     base = judge._Settings(
         enabled=True,
-        api_url="https://judge.invalid/v1/chat/completions",
         api_key="test-key",  # pragma: allowlist secret —— 假 key，MockTransport 不会发出去
-        model="MiniCPM-OCR-Jev",
-        max_concurrency=2,
-        timeout_seconds=5.0,
-        ratio_min=10.0,
-        prob_floor=0.05,
     )
     return replace(base, **overrides)
 
@@ -139,43 +133,30 @@ def _calls_for(seen: list[httpx.Request], text: str) -> int:
 
 
 def test_default_config_is_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
-    """库里没有这些键时：默认**关闭**，其余参数各自落到文档默认值。"""
+    """库里没有这两个键时：默认**关闭**、key 为空。"""
     monkeypatch.setattr(judge.SystemConfigService, "get_value", lambda self, key, default="": default)
 
     settings = judge._load_settings()
 
     assert settings.enabled is False, 'OCR_JUDGE_ENABLED 默认 "0"：不配就是关'
-    assert (settings.api_url, settings.model) == (judge.DEFAULT_API_URL, judge.DEFAULT_MODEL)
-    assert (settings.max_concurrency, settings.timeout_seconds) == (2, 180.0)
-    assert (settings.ratio_min, settings.prob_floor) == (10.0, 0.05)
+    assert settings.api_key == ""
 
 
-def test_invalid_config_values_fall_back_and_warn(monkeypatch: pytest.MonkeyPatch) -> None:
-    """坏值 / 低于下限 → 逐项 warning 后回落默认；合法值照用（不许连带丢弃）。"""
-    stored = {
-        judge.OCR_JUDGE_ENABLED_KEY: "1",
-        judge.OCR_JUDGE_MAX_CONCURRENCY_KEY: "两位并发",
-        judge.OCR_JUDGE_TIMEOUT_SECONDS_KEY: "abc",
-        judge.OCR_JUDGE_RATIO_MIN_KEY: "0",
-        judge.OCR_JUDGE_PROB_FLOOR_KEY: "0.3",
-    }
-    monkeypatch.setattr(judge.SystemConfigService, "get_value", lambda self, key, default="": stored.get(key, default))
-    logger = _RecordingLogger()
-    monkeypatch.setattr(judge, "logger", logger)
+def test_only_two_keys_live_in_system_config() -> None:
+    """棘轮：**只有开关与 key** 允许进配置表。
 
-    settings = judge._load_settings()
-
-    assert settings.enabled is True
-    assert settings.max_concurrency == judge.DEFAULT_MAX_CONCURRENCY
-    assert settings.timeout_seconds == judge.DEFAULT_TIMEOUT_SECONDS
-    assert settings.ratio_min == judge.DEFAULT_RATIO_MIN, "比率下限低于 1 没有意义（比率恒 ≥ 1）"
-    assert settings.prob_floor == 0.3
-    invalid_keys = [extra["key"] for event, extra in logger.records if event == "ocr_judge_config_invalid"]
-    assert invalid_keys == [
-        judge.OCR_JUDGE_MAX_CONCURRENCY_KEY,
-        judge.OCR_JUDGE_TIMEOUT_SECONDS_KEY,
-        judge.OCR_JUDGE_RATIO_MIN_KEY,
-    ]
+    其余六项（接口地址 / 模型名 / 并发上限 / 超时 / 比率下限 / 分数下限）都是实测出来的
+    工程常数，写进 admin 只会给「随手调松阈值」开门，而调松是静默生效的——不会报错，
+    只会悄悄把更多错值采信成对的。要改这些数，请改代码并带上实测依据。
+    """
+    assert set(judge._CONFIG_DEFAULTS) == {judge.OCR_JUDGE_ENABLED_KEY, judge.OCR_JUDGE_API_KEY_KEY}
+    # 六个常量的类型与量级也要在（防止有人把它们挪走时顺手改坏）
+    assert judge.JUDGE_API_URL.startswith("https://")
+    assert judge.JUDGE_MODEL == "MiniCPM-OCR-Jev"
+    assert judge.JUDGE_MAX_CONCURRENCY == judge._HARD_CONCURRENCY_CAP == 2
+    assert judge.JUDGE_TIMEOUT_SECONDS >= 60
+    assert judge.JUDGE_RATIO_MIN >= 2
+    assert 0 < judge.JUDGE_PROB_FLOOR < 1
 
 
 def test_disabled_judgement_makes_no_request(monkeypatch: pytest.MonkeyPatch) -> None:

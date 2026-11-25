@@ -171,8 +171,12 @@ def get_ocr_configs() -> list[dict[str, Any]]:
         # 它返回「这段文本是该图正确转写的概率」。只认相对比较，不认绝对阈值。
         # 取证与五条硬结论见 docs/analysis/multi-engine-ocr-brief-2026-11-25.md §11。
         #
-        # 注意：组件已实现（disagreement_judge.py / field_verification.py），但**尚未接线到
-        # 主链**——现在打开开关不会产生任何效果，要等 pipeline 的分歧点调用它。
+        # 只有这两项进配置表：**因部署而异**的才是配置（key、开关）。接口地址、模型名、
+        # 并发上限、超时、两个阈值都是实测出来的工程常数，留在
+        # disagreement_judge.py 的模块常量里——写进 admin 只会给「随手调松阈值」开门，
+        # 而且调松是静默生效的（不报错，只是把更多错值采信成对的）。
+        #
+        # 注意：组件已实现但**尚未接线到主链**，现在打开开关不会产生任何效果。
         {
             "key": "OCR_JUDGE_ENABLED",
             "category": "ocr",
@@ -185,77 +189,14 @@ def get_ocr_configs() -> list[dict[str, Any]]:
             "is_secret": False,
         },
         {
-            "key": "OCR_JUDGE_API_URL",
-            "category": "ocr",
-            "description": "分歧裁定打分接口（OpenAI 兼容 chat/completions，一般不用改）",
-            "value": "https://api.modelbest.cn/v1/chat/completions",
-            "is_secret": False,
-        },
-        {
             "key": "OCR_JUDGE_API_KEY",
             "category": "ocr",
             "description": (
-                "分歧裁定打分器的 API Key（Bearer Token）。留空则判定一律落人工；"
-                "敏感项，加密存储。供应商侧政策：可读分辨率下的证件图像会被拒"
-                "（content_policy_violation），所以证件/账号类字段不走此路，见 L1 校验位。"
+                "分歧裁定打分器的 API Key（Bearer Token）。留空则判定一律落人工；敏感项，加密存储。"
+                "供应商侧政策：可读分辨率下的证件图像会被拒（content_policy_violation），"
+                "所以证件/账号类字段不走此路，走 L1 校验位。"
             ),
             "value": "",
             "is_secret": True,
-        },
-        {
-            "key": "OCR_JUDGE_MODEL",
-            "category": "ocr",
-            "description": "打分模型名（判别式：给图 + 候选文本，只回概率，不生成新文本）",
-            "value": "MiniCPM-OCR-Jev",
-            "is_secret": False,
-        },
-        {
-            "key": "OCR_JUDGE_MAX_CONCURRENCY",
-            "category": "ocr",
-            "description": (
-                "打分请求的进程内并发上限。默认 2：实测 4 并发立即被限流（429），2 稳定。"
-                "调高不会更快，只会把请求打回退避重试。"
-            ),
-            "value": "2",
-            "is_secret": False,
-        },
-        {
-            "key": "OCR_JUDGE_PROB_FLOOR",
-            "category": "ocr",
-            "description": (
-                "胜者最低分。低于它就判「两个都不像图上的字」交人工。"
-                "默认 0.05 而不是 0.5：实测真值分数可以是 0.158（模糊证件块），"
-                "绝对值不可比，只有相对倍数可依赖。"
-            ),
-            "value": "0.05",
-            "is_secret": False,
-        },
-        {
-            "key": "OCR_JUDGE_RATIO_MIN",
-            "category": "ocr",
-            "description": (
-                "胜者 / 次高分的倍数下限，低于它交人工。默认 10：实测真错案例的倍数在"
-                "55–1900 倍之间，而汉字形近字的错值也能拿 0.58（真值 0.994，仅 1.7 倍），"
-                "阈值定低了会把形近字误采信。"
-            ),
-            "value": "10",
-            "is_secret": False,
-        },
-        {
-            "key": "OCR_JUDGE_TIMEOUT_SECONDS",
-            "category": "ocr",
-            "description": "单次打分请求超时（秒）。实测中位 1.2s、最慢 10s，留足余量给拥塞",
-            "value": "180",
-            "is_secret": False,
-        },
-        {
-            "key": "DEEPSEEK_OCR_PURPOSE",
-            "category": "ocr",
-            "description": (
-                "DeepSeek 解析模式：text_recognition=只取文字（快、便宜、表格给出 HTML）；"
-                "rich_layout_recognition=带版面块与坐标（慢、退化率更高，但「原文坐标对照」需要它）"
-            ),
-            "value": "text_recognition",
-            "is_secret": False,
         },
     ]
