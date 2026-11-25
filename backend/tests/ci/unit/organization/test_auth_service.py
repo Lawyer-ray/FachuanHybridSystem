@@ -22,7 +22,7 @@ def auth_service() -> AuthService:
 @patch("apps.organization.services.auth.auth_service.Lawyer")
 def test_is_first_user_true(mock_lawyer: MagicMock) -> None:
     """无用户时返回 True。"""
-    mock_lawyer.objects.exists.return_value = False
+    mock_lawyer.objects.filter.return_value.exists.return_value = False
     svc = AuthService()
     assert svc.is_first_user() is True
 
@@ -30,7 +30,7 @@ def test_is_first_user_true(mock_lawyer: MagicMock) -> None:
 @patch("apps.organization.services.auth.auth_service.Lawyer")
 def test_is_first_user_false(mock_lawyer: MagicMock) -> None:
     """有用户时返回 False。"""
-    mock_lawyer.objects.exists.return_value = True
+    mock_lawyer.objects.filter.return_value.exists.return_value = True
     svc = AuthService()
     assert svc.is_first_user() is False
 
@@ -60,7 +60,7 @@ def test_username_exists_false(mock_lawyer: MagicMock) -> None:
 @patch("apps.organization.services.auth.auth_service.Lawyer")
 def test_should_show_auto_register(mock_lawyer: MagicMock) -> None:
     """自动注册仅在无用户时显示。"""
-    mock_lawyer.objects.exists.return_value = False
+    mock_lawyer.objects.filter.return_value.exists.return_value = False
     svc = AuthService()
     assert svc.should_show_auto_register() is True
 
@@ -101,7 +101,7 @@ def test_login_invalid_credentials(mock_authenticate: MagicMock) -> None:
 @pytest.mark.django_db
 def test_auto_register_superadmin_not_first_user(mock_lawyer: MagicMock) -> None:
     """非首个用户时抛出异常。"""
-    mock_lawyer.objects.exists.return_value = True
+    mock_lawyer.objects.filter.return_value.exists.return_value = True
     svc = AuthService()
     with pytest.raises(PermissionDenied, match="自动注册仅在系统初始化时可用"):
         svc.auto_register_superadmin()
@@ -115,7 +115,7 @@ def test_auto_register_superadmin_not_first_user(mock_lawyer: MagicMock) -> None
 @pytest.mark.django_db
 def test_register_normal_user(mock_lawyer: MagicMock, mock_settings: MagicMock) -> None:
     """普通用户注册。"""
-    mock_lawyer.objects.exists.return_value = True  # 非首位用户
+    mock_lawyer.objects.filter.return_value.exists.return_value = True  # 非首位用户
     mock_settings.ALLOW_FIRST_USER_SUPERUSER = False
     mock_settings.DEBUG = True
     svc = AuthService()
@@ -128,7 +128,7 @@ def test_register_normal_user(mock_lawyer: MagicMock, mock_settings: MagicMock) 
 @pytest.mark.django_db
 def test_register_first_user_no_token_prod(mock_lawyer: MagicMock, mock_settings: MagicMock) -> None:
     """生产环境首位用户无 token 拒绝注册。"""
-    mock_lawyer.objects.exists.return_value = False  # 首位用户
+    mock_lawyer.objects.filter.return_value.exists.return_value = False  # 首位用户
     mock_settings.ALLOW_FIRST_USER_SUPERUSER = True
     mock_settings.DEBUG = False
     mock_settings.BOOTSTRAP_ADMIN_TOKEN = "secret-token"
@@ -142,7 +142,7 @@ def test_register_first_user_no_token_prod(mock_lawyer: MagicMock, mock_settings
 @pytest.mark.django_db
 def test_register_first_user_with_token_prod(mock_lawyer: MagicMock, mock_settings: MagicMock) -> None:
     """生产环境首位用户有 token 可注册。"""
-    mock_lawyer.objects.exists.return_value = False
+    mock_lawyer.objects.filter.return_value.exists.return_value = False
     mock_settings.ALLOW_FIRST_USER_SUPERUSER = True
     mock_settings.DEBUG = False
     mock_settings.BOOTSTRAP_ADMIN_TOKEN = "secret-token"

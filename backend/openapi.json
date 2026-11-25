@@ -694,7 +694,7 @@
             }
           }
         },
-        "description": "用户注册\n\n首位用户自动成为管理员并触发系统初始化，后续用户需要管理员审批。",
+        "description": "用户注册\n\n系统尚无已激活账号时，首位注册者自动成为律所管理员并触发系统初始化；\n此后注册的账号为待审批状态（is_active=False），需管理员审批后才能登录\n（审批入口：``/api/v1/organization/lawyers/pending`` 与 ``.../lawyers/{id}/approve``）。",
         "tags": [
           "认证登录"
         ],
@@ -982,6 +982,131 @@
           },
           "required": true
         },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/organization/lawyers/pending": {
+      "get": {
+        "operationId": "apps_organization_api_lawyer_api_list_pending_lawyers",
+        "summary": "List Pending Lawyers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LawyerOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        "description": "待审批注册列表（仅管理员）。",
+        "tags": [
+          "律师管理"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/organization/lawyers/{lawyer_id}/approve": {
+      "post": {
+        "operationId": "apps_organization_api_lawyer_api_approve_lawyer",
+        "summary": "Approve Lawyer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lawyer_id",
+            "schema": {
+              "title": "Lawyer Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LawyerApproveOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "通过注册审批：激活账号，并归入审批人所在律所（仅管理员）。",
+        "tags": [
+          "律师管理"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/LawyerApproveIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "required": false
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/organization/lawyers/{lawyer_id}/reject": {
+      "post": {
+        "operationId": "apps_organization_api_lawyer_api_reject_lawyer",
+        "summary": "Reject Lawyer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lawyer_id",
+            "schema": {
+              "title": "Lawyer Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LawyerApproveOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "拒绝注册申请：删除待审批账号（仅管理员）。",
+        "tags": [
+          "律师管理"
+        ],
         "security": [
           {
             "JWTOrSessionAuth": []
@@ -30210,6 +30335,17 @@
               }
             ],
             "title": "Phone"
+          },
+          "bootstrap_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bootstrap Token"
           }
         },
         "required": [
@@ -30476,6 +30612,81 @@
           "password"
         ],
         "title": "LawyerCreateIn",
+        "type": "object"
+      },
+      "LawyerApproveOut": {
+        "description": "审批操作响应",
+        "properties": {
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LawyerOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "LawyerApproveOut",
+        "type": "object"
+      },
+      "LawyerApproveIn": {
+        "description": "审批通过待注册账号时的可选补充信息。\n\n不传则一律继承审批人所在律所，具体团队可在审批后再补。",
+        "properties": {
+          "law_firm_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Law Firm Id"
+          },
+          "lawyer_team_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lawyer Team Ids"
+          },
+          "biz_team_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Biz Team Ids"
+          }
+        },
+        "title": "LawyerApproveIn",
         "type": "object"
       },
       "LawyerUpdateIn": {

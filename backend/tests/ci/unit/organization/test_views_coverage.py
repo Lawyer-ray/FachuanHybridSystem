@@ -163,6 +163,7 @@ class TestRegisterPostForm:
             form_instance.cleaned_data = {"username": "admin", "password1": "testpass123"}
             mock_user = MagicMock()
             mock_user.is_admin = True
+            mock_user.is_active = True  # 首位用户注册即激活（2026-11-25 语义）
             mock_user.real_name = "admin"
             mock_svc.register.return_value = SimpleNamespace(user=mock_user)
             mock_redirect.return_value = MagicMock(status_code=302)
@@ -170,7 +171,7 @@ class TestRegisterPostForm:
             mock_login.assert_called_once()
 
     @override_settings(ALLOW_ADMIN_REGISTER=True)
-    def test_form_valid_non_admin(self, rf: RequestFactory) -> None:
+    def test_form_valid_inactive_user(self, rf: RequestFactory) -> None:
         request = rf.post(
             "/register/",
             {
@@ -192,7 +193,10 @@ class TestRegisterPostForm:
             form_instance.is_valid.return_value = True
             form_instance.cleaned_data = {"username": "user", "password1": "testpass123"}
             mock_user = MagicMock()
+            # 2026-11-25：登录判据是 is_active（不是 is_admin）。待审批账号不得建会话——
+            # Django 的 login() 本身不校验 is_active，所以这里必须显式拦住。
             mock_user.is_admin = False
+            mock_user.is_active = False
             mock_svc.register.return_value = SimpleNamespace(user=mock_user)
             mock_redirect.return_value = MagicMock(status_code=302)
             response = register(request)

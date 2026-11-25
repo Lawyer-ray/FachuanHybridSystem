@@ -696,22 +696,6 @@
                         {% endif %}
                     </div>
 
-                    {% if show_auto_register %}
-                    <div class="quick-experience">
-                        <h4>&#x1F680; {% trans "快速体验" %}</h4>
-                        <p>{% trans "首次使用？一键创建默认超级管理员，立即可用。" %}</p>
-                        <div class="admin-credentials">
-                            <div class="cred-row"><span>{% trans "账号" %}</span><code>法穿</code></div>
-                            <div class="cred-row"><span>{% trans "密码" %}</span><code>1234qwer</code></div>
-                        </div>
-                        <form method="post" action="{% url 'admin_register' %}">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="auto_register">
-                            <button type="submit" class="btn-gold">{% trans "自动注册默认管理员" %}</button>
-                        </form>
-                    </div>
-                    {% endif %}
-
                     {% if reg_form and reg_form.non_field_errors %}
                     <div class="error-banner">
                         <span>&#x26A0;&#xFE0F;</span>

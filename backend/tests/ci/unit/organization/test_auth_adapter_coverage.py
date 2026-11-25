@@ -57,7 +57,7 @@ class TestAuthServiceDeep:
 
         svc = AuthService()
         with patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer:
-            MockLawyer.objects.exists.return_value = False
+            MockLawyer.objects.filter.return_value.exists.return_value = False
             with patch("apps.organization.services.auth.auth_service.settings") as mock_settings:
                 mock_settings.ALLOW_FIRST_USER_SUPERUSER = True
                 mock_settings.DEBUG = True
@@ -71,7 +71,7 @@ class TestAuthServiceDeep:
 
         svc = AuthService()
         with patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer:
-            MockLawyer.objects.exists.return_value = True
+            MockLawyer.objects.filter.return_value.exists.return_value = True
             with patch("apps.organization.services.auth.auth_service.settings") as mock_settings:
                 mock_settings.ALLOW_FIRST_USER_SUPERUSER = False
                 MockLawyer.objects.create_user.return_value = MagicMock()
@@ -84,7 +84,7 @@ class TestAuthServiceDeep:
 
         svc = AuthService()
         with patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer:
-            MockLawyer.objects.exists.return_value = False
+            MockLawyer.objects.filter.return_value.exists.return_value = False
             with patch("apps.organization.services.auth.auth_service.settings") as mock_settings:
                 mock_settings.ALLOW_FIRST_USER_SUPERUSER = True
                 mock_settings.DEBUG = False
@@ -98,7 +98,7 @@ class TestAuthServiceDeep:
 
         svc = AuthService()
         with patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer:
-            MockLawyer.objects.exists.return_value = True
+            MockLawyer.objects.filter.return_value.exists.return_value = True
             with pytest.raises(PermissionDenied, match="自动注册"):
                 svc.auto_register_superadmin()
 
@@ -116,7 +116,7 @@ class TestAuthServiceDeep:
             patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer,
             patch("apps.organization.services.auth.auth_service.settings") as mock_settings,
         ):
-            MockLawyer.objects.exists.return_value = False
+            MockLawyer.objects.filter.return_value.exists.return_value = False
             mock_settings.ALLOW_FIRST_USER_SUPERUSER = False
             mock_settings.AUTO_REGISTER_BOOTSTRAP_PASSWORD = "some-" + "password"  # pragma: allowlist secret
             with pytest.raises(PermissionDenied, match="ALLOW_FIRST_USER_SUPERUSER"):
@@ -133,7 +133,7 @@ class TestAuthServiceDeep:
             patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer,
             patch("apps.organization.services.auth.auth_service.settings") as mock_settings,
         ):
-            MockLawyer.objects.exists.return_value = False
+            MockLawyer.objects.filter.return_value.exists.return_value = False
             mock_settings.ALLOW_FIRST_USER_SUPERUSER = True
             mock_settings.AUTO_REGISTER_BOOTSTRAP_PASSWORD = ""
             with pytest.raises(PermissionDenied, match="AUTO_REGISTER_BOOTSTRAP_PASSWORD"):
@@ -149,7 +149,7 @@ class TestAuthServiceDeep:
             patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer,
             patch("apps.organization.services.auth.auth_service.settings") as mock_settings,
         ):
-            MockLawyer.objects.exists.return_value = False
+            MockLawyer.objects.filter.return_value.exists.return_value = False
             mock_settings.ALLOW_FIRST_USER_SUPERUSER = True
             injected = "injected-" + "password"  # pragma: allowlist secret
             mock_settings.AUTO_REGISTER_BOOTSTRAP_PASSWORD = injected

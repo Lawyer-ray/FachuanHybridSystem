@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from asgiref.sync import sync_to_async
 from django.http import HttpRequest
@@ -15,8 +15,15 @@ from ninja.files import UploadedFile
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.organization.api.utils_api import get_request_user
 from apps.organization.dtos import LawyerCreateDTO, LawyerListFiltersDTO, LawyerUpdateDTO
-from apps.organization.schemas import LawyerCreateIn, LawyerOut, LawyerSlimOut, LawyerUpdateIn
-from apps.organization.services import LawyerService
+from apps.organization.schemas import (
+    LawyerApproveIn,
+    LawyerApproveOut,
+    LawyerCreateIn,
+    LawyerOut,
+    LawyerSlimOut,
+    LawyerUpdateIn,
+)
+from apps.organization.services import LawyerApprovalService, LawyerService
 
 router = Router(auth=JWTOrSessionAuth())
 
@@ -51,6 +58,57 @@ async def list_lawyers(  # pragma: no cover
     if not slim:
         return rows
     return [LawyerSlimOut.from_orm(r) for r in rows]
+
+
+# ============================================================
+# 注册审批
+#
+# 必须声明在 ``/lawyers/{lawyer_id}`` 之前：Ninja 按声明顺序匹配，
+# 让 ``pending`` 先被字面路径吃掉，避免落到整型路径参数上。
+# ============================================================
+
+
+@router.get("/lawyers/pending", response=list[LawyerOut])
+async def list_pending_lawyers(request: HttpRequest) -> Any:  # pragma: no cover
+    """待审批注册列表（仅管理员）。"""
+    service = LawyerApprovalService()
+
+    # 序列化必须在 sync_to_async 内完成：LawyerOut 会解析 law_firm 外键，
+    # 在异步上下文里裸调 from_orm 会触发 SynchronousOnlyOperation（500）。
+    def _do() -> Any:
+        return [LawyerOut.from_orm(row) for row in service.list_pending(get_request_user(request))]
+
+    return await sync_to_async(_do)()
+
+
+@router.post("/lawyers/{lawyer_id}/approve", response=LawyerApproveOut)
+async def approve_lawyer(  # pragma: no cover
+    request: HttpRequest, lawyer_id: int, payload: LawyerApproveIn | None = None
+) -> LawyerApproveOut:
+    """通过注册审批：激活账号，并归入审批人所在律所（仅管理员）。"""
+    service = LawyerApprovalService()
+    data = payload or LawyerApproveIn()
+
+    def _do() -> Any:
+        lawyer = service.approve(
+            lawyer_id,
+            get_request_user(request),
+            law_firm_id=data.law_firm_id,
+            lawyer_team_ids=data.lawyer_team_ids,
+            biz_team_ids=data.biz_team_ids,
+        )
+        # 同上：序列化跟着进线程，否则激活已提交但响应 500（数据变了、客户端以为失败）
+        return LawyerApproveOut(success=True, user=LawyerOut.from_orm(lawyer), message="已通过审批，账号可登录")
+
+    return cast(LawyerApproveOut, await sync_to_async(_do)())
+
+
+@router.post("/lawyers/{lawyer_id}/reject", response=LawyerApproveOut)
+async def reject_lawyer(request: HttpRequest, lawyer_id: int) -> LawyerApproveOut:  # pragma: no cover
+    """拒绝注册申请：删除待审批账号（仅管理员）。"""
+    service = LawyerApprovalService()
+    await sync_to_async(service.reject)(lawyer_id, get_request_user(request))
+    return LawyerApproveOut(success=True, message="已拒绝该注册申请")
 
 
 @router.get("/lawyers/{lawyer_id}", response=LawyerOut)

@@ -505,11 +505,19 @@ BOOTSTRAP_ADMIN_TOKEN = (os.environ.get("BOOTSTRAP_ADMIN_TOKEN", "") or "").stri
 # 超管。现改为环境变量注入，无默认值——未配置时 auto_register_superadmin 直接
 # 拒绝（fail-closed），源码不再保留任何可用口令。
 AUTO_REGISTER_BOOTSTRAP_PASSWORD = (os.environ.get("AUTO_REGISTER_BOOTSTRAP_PASSWORD", "") or "").strip()
-# 表单注册入口开关（默认关闭）：/admin/register/ 的表单注册在 False 时直接拒绝
-# （apps/organization/views.py register 视图消费）；auto_register 首用户引导分支
+# 表单注册入口开关：/admin/register/ 的表单注册在 False 时直接拒绝
+# （apps/organization/views.py register 视图消费）。auto_register 首用户引导分支
 # （BOOTSTRAP_ADMIN_TOKEN 保护）不受此开关影响。API 侧 /api/v1/organization/register
-# 独立于本开关（注册后需管理员审批激活）。
-ALLOW_ADMIN_REGISTER = (os.environ.get("ALLOW_ADMIN_REGISTER", "False") or "").lower() in ("true", "1", "yes")
+# 独立于本开关。
+#
+# 2026-11-25 默认由 False 改为 True（恢复注册功能）：
+# - 原 False 让登录页那个**恒显**的「立即注册」链接点进去必然报
+#   「注册入口未开放」，用户侧表现为「后端不允许注册」；
+# - 风险面并未扩大：/api/v1/organization/register 本来就 auth=None 公开可调，
+#   两条路径现在走**同一套**语义（首位用户 → 律所管理员并初始化系统；
+#   其余 → is_active=False 待管理员审批）；
+# - 需要关闭时照旧设 ALLOW_ADMIN_REGISTER=false 即可。
+ALLOW_ADMIN_REGISTER = (os.environ.get("ALLOW_ADMIN_REGISTER", "True") or "").lower() in ("true", "1", "yes")
 _smoke_pw = os.environ.get("SMOKE_ADMIN_PASSWORD", "").strip()
 if not _smoke_pw and not DEBUG:
     from django.core.exceptions import ImproperlyConfigured
