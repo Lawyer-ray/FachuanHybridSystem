@@ -166,6 +166,88 @@ def get_ocr_configs() -> list[dict[str, Any]]:
             "value": "https://api.deepseek.com/v1/tools/ocr",
             "is_secret": False,
         },
+        # ── 多引擎分歧裁定（Jev 判别式打分器）─────────────────────────────────
+        # 用途：两个引擎对**同一个字段**读出不同值时，把「裁块图 + 各候选文本」送打分器，
+        # 它返回「这段文本是该图正确转写的概率」。只认相对比较，不认绝对阈值。
+        # 取证与五条硬结论见 docs/analysis/multi-engine-ocr-brief-2026-11-25.md §11。
+        #
+        # 注意：组件已实现（disagreement_judge.py / field_verification.py），但**尚未接线到
+        # 主链**——现在打开开关不会产生任何效果，要等 pipeline 的分歧点调用它。
+        {
+            "key": "OCR_JUDGE_ENABLED",
+            "category": "ocr",
+            "description": (
+                "多引擎分歧是否用第三方打分器裁定（0=关，默认；1=开）。"
+                "关着时与引入该功能前逐位一致：分歧只进人工抽屉。"
+                "打开前需先填 OCR_JUDGE_API_KEY，且主链已接线（否则开关无效果）。"
+            ),
+            "value": "0",
+            "is_secret": False,
+        },
+        {
+            "key": "OCR_JUDGE_API_URL",
+            "category": "ocr",
+            "description": "分歧裁定打分接口（OpenAI 兼容 chat/completions，一般不用改）",
+            "value": "https://api.modelbest.cn/v1/chat/completions",
+            "is_secret": False,
+        },
+        {
+            "key": "OCR_JUDGE_API_KEY",
+            "category": "ocr",
+            "description": (
+                "分歧裁定打分器的 API Key（Bearer Token）。留空则判定一律落人工；"
+                "敏感项，加密存储。供应商侧政策：可读分辨率下的证件图像会被拒"
+                "（content_policy_violation），所以证件/账号类字段不走此路，见 L1 校验位。"
+            ),
+            "value": "",
+            "is_secret": True,
+        },
+        {
+            "key": "OCR_JUDGE_MODEL",
+            "category": "ocr",
+            "description": "打分模型名（判别式：给图 + 候选文本，只回概率，不生成新文本）",
+            "value": "MiniCPM-OCR-Jev",
+            "is_secret": False,
+        },
+        {
+            "key": "OCR_JUDGE_MAX_CONCURRENCY",
+            "category": "ocr",
+            "description": (
+                "打分请求的进程内并发上限。默认 2：实测 4 并发立即被限流（429），2 稳定。"
+                "调高不会更快，只会把请求打回退避重试。"
+            ),
+            "value": "2",
+            "is_secret": False,
+        },
+        {
+            "key": "OCR_JUDGE_PROB_FLOOR",
+            "category": "ocr",
+            "description": (
+                "胜者最低分。低于它就判「两个都不像图上的字」交人工。"
+                "默认 0.05 而不是 0.5：实测真值分数可以是 0.158（模糊证件块），"
+                "绝对值不可比，只有相对倍数可依赖。"
+            ),
+            "value": "0.05",
+            "is_secret": False,
+        },
+        {
+            "key": "OCR_JUDGE_RATIO_MIN",
+            "category": "ocr",
+            "description": (
+                "胜者 / 次高分的倍数下限，低于它交人工。默认 10：实测真错案例的倍数在"
+                "55–1900 倍之间，而汉字形近字的错值也能拿 0.58（真值 0.994，仅 1.7 倍），"
+                "阈值定低了会把形近字误采信。"
+            ),
+            "value": "10",
+            "is_secret": False,
+        },
+        {
+            "key": "OCR_JUDGE_TIMEOUT_SECONDS",
+            "category": "ocr",
+            "description": "单次打分请求超时（秒）。实测中位 1.2s、最慢 10s，留足余量给拥塞",
+            "value": "180",
+            "is_secret": False,
+        },
         {
             "key": "DEEPSEEK_OCR_PURPOSE",
             "category": "ocr",
