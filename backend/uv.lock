@@ -1920,15 +1920,15 @@ wheels = [
 
 [[package]]
 name = "google-auth"
-version = "2.63.0"
+version = "2.63.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
     { name = "pyasn1-modules" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/04/0c/d09755ddb3fb67dcba41f35c04ba33377e5bcf73af6c022de33c3241532b/google_auth-2.63.0.tar.gz", hash = "sha256:f198b99dd49e81f96f54abce2c03d4dd28fb7e3c77702eb6ae1c5bf25435054c", size = 406302, upload-time = "2026-11-20T23:24:00.618Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/35/0e/e8125c650f126f8703feabca892277f258af7c761fd93f7d51a404e56d75/google_auth-2.63.1.tar.gz", hash = "sha256:f69f387dba9abe536fec87483a749485f2ef0c81bfa79f609d9873e57054a1a5", size = 409098, upload-time = "2026-11-21T20:36:15.511Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5e/78/1c31250140faba4206c557b2bb16e8b1f1e42202864f0dbe0a8f4bc8dab2/google_auth-2.63.0-py3-none-any.whl", hash = "sha256:cbc065325f67511946d1a66672e4f47e71ed162ef1abd2bb8404ceec407c86ba", size = 270723, upload-time = "2026-11-20T23:23:59.008Z" },
+    { url = "https://files.pythonhosted.org/packages/10/21/868ddea6de119b3e47ee0ae8de70bffabb6c0fe8a6f395ea62bdfb2ec062/google_auth-2.63.1-py3-none-any.whl", hash = "sha256:3c977ca57114a302c2589f3a24be7ca1b6862d30da7619f4230a78809f58a0e9", size = 271264, upload-time = "2026-11-21T20:36:13.886Z" },
 ]
 
 [package.optional-dependencies]
@@ -5571,11 +5571,11 @@ wheels = [
 
 [[package]]
 name = "types-python-dateutil"
-version = "2.9.0.20261116"
+version = "2.9.0.20261122"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/82/ba/a19d28610031ac9608586077f71a21add4c80639cf01e5920d5f9bc207c9/types_python_dateutil-2.9.0.20261116.tar.gz", hash = "sha256:4213748a3f699431a83edf71969de9caa79d0846a5e8785c8a49072ff1968613", size = 17879, upload-time = "2026-11-16T08:43:02.721Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9c/e1/061ae807e1d0dc1cd54ae2b43e04bbda4faa80d5ce2b81ed1bedd34d2c27/types_python_dateutil-2.9.0.20261122.tar.gz", hash = "sha256:1db0012e9e63028891e36fd8a9f685dc4e8cf89353fbefcf6b1eb55538e9f7ed", size = 17919, upload-time = "2026-11-22T08:59:23.569Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/70/fc/5644ed0d6ad3712e17d30762c32ccbf6014230c46c58eb324f1d3f6ecebf/types_python_dateutil-2.9.0.20261116-py3-none-any.whl", hash = "sha256:62e7c65849170a4847539573153d34f4007777dd62651ec8849ec8f08e8922a2", size = 18513, upload-time = "2026-11-16T08:43:01.246Z" },
+    { url = "https://files.pythonhosted.org/packages/a1/46/38042f56835e926128d129e1d327bef8bf3803ec791af393f9f5e827bc96/types_python_dateutil-2.9.0.20261122-py3-none-any.whl", hash = "sha256:c2c257d7ce04f8ede622bb2452223461ee3016872f59d2351522723073e226ff", size = 18519, upload-time = "2026-11-22T08:59:22.835Z" },
 ]
 
 [[package]]
