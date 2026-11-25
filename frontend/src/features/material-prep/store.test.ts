@@ -813,3 +813,61 @@ describe('识别成本选择按包持久化', () => {
     expect(useReader.getState().cloudSelection).toEqual(['mineru'])
   })
 })
+
+// ── 页旋转动作（人工转正） ──────────────────────────────────────
+//
+// 这几个 action 是「点一下按钮」到「草稿真的变了」的唯一通道。纯函数另有
+// page-rotation.test.ts 守着，这里只锁接线：素材下标 → partIndex 的换算、
+// 以及「转四次回到没转」（键必须被删掉，否则「已转正 N 页」的数会虚高）。
+
+describe('页旋转动作', () => {
+  it('rotatePages 按 partIndex:page 写进草稿，四次回正并删键', async () => {
+    const { useReader } = await import('./store')
+    const state = useReader.getState()
+    // 直接塞一份最小草稿：这些 action 只依赖 mats/segs/pageRot
+    useReader.setState({
+      draft: {
+        mats: [
+          { partIndex: 3, n: 'a.pdf', k: 'pdf', pages: 2 },
+          { partIndex: 9, n: 'b.pdf', k: 'pdf', pages: 1 },
+        ],
+        segs: [],
+        infos: [],
+      } as never,
+      openId: null,
+    })
+
+    for (const expected of [90, 180, 270, 0]) {
+      useReader.getState().rotatePages([{ mi: 1, p: 1 }, { mi: 0, p: 2 }], 90)
+      expect(useReader.getState().draft?.pageRot?.['9:1'] ?? 0).toBe(expected)
+      expect(useReader.getState().draft?.pageRot?.['3:2'] ?? 0).toBe(expected)
+    }
+    // 材质下标 1 对应 partIndex 9（不是 1）：换算错的话旋转会落到别的附件上
+    expect(Object.keys(useReader.getState().draft?.pageRot ?? {})).toEqual([])
+    useReader.setState({ draft: null })
+    expect(state.openId).toBeNull()
+  })
+
+  it('素材不存在时不动草稿（删附件后的旧选区不该写脏键）', async () => {
+    const { useReader } = await import('./store')
+    useReader.setState({
+      draft: { mats: [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 1 }], segs: [], infos: [] } as never,
+    })
+    useReader.getState().rotatePages([{ mi: 5, p: 1 }], 90)
+    expect(useReader.getState().draft?.pageRot).toBeUndefined()
+    useReader.setState({ draft: null })
+  })
+
+  it('setPagesRotation 是设绝对值，resetAllRotation 清空全部', async () => {
+    const { useReader } = await import('./store')
+    useReader.setState({
+      draft: { mats: [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 3 }], segs: [], infos: [] } as never,
+    })
+    useReader.getState().setPagesRotation([{ mi: 0, p: 1 }, { mi: 0, p: 2 }], 180)
+    expect(useReader.getState().draft?.pageRot).toEqual({ '0:1': 180, '0:2': 180 })
+
+    useReader.getState().resetAllRotation()
+    expect(useReader.getState().draft?.pageRot).toEqual({})
+    useReader.setState({ draft: null })
+  })
+})

@@ -100,9 +100,9 @@ function Harness({ segments }: { segments: DownloadableSegment[] }) {
 
 /** 三段两任务：真实包可以有多份 PDF，各自由不同识别任务产出（zip 与 ids 都是按任务的） */
 const SEGMENTS: DownloadableSegment[] = [
-  { pk: 11, jobId: 'job-1', name: '起诉状' },
-  { pk: 12, jobId: 'job-1', name: '证据清单' },
-  { pk: 15, jobId: 'job-2', name: '借款合同' },
+  { pk: 11, jobId: 'job-1', name: '起诉状', partIndex: 0, pageStart: 1, pageEnd: 4 },
+  { pk: 12, jobId: 'job-1', name: '证据清单', partIndex: 0, pageStart: 5, pageEnd: 9 },
+  { pk: 15, jobId: 'job-2', name: '借款合同', partIndex: 1, pageStart: 1, pageEnd: 3 },
 ]
 
 const pdfBtn = (i = 0) => screen.getAllByRole('button', { name: '下载 PDF' })[i] as HTMLButtonElement

@@ -75,11 +75,15 @@ export async function extractPdfPages(
   name: string,
   pageStart: number,
   pageEnd: number,
+  /** 人工转正角度编码 `页码:角度,页码:角度`（见 draft/page-rotation.ts 的 rotationsForRange） */
+  rotations = '',
 ): Promise<Blob> {
   const body = new FormData()
   body.append('file', new File([file], name, { type: 'application/pdf' }))
   body.append('page_start', String(pageStart))
   body.append('page_end', String(pageEnd))
+  // 空串不传：老后端不认这个字段，多传一个空字段只会让日志多一行噪音
+  if (rotations) body.append('rotations', rotations)
   const res = await pdfSplitApi.post('extract-pages', { body, timeout: UPLOAD_TIMEOUT_MS })
   return await res.blob()
 }
@@ -95,8 +99,9 @@ export async function extractPdfPages(
  *
  * 正确用法：`downloadUrl(await withDownloadTicket(segmentPdfUrl(jobId, pk)))`。
  */
-export function segmentPdfUrl(jobId: string, segmentId: number): string {
-  return `${PDF_SPLIT_PREFIX}/jobs/${encodeURIComponent(jobId)}/segments/${segmentId}/pdf`
+export function segmentPdfUrl(jobId: string, segmentId: number, rotations = ''): string {
+  const base = `${PDF_SPLIT_PREFIX}/jobs/${encodeURIComponent(jobId)}/segments/${segmentId}/pdf`
+  return appendRotations(base, rotations)
 }
 
 /** 单段 Markdown 直链（GET .../segments/{segment_id}/md）。与 PDF 同一套票据换票纪律，见上 */
@@ -113,10 +118,25 @@ export function segmentMdUrl(jobId: string, segmentId: number): string {
  * 同样**不能当 `<a href>` 用**；且这是**带 query 的 URL**，换票时 `appendTicket`
  * 会拼成 `&ticket=`（拼错成第二个 `?` 时后端只会收到一个叫 `?ids` 的垃圾参数）。
  */
-export function jobDownloadUrl(jobId: string, segmentIds?: number[]): string {
+export function jobDownloadUrl(jobId: string, segmentIds?: number[], rotations = ''): string {
   const ids = normalizeSegmentIds(segmentIds)
   const base = `${PDF_SPLIT_PREFIX}/jobs/${encodeURIComponent(jobId)}/download`
-  return ids.length > 0 ? `${base}?ids=${ids.join(',')}` : base
+  const withIds = ids.length > 0 ? `${base}?ids=${ids.join(',')}` : base
+  return appendRotations(withIds, rotations)
+}
+
+/**
+ * 给下载直链追加旋转参数。
+ *
+ * ⚠️ 拼 `&` 还是 `?` 必须看已有 query：`jobDownloadUrl` 带 `ids` 时已经有一个
+ * `?`，再拼第二个 `?` 后端只会收到一个叫 `?ids` 的垃圾参数（同 `appendTicket`
+ * 的教训）。空串不加——URL 保持与不带旋转时**逐字相同**，日志/快照比对才有意义。
+ */
+function appendRotations(url: string, rotations: string): string {
+  const value = rotations.trim()
+  if (!value) return url
+  const sep = url.includes('?') ? '&' : '?'
+  return `${url}${sep}rotations=${encodeURIComponent(value)}`
 }
 
 /**
@@ -145,6 +165,13 @@ export interface ArchiveToCaseFolderSegment {
   page_end: number
   doc_type: string
   material_type: string
+  /**
+   * 人工转正角度（`页码:角度,...`，页码=源 PDF 绝对页号）。
+   *
+   * 后端在**切页之前**把它烧进页对象，再切页与算副本指纹——所以落进卷宗的
+   * 就是律师看到的方向，而不是扫描仪给的原始方向。空/缺省 = 不转。
+   */
+  rotations?: string
 }
 
 /** 归档结果：落在哪儿、写了哪些文件、哪些疑似副本、哪些段跳过 */

@@ -4,9 +4,10 @@ import { toast } from 'sonner'
 import { bankLitigation, projectDetail, projectReview } from '@/app/paths'
 import { archiveSplitToCaseFolder, assignPack, fetchAttachmentBytes } from '../../api'
 import type { ArchiveToCaseFolderSegment } from '../../api'
-import { putPolicy } from '../../doc-verify/api'
 import { errMessage } from '@/lib/errors'
-import type { AssignInfo, DraftState, Segment } from '../../types'
+import { putPolicy } from '../../doc-verify/api'
+import type { AssignInfo, BundleMat, DraftState, PageRotMap, Segment } from '../../types'
+import { rotationsForRange } from '../../draft/page-rotation'
 
 /**
  * 「同时归档到案件文件夹」的勾选状态（默认勾选）。
@@ -132,14 +133,29 @@ export function useAssignLaunch(params: {
       return
     }
 
-    const segs = (draft?.segs ?? []).map((sg) => ({
-      name: sg.t || sg.fn || '未命名材料',
-      partIndex: sg.refs[0]?.mi ?? 0,
-      pageStart: sg.refs[0]?.p ?? 1,
-      pageEnd: sg.refs[sg.refs.length - 1]?.p ?? 1,
-      // 段标识随材料一起进案件侧：起草 RAG 靠它找回律师核对过的那一段预处理 Markdown
-      segmentRef: sg.id,
-    }))
+    const mats = draft?.mats ?? []
+    const pageRot = draft?.pageRot
+    const segs = (draft?.segs ?? []).map((sg) => {
+      const first = sg.refs[0]
+      const last = sg.refs[sg.refs.length - 1]
+      // refs 里的 mi 是**素材下标**；附件 partIndex 才是后端认的标识，也是页旋转
+      // 的键。常规包里两者数值相同，追加过附件后就会漂，所以显式换算。
+      const partIndex = mats[first?.mi ?? 0]?.partIndex ?? first?.mi ?? 0
+      const pageStart = first?.p ?? 1
+      const pageEnd = last?.p ?? 1
+      // 人工转正：切页在服务端做，角度必须跟着切页请求走，否则案件里那份还是歪的。
+      // 空串不进字段——没有旋转的包里请求体保持与改动前逐字相同。
+      const rotations = rotationsForRange(pageRot, partIndex, pageStart, pageEnd)
+      return {
+        name: sg.t || sg.fn || '未命名材料',
+        partIndex,
+        pageStart,
+        pageEnd,
+        ...(rotations ? { rotations } : {}),
+        // 段标识随材料一起进案件侧：起草 RAG 靠它找回律师核对过的那一段预处理 Markdown
+        segmentRef: sg.id,
+      }
+    })
 
     toast.loading('正在归案…', { id: 'assign' })
     try {
@@ -184,7 +200,7 @@ export function useAssignLaunch(params: {
       // 任何失败只提示、绝不改判「归案失败」——归档挂了律师也得进得去案件看材料。
       // 一个 job 挂了不影响其余 job：循环里逐组 catch。
       if (isArchiveToCaseFolderEnabled()) {
-        for (const group of archiveGroupsOf(draft?.segs ?? [])) {
+        for (const group of archiveGroupsOf(draft?.segs ?? [], draft?.pageRot, draft?.mats)) {
           try {
             await archiveSplitToCaseFolder(group.jobId, r.caseId, group.segments)
           } catch (e) {
@@ -280,7 +296,11 @@ export interface ArchiveGroup {
  * - `page_start` / `page_end` 取该段的页区间（归案前已校验单源连续，见
  *   `isSingleSourceContiguous`，所以首尾就是最小/最大页）。
  */
-export function archiveGroupsOf(segs: Segment[]): ArchiveGroup[] {
+export function archiveGroupsOf(
+  segs: Segment[],
+  pageRot?: PageRotMap,
+  mats?: readonly BundleMat[],
+): ArchiveGroup[] {
   const groups = new Map<string, ArchiveToCaseFolderSegment[]>()
   for (const sg of segs) {
     const jobId = sg.splitRef?.jobId
@@ -290,7 +310,17 @@ export function archiveGroupsOf(segs: Segment[]): ArchiveGroup[] {
     if (!first || !last) continue
     const name = archiveDocTypeOf(sg)
     const list = groups.get(jobId) ?? []
-    list.push({ page_start: first.p, page_end: last.p, doc_type: name, material_type: name })
+    // 落进卷宗的那份也必须是律师看到的方向：后端在切页前把角度烧进页对象
+    const partIndex = mats?.[first.mi]?.partIndex ?? first.mi
+    // 只在该段真有旋转时才带字段：没有旋转的包里请求体保持与改动前逐字相同
+    const rotations = pageRot ? rotationsForRange(pageRot, partIndex, first.p, last.p) : ''
+    list.push({
+      page_start: first.p,
+      page_end: last.p,
+      doc_type: name,
+      material_type: name,
+      ...(rotations ? { rotations } : {}),
+    })
     groups.set(jobId, list)
   }
   return [...groups].map(([jobId, segments]) => ({ jobId, segments }))

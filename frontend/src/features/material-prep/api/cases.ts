@@ -2,11 +2,13 @@ import { toast } from 'sonner'
 
 import { createApiClient } from '@/lib/api'
 import type { BundleMat, CaseRow } from '../types'
+import { firstRotationOf } from '../draft/page-rotation'
 import { bindProvenance } from './assign-provenance'
 import { clientApi } from './client'
 import { contractsApi } from './contracts'
 import { inboxApi } from './inbox-packs'
 import { extractPdfPages } from './pdf-split'
+import { rotateImageBlob } from './rotate-image'
 
 /**
  * 案件检索 / 建案 / 归案落地（/api/v1/cases）。
@@ -99,9 +101,10 @@ async function cutSegmentBlob(
   name: string,
   pageStart: number,
   pageEnd: number,
+  rotations = '',
 ): Promise<Blob | null> {
   try {
-    return await extractPdfPages(blob, name, pageStart, pageEnd)
+    return await extractPdfPages(blob, name, pageStart, pageEnd, rotations)
   } catch {
     return null
   }
@@ -127,7 +130,7 @@ async function segmentUploadBlob(
   seg: BundledSegment,
   original: Blob,
   source: BundleMat | undefined,
-): Promise<{ blob: Blob; degraded: boolean }> {
+): Promise<{ blob: Blob; degraded: boolean; rotationSkipped: boolean }> {
   // 页数不可信（读不出来时兜底成 1）→ 不能拿它判「是否覆盖整份」。
   //
   // 真实后果（核查实测）：一份 164 页的卷宗，页数读取失败 → `pages: 1`，
@@ -137,12 +140,35 @@ async function segmentUploadBlob(
   // 结果与原来一致（整包传）但语义诚实，且不会被误当成真实页数。
   const unknownPageCount = (source?.pages ?? 0) <= 0 || source?.pagesUnknown === true
   const coversWholeSource = !unknownPageCount && seg.pageStart === 1 && seg.pageEnd === source?.pages
-  if (unknownPageCount || coversWholeSource) return { blob: original, degraded: false }
+  const rotations = seg.rotations ?? ''
 
-  const cut = await cutSegmentBlob(original, seg.name, seg.pageStart, seg.pageEnd)
+  // 照片素材：一页就是整张图，没有「页对象」可烧 /Rotate，只能在这里把像素转正，
+  // 否则客户收到的证据照片还是躺着的（PDF 那边由服务端切页时烧入）。
+  if (source?.k === 'photo') {
+    const deg = firstRotationOf(rotations)
+    if (deg === 0) return { blob: original, degraded: false, rotationSkipped: false }
+    try {
+      return { blob: await rotateImageBlob(original, deg), degraded: false, rotationSkipped: false }
+    } catch {
+      // 转不动就按原样传：归案不能因为一张图解码失败而整包失败，但必须让调用方
+      // 知道「这份没转正」，否则就是静默交付一张歪的证据。
+      return { blob: original, degraded: false, rotationSkipped: true }
+    }
+  }
+
+  if (unknownPageCount || coversWholeSource) {
+    // 覆盖整份时可以省掉切页往返；但**有旋转时不能省**——服务端要先烧角度再切，
+    // 不切就没有任何地方能落地这个角度。
+    if (!rotations) return { blob: original, degraded: false, rotationSkipped: false }
+    const rotatedWhole = await cutSegmentBlob(original, seg.name, seg.pageStart, seg.pageEnd, rotations)
+    if (rotatedWhole) return { blob: rotatedWhole, degraded: false, rotationSkipped: false }
+    return { blob: original, degraded: false, rotationSkipped: true }
+  }
+
+  const cut = await cutSegmentBlob(original, seg.name, seg.pageStart, seg.pageEnd, rotations)
   // 切不出来就让这一段退回整包字节：归案照常完成，事后再由调用方提示
-  if (!cut) return { blob: original, degraded: true }
-  return { blob: cut, degraded: false }
+  if (!cut) return { blob: original, degraded: true, rotationSkipped: false }
+  return { blob: cut, degraded: false, rotationSkipped: false }
 }
 
 /** 建客户（归案生成合同时要用） */
@@ -202,6 +228,13 @@ interface BundledSegment {
    * 文件哈希匹配，段级对不上。
    */
   segmentRef: string
+  /**
+   * 人工转正角度编码（`页码:角度,...`，页码=源 PDF 绝对页号）。
+   *
+   * 归案要按段切页上传，切页在服务端做（浏览器没装 pdf-lib），所以旋转必须
+   * 跟着切页请求一起走——否则案件里那份材料还是倒的。
+   */
+  rotations?: string
 }
 
 /** 归案的全部入参 */
@@ -329,19 +362,21 @@ async function createCaseForAssign(
 async function bindSegments(
   opts: Pick<AssignPackOptions, 'messageId' | 'segments' | 'sources'>,
   caseId: number,
-): Promise<{ boundCount: number; unsplitCount: number }> {
+): Promise<{ boundCount: number; unsplitCount: number; rotationSkippedCount: number }> {
   const sourceCache = new Map<number, Blob | null>()
   const sourceByPart = new Map((opts.sources ?? []).map((mat) => [mat.partIndex, mat]))
   let boundCount = 0
   let unsplitCount = 0
+  let rotationSkippedCount = 0
   for (const seg of opts.segments) {
     if (!sourceCache.has(seg.partIndex)) {
       sourceCache.set(seg.partIndex, await fetchOriginalBlob(opts.messageId, seg.partIndex))
     }
     const original = sourceCache.get(seg.partIndex)
     if (!original) continue
-    const { blob, degraded } = await segmentUploadBlob(seg, original, sourceByPart.get(seg.partIndex))
+    const { blob, degraded, rotationSkipped } = await segmentUploadBlob(seg, original, sourceByPart.get(seg.partIndex))
     if (degraded) unsplitCount += 1
+    if (rotationSkipped) rotationSkippedCount += 1
     const attId = await uploadSegment(caseId, blob, `${seg.name}.pdf`)
     if (attId == null) continue
     try {
@@ -362,7 +397,7 @@ async function bindSegments(
       /* 单份失败继续下一份 */
     }
   }
-  return { boundCount, unsplitCount }
+  return { boundCount, unsplitCount, rotationSkippedCount }
 }
 
 /**
@@ -373,12 +408,16 @@ async function bindSegments(
  */
 export async function assignPack(opts: AssignPackOptions): Promise<AssignResult> {
   const { caseId, caseName, contractId } = await createCaseForAssign(opts)
-  const { boundCount, unsplitCount } = await bindSegments(opts, caseId)
+  const { boundCount, unsplitCount, rotationSkippedCount } = await bindSegments(opts, caseId)
 
   // 降级是静默的（材料照样绑上），但律师得知道有几份点开还是整卷——
   // 否则「为什么这份证据也有 164 页」只能靠猜。
   if (unsplitCount > 0) {
     toast.warning(`部分材料未能切分（${unsplitCount} 份），已按整包上传`, { id: 'assign' })
+  }
+  // 旋转没落地同样是静默的：材料绑上了，但那份材料还是歪的/倒的。律师必须知道。
+  if (rotationSkippedCount > 0) {
+    toast.warning(`有 ${rotationSkippedCount} 份材料未能转正，上传的是原始角度`, { id: 'assign-rotation' })
   }
 
   return { caseId, caseName, contractId, boundCount, unsplitCount }

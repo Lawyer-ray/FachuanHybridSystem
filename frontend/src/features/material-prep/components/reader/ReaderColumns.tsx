@@ -48,6 +48,7 @@ export function ReaderColumns({
   onToggleSel,
   onOcrBox,
   onRequestDelete,
+  onRotatePages,
   flowWrapRef,
   // 右栏
   onSetPickInfo,
@@ -104,6 +105,8 @@ export function ReaderColumns({
   onToggleSel: (mi: number, p: number, shift: boolean) => void
   onOcrBox: ReturnType<typeof useReaderOcr>['onOcrBox']
   onRequestDelete: (picked: PageKey[]) => void
+  /** 页旋转（人工转正） */
+  onRotatePages: (refs: PageKey[], deg: number) => void
   flowWrapRef: (node: HTMLDivElement | null) => void
   onSetPickInfo: (i: number) => void
   metaOps: ReturnType<typeof buildMetaOps>
@@ -178,6 +181,7 @@ export function ReaderColumns({
           onToggleSel={onToggleSel}
           onOcrBox={onOcrBox}
           onRequestDelete={onRequestDelete}
+          onRotatePages={onRotatePages}
         />
       </div>
 

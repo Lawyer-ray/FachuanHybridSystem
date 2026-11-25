@@ -14,7 +14,17 @@ function renderMenu(props: Partial<Parameters<typeof PageContextMenu>[0]> = {}) 
   const onDelete = vi.fn()
   const onClose = vi.fn()
   const utils = render(
-    <PageContextMenu x={100} y={100} title="第 1 页" count={1} onDelete={onDelete} onClose={onClose} {...props} />,
+    <PageContextMenu
+      x={100}
+      y={100}
+      title="第 1 页"
+      count={1}
+      rotation={0}
+      onRotate={vi.fn()}
+      onDelete={onDelete}
+      onClose={onClose}
+      {...props}
+    />,
   )
   const menu = utils.container.firstElementChild as HTMLElement
   return { ...utils, menu, onDelete, onClose }

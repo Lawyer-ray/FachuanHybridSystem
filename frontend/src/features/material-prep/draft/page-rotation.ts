@@ -196,3 +196,28 @@ export function rotatedRefsOf(map: PageRotMap | undefined): PageRefKey[] {
     .map((key) => parsePageRotKey(key))
     .filter((ref): ref is PageRefKey => ref !== null && getPageRot(map, ref) !== 0)
 }
+
+/**
+ * 从编码里取「这一份的旋转角度」（照片素材用）。
+ *
+ * 照片素材一页就是整张图，段只会有一个页引用，所以编码里最多一条；多页 PDF
+ * 走服务端切页不需要这个。编码非法/为空 → 0（按原方向上传，不猜）。
+ */
+export function firstRotationOf(raw: string | undefined): RotDeg {
+  const first = (raw ?? '').split(',')[0] ?? ''
+  const degText = first.split(':')[1]
+  if (!degText) return 0
+  const deg = Number(degText)
+  return Number.isFinite(deg) ? normalizeDeg(deg) : 0
+}
+
+/**
+ * 合并多段各自的编码（`"1:90"` + `"3:180"` → `"1:90,3:180"`）。
+ *
+ * 整包/多选下载时一个 zip 里有多段，后端只收一个 `rotations`；段之间页区间
+ * 本来就不重叠，直接拼接即可（后端解析按页去重，同页后者覆盖）。空段丢掉，
+ * 全空时返回空串——URL 保持与不带旋转时逐字相同。
+ */
+export function joinRotationEncodings(values: readonly string[]): string {
+  return values.filter((v) => v.trim().length > 0).join(',')
+}

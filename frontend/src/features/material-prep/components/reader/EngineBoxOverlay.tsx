@@ -1,6 +1,6 @@
-import type { EngineBlockRect, EngineName, EngineVariant, RectPrecision } from '../../types'
+import type { EngineBlockRect, EngineName, EngineVariant, RectPrecision, RotDeg } from '../../types'
 import { rectPrecisionOf } from '../../types'
-import { engineShortLabel } from '../../draft'
+import { engineShortLabel, rotateNormRect } from '../../draft'
 
 /**
  * 双框对照的配色与画法（契约【视觉规则】的硬要求）。
@@ -56,7 +56,14 @@ export interface EngineBoxGroup {
  * 成一对**，缺坐标就如实缺着——假框会让律师对着一个不存在的差异下结论。
  * 坐标不可信（`approx`）的框描边更淡并在小字前加「≈」：宁可看着不确定，也不给假精度。
  */
-export function EngineBoxOverlay({ groups }: { groups: EngineBoxGroup[] }) {
+export function EngineBoxOverlay({
+  groups,
+  rotation = 0,
+}: {
+  groups: EngineBoxGroup[]
+  /** 页的人工转正角度：页转了框必须跟着转，否则框会指到隔壁（比没有框更糟） */
+  rotation?: RotDeg
+}) {
   // 一条分歧通常只对应一个块，所以按整组判断「本引擎坐标是否可信」。
   // 一组里混着精确框与近似框时，只要有一个精确框就按精确处理（有精确信息就别放弃它）。
   const entries = groups.map((g) => {
@@ -81,15 +88,17 @@ export function EngineBoxOverlay({ groups }: { groups: EngineBoxGroup[] }) {
       >
         {entries.flatMap(({ group, color, dashed, approx, veryApprox }) =>
           group.blocks.map((b, i) => {
+            // 引擎给的是**未旋转**页面的坐标；页面转了就把 rect 一起转过去
+            const rect = rotateNormRect(b.rect, rotation)
             // 三档透明度：精确 1.0 / 推算 0.55 / 整页近似 0.28
             const stroke = !approx ? 1 : veryApprox ? 0.28 : 0.55
             return (
               <g key={`${group.variant.engine}:${i}`} data-engine-box={group.variant.engine}>
                 <rect
-                  x={b.rect.x * VIEWBOX}
-                  y={b.rect.y * VIEWBOX}
-                  width={b.rect.w * VIEWBOX}
-                  height={b.rect.h * VIEWBOX}
+                  x={rect.x * VIEWBOX}
+                  y={rect.y * VIEWBOX}
+                  width={rect.w * VIEWBOX}
+                  height={rect.h * VIEWBOX}
                   fill={color}
                   fillOpacity={0.12}
                   stroke={color}
@@ -100,8 +109,8 @@ export function EngineBoxOverlay({ groups }: { groups: EngineBoxGroup[] }) {
                 />
                 {/* 框旁标注：引擎短名 + 这个框对应的文本，律师一眼对上「哪个框是哪个引擎的哪个字」 */}
                 <text
-                  x={b.rect.x * VIEWBOX}
-                  y={b.rect.y * VIEWBOX - 3}
+                  x={rect.x * VIEWBOX}
+                  y={rect.y * VIEWBOX - 3}
                   fill={color}
                   fillOpacity={approx ? 0.7 : 1}
                   stroke="white"

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { canvasToRetainedImg, loadPdfDocument, pdfRenderWidthFor, releaseRetainedImg, renderPdfPage } from '@/lib/pdf'
 import { fetchAttachmentBytes } from '../../api'
 
+import type { RotDeg } from '../../types'
 import { SkeletonLines } from './SkeletonLines'
 
 /** 释放 host 内驻留 img 的 blob URL（重渲替换/卸载前调用；未登记的 no-op，幂等） */
@@ -11,7 +12,18 @@ function releaseHostRetainedImg(host: HTMLElement | null): void {
   if (old) releaseRetainedImg(old)
 }
 
-export function PdfPageView({ messageId, partIndex, pageNum }: { messageId: number; partIndex: number; pageNum: number }) {
+export function PdfPageView({
+  messageId,
+  partIndex,
+  pageNum,
+  /** 人工转正角度（叠加在页自身 /Rotate 之上）；变化必须重渲，见下方依赖数组 */
+  rotation = 0,
+}: {
+  messageId: number
+  partIndex: number
+  pageNum: number
+  rotation?: RotDeg
+}) {
   const hostRef = useRef<HTMLDivElement>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   // null = 尚未因宽度/DPR 变化强制重渲（首渲在渲染 effect 内自测容器宽）；
@@ -67,7 +79,7 @@ export function PdfPageView({ messageId, partIndex, pageNum }: { messageId: numb
         const host = hostRef.current
         const targetWidth = forcedWidth ?? pdfRenderWidthFor(host?.clientWidth ?? 900)
         renderedWidthRef.current = targetWidth
-        const canvas = await renderPdfPage(doc, pageNum, targetWidth)
+        const canvas = await renderPdfPage(doc, pageNum, targetWidth, rotation)
         if (cancelled) return
         if (!host) return
         // 页宽随列数/缩放收缩时，canvas 必须跟随容器等比缩放；
@@ -102,7 +114,8 @@ export function PdfPageView({ messageId, partIndex, pageNum }: { messageId: numb
       // 新一轮成功路径在清 host 前也会 release，幂等不会双重 revoke
       releaseHostRetainedImg(hostAtMount)
     }
-  }, [messageId, partIndex, pageNum, forcedWidth])
+    // rotation 必须在依赖里：少它就会出现「点转转、页不动」（草稿变了但画布没重渲）
+  }, [messageId, partIndex, pageNum, forcedWidth, rotation])
 
   return (
     <div className="relative w-full bg-white">

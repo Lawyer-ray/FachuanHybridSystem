@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import type { PageKey } from '../../types'
 import { useNavigate } from 'react-router'
 import { useElementWidth } from '@/hooks/use-element-width'
 import { setEngineChecked } from '../../draft'
@@ -167,6 +168,12 @@ export function useReaderScreen() {
       onToggleSel: st.onToggleSel,
       onOcrBox: ocr.onOcrBox,
       onRequestDelete: actions.setDeleteTarget,
+      // 页旋转（人工转正）：选择条/右键菜单/单页悬停按钮三处共用同一组 store 动作
+      onRotatePages: (refs: PageKey[], deg: number) => {
+        if (deg === 0) st.resetPagesRotation(refs)
+        else st.rotatePages(refs, deg)
+      },
+      onResetAllRotation: st.resetAllRotation,
       onFocusSeg: actions.focusSeg,
       onRenameMat: view.startRenameMat,
       onSetPickInfo: st.setPickInfo,

@@ -33,6 +33,10 @@ export function ReaderOverlays({
   selPages,
   selCount,
   selCross,
+  selRotatedCount = 0,
+  onRotatePages,
+  rotatedTotal = 0,
+  onResetAllRotation,
   onClearSel,
   onApplySel,
 }: {
@@ -48,6 +52,13 @@ export function ReaderOverlays({
   selPages: PageKey[]
   selCount: number
   selCross: boolean
+  /** 所选页里已人工转正的有几页 */
+  selRotatedCount?: number
+  /** 批量转正（90/-90/180/0） */
+  onRotatePages?: (deg: number) => void
+  /** 全包已人工转正的页数（>0 才显示「全部重置」入口） */
+  rotatedTotal?: number
+  onResetAllRotation?: () => void
   onClearSel: () => void
   onApplySel: () => void
 }) {
@@ -80,9 +91,31 @@ export function ReaderOverlays({
           />
         )}
 
+      {/* 已转正提示 + 全部重置：只在真有旋转时出现。放在左下，避开中间的选页条
+          与自动分段进度条；律师偶尔需要「我刚才转的都不对，全部回正」这个出口。 */}
+      {rotatedTotal > 0 && onResetAllRotation && (
+        <div className="fixed bottom-4 left-4 z-[60] flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] shadow-lg">
+          <span className="text-muted-foreground">已转正 {rotatedTotal} 页</span>
+          <button
+            type="button"
+            onClick={onResetAllRotation}
+            className="rounded-[5px] px-1.5 py-0.5 text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            全部重置
+          </button>
+        </div>
+      )}
+
       {/* 选页汇总条 */}
       {selPages.length > 0 && (
-        <SelectionBar count={selCount} cross={selCross} onClear={onClearSel} onApply={onApplySel} />
+        <SelectionBar
+          count={selCount}
+          cross={selCross}
+          rotatedCount={selRotatedCount}
+          onClear={onClearSel}
+          onApply={onApplySel}
+          onRotate={onRotatePages}
+        />
       )}
     </>
   )

@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { FileText } from 'lucide-react'
-import type { BundleMat, RectPrecision } from '../../types'
+import { FileText, RotateCcw, RotateCw } from 'lucide-react'
+import type { BundleMat, RectPrecision, RotDeg } from '../../types'
+import { rotateNormRect } from '../../draft/page-rotation'
 import { rectPrecisionOf } from '../../types'
 import { cn } from '@/lib/utils'
 
@@ -54,6 +55,8 @@ export const PageCell = memo(function PageCell({
   onToggleSel,
   onContextMenu,
   onActivateHit,
+  rotation = 0,
+  onRotate,
 }: {
   messageId: number
   mi: number
@@ -76,6 +79,10 @@ export const PageCell = memo(function PageCell({
   focusedHitKey?: string | null
   /** 双击某个定位框：把这块回传给 Markdown 面板（高亮 + 进入修改） */
   onActivateHit?: (key: string) => void
+  /** 人工转正角度（顺时针增量）。页转了，叠在页上的识别框也必须跟着转 */
+  rotation?: RotDeg
+  /** 单页旋转入口：delta=90/-90 叠加，「重置」传 0；右键菜单与悬停按钮共用 */
+  onRotate?: (deg: number) => void
   ocrRect?: PageRect | null
   onPickPage?: (mi: number, p: number) => void
   onOcrBox?: (mi: number, p: number, rect: PageRect) => void
@@ -188,29 +195,33 @@ export const PageCell = memo(function PageCell({
           而外层页卡还含底部页码栏（约 27px）。两者分母不同会让框越靠下偏得越多
           （实测页高 800px 时底部偏 +24px、框高也被等比放大）。 */}
       <div ref={boxRef} className="relative w-full">
-        <PageBody messageId={messageId} p={p} mat={mat} />
+        <PageBody messageId={messageId} p={p} mat={mat} rotation={rotation} />
 
         {/* 来源标注：采纳后的绿框 */}
-        {marks.map((m) => (
+        {marks.map((m) => {
+          const rect = rotateNormRect(m.rect, rotation)
+          return (
           <div
             key={m.fi}
             className="pointer-events-auto absolute rounded-[3px] border-[1.5px] border-green-500/80"
             style={{
-              left: `${m.rect.x * 100}%`,
-              top: `${m.rect.y * 100}%`,
-              width: `${m.rect.w * 100}%`,
-              height: `${m.rect.h * 100}%`,
+              left: `${rect.x * 100}%`,
+              top: `${rect.y * 100}%`,
+              width: `${rect.w * 100}%`,
+              height: `${rect.h * 100}%`,
             }}
           >
             <span className="absolute -top-5 left-0 whitespace-nowrap rounded bg-green-600 px-1 text-[10px] leading-4 text-white">
               {m.label}
             </span>
           </div>
-        ))}
+          )
+        })}
 
         {/* 识别定位：云端识别出的正文块（实线=量出来的 / 虚线=推算 / 最淡虚线=整页近似） */}
         {hits.map((h) => {
           const on = focusedHitKey === h.key
+          const hitRect = rotateNormRect(h.rect, rotation)
           // 有选中块时其余框淡化：不同时亮一片，才看得出「这一条对应哪一个框」
           const dim = focusedHitKey != null && !on
           return (
@@ -234,10 +245,10 @@ export const PageCell = memo(function PageCell({
                 : `${hitBoxClass(h)}`
             } ${dim ? 'opacity-25' : ''}`}
             style={{
-              left: `${h.rect.x * 100}%`,
-              top: `${h.rect.y * 100}%`,
-              width: `${h.rect.w * 100}%`,
-              height: `${h.rect.h * 100}%`,
+              left: `${hitRect.x * 100}%`,
+              top: `${hitRect.y * 100}%`,
+              width: `${hitRect.w * 100}%`,
+              height: `${hitRect.h * 100}%`,
             }}
             title={h.label}
           />
@@ -247,7 +258,7 @@ export const PageCell = memo(function PageCell({
         {/* 双引擎对照框：实线绿 = MinerU（主），虚线琥珀 = VL（副）。
             画在 hits 之后、拖框之前：分歧框是律师当前要看的东西，不能被普通定位框
             盖住；而拖框/待确认框是律师刚画的操作反馈，必须还在最上面。 */}
-        {engineBoxes && <EngineBoxOverlay groups={engineBoxes} />}
+        {engineBoxes && <EngineBoxOverlay groups={engineBoxes} rotation={rotation} />}
 
         {/* OCR 拖出的框 */}
         {dragRect && (
@@ -278,6 +289,24 @@ export const PageCell = memo(function PageCell({
         )}
       </div>
 
+      {/* 单页旋转：悬停/键盘聚焦时出现。放在页脚上方的右下角，不挡识别框；
+          非 0 角度时页脚也挂一个角度徽标，让「这页转过」在长列表里可扫。 */}
+      {onRotate && (
+        <div className="absolute right-2 top-2 z-10 flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+          <RotateButton label="逆时针旋转 90°" onClick={() => onRotate(-90)}>
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+          </RotateButton>
+          <RotateButton label="顺时针旋转 90°" onClick={() => onRotate(90)}>
+            <RotateCw className="h-3.5 w-3.5" aria-hidden />
+          </RotateButton>
+          {rotation !== 0 && (
+            <RotateButton label="重置这一页的方向" onClick={() => onRotate(0)}>
+              <span className="text-[11px] leading-none">0°</span>
+            </RotateButton>
+          )}
+        </div>
+      )}
+
       {/* 选页已选：右上角黑圆勾（原型 .rp.picked::after） */}
       {selected && (
         <span className="pointer-events-none absolute right-3 top-3 grid h-[22px] w-[22px] place-items-center rounded-full bg-zinc-900 text-[13px] font-bold leading-none text-white">
@@ -287,6 +316,14 @@ export const PageCell = memo(function PageCell({
 
       <div className="flex items-center justify-between gap-2 rounded-b-[7px] border-t border-border/60 bg-card px-3 py-1.5 text-[11px] text-muted-foreground">
         {!hideMatName && <span className="truncate">{mat.customName || mat.n}</span>}
+        {rotation !== 0 && (
+          <span
+            className="flex-none rounded-[4px] border border-status-blue/30 bg-status-blue-bg px-1 py-px text-[10px] font-medium text-status-blue"
+            title="这一页已人工转正；归案 / 归档 / 下载时会按这个方向输出"
+          >
+            {rotation}°
+          </span>
+        )}
         <span className="ml-auto tabular-nums">
           {p} / {mat.pages}
         </span>
@@ -298,7 +335,17 @@ export const PageCell = memo(function PageCell({
 /** 选择页体渲染分支：视口外的页只挂骨架占位，滚近了才真正取附件渲染。
  *  92 页的大包若全部立即 mount，会同时拉取全部附件并渲染全部页位图
  *  （DPR 感知宽度下单页 ~21MB，见 PdfPageView 的驻留 img 说明）。 */
-function PageBody({ messageId, p, mat }: { messageId: number; p: number; mat: BundleMat }) {
+function PageBody({
+  messageId,
+  p,
+  mat,
+  rotation = 0,
+}: {
+  messageId: number
+  p: number
+  mat: BundleMat
+  rotation?: RotDeg
+}) {
   const hostRef = useRef<HTMLDivElement>(null)
   const [shown, setShown] = useState(false)
 
@@ -328,9 +375,37 @@ function PageBody({ messageId, p, mat }: { messageId: number; p: number; mat: Bu
       </div>
     )
   }
-  if (mat.k === 'pdf') return <PdfPageView messageId={messageId} partIndex={mat.partIndex} pageNum={p} />
-  if (mat.k === 'photo') return <PhotoPageView messageId={messageId} partIndex={mat.partIndex} />
+  if (mat.k === 'pdf')
+    return <PdfPageView messageId={messageId} partIndex={mat.partIndex} pageNum={p} rotation={rotation} />
+  if (mat.k === 'photo')
+    return <PhotoPageView messageId={messageId} partIndex={mat.partIndex} rotation={rotation} />
   return <OfficePlaceholder mat={mat} />
+}
+
+function RotateButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={(e) => {
+        // 页卡本身有点击语义（选页/拖框）：不拦住会把一次旋转变成一次选页
+        e.stopPropagation()
+        onClick()
+      }}
+      className="grid h-6 w-6 place-items-center rounded-[6px] border border-border bg-card/95 text-foreground/80 shadow-sm transition-colors hover:bg-secondary hover:text-foreground"
+    >
+      {children}
+    </button>
+  )
 }
 
 function OfficePlaceholder({ mat }: { mat: BundleMat }) {

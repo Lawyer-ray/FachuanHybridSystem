@@ -157,3 +157,29 @@ describe('findInflightPdfSplitJob：查在飞任务（幽灵任务）', () => {
     await expect(findInflightPdfSplitJob('卷宗.pdf', 164)).resolves.toBeNull()
   })
 })
+
+// ── 下载直链带人工转正角度 ────────────────────────────────────
+//
+// 旋转只记在草稿里，下载时靠 query 带出去；拼错分隔符（第二个 `?`）后端只会
+// 收到一个叫 `?ids` 的垃圾参数，而浏览器导航的 4xx 进不了 JS——律师看到的是
+// 「下载了但方向不对」，最难查的一类。
+
+describe('下载直链：rotations', () => {
+  it('单段 URL：无 query 时用 ?，有旋转才拼', () => {
+    expect(segmentPdfUrl('job-1', 12)).toBe('/api/v1/pdf-splitting/jobs/job-1/segments/12/pdf')
+    expect(segmentPdfUrl('job-1', 12, '3:90')).toBe(
+      '/api/v1/pdf-splitting/jobs/job-1/segments/12/pdf?rotations=3%3A90',
+    )
+  })
+
+  it('整包 URL：已有 ids 时用 & 续接（不能出现第二个 ?）', () => {
+    const url = jobDownloadUrl('job-1', [12, 15], '3:90,4:90')
+    expect(url).toBe('/api/v1/pdf-splitting/jobs/job-1/download?ids=12,15&rotations=3%3A90%2C4%3A90')
+    expect(url.split('?')).toHaveLength(2)
+  })
+
+  it('空旋转不加参数：URL 与改动前逐字相同（日志/快照比对才有意义）', () => {
+    expect(segmentPdfUrl('job-1', 12, '')).toBe(segmentPdfUrl('job-1', 12))
+    expect(jobDownloadUrl('job-1', [3], '  ')).toBe(jobDownloadUrl('job-1', [3]))
+  })
+})

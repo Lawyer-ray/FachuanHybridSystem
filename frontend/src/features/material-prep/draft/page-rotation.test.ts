@@ -26,6 +26,8 @@ import {
   rotatedSizeOf,
   rotationsForRange,
   setRefsRotation,
+  firstRotationOf,
+  joinRotationEncodings,
 } from './page-rotation'
 
 const R = (partIndex: number, page: number) => ({ partIndex, page })
@@ -217,5 +219,32 @@ describe('rotatedRefsOf', () => {
   it('忽略脏键与 0 值', () => {
     const map = { 'bad': 90, '0:0': 90, '0:5': 0 } as unknown as PageRotMap
     expect(rotatedRefsOf(map)).toEqual([])
+  })
+})
+
+// ── 给外发链路用的两个小工具 ────────────────────────────────────
+
+describe('firstRotationOf（照片素材取角度）', () => {
+  it('取第一条的角度', () => {
+    expect(firstRotationOf('3:90')).toBe(90)
+    expect(firstRotationOf('3:180,4:180')).toBe(180)
+  })
+
+  it('空/非法一律回 0（按原方向上传，不猜）', () => {
+    expect(firstRotationOf(undefined)).toBe(0)
+    expect(firstRotationOf('')).toBe(0)
+    expect(firstRotationOf('bad')).toBe(0)
+    expect(firstRotationOf('3:')).toBe(0)
+  })
+})
+
+describe('joinRotationEncodings（整包下载合并多段）', () => {
+  it('拼接非空段，按传入顺序', () => {
+    expect(joinRotationEncodings(['1:90', '', '5:180'])).toBe('1:90,5:180')
+  })
+
+  it('全空回空串：URL 保持与不带旋转时逐字相同', () => {
+    expect(joinRotationEncodings([])).toBe('')
+    expect(joinRotationEncodings(['', '  '])).toBe('')
   })
 })

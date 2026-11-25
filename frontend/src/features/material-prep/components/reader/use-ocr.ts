@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { canvasToBlob, imageRegionBlob, loadPdfDocument, renderPdfPageRegion } from '@/lib/pdf'
+import { getPageRot } from '../../draft/page-rotation'
 import { fetchAttachmentBytes, ocrImage } from '../../api'
 import { matLabel, setInfoSource, setInfoValue } from '../../draft'
 import { useReader } from '../../store'
@@ -32,18 +33,21 @@ async function runOcr(mi: number, p: number, rect: PageRect) {
     return
   }
   s.setOcrPending({ mi, p, rect, text: '', loading: true })
+  // 框是**在屏幕上画的**，而屏幕上的页可能已人工转正（`pageRot`）。所以：抓图
+  // 必须按同一角度渲染/裁剪，否则「框里圈的是金额、识别出来的是隔壁的日期」。
+  const rotation = getPageRot(d.pageRot, { partIndex: m.partIndex, page: p })
   try {
     let text = ''
     if (m.k === 'pdf') {
       const bytes = await fetchAttachmentBytes(s.openId, m.partIndex)
       const doc = await loadPdfDocument(`${s.openId}:${m.partIndex}`, bytes)
-      const canvas = await renderPdfPageRegion(doc, p, rect)
+      const canvas = await renderPdfPageRegion(doc, p, rect, 1600, rotation)
       const blob = await canvasToBlob(canvas)
       const res = await ocrImage(blob)
       text = res.blocks.map((b) => b.text).filter(Boolean).join('\n')
     } else if (m.k === 'photo') {
       const bytes = await fetchAttachmentBytes(s.openId, m.partIndex)
-      const blob = await imageRegionBlob(bytes, rect)
+      const blob = await imageRegionBlob(bytes, rect, rotation)
       const res = await ocrImage(blob)
       text = res.blocks.map((b) => b.text).filter(Boolean).join(' ')
     } else {

@@ -5,6 +5,8 @@ import { downloadUrl } from '@/lib/download'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { errMessage } from '@/lib/errors'
 import { jobDownloadUrl, segmentMdUrl, segmentPdfUrl } from '../../api'
+import { joinRotationEncodings, rotationsForRange } from '../../draft/page-rotation'
+import type { PageRotMap } from '../../types'
 import { useSegmentSelection, type SegmentSelection } from './use-segment-selection'
 
 /**
@@ -22,6 +24,11 @@ export interface DownloadableSegment {
   pk: number
   jobId: string
   name: string
+  /** 产出该段的源附件 partIndex（页旋转以 `partIndex:page` 为键，必须带上） */
+  partIndex: number
+  /** 段在源 PDF 里的页区间（1 起、含两端）：算该段要带哪些页的旋转 */
+  pageStart: number
+  pageEnd: number
 }
 
 export type SegmentFileKind = 'pdf' | 'md'
@@ -63,7 +70,11 @@ export interface SegmentDownloads {
  * 裸链接在任何账号下都是 401——「用自己的账号下载自己的材料也失败」那次事故
  * （回归注释见 `inbox/components/InboxView.dom.test.tsx`）。
  */
-export function useSegmentDownloads(segments: DownloadableSegment[]): SegmentDownloads {
+export function useSegmentDownloads(
+  segments: DownloadableSegment[],
+  /** 草稿里的页旋转表：下载出去的 PDF 也要是律师看到的方向 */
+  pageRot?: PageRotMap,
+): SegmentDownloads {
   const sel = useSegmentSelection(segments.map((seg) => seg.pk))
   const [busy, setBusy] = useState<string | null>(null)
   // ref 是**同步**闸门：setBusy 落到 DOM 之前用户还能再点一次，两次点击会各换一张
@@ -98,17 +109,30 @@ export function useSegmentDownloads(segments: DownloadableSegment[]): SegmentDow
     }
   }
 
+  /** 这一段要带的旋转编码（md 不涉及方向，只有 pdf 用） */
+  const rotationsOf = (seg: DownloadableSegment) =>
+    rotationsForRange(pageRot, seg.partIndex, seg.pageStart, seg.pageEnd)
+
   const downloadOne = (seg: DownloadableSegment, kind: SegmentFileKind) => {
-    const url = kind === 'pdf' ? segmentPdfUrl(seg.jobId, seg.pk) : segmentMdUrl(seg.jobId, seg.pk)
+    const url =
+      kind === 'pdf' ? segmentPdfUrl(seg.jobId, seg.pk, rotationsOf(seg)) : segmentMdUrl(seg.jobId, seg.pk)
     void run(`${kind}:${seg.pk}`, [url])
   }
+
+  /** 一个 job 的整包/多选包：把包内各段的旋转合并成一份编码 */
+  const rotationsOfGroup = (jobId: string, pks?: number[]) =>
+    joinRotationEncodings(
+      segments
+        .filter((seg) => seg.jobId === jobId && (pks == null || pks.includes(seg.pk)))
+        .map(rotationsOf),
+    )
 
   const downloadSelected = () => {
     const groups = groupByJob(segments.filter((seg) => sel.has(seg.pk)))
     if (groups.length === 0) return
     void run(
       `sel:${groups.map((g) => g.jobId).join(',')}`,
-      groups.map((g) => jobDownloadUrl(g.jobId, g.pks)),
+      groups.map((g) => jobDownloadUrl(g.jobId, g.pks, rotationsOfGroup(g.jobId, g.pks))),
     )
   }
 
@@ -117,7 +141,7 @@ export function useSegmentDownloads(segments: DownloadableSegment[]): SegmentDow
     if (groups.length === 0) return
     void run(
       `zip:${groups.map((g) => g.jobId).join(',')}`,
-      groups.map((g) => jobDownloadUrl(g.jobId)),
+      groups.map((g) => jobDownloadUrl(g.jobId, undefined, rotationsOfGroup(g.jobId))),
     )
   }
 

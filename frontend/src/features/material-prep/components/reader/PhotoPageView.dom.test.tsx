@@ -67,7 +67,7 @@ describe('PhotoPageView：objectURL 生命周期', () => {
     expect(revokeSpy).toHaveBeenCalledWith('blob:mock-url')
   })
 
-  it('卸载后才回来的结果：就地 revoke 且不写入 state', async () => {
+  it('卸载后才回来的结果：不再创建 objectURL（没有可泄漏的东西）', async () => {
     let resolveBytes: (v: Uint8Array) => void = () => {}
     apiMock.fetchAttachmentBytes.mockReturnValue(
       new Promise<Uint8Array>((r) => {
@@ -79,7 +79,10 @@ describe('PhotoPageView：objectURL 生命周期', () => {
     unmount()
     resolveBytes(new Uint8Array([9]))
 
-    await waitFor(() => expect(revokeSpy).toHaveBeenCalledWith('blob:mock-url'))
+    // 旧实现是「先创建再就地 revoke」，现在是「迟到就不创建」——更省一次
+    // 内存分配，也不需要在卸载路径上再补一个 revoke 分支
+    await waitFor(() => expect(createSpy).not.toHaveBeenCalled())
+    expect(revokeSpy).not.toHaveBeenCalled()
     container.remove()
   })
 })

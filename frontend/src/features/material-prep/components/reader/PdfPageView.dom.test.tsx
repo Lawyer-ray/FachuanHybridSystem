@@ -75,7 +75,9 @@ describe('PdfPageView：加载流程', () => {
     const { container } = render(<PdfPageView messageId={7} partIndex={2} pageNum={3} />)
     await waitFor(() => expect(pdfMock.fetchAttachmentBytes).toHaveBeenCalledWith(7, 2))
     expect(pdfLibMock.loadPdfDocument).toHaveBeenCalledWith('7:2', expect.any(Uint8Array))
-    expect(pdfLibMock.renderPdfPage).toHaveBeenCalledWith(expect.anything(), 3, expect.any(Number))
+    // 第 4 个入参是人工转正角度（默认 0）：pdf.js 的 rotation 是**覆盖**页自身
+    // /Rotate 而非叠加，所以这个值必须一路传到渲染器，不能在这一层被吃掉
+    expect(pdfLibMock.renderPdfPage).toHaveBeenCalledWith(expect.anything(), 3, expect.any(Number), 0)
     container.remove()
   })
 

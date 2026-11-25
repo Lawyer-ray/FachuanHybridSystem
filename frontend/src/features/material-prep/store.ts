@@ -15,6 +15,10 @@ import {
   isEmptyDraft,
   isSelectionContiguous,
   pageIndexOf,
+  resetRefsRotation,
+  rotateRefs,
+  rotatedRefsOf,
+  setRefsRotation,
   removeInfoField,
   removePages,
   renameMat,
@@ -23,8 +27,26 @@ import {
   setPackStatus,
   withDefaultNames,
 } from './draft'
+import type { PageRefKey } from './draft/page-rotation'
 import type { BundleMat, DraftState, PageKey } from './types'
 import type { ReaderState } from './reader-state'
+
+
+/**
+ * 页引用（`mi` + 页号）→ 旋转表的键（`partIndex` + 页号）。
+ *
+ * 两套坐标必须在这里换算一次：`refs.mi` 是**素材下标**（数组位置，追加附件会漂），
+ * 而旋转表按**附件 partIndex** 存（稳定，且服务端认这个标识）。放模块级纯函数而不是
+ * 各组件各写一份——换算错的表现是「转了这一页、歪的是另一页」，很难肉眼发现。
+ */
+function pageRotRefsOf(draft: DraftState | null, refs: readonly PageKey[]): PageRefKey[] {
+  if (!draft) return []
+  return refs.flatMap((ref) => {
+    const mat = draft.mats[ref.mi]
+    // 素材不在了（删附件/旧草稿）就跳过：宁可这次不转，也不要往错的 partIndex 上写
+    return mat ? [{ partIndex: mat.partIndex, page: ref.p }] : []
+  })
+}
 
 /** 阅读器会话交互态的清零并叠加差异字段（open 换包 / close 卸载 / resetAll
  *  三处共用同一组重置字段；差异项——openId/detail/draft/status/error——由调用方给）。 */
@@ -161,6 +183,33 @@ export const useReader = create<ReaderState>((set, get) => ({
     if (di < pickInfo) set({ pickInfo: pickInfo - 1 })
     else if (di === pickInfo) set({ pickInfo: -1, selPages: [], ocrPending: null })
   },
+  // ── 页旋转（人工转正） ────────────────────────────────────────
+  //
+  // 只改草稿里的 `pageRot`，**不碰源 PDF**：真正的方向在归案切页 / 卷宗归档 /
+  // 下载时由服务端烧进 /Rotate（见 draft/page-rotation.ts 的模块文档）。这样
+  // 「转一下」是零成本的本地编辑，可以随意反复调，也不会让 OCR/拆分缓存失效。
+  rotatePages: (refs, delta) => {
+    const keys = pageRotRefsOf(get().draft, refs)
+    if (!keys.length) return
+    get().update((d) => ({ ...d, pageRot: rotateRefs(d.pageRot, keys, delta) }))
+  },
+  setPagesRotation: (refs, deg) => {
+    const keys = pageRotRefsOf(get().draft, refs)
+    if (!keys.length) return
+    get().update((d) => ({ ...d, pageRot: setRefsRotation(d.pageRot, keys, deg) }))
+  },
+  resetPagesRotation: (refs) => {
+    const keys = pageRotRefsOf(get().draft, refs)
+    if (!keys.length) return
+    get().update((d) => ({ ...d, pageRot: resetRefsRotation(d.pageRot, keys) }))
+  },
+  resetAllRotation: () => {
+    const draft = get().draft
+    const refs = rotatedRefsOf(draft?.pageRot)
+    if (!refs.length) return
+    get().update((d) => ({ ...d, pageRot: resetRefsRotation(d.pageRot, refs) }))
+  },
+
   setZoom: (z) => set({ zoom: z }),
   setLayoutMode: (m) => {
     set({ layoutMode: m })

@@ -78,8 +78,14 @@ export async function renderPdfPageRegion(
   return canvas
 }
 
-/** 把图片字节裁出归一化矩形区域，返回 PNG Blob。 */
-export async function imageRegionBlob(bytes: ArrayBuffer, rect: NormRect): Promise<Blob> {
+/**
+ * 把图片字节裁出归一化矩形区域，返回 PNG Blob。
+ *
+ * ``rotation`` 是人工转正角度（顺时针）。图片素材没有 `/Rotate` 可读，所以这里
+ * 先把整张图按角度画到一张临时画布上，再按同一坐标系裁剪——`rect` 是**屏幕上
+ * 画的**（旋转后）坐标，不先转就裁会截到隔壁那块（同 `renderPdfPageRegion`）。
+ */
+export async function imageRegionBlob(bytes: ArrayBuffer, rect: NormRect, rotation = 0): Promise<Blob> {
   const url = URL.createObjectURL(new Blob([bytes]))
   try {
     const img = new Image()
@@ -88,25 +94,45 @@ export async function imageRegionBlob(bytes: ArrayBuffer, rect: NormRect): Promi
       img.onerror = () => rej(new Error('图片解码失败'))
       img.src = url
     })
+    const source = rotateImageToCanvas(img, img.width, img.height, rotation)
     const pad = 0.02
-    const cw = Math.max(32, Math.round(img.width * rect.w))
-    const ch = Math.max(32, Math.round(img.height * rect.h))
+    const cw = Math.max(32, Math.round(source.width * rect.w))
+    const ch = Math.max(32, Math.round(source.height * rect.h))
     const canvas = document.createElement('canvas')
-    canvas.width = Math.min(img.width, cw + Math.round(img.width * pad * 2))
-    canvas.height = Math.min(img.height, ch + Math.round(img.height * pad * 2))
+    canvas.width = Math.min(source.width, cw + Math.round(source.width * pad * 2))
+    canvas.height = Math.min(source.height, ch + Math.round(source.height * pad * 2))
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('无法创建 canvas 2d 上下文')
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
-    const sx = Math.max(0, img.width * rect.x - Math.round(img.width * pad))
-    const sy = Math.max(0, img.height * rect.y - Math.round(img.height * pad))
-    ctx.drawImage(img, sx, sy, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height)
+    const sx = Math.max(0, source.width * rect.x - Math.round(source.width * pad))
+    const sy = Math.max(0, source.height * rect.y - Math.round(source.height * pad))
+    ctx.drawImage(source, sx, sy, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height)
     return await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('PNG 编码失败'))), 'image/png')
     })
   } finally {
     URL.revokeObjectURL(url)
   }
+}
+
+/** 把位图画成一张按角度转好的画布；0° 时直接返回原尺寸的新画布（调用方统一走这里） */
+function rotateImageToCanvas(source: CanvasImageSource, width: number, height: number, rotation: number): HTMLCanvasElement {
+  const swapped = rotation === 90 || rotation === 270
+  const canvas = document.createElement('canvas')
+  canvas.width = swapped ? height : width
+  canvas.height = swapped ? width : height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('无法创建 canvas 2d 上下文')
+  if (rotation === 0) {
+    // 0° 直接画：不必走矩阵（也少一次与 canvas 实现的耦合）
+    ctx.drawImage(source, 0, 0, width, height)
+    return canvas
+  }
+  ctx.translate(canvas.width / 2, canvas.height / 2)
+  ctx.rotate((rotation * Math.PI) / 180)
+  ctx.drawImage(source, -width / 2, -height / 2)
+  return canvas
 }
 
 /** 把 canvas 编码成 PNG Blob */

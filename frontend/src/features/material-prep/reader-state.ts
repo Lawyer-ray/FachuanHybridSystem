@@ -86,6 +86,14 @@ export interface ReaderState {
   /** 删除信息字段（含取字态 pickInfo 下标同步校正） */
   removeInfo: (di: number) => void
   setZoom: (z: number) => void
+  /** 页旋转：叠加（delta 可为 90/-90/180）。refs 是页引用（mi + p），见 draft/page-rotation.ts */
+  rotatePages: (refs: PageKey[], delta: number) => void
+  /** 页旋转：设为绝对角度（右键「旋转 180°」用，不叠加） */
+  setPagesRotation: (refs: PageKey[], deg: number) => void
+  /** 页旋转：这些页回正 */
+  resetPagesRotation: (refs: PageKey[]) => void
+  /** 页旋转：全部回正 */
+  resetAllRotation: () => void
   /** 切换版面策略（影响下一次「自动分段」是否让电子页上云端）；按包落草稿 */
   setLayoutMode: (m: 'fast_text' | 'layout') => void
   /** 勾选 / 取消一个云端引擎（空集合即自动容灾）；按包落草稿 */

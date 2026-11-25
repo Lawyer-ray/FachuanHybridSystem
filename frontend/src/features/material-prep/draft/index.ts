@@ -25,6 +25,8 @@ export {
   rotateNormRect,
   rotationsForRange,
   rotatedRefsOf,
+  firstRotationOf,
+  joinRotationEncodings,
 } from './page-rotation'
 export type { PageRefKey } from './page-rotation'
 export { nextSegId, ensureSegIds } from './seg-id'

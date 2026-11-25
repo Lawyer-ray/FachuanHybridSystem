@@ -63,10 +63,19 @@ export function Rail({
   const rail = useRailWidth(wide)
   // 可下载的段 = 有后端出处的段（`splitRef` 由自动识别落地时写入）。人工切/合的段
   // 后端没有产物，不进这份清单，也就不出勾选框与下载按钮。
-  const downloadables: DownloadableSegment[] = draft.segs.flatMap((sg) =>
-    sg.splitRef ? [{ pk: sg.splitRef.pk, jobId: sg.splitRef.jobId, name: sg.fn }] : [],
-  )
-  const dl = useSegmentDownloads(downloadables)
+  const downloadables: DownloadableSegment[] = draft.segs.flatMap((sg) => {
+    if (!sg.splitRef) return []
+    const first = sg.refs[0]
+    const last = sg.refs[sg.refs.length - 1]
+    if (!first || !last) return []
+    // refs 里的 mi 是**素材下标**，页旋转的键用的是附件 partIndex —— 两者在常规
+    // 材料包里数值相同，但追加过附件后就会漂；这里按 mats 显式换算。
+    const partIndex = mats[first.mi]?.partIndex ?? first.mi
+    return [
+      { pk: sg.splitRef.pk, jobId: sg.splitRef.jobId, name: sg.fn, partIndex, pageStart: first.p, pageEnd: last.p },
+    ]
+  })
+  const dl = useSegmentDownloads(downloadables, draft.pageRot)
   // 全卷证件待补录页数：入口只在真有这数据时出现（旧任务没有 doc_hints，不渲染假入口）
   const docTodoCount = docTodosOf(pageQuality).length
 
