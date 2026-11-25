@@ -180,6 +180,10 @@ class PdfSplitReviewFlag(models.TextChoices):
     LOW_CONFIDENCE = "low_confidence", "低置信度"
     UNRECOGNIZED = "unrecognized", "未识别"
     OCR_FAILED = "ocr_failed", "OCR失败"
+    #: 两条分段路径（整本一次 vs 逐批摘要）在这一段给出的边界不一样。
+    #: 这是**判断题**不是错字题：整本看得全、但可能把两份并成一份；分批看得窄、
+    #: 反而更可能拆细。谁对取决于产品口径，所以只提示、交给人裁定。
+    BOUNDARY_DISAGREEMENT = "boundary_disagreement", "两种切法不一致"
 
 
 class PdfSplittingTool(models.Model):

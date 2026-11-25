@@ -40,13 +40,14 @@ from pathlib import Path
 from typing import Any
 
 import pymupdf as fitz
+from django.db import DatabaseError
 
 from apps.document_parsing.services.backends._page_artifacts import clean_page_artifacts
 from apps.pdf_splitting.services.heartbeat import heartbeat_block
 from apps.pdf_splitting.services.template_registry import get_template_definition
 
 from .consistency_summary import attach_quality_flags_to_markdown, detect_inconsistencies, pick_top_inconsistencies
-from .llm_segment_detector import LLMSegmentDetector
+from .llm_segment_detector import LLMSegmentationError, LLMSegmentDetector
 from .markdown_builder import build_segments_markdown
 from .ocr_handler import OCRHandler, OCRStageBudget, cloud_backend_of_method
 from .page_degeneracy import degeneracy_reason
@@ -202,6 +203,7 @@ def analyze_pdf(
     llm_segment_detector: Any = None,
     heartbeat: HeartbeatCallback | None = None,
     budget: OCRStageBudget | None = None,
+    segment_strategy: str | None = None,
 ) -> PdfAnalysisOutcome:
     """整条流水线的无状态门面：取字 → 分段 → Markdown。
 
@@ -236,6 +238,8 @@ def analyze_pdf(
         pages,
         template_key=template_key,
         llm_segment_detector=llm_segment_detector,
+        # None = 取 SystemConfig 的 PDF_SPLIT_SEGMENT_STRATEGY（默认 batch）
+        strategy=segment_strategy,
     )
     # 分段完成后再做跨页一致性校对：判据要的是「全本哪些短词被写成两种样子」，
     # 与分段结果无关，放在这里是为了让两条产物（summary 清单 / 段级 flag）出自同一次计算。
@@ -328,12 +332,48 @@ def _inconsistency_summary(inconsistencies: list[Any]) -> dict[str, Any]:
     }
 
 
+#: 分段策略。``batch`` = 逐批摘要（现状，稳）；``wholebook`` = 整本一次（看得全）；
+#: ``wholebook_cross`` = 两条都跑，边界不一致的段标成「待裁定」。
+SEGMENT_STRATEGY_BATCH = "batch"
+SEGMENT_STRATEGY_WHOLEBOOK = "wholebook"
+SEGMENT_STRATEGY_WHOLEBOOK_CROSS = "wholebook_cross"
+SEGMENT_STRATEGIES: tuple[str, ...] = (
+    SEGMENT_STRATEGY_BATCH,
+    SEGMENT_STRATEGY_WHOLEBOOK,
+    SEGMENT_STRATEGY_WHOLEBOOK_CROSS,
+)
+
+
+def resolve_segment_strategy(explicit: str | None = None) -> str:
+    """分段策略的取值来源：显式参数 > SystemConfig > batch。
+
+    为什么默认仍是 batch：整本一次要一口气看完一本书，大卷宗会撞 LLM 超时；
+    分批是踩过「164 页整本一次跑到 499s 被 worker 杀掉」之后才改成默认的。
+    想用整本路径就显式开——不存在「悄悄换成另一种切法」。
+    """
+    want = str(explicit or "").strip().lower()
+    if not want:
+        try:
+            from apps.core.services.system_config_service import SystemConfigService
+
+            want = str(SystemConfigService().get_value("PDF_SPLIT_SEGMENT_STRATEGY", "") or "").strip().lower()
+        except (ImportError, RuntimeError, DatabaseError):  # pragma: no cover - 读不到配置就用默认
+            logger.warning("读取 PDF_SPLIT_SEGMENT_STRATEGY 失败，按 batch 处理", exc_info=True)
+            want = ""
+    if want in SEGMENT_STRATEGIES:
+        return want
+    if want:
+        logger.warning("未知的分段策略 %r，按 batch 处理", want)
+    return SEGMENT_STRATEGY_BATCH
+
+
 def detect_segments_with_fallback(
     pages: list[PageDescriptor],
     *,
     template_key: str,
     llm_segment_detector: Any = None,
     checkpoint_path: Path | None = None,
+    strategy: str | None = None,
 ) -> tuple[list[SegmentDraft], dict[str, Any]]:
     """分段检测：律所 LLM（语义分类）优先，任何失败降级关键词规则引擎。
 
@@ -342,8 +382,34 @@ def detect_segments_with_fallback(
 
     ``checkpoint_path``：批级成果落盘位置（由调用方给到 job 的 analysis 目录）。
     worker 被杀后重跑据此续跑，不再为已完成的批重付 LLM 费用。
+
+    ``strategy``：见 ``SEGMENT_STRATEGIES``。整本路径失败（超时/输出非法/覆盖不全）
+    会**降级回分批**并把原因写进 ``segment_llm_fallback_reason``——不会退回规则引擎，
+    因为分批 LLM 也失败了那才是规则引擎的事。
     """
-    detector = llm_segment_detector if llm_segment_detector is not None else LLMSegmentDetector()
+    chosen = resolve_segment_strategy(strategy)
+    if chosen == SEGMENT_STRATEGY_BATCH:
+        return _detect_segments_batched(
+            pages, template_key=template_key, detector=llm_segment_detector, checkpoint_path=checkpoint_path
+        )
+    return _detect_segments_wholebook(
+        pages,
+        template_key=template_key,
+        batch_detector=llm_segment_detector,
+        checkpoint_path=checkpoint_path,
+        cross_check=chosen == SEGMENT_STRATEGY_WHOLEBOOK_CROSS,
+    )
+
+
+def _detect_segments_batched(
+    pages: list[PageDescriptor],
+    *,
+    template_key: str,
+    detector: Any = None,
+    checkpoint_path: Path | None = None,
+) -> tuple[list[SegmentDraft], dict[str, Any]]:
+    """逐批摘要分段（原路径，逐字未改）。"""
+    detector = detector if detector is not None else LLMSegmentDetector()
     # 单批降级必须能被 summary 说出来：前端 segmentBackendOf 读到 "llm" 就不提示
     # 规则降级，而「有几批其实是规则切的」只有分批执行器知道。
     batch_stats: dict[str, Any] = {}
@@ -377,6 +443,105 @@ def detect_segments_with_fallback(
         logger.warning("pdf_split_llm_segment_fallback", extra={"action": "llm_segment_fallback", "reason": reason})
         drafts = SegmentDetector().detect_segments(pages, template_key=template_key)
         return drafts, {"segment_backend": "rule", "segment_llm_fallback_reason": reason}
+
+
+def _detect_segments_wholebook(
+    pages: list[PageDescriptor],
+    *,
+    template_key: str,
+    batch_detector: Any = None,
+    checkpoint_path: Path | None = None,
+    cross_check: bool = False,
+) -> tuple[list[SegmentDraft], dict[str, Any]]:
+    """整本一次分段；可要求同时跑分批路径并标出**边界分歧**。
+
+    整本路径失败一律降级回分批（而不是直接掉到规则引擎）：分批 LLM 才是这个仓库
+    原本的唯一 LLM 路径，整本只是「看得更全」的增强。降级原因写进 summary，
+    否则「这次怎么切得不如上次」无从解释。
+    """
+    from .segment_merge import merge_continuation_segments
+    from .wholebook_segment_detector import WholeBookSegmentDetector
+
+    detector = WholeBookSegmentDetector()
+    whole: list[SegmentDraft] | None = None
+    fallback_reason = ""
+    try:
+        whole = detector.detect(pages, template_key=template_key)
+        whole = merge_continuation_segments(whole, {page.page_no: page.text for page in pages})
+    except (LLMSegmentationError, ValueError, RuntimeError, TimeoutError) as exc:
+        # 只接「LLM 这条路失败」的可预期类型：供给不可用 / 输出非法 / 覆盖不全 / 超时。
+        # 不接 Exception——编程错误应当炸出来，而不是被降级掩盖成「这次切得糙一点」。
+        fallback_reason = f"{type(exc).__name__}: {str(exc)[:200]}"
+        logger.warning(
+            "pdf_split_wholebook_fallback", extra={"action": "wholebook_fallback", "reason": fallback_reason}
+        )
+        whole = None
+
+    if whole is None:
+        fallback_drafts, fallback_summary = _detect_segments_batched(
+            pages, template_key=template_key, detector=batch_detector, checkpoint_path=checkpoint_path
+        )
+        fallback_summary["segment_llm_fallback_reason"] = fallback_reason or fallback_summary.get(
+            "segment_llm_fallback_reason", ""
+        )
+        fallback_summary["segment_strategy"] = SEGMENT_STRATEGY_WHOLEBOOK
+        return fallback_drafts, fallback_summary
+
+    summary: dict[str, Any] = {
+        "segment_backend": "llm_wholebook",
+        "segment_llm_fallback_reason": "",
+        "segment_total_batches": 1,
+        "segment_rule_batches": 0,
+        "segment_strategy": SEGMENT_STRATEGY_WHOLEBOOK_CROSS if cross_check else SEGMENT_STRATEGY_WHOLEBOOK,
+        "segment_wholebook_budget": dict(getattr(detector, "last_budget", {}) or {}),
+    }
+    if not cross_check:
+        return whole, summary
+
+    # 交叉：分批路径的边界与整本不一致的地方，交给人裁定。
+    #
+    # 为什么不自动采信任一边：两条路径的分歧恰恰是「这段到底是一份还是两份」这种
+    # 判断题——整本看得全但有幻觉风险，分批看得窄但对局部更专心。实测两者在
+    # 「主体资格材料是否拆开」上稳定不同，这属于产品口径，不是谁能算出来的。
+    batch_drafts, batch_summary = _detect_segments_batched(
+        pages, template_key=template_key, detector=batch_detector, checkpoint_path=checkpoint_path
+    )
+    summary["segment_batch_backend"] = batch_summary.get("segment_backend", "")
+    boundaries_whole = _boundary_set(whole)
+    boundaries_batch = _boundary_set(batch_drafts)
+    disagreed = sorted(boundaries_whole ^ boundaries_batch)
+    summary["segment_boundary_disagreement_pages"] = disagreed
+    summary["segment_boundary_disagreement_total"] = len(disagreed)
+    if disagreed:
+        _mark_boundary_disagreement(whole, disagreed)
+        logger.info(
+            "pdf_split_segment_boundary_disagreement",
+            extra={"pages": disagreed, "wholebook": sorted(boundaries_whole), "batch": sorted(boundaries_batch)},
+        )
+    summary["segment_backend"] = "llm_wholebook_cross"
+    return whole, summary
+
+
+def _boundary_set(drafts: list[SegmentDraft]) -> set[int]:
+    """一段的**起点页**集合就是它的切点集合（1 恒在，不算分歧）。"""
+    return {int(d.page_start) for d in drafts if int(d.page_start) > 1}
+
+
+def _mark_boundary_disagreement(drafts: list[SegmentDraft], disagreed: list[int]) -> None:
+    """把落在分歧点附近的整本段标成「待裁定」。
+
+    「附近」= 段首或段尾正好是某个分歧页；两侧各放一页，是因为分歧常常表现为
+    「整本说 p22 起新段、分批说 p26 才起」，这时 p22 段的尾部与 p26 段的首部
+    都值得看。
+    """
+    from apps.pdf_splitting.models import PdfSplitReviewFlag
+
+    points = set(disagreed)
+    for draft in drafts:
+        start, end = int(draft.page_start), int(draft.page_end)
+        if not (points & {start, start + 1, end, end + 1}):
+            continue
+        draft.review_flag = str(PdfSplitReviewFlag.BOUNDARY_DISAGREEMENT)
 
 
 def _segment_backend_of(batch_stats: dict[str, Any]) -> str:

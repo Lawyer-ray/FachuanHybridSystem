@@ -412,6 +412,14 @@ describe('reviewHintOf：复核信号 → 人话', () => {
   it('后端将来新增的取值：标签原样展示，原因留空（不编）', () => {
     expect(reviewHintOf({ reviewFlag: 'need_manual_merge' })).toEqual({ label: 'need_manual_merge', reason: '' })
   })
+  it('两种切法不一致：陈述分歧并要求裁定，不暗示哪边对', () => {
+    const hint = reviewHintOf({ reviewFlag: 'boundary_disagreement', sourceMethod: 'llm', confidence: 0.98 })
+    expect(hint?.label).toBe('两种切法不一致')
+    expect(hint?.reason).toContain('请核对这一段该不该从这一页开始')
+    // 置信度 98% 不得被拿来当复核理由（写成「建议复核 · 置信度 98%」是自相矛盾）
+    expect(hint?.reason).not.toContain('98%')
+  })
+
 })
 
 /**

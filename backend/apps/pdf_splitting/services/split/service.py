@@ -331,7 +331,7 @@ class PdfSplitService:
         “确认分段后点格子又画错”。
         """
         from . import table_geometry_switches, two_stage
-        from .pipeline import PageDescriptor
+        from .pipeline import PageDescriptor, resolve_segment_strategy
 
         storage = PdfSplitStorage(job.id)
         storage.ensure_dirs()
@@ -351,6 +351,9 @@ class PdfSplitService:
                 # 批级成果落在 job 目录里：worker 被杀后重跑接着已完成的批跑，
                 # 不再为同一批 LLM 付第二次钱。
                 checkpoint_path=storage.analysis_dir / "segment_checkpoint.json",
+                # 策略取 SystemConfig（PDF_SPLIT_SEGMENT_STRATEGY），默认 batch。
+                # 整本路径失败会自动降级回分批，所以这里不必先探测可用性。
+                strategy=resolve_segment_strategy(),
             )
 
         # 跨页一致性校对与段级质量标记：与 analyze_pdf 走同一条路径（同一份判据、

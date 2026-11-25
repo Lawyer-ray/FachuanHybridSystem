@@ -138,6 +138,17 @@ def get_ocr_configs() -> list[dict[str, Any]]:
             "is_secret": True,
         },
         {
+            "key": "PDF_SPLIT_SEGMENT_STRATEGY",
+            "category": "ocr",
+            "description": (
+                "材料预处理的分段策略：batch=逐批摘要（默认，稳、大卷宗不会超时）；"
+                "wholebook=整本一次看完再切（更准，但大卷宗可能撞 LLM 超时，失败会自动退回 batch）；"
+                "wholebook_cross=两条都跑，边界不一致的段标「两种切法不一致」交人工裁定（多一次 LLM 调用）"
+            ),
+            "value": "batch",
+            "is_secret": False,
+        },
+        {
             "key": "DEEPSEEK_OCR_API_KEY",
             "category": "ocr",
             "description": (
