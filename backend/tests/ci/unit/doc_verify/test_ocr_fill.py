@@ -19,7 +19,7 @@ from PIL import Image
 
 from apps.doc_verify.services.anchor import ocr_fill
 from apps.doc_verify.services.anchor.ocr_fill import (
-    DEFAULT_OCR_PAGE_BUDGET,
+    DEFAULT_OCR_PAGE_LIMIT,
     ENGINE_LOCAL,
     ENGINE_UNAVAILABLE,
     PAGE_BUDGET_ENV,
@@ -364,15 +364,16 @@ class TestPageBudgetEnv:
     def test_valid_env_overrides_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(PAGE_BUDGET_ENV, "3")
 
-        assert ocr_fill._resolve_page_budget() == 3
+        assert ocr_fill._resolve_page_limit() == 3
 
     @pytest.mark.parametrize("raw", ["", " ", "abc", "3.5", "-1"])
     def test_illegal_env_falls_back_to_default(self, monkeypatch: pytest.MonkeyPatch, raw: str) -> None:
         """负数按非法处理：环境变量里的 -1 多半是想写「不限」，那会 OCR 整份卷宗。"""
         monkeypatch.setenv(PAGE_BUDGET_ENV, raw)
 
-        assert ocr_fill._resolve_page_budget() == DEFAULT_OCR_PAGE_BUDGET
+        assert ocr_fill._resolve_page_limit() == DEFAULT_OCR_PAGE_LIMIT
 
     def test_module_default_is_ten_pages(self) -> None:
-        assert DEFAULT_OCR_PAGE_BUDGET == 10
-        assert isinstance(ocr_fill.OCR_PAGE_BUDGET, int)
+        # 默认**不设上限**：每一页都要核对（只核前 10 页的结论写不进卷宗）
+        assert DEFAULT_OCR_PAGE_LIMIT is None
+        assert ocr_fill.OCR_HARD_LIMIT >= 100

@@ -130,7 +130,7 @@ def verify_inbound(
     if existing is not None and not _upgradable(existing=existing, actual_tier=actual_tier):
         return existing
 
-    inbound, fill = _inbound_with_ocr(data=data, inbound=inbound, tier=actual_tier)
+    inbound, fill = _inbound_with_ocr(data=data, inbound=inbound, tier=actual_tier, artifact=artifact)
     report = _report_for(artifact=artifact, inbound=inbound, tier=actual_tier)
     _record_ocr(report=report, fill=fill)
     state = derive_state(report)
@@ -185,20 +185,52 @@ def _run_key(*, artifact_id: int, inbound_sha256: str) -> str:
     return hashlib.sha256(material.encode("utf-8")).hexdigest()[:64]
 
 
-def _inbound_with_ocr(*, data: bytes, inbound: Any, tier: int) -> tuple[Any, Any | None]:
+def _inbound_with_ocr(*, data: bytes, inbound: Any, tier: int, artifact: Any = None) -> tuple[Any, Any | None]:
     """tier ≥ 1 且有页没有文本层时用 OCR 补字，返回（实际参与比对的入站件, OCR 结果）。
 
     补字判据是**逐页**的：整篇没字（扫描件）、中间夹着扫描页、末尾几页没字
     （提取层只拼有字的页）都要补。`pages_failed` 那几页随后由比对引擎报
     `PAGE_NO_TEXT`，落成 gray。
 
-    `hint_pages` 留空：指纹定位哪几页变了是另一条线，这里不猜。
+    `hint_pages` 由**页指纹**给出：基线渲染页 vs 回传件页面距超阈值的页先 OCR。
+    它只调顺序、不做筛选——每一页最终都要核对（律师的原话：不可能只核前 10 页）。
+    先出可疑页的结论，是为了让律师不用等整本 OCR 完才看到第一条红线。
     """
     if tier < TIER_OCR or not _has_page_without_text(inbound):
         return inbound, None
-    fill = deps.fill_text_with_ocr(data=data, inbound=inbound)
+    fill = deps.fill_text_with_ocr(
+        data=data,
+        inbound=inbound,
+        hint_pages=_hint_pages(artifact=artifact, inbound=inbound),
+    )
     # `Inbound` 是 frozen：替换出一个新对象，「提取结果」与「比对输入」才是两份事实。
     return replace(inbound, text=fill.text), fill
+
+
+def _hint_pages(*, artifact: Any, inbound: Any) -> tuple[int, ...]:
+    """指纹指出「哪几页看着不一样」，作为 OCR 的**排序提示**（1-based）。
+
+    只在两侧都有指纹、且页数一致时才给提示：页数不一致时页码本来就不对齐，
+    按页码猜会把「第 3 页可疑」指到错误的内容上，比不给提示更糟。
+
+    阈值沿用副本识别的 `SAME_PAGE_MAX_DISTANCE`——它衡量的是「像不像同一页」，
+    正好是这里要的语义；拿它当「改没改」的判据才是不对的（单字改动它看不出来）。
+    """
+    if artifact is None:
+        return ()
+    baseline_signatures = _page_signatures(artifact.page_signatures)
+    inbound_signatures = tuple(inbound.page_signatures or ())
+    if not baseline_signatures or not inbound_signatures:
+        return ()
+    if len(baseline_signatures) != len(inbound_signatures):
+        return ()
+    from apps.pdf_splitting.services.split.page_fingerprint import SAME_PAGE_MAX_DISTANCE, signature_distance
+
+    hints: list[int] = []
+    for index, (left, right) in enumerate(zip(baseline_signatures, inbound_signatures), start=1):
+        if signature_distance(left, right) > SAME_PAGE_MAX_DISTANCE:
+            hints.append(index)
+    return tuple(hints)
 
 
 def _has_page_without_text(inbound: Any) -> bool:

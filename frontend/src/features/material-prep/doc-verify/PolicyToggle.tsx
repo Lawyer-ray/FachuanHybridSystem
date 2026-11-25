@@ -27,7 +27,7 @@ export function PolicyToggle({
       <span>
         回传后核对内容（起诉状 / 授权委托书 / 送达地址确认书 / 退费账户确认书）
         <span className="mt-0.5 block text-[11.5px] text-muted-foreground">
-          勾选的文书在客户回传后自动比对正文（本地算，约 2 秒/份）
+          勾选的文书在客户回传后逐页比对整本正文（扫描件走本地 OCR，40 页约 1 分钟）
         </span>
       </span>
     </label>

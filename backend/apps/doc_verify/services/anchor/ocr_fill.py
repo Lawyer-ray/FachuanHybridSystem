@@ -41,9 +41,13 @@ logger = logging.getLogger(__name__)
 #: 分辨率不同而分化（那边 220dpi 的 ACCURATE 档是「精度优先」的显式选择，不是默认）
 OCR_RENDER_DPI = 200
 
-#: 单次填充默认最多 OCR 多少页：扫描件的页数没有上界，而每一页都是秒级开销。
-#: 可用环境变量覆盖（见 :func:`_resolve_page_budget`）
-DEFAULT_OCR_PAGE_BUDGET = 10
+#: 默认**不设上限**：每一页都要核对。律师的原话是「不可能只核前 10 页」——
+#: 只核一部分的结论没法写进卷宗，因为没核的页正是客户最可能动手脚的地方。
+DEFAULT_OCR_PAGE_LIMIT: int | None = None
+
+#: 病态文件保护：单份回传件最多 OCR 这么多页。
+#: 超过它就不是「省时间」而是「这文件有问题」，报灰项让人看，而不是静默只核一部分。
+OCR_HARD_LIMIT = 500
 
 #: 覆盖默认页数上限的环境变量名
 PAGE_BUDGET_ENV = "FACHUAN_DOC_VERIFY_OCR_PAGES"
@@ -64,29 +68,34 @@ class _OcrUnavailable(Exception):
     """引擎拿不到或建不起来——**不是**「这一页没认出字」，两者上层处置完全不同。"""
 
 
-def _resolve_page_budget() -> int:
-    """环境变量 → 默认页数上限；非法值（非整数 / 负数）回落 :data:`DEFAULT_OCR_PAGE_BUDGET`。
+def _resolve_page_limit() -> int | None:
+    """环境变量 → 页数上限；**未设 = 全量（None）**。
 
-    负数为什么按非法处理：参数口径里 ``page_budget <= 0`` 是「一页都不 OCR」，
-    但环境变量里写负数多半是想写「不限」，而「不限」的真实代价是整份几十页卷宗
-    全部 OCR。安全方向是回落到默认上限，并在日志里说清。
+    这里刻意不再给「默认 10 页」那种值：只核前 10 页的结论写不进卷宗，没核的页
+    恰恰是客户最容易动手脚的地方。要限流就显式设 ``FACHUAN_DOC_VERIFY_OCR_PAGES``。
+
+    非法值（非整数 / 负数 / 0）一律回落 None 并告警：写错一个数字不该让核对悄悄
+    少核一半，宁可全量跑完再让运维看到日志。
     """
     raw = os.environ.get(PAGE_BUDGET_ENV, "").strip()
     if not raw:
-        return DEFAULT_OCR_PAGE_BUDGET
+        return DEFAULT_OCR_PAGE_LIMIT
     try:
         value = int(raw)
     except ValueError:
-        logger.warning("%s=%r 不是整数，回落默认 %d 页", PAGE_BUDGET_ENV, raw, DEFAULT_OCR_PAGE_BUDGET)
-        return DEFAULT_OCR_PAGE_BUDGET
-    if value < 0:
-        logger.warning("%s=%r 是负数（不是「不限」），回落默认 %d 页", PAGE_BUDGET_ENV, raw, DEFAULT_OCR_PAGE_BUDGET)
-        return DEFAULT_OCR_PAGE_BUDGET
+        logger.warning("%s=%r 不是整数，回落默认（不设上限，全量核对）", PAGE_BUDGET_ENV, raw)
+        return DEFAULT_OCR_PAGE_LIMIT
+    if value <= 0:
+        logger.warning("%s=%r 不是正数，回落默认（不设上限，全量核对）", PAGE_BUDGET_ENV, raw)
+        return DEFAULT_OCR_PAGE_LIMIT
     return value
 
 
 #: 默认上限。模块导入时解析一次即可：它是**函数默认参数**，运行期改环境变量本来就不会生效
-OCR_PAGE_BUDGET = _resolve_page_budget()
+OCR_PAGE_LIMIT: int | None = _resolve_page_limit()
+
+#: 兼容旧名（`services/verify/deps.py` 早期按这个名字取默认值）。语义已变成「上限或 None」。
+OCR_PAGE_BUDGET: int | None = OCR_PAGE_LIMIT
 
 
 @dataclass(frozen=True)
@@ -121,17 +130,24 @@ def fill_text_with_ocr(
     *,
     page_count: int,
     existing_text: str,
-    page_budget: int = OCR_PAGE_BUDGET,
+    page_budget: int | None = None,
     hint_pages: Sequence[int] = (),
 ) -> OcrFillResult:
     """把 ``existing_text`` 里没字的页用本地 OCR 补上，返回按页对齐的新文本。
 
-    选页顺序：先 ``hint_pages``（去重、越界与有字的页剔除），再按页码升序补，
-    最多 ``page_budget`` 页；``page_budget <= 0`` 表示这次一页都不 OCR（只算账）。
+    **默认全量**：没字的页一页都不放过（``page_budget=None``）。只有两种情况会少核：
+
+    - 调用方显式给了上限（``page_budget`` 为整数，``<= 0`` 表示这次一页都不核）；
+    - 页数超过 :data:`OCR_HARD_LIMIT`（病态文件保护），此时 ``budget_exhausted=True``，
+      由上层报灰项——**不许**把它当成「核过了」。
+
+    选页顺序：先 ``hint_pages``（指纹指出的可疑页，先去重、越界与有字的页剔除），
+    再按页码升序补齐。顺序只影响「先看到哪几页的结论」，不影响最终覆盖面。
     """
     page_texts = _split_page_texts(existing_text, page_count)
     pending = _pages_without_text(page_texts)
-    selected = _select_pages(pending, hint_pages=hint_pages, page_budget=page_budget)
+    limit = _effective_limit(page_budget)
+    selected = _select_pages(pending, hint_pages=hint_pages, page_limit=limit)
     if not selected:
         # 没有要 OCR 的页：不探测引擎（探测会白建一次 ONNX 会话），
         # 也就没有任何「引擎不可用」的证据，engine 记 local
@@ -225,18 +241,30 @@ def _pages_without_text(page_texts: Sequence[str]) -> tuple[int, ...]:
     return tuple(index for index, text in enumerate(page_texts, start=1) if not text.strip())
 
 
+def _effective_limit(page_budget: int | None) -> int:
+    """把「上限」解析成一个可比的整数。
+
+    ``None`` = 调用方没设上限 → 回到模块级 ``OCR_PAGE_LIMIT``（默认 None = 全量），
+    最后兜到 :data:`OCR_HARD_LIMIT`（病态文件保护）。
+    """
+    if page_budget is not None:
+        return page_budget
+    module_limit = OCR_PAGE_LIMIT
+    return OCR_HARD_LIMIT if module_limit is None else module_limit
+
+
 def _select_pages(
     pending: Sequence[int],
     *,
     hint_pages: Sequence[int],
-    page_budget: int,
+    page_limit: int,
 ) -> tuple[int, ...]:
-    """hint 页优先 + 页码升序补齐，最多 ``page_budget`` 页。
+    """hint 页优先 + 页码升序补齐，最多 ``page_limit`` 页。
 
-    hint 的意义：上层已经从比对里知道「差异出在第 N 页」，那几页先取字，
-    页数上限用尽时优先牺牲没被告状的页。
+    hint 的意义：指纹先指出「这几页看着不一样」，那几页先出结论，律师不用等整本
+    OCR 完才看到第一条红线。它只调顺序，不做筛选——每一页最终都要核对。
     """
-    if page_budget <= 0 or not pending:
+    if page_limit <= 0 or not pending:
         return ()
     pending_set = set(pending)
     ordered: list[int] = []
@@ -247,7 +275,7 @@ def _select_pages(
             seen.add(page_index)
             ordered.append(page_index)
     ordered.extend(page_index for page_index in pending if page_index not in seen)
-    return tuple(ordered[:page_budget])
+    return tuple(ordered[:page_limit])
 
 
 def _join_page_texts(page_texts: Sequence[str]) -> str:

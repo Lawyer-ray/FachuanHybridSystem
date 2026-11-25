@@ -47,19 +47,15 @@ def fill_text_with_ocr(
 ) -> Any:
     """入站件字节 + 已提取的入站件 → `OcrFillResult`（lane B：`services.anchor.ocr_fill`）。
 
-    `page_budget=None` 表示用对方模块的 `OCR_PAGE_BUDGET`：预算常量只该有一份，
-    在这里复制一个数字就是给「两份口径迟早会漂」留门。也正因为它不在本侧，
-    这里不能写模块级的默认值——函数体内 import 才能容忍对方模块此刻还不在树上。
+    `page_budget=None` 一律原样往下传：**默认全量**，上限口径只存在于 ocr_fill 一处
+    （在这里再写一个数字，就是给「两份口径迟早会漂」留门）。
     """
-    # 同一模块取两个名字：常量默认值与执行函数都来自 ocr_fill，别处不复制。
-    from apps.doc_verify.services.anchor.ocr_fill import OCR_PAGE_BUDGET
     from apps.doc_verify.services.anchor.ocr_fill import fill_text_with_ocr as run
 
-    budget = OCR_PAGE_BUDGET if page_budget is None else page_budget
     return run(
         data,
         page_count=inbound.page_count,
         existing_text=inbound.text,
-        page_budget=budget,
+        page_budget=page_budget,
         hint_pages=hint_pages,
     )

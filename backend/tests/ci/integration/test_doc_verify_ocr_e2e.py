@@ -141,7 +141,7 @@ def _compact(text: str) -> str:
     return re.sub(r"[\s,，]", "", unicodedata.normalize("NFKC", str(text)))
 
 
-def _freeze_artifact() -> OutboundArtifact:
+def _freeze_artifact(data: bytes = BASELINE_BYTES) -> OutboundArtifact:
     """每个用例一份独立基线，出站时勾了「要求回传核对」。
 
     不能共用基线：`run_key` 只认（artifact, 入站字节），tier=0 与 tier=1 两次核对
@@ -150,7 +150,7 @@ def _freeze_artifact() -> OutboundArtifact:
     return create_artifact(
         case=CaseFactory(),
         baseline=capture_baseline(
-            data=BASELINE_BYTES,
+            data=data,
             file_name="民事起诉状_V4_20261106.pdf",
             doc_type="民事起诉状",
             version="V4_20261106",
@@ -231,3 +231,60 @@ class TestRealScanOcr:
         assert run.state not in {VerifyState.VERIFIED_CLEAN, VerifyState.IDENTICAL}
         assert run.coverage["text_compared"] is False
         assert "AMOUNT_MISMATCH" not in _codes(run)
+
+
+# ── 全量覆盖：不许「只核前 N 页」 ───────────────────────────────────────────
+
+_FILLER_PAGE = "随附材料说明\n本页与本案诉讼请求无关，仅用于把被改金额的那一页推到第 12 页。"
+_TAIL_PAGE = "附：诉讼请求金额核定\n本案诉请本金 998,702.06 元，利息 12,000 元。\n具状人：张三"
+
+
+def _filler_pages(count: int) -> list[str]:
+    return [f"{_FILLER_PAGE}\n材料顺序：第 {index} 份" for index in range(1, count + 1)]
+
+
+# transaction=True：12 页真 OCR 会跑一两分钟，事务型用例（事务一直开着）会撞上
+# Postgres 的 idle-in-transaction 超时——那是测试写法的问题，不是被测代码开事务。
+@pytest.mark.django_db(transaction=True)
+class TestFullDocumentCoverage:
+    @pytest.mark.timeout(900)
+    @pytest.mark.skipif(not _RAPIDOCR_INSTALLED, reason="本地 OCR 引擎 rapidocr 未安装：tier≥1 必然报 unavailable")
+    def test_tamper_on_the_twelfth_page_is_still_detected(self) -> None:
+        """12 页 > 旧默认上限 10 页：只核前 10 页的做法会漏掉最后一页的改动。
+
+        律师的原话是「不可能只核对前 10 页」——没核的页恰恰是客户最可能动手脚的地方。
+        这条用例把改动放在**最后一页**，只要实现仍偷偷截断，它就必然报不出红线。
+        """
+        pages = [_PAGE_1, _PAGE_2, *_filler_pages(9), _TAIL_PAGE]
+        assert len(pages) == 12
+
+        tampered_tail = _TAIL_PAGE.replace(_BASELINE_AMOUNT, _TAMPERED_AMOUNT)
+        inbound_scan = _scan_pdf(_make_pdf([_PAGE_1, _PAGE_2, *_filler_pages(9), tampered_tail]))
+        artifact = _freeze_artifact(_make_pdf(pages))
+
+        started = time.perf_counter()
+        run = run_service.verify_inbound(
+            artifact=artifact,
+            data=inbound_scan,
+            file_name="回传扫描件_12页.pdf",
+            tier=1,
+        )
+        elapsed = time.perf_counter() - started
+        logger.info(
+            "全量覆盖：12 页扫描件 tier=1 用时 %.1fs，pages_filled=%s",
+            elapsed,
+            (run.coverage.get("ocr") or {}).get("pages_filled"),
+        )
+
+        _skip_if_engine_unavailable(run)
+
+        ocr = run.coverage.get("ocr") or {}
+        assert run.page_count == 12
+        # 每一页都要核：12 页全部取到字，预算没有被截断
+        assert len(ocr.get("pages_filled") or ()) == 12, f"只核了一部分页：{ocr}"
+        assert ocr.get("budget_exhausted") is False
+        # 改动在第 12 页，仍必须被抓到
+        assert run.state == VerifyState.CHANGED
+        assert "AMOUNT_MISMATCH" in _codes(run), f"最后一页的改金额没有被抓到：codes={sorted(_codes(run))}"
+        amount = next(item for item in run.findings if item["code"] == "AMOUNT_MISMATCH")
+        assert _TAMPERED_AMOUNT.replace(",", "") in _compact(amount["actual"])

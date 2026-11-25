@@ -20,7 +20,7 @@ function renderToggle(checked: boolean, onChange = vi.fn()) {
 }
 
 describe('PolicyToggle：回传后核对内容', () => {
-  it('文案点名四类文书，并写清「本地算、约 2 秒/份」的副提示', () => {
+  it('文案点名四类文书，并写清「逐页比完整本 + 扫描件走本地 OCR」的副提示', () => {
     const { container } = renderToggle(true)
 
     const text = document.body.textContent ?? ''
@@ -28,7 +28,8 @@ describe('PolicyToggle：回传后核对内容', () => {
     expect(text).toContain('授权委托书')
     expect(text).toContain('送达地址确认书')
     expect(text).toContain('退费账户确认书')
-    expect(text).toContain('勾选的文书在客户回传后自动比对正文（本地算，约 2 秒/份）')
+    // 默认不再只核前 N 页：写清「逐页整本」与「扫描件走 OCR」，律师才知道要等多久
+    expect(text).toContain('逐页比对整本正文')
     container.remove()
   })
 

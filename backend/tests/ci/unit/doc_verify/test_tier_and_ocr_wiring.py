@@ -311,9 +311,9 @@ class TestDepsFillForwarding:
     用 sys.modules 注入替身模块：`ocr_fill` 此刻可能还不在树上，但转发形状今天就要锁住。
     """
 
-    def test_forwards_page_count_existing_text_and_default_budget(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_forwards_page_count_existing_text_and_none_budget(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """deps 不认识「默认多少页」：原样把 None 传下去，上限口径只在 ocr_fill 一处。"""
         module = ModuleType("apps.doc_verify.services.anchor.ocr_fill")
-        module.OCR_PAGE_BUDGET = 10  # type: ignore[attr-defined]
         calls: list[SimpleNamespace] = []
 
         def fake_fill(
@@ -344,12 +344,13 @@ class TestDepsFillForwarding:
         assert calls[0].data == INBOUND_BYTES
         assert calls[0].page_count == 7
         assert calls[0].existing_text == "已提取正文"
-        assert calls[0].page_budget == 10  # 预算常量只有对方一份，默认值来自 ocr_fill
+        # None = 交给 ocr_fill 的全量默认（每一页都要核对）；上限口径不在这里复制
+        assert calls[0].page_budget is None
         assert calls[0].hint_pages == ()
 
     def test_explicit_budget_and_hint_pages_are_forwarded(self, monkeypatch: pytest.MonkeyPatch) -> None:
         module = ModuleType("apps.doc_verify.services.anchor.ocr_fill")
-        module.OCR_PAGE_BUDGET = 10  # type: ignore[attr-defined]
+        module.OCR_PAGE_LIMIT = 10  # type: ignore[attr-defined]
         calls: list[SimpleNamespace] = []
 
         def fake_fill(data: bytes, **kwargs: Any) -> Any:
