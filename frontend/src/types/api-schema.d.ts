@@ -6162,13 +6162,43 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Runs
+         * @description 该案的全部核对历史（含已裁决的），按 -created_at,-id 分页。
+         *
+         *     与 `/unverified` 的分工：那边是「现在还有几条要人看」，这里是「这案核过几次、
+         *     结论怎么变」——历史必须含已裁决的，否则律师看不到结论是被谁翻过来的。
+         */
+        get: operations["apps_doc_verify_api_verify_api_list_runs"];
         put?: never;
         /**
          * Create Run
          * @description 提交一份回传件跑核对（幂等：同一基线 + 同字节重复提交返回同一行）。
          */
         post: operations["apps_doc_verify_api_verify_api_create_run"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/runs/from-material": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Run From Material
+         * @description 用收件箱里已有的附件跑核对：字节由服务端取，前端不必上传整本 PDF。
+         *
+         *     参数顺序与 `POST /runs` 一致：基线 404 → 案件不可见 403 → 附件拿不到 404。
+         *     附件取不到是**数据状态**（消息/part_index/字节不在），不是服务端故障。
+         */
+        post: operations["apps_doc_verify_api_verify_api_create_run_from_material"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6209,6 +6239,26 @@ export interface paths {
          * @description 记录一条裁决（append-only，不改历史行）。
          */
         post: operations["apps_doc_verify_api_verify_api_create_decision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/decisions/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Batch Decisions
+         * @description 批量记录裁决：逐条判，脏 id 只跳过它自己（原因写进 `items`），不整批失败。
+         */
+        post: operations["apps_doc_verify_api_verify_api_create_batch_decisions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19675,7 +19725,7 @@ export interface components {
         };
         /**
          * VerifyRunOut
-         * @description 一次核对（详情与待裁决清单共用）。
+         * @description 一次核对（详情、待裁决清单与核对历史共用）。
          */
         VerifyRunOut: {
             /** Id */
@@ -19737,6 +19787,30 @@ export interface components {
             tier?: number | null;
         };
         /**
+         * RunPageOut
+         * @description 某案的全部核对历史（分页）。`total` 是**过滤后的总数**，不是本页条数。
+         */
+        RunPageOut: {
+            /** Total */
+            total: number;
+            /** Items */
+            items: components["schemas"]["VerifyRunOut"][];
+        };
+        /**
+         * RunFromMaterialIn
+         * @description 从收件箱附件直接跑核对：字节由服务端自己取，前端不再整本 base64 上传。
+         */
+        RunFromMaterialIn: {
+            /** Artifact Id */
+            artifact_id: number;
+            /** Message Id */
+            message_id: number;
+            /** Part Index */
+            part_index: number;
+            /** Tier */
+            tier?: number | null;
+        };
+        /**
          * DecisionOut
          * @description 一条已留痕的裁决。
          */
@@ -19762,6 +19836,38 @@ export interface components {
          * @description 律师裁决入参。
          */
         DecisionIn: {
+            /** Action */
+            action: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /**
+         * DecisionBatchOut
+         * @description 批量裁决结果。
+         *
+         *     逐条判：`items` 与入参 `run_ids` 等长，落库的带 `decision_id`，没落的带
+         *     `skipped_reason`——前端据此提示「哪几条为什么没处理」。
+         */
+        DecisionBatchOut: {
+            /** Decided */
+            decided: number;
+            /** Skipped */
+            skipped: number;
+            /** Items */
+            items: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * DecisionBatchIn
+         * @description 批量裁决：一次提交多条待裁决的核对运行。
+         */
+        DecisionBatchIn: {
+            /** Run Ids */
+            run_ids: number[];
             /** Action */
             action: string;
             /**
@@ -35101,6 +35207,31 @@ export interface operations {
             };
         };
     };
+    apps_doc_verify_api_verify_api_list_runs: {
+        parameters: {
+            query: {
+                case_id: number;
+                state?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunPageOut"];
+                };
+            };
+        };
+    };
     apps_doc_verify_api_verify_api_create_run: {
         parameters: {
             query?: never;
@@ -35111,6 +35242,30 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["VerifyRunIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyRunOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_create_run_from_material: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunFromMaterialIn"];
             };
         };
         responses: {
@@ -35169,6 +35324,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DecisionOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_create_batch_decisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionBatchIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionBatchOut"];
                 };
             };
         };

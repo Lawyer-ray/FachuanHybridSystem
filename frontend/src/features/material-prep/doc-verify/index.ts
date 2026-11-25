@@ -8,7 +8,16 @@
  */
 export { PendingRuns } from './PendingRuns'
 export { PolicyToggle } from './PolicyToggle'
-export { decideRun, getPolicy, listUnverified, putPolicy } from './api'
+export {
+  decideBatch,
+  decideRun,
+  getPolicy,
+  listCaseRuns,
+  listPending,
+  listUnverified,
+  putPolicy,
+  runFromMaterial,
+} from './api'
 export type {
   DecisionAction,
   DecisionIn,

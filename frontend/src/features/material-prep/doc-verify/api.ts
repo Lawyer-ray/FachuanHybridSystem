@@ -24,6 +24,10 @@ export type PolicyIn = components['schemas']['PolicyIn']
 export type PolicyItemOut = components['schemas']['PolicyItemOut']
 export type PolicyOut = components['schemas']['PolicyOut']
 export type VerifyRunOut = components['schemas']['VerifyRunOut']
+export type RunPageOut = components['schemas']['RunPageOut']
+export type RunFromMaterialIn = components['schemas']['RunFromMaterialIn']
+export type DecisionBatchIn = components['schemas']['DecisionBatchIn']
+export type DecisionBatchOut = components['schemas']['DecisionBatchOut']
 
 /** 后端只认这三个值（`services/verify/decision.py` 的 DECISION_ACTIONS）。 */
 export type DecisionAction = 'accept' | 'reject' | 'reissue'
@@ -52,6 +56,39 @@ export async function listPending(limit = 50, signal?: AbortSignal): Promise<Ver
   return docVerifyApi
     .get('pending', { searchParams: { limit }, signal })
     .json<VerifyRunOut[]>()
+}
+
+/** 该案的**全量**核对历史（可带 state 过滤、分页）。案件详情页用它回看「核过几次、结论怎么变」。 */
+export async function listCaseRuns(
+  params: { case_id: number; state?: string; limit?: number; offset?: number },
+  signal?: AbortSignal,
+): Promise<RunPageOut> {
+  return docVerifyApi
+    .get('runs', {
+      searchParams: {
+        case_id: params.case_id,
+        ...(params.state ? { state: params.state } : {}),
+        limit: params.limit ?? 50,
+        offset: params.offset ?? 0,
+      },
+      signal,
+    })
+    .json<RunPageOut>()
+}
+
+/**
+ * 一条回传件直接核（服务端按收件箱附件取字节）。
+ *
+ * 为什么不用 `/runs` + base64：整本扫描件几十上百页，前端 base64 一遍就是几十 MB 的
+ * 请求体，先卡浏览器再卡网关；这一条把取字节留在服务端。
+ */
+export async function runFromMaterial(input: RunFromMaterialIn): Promise<VerifyRunOut> {
+  return docVerifyApi.post('runs/from-material', { json: input }).json<VerifyRunOut>()
+}
+
+/** 批量裁决：逐条跳过已裁决/不可见的，返回 decided/skipped 明细。 */
+export async function decideBatch(input: DecisionBatchIn): Promise<DecisionBatchOut> {
+  return docVerifyApi.post('decisions/batch', { json: input }).json<DecisionBatchOut>()
 }
 
 /** 记录一条裁决（append-only）；accept/reject 之后该件即从待裁决清单消失。 */
