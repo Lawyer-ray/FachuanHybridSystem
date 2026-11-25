@@ -177,18 +177,32 @@ class TestInboundScenarios:
         assert run.state == VerifyState.CHANGED
         assert "PAGE_COUNT_MISMATCH" in _codes(run)
 
-    def test_scan_without_text_layer_is_gray_not_green(self, artifact: OutboundArtifact) -> None:
-        """扫描件（无文本层）：只能给「未发现差异」，**绝不许**给「核对通过」。
+    def test_scan_free_tier_is_gray_then_auto_ocr_upgrades_in_place(self, artifact: OutboundArtifact) -> None:
+        """扫描件的两条事实都要锁住。
 
-        页指纹全对（说明没换页），但一个字都没比——这正是最容易被误报成绿灯的一档。
+        1. **免费层不撒谎**：tier 0 一个字都没比，只能给「未发现差异」，不得是绿灯；
+        2. **勾了核对就要真的升级**：同一份字节再跑一次（默认 tier），因 artifact
+           勾了 verify_required 且无文本层 → 自动升到 OCR 层，**原地升级同一行**
+           （不新开一行：同一份件的两条结论会让待裁决清单重复计数）。
         """
-        run = run_service.verify_inbound(artifact=artifact, data=_make_scan(BASELINE_BYTES), file_name="扫描.jpg.pdf")
+        scanned = _make_scan(BASELINE_BYTES)
 
-        assert run.state == VerifyState.NO_DIFFERENCE_DETECTED
-        assert run.state not in {VerifyState.VERIFIED_CLEAN, VerifyState.IDENTICAL}
-        assert run.coverage["text_compared"] is False
-        assert run.coverage["pages_no_text"] == 3
-        assert "PAGE_CHANGED" not in _codes(run)
+        free = run_service.verify_inbound(artifact=artifact, data=scanned, file_name="扫描.pdf", tier=0)
+        assert free.tier == 0
+        assert free.state == VerifyState.NO_DIFFERENCE_DETECTED
+        assert free.state not in {VerifyState.VERIFIED_CLEAN, VerifyState.IDENTICAL}
+        assert free.coverage["text_compared"] is False
+        assert free.coverage["pages_no_text"] == 3
+        assert "PAGE_CHANGED" not in _codes(free)
+
+        upgraded = run_service.verify_inbound(artifact=artifact, data=scanned, file_name="扫描.pdf")
+        assert upgraded.pk == free.pk  # 原地升级，不新开行
+        assert upgraded.tier == 1
+        assert upgraded.coverage["ocr"]["engine"] == "local"
+        assert upgraded.coverage["ocr"]["pages_filled"]
+        assert upgraded.coverage["text_compared"] is True
+        assert upgraded.state != VerifyState.NO_DIFFERENCE_DETECTED
+        assert VerificationRun.objects.filter(artifact=artifact).count() == 1
 
 
 # ── 幂等 / 裁决 / 清单 / 策略 ────────────────────────────────────────────────

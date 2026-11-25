@@ -33,7 +33,8 @@ class VerifyRunIn(Schema):
     file_base64: str
     file_name: str = ""
     source_message_id: int | None = None
-    tier: int = 0
+    #: 不传 = 自动（勾了核对 + 扫描件 → 升到 OCR 层）；显式 0 = 只要免费层
+    tier: int | None = None
 
 
 class VerifyRunOut(Schema):

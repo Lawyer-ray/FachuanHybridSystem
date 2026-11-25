@@ -25,13 +25,21 @@ TIER_FREE = 0
 TIER_OCR = 1
 
 
-def resolve_tier(*, requested: int, verify_required: bool, inbound_text: str) -> int:
+def resolve_tier(*, requested: int | None, verify_required: bool, inbound_text: str) -> int:
     """算出**实际**要跑的层级（落库的 `VerificationRun.tier` 用这个值，不用入参）。
 
-    规则是硬的：显式要求原样返回；否则只有「律师勾了核对 + 入站件整篇没有文本层」
-    才升到 OCR 层；其余一律免费层。
+    三档语义分得很硬，因为它们对应三种不同的钱：
+
+    - `requested >= 1`：调用方显式要求花钱，原样返回，不降级；
+    - `requested == 0`：调用方显式要**免费层**（「先看一眼，别花钱」）——必须尊重。
+      把 0 也自动升级，就等于替律师改了他刚刚做出的决定，还会让「免费层不撒谎」
+      这条断言（扫描件只能是灰的 `no_difference_detected`）永远无法成立；
+    - `requested is None`（未指定）：才走自动判定——律师勾了「回传后核对内容」
+      且入站件整篇没有文本层，说明这是扫描件且他授权为它花钱，升到 OCR 层。
+
+    没勾就不自作主张：OCR 有成本，批量案件里替律师做这个决定，账单会替律师记住它。
     """
-    if requested >= TIER_OCR:
+    if requested is not None:
         return requested
     if verify_required and not str(inbound_text or "").strip():
         return TIER_OCR

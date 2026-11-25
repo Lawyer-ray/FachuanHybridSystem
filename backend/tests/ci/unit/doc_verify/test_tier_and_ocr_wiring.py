@@ -128,17 +128,17 @@ class TestResolveTier:
         assert tier_service.resolve_tier(requested=requested, verify_required=False, inbound_text="") == requested
 
     def test_scanned_inbound_with_verify_required_escalates_to_ocr(self) -> None:
-        assert tier_service.resolve_tier(requested=0, verify_required=True, inbound_text="") == 1
+        assert tier_service.resolve_tier(requested=None, verify_required=True, inbound_text="") == 1
 
     def test_whitespace_only_text_counts_as_no_text_layer(self) -> None:
-        assert tier_service.resolve_tier(requested=0, verify_required=True, inbound_text=" \f \n") == 1
+        assert tier_service.resolve_tier(requested=None, verify_required=True, inbound_text=" \f \n") == 1
 
     def test_verify_required_with_a_text_layer_stays_free(self) -> None:
-        assert tier_service.resolve_tier(requested=0, verify_required=True, inbound_text="诉讼请求:返还本金") == 0
+        assert tier_service.resolve_tier(requested=None, verify_required=True, inbound_text="诉讼请求:返还本金") == 0
 
     def test_scan_without_verify_required_stays_free(self) -> None:
         """律师没勾核对：不自作主张替他为 OCR 付钱。"""
-        assert tier_service.resolve_tier(requested=0, verify_required=False, inbound_text="") == 0
+        assert tier_service.resolve_tier(requested=None, verify_required=False, inbound_text="") == 0
 
 
 @pytest.mark.django_db
@@ -159,12 +159,16 @@ class TestVerifyInboundOcrWiring:
         assert compare_calls[0].tier == 1
 
     def test_persisted_tier_is_the_resolved_value_not_the_request(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """不传 tier（=自动）时才升级；落库的必须是**实际**跑的那一层。
+
+        显式 `tier=0` 不算自动：那是律师刚说的「先只跑免费层」，替它升级等于改他的决定。
+        """
         artifact = _artifact()
         _patch_extract(monkeypatch, text="")
         _patch_fill(monkeypatch, _ocr_result(text=BASELINE_TEXT))
         _patch_compare(monkeypatch)
 
-        run = run_service.verify_inbound(artifact=artifact, data=INBOUND_BYTES, tier=0)
+        run = run_service.verify_inbound(artifact=artifact, data=INBOUND_BYTES)
 
         run.refresh_from_db()
         assert run.tier == 1

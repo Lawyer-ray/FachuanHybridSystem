@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import logging
 from dataclasses import replace
 from typing import Any, get_args
 
@@ -45,6 +46,8 @@ from apps.doc_verify.domain.normalize import split_pages
 from apps.doc_verify.domain.states import derive_state
 from apps.doc_verify.models import VerificationRun, VerifyState
 from apps.doc_verify.services.verify import deps
+
+logger = logging.getLogger(__name__)
 from apps.doc_verify.services.verify.tier import TIER_OCR, resolve_tier
 
 #: 核对层级只认 domain 契约里的 `Tier`（0 免费层 / 1 OCR / 2 重核），
@@ -87,7 +90,7 @@ def verify_inbound(
     data: bytes,
     file_name: str = "",
     source_message_id: int | None = None,
-    tier: int = 0,
+    tier: int | None = None,
 ) -> Any:
     """对一份回传件跑一次核对，返回 `VerificationRun`（已存在则返回既有行）。
 
@@ -95,7 +98,7 @@ def verify_inbound(
     落库的 `tier` 是 `resolve_tier()` 算出的实际值（扫描件 + 勾了核对会自动升到
     OCR 层），不是入参原样透传。
     """
-    if tier not in TIERS:
+    if tier is not None and tier not in TIERS:
         raise ValidationException(message=f"核对层级不合法：{tier}", errors={"tier": list(TIERS)})
     if not data:
         raise ValidationException(message="回传件内容为空", errors={"data": "不能为空"})
@@ -107,20 +110,40 @@ def verify_inbound(
 
     inbound_sha256 = hashlib.sha256(data).hexdigest()
     run_key = _run_key(artifact_id=artifact.id, inbound_sha256=inbound_sha256)
+
+    # 显式层级且不高于既有结论 → 不用取字就能判，保持原来的零成本重放。
+    # （取字要解析整本 PDF，几十毫秒到几百毫秒；OCR 才是贵的那一段，见下。）
     existing = VerificationRun.objects.filter(run_key=run_key).first()
-    if existing is not None:
+    if existing is not None and tier is not None and tier <= existing.tier:
         return existing
 
+    # 未指定层级时要先取字：**层数取决于入站件有没有文本层**，不是入参说了算。
+    # 少了这一步，「先跑免费层看看、可疑再花钱核」这条路永远回不到 OCR 层——
+    # 同一份字节只能永远停在灰的「未发现差异」。
     inbound = deps.extract_document(data, file_name)
     actual_tier = resolve_tier(
         requested=tier,
         verify_required=bool(artifact.verify_required),
         inbound_text=inbound.text,
     )
+
+    if existing is not None and not _upgradable(existing=existing, actual_tier=actual_tier):
+        return existing
+
     inbound, fill = _inbound_with_ocr(data=data, inbound=inbound, tier=actual_tier)
     report = _report_for(artifact=artifact, inbound=inbound, tier=actual_tier)
     _record_ocr(report=report, fill=fill)
     state = derive_state(report)
+    if existing is not None:
+        return _upgrade_run(
+            existing=existing,
+            inbound=inbound,
+            report=report,
+            state=state,
+            file_name=file_name,
+            source_message_id=source_message_id,
+            tier=actual_tier,
+        )
     return _create_run(
         artifact=artifact,
         run_key=run_key,
@@ -238,6 +261,68 @@ def _report_for(*, artifact: Any, inbound: Any, tier: int) -> Report:
     会少写一个 coverage 键，于是「原样回传」被报成「未发现差异」。
     """
     return deps.compare_documents(_baseline_from_artifact(artifact), inbound, tier=tier)
+
+
+def _upgradable(*, existing: Any, actual_tier: int) -> bool:
+    """这份既有运行能不能被更高一层重算。
+
+    两条都要满足：
+    1. 这次算出来的层**严格更高**（降级没意义：证据更弱的结论不能盖掉更强的）；
+    2. 还没有任何裁决——`list_unverified` 是靠「有 accept/reject 就排除」来收敛清单的，
+       所以裁决后再改结论，不仅和那份裁决矛盾，还会让新的红线**从待裁决清单里消失**。
+       已有裁决就原样返回，并在日志里干一句：要重核就得先作废裁决/换基线。
+    """
+    if actual_tier <= existing.tier:
+        return False
+    if existing.decisions.exists():
+        logger.warning(
+            "回传件已有裁决，不自动升级重核: run=%s 既有 tier=%s 请求 tier=%s",
+            existing.pk,
+            existing.tier,
+            actual_tier,
+        )
+        return False
+    return True
+
+
+def _upgrade_run(
+    *,
+    existing: Any,
+    inbound: Any,
+    report: Report,
+    state: str,
+    file_name: str,
+    source_message_id: int | None,
+    tier: int,
+) -> Any:
+    """把一次运行从免费层**原地升级**到 OCR 层，不新开一行。
+
+    为什么不把 tier 并进 `run_key`：那样同一份字节会有两行，待裁决清单里同一件事
+    出现两次——这正是幂等键要消灭的东西。为什么可以原地改：`VerificationRun` 记的是
+    「这份件现在的结论」，留痕靠 append-only 的裁决；升级后的结论证据严格强于旧的，
+    留着旧的那条只会让律师看见一个已经过时的「未发现差异」。
+    """
+    existing.tier = tier
+    existing.state = state
+    existing.inbound_file_name = inbound.file_name or file_name
+    existing.page_count = inbound.page_count
+    existing.findings = report.findings_dicts()
+    existing.coverage = dict(report.coverage or {})
+    if source_message_id is not None:
+        existing.source_message_id = source_message_id
+    existing.save(
+        update_fields=[
+            "tier",
+            "state",
+            "inbound_file_name",
+            "page_count",
+            "findings",
+            "coverage",
+            "source_message_id",
+        ]
+    )
+    logger.info("回传件核对原地升级: run=%s tier=%s state=%s", existing.pk, tier, state)
+    return existing
 
 
 def _create_run(
