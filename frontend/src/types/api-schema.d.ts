@@ -6017,6 +6017,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pdf-splitting/export-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Draft Zip
+         * @description 把**草稿里的段**导出成 zip（没跑过自动分段的材料也有导出）。
+         *
+         *     与 `/download` 的分工：那条按**拆分任务**的段打 zip（段必须有后端产物 id）；
+         *     这条按**草稿**打 zip —— 律师完全可以不跑自动分段、自己切页命名旋转后直接归案，
+         *     那种包以前一个导出按钮都没有，数据却是全的。
+         *
+         *     入参 multipart：``files``（命名为 ``part_<partIndex>.<ext>``）+ ``spec``（JSON）。
+         *     spec / 素材结构性问题 400；单段页区间越界或素材缺失 → 跳过并计数，
+         *     数量经 ``X-Export-Skipped`` 回给前端提示（不静默少几份）。
+         */
+        post: operations["apps_pdf_splitting_api_pdf_splitting_api_export_draft_zip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pdf-splitting/jobs/{job_id}/segments/{segment_id}/pdf": {
         parameters: {
             query?: never;
@@ -19680,11 +19708,8 @@ export interface components {
             file_name: string;
             /** Source Message Id */
             source_message_id?: number | null;
-            /**
-             * Tier
-             * @default 0
-             */
-            tier: number;
+            /** Tier */
+            tier?: number | null;
         };
         /**
          * DecisionOut
@@ -34917,6 +34942,26 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ArchiveToCaseFolderOut"];
                 };
+            };
+        };
+    };
+    apps_pdf_splitting_api_pdf_splitting_api_export_draft_zip: {
+        parameters: {
+            query?: {
+                name?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

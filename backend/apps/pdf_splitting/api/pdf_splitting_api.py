@@ -508,6 +508,40 @@ def archive_pdf_split_to_case_folder(
     )
 
 
+def _safe_export_name(name: str) -> str:
+    """包名 → 文件名：去掉路径分隔符/控制字符（Content-Disposition 已被
+    build_download_response 转义，这里只防 name 里带 `../` 这类脏字符进日志与提示）。"""
+    cleaned = "".join(ch for ch in name if ch not in '\\/:*?"<>|' and ord(ch) >= 32).strip(" .")
+    return cleaned[:80] or "材料导出"
+
+
+@router.post("/export-draft")
+def export_draft_zip(request: Any, name: str = "") -> HttpResponse:
+    """把**草稿里的段**导出成 zip（没跑过自动分段的材料也有导出）。
+
+    与 `/download` 的分工：那条按**拆分任务**的段打 zip（段必须有后端产物 id）；
+    这条按**草稿**打 zip —— 律师完全可以不跑自动分段、自己切页命名旋转后直接归案，
+    那种包以前一个导出按钮都没有，数据却是全的。
+
+    入参 multipart：``files``（命名为 ``part_<partIndex>.<ext>``）+ ``spec``（JSON）。
+    spec / 素材结构性问题 400；单段页区间越界或素材缺失 → 跳过并计数，
+    数量经 ``X-Export-Skipped`` 回给前端提示（不静默少几份）。
+    """
+    from apps.pdf_splitting.services.export_draft_service import build_export_zip, collect_files, parse_spec
+
+    raw_spec = request.POST.get("spec") or ""
+    segments = parse_spec(raw_spec)
+    files = collect_files(request.FILES.getlist("files"))
+    content, skipped = build_export_zip(files, segments)
+    # 文件名取调用方给的包名（律师在文件夹里看到的是「某某案-起诉材料.zip」，
+    # 而不是一堆同名的「材料导出.zip」）；缺省仍给一个能读的名字
+    filename = f"{_safe_export_name(name)}.zip" if name.strip() else "材料导出.zip"
+    response = build_download_response(content, filename, "application/zip")
+    if skipped:
+        response["X-Export-Skipped"] = str(skipped)
+    return response
+
+
 @router.get("/jobs/{job_id}/segments/{segment_id}/pdf")
 def get_pdf_split_segment_pdf(request: Any, job_id: UUID, segment_id: int, rotations: str = "") -> HttpResponse:
     """单段 PDF 下载（Content-Disposition: attachment）。

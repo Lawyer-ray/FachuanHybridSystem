@@ -139,6 +139,48 @@ function appendRotations(url: string, rotations: string): string {
   return `${url}${sep}rotations=${encodeURIComponent(value)}`
 }
 
+/** 草稿导出的段（`POST /export-draft` 的 spec 项） */
+export interface DraftExportSegmentIn {
+  name: string
+  part_index: number
+  page_start: number
+  page_end: number
+  /** 同 extract-pages 的编码；空串不传 */
+  rotations?: string
+  /** 段正文（云端识别才会产生）；空则包里只出 pdf */
+  md?: string
+}
+
+/**
+ * 把**草稿里的段**导出成 zip（POST /pdf-splitting/export-draft）。
+ *
+ * 与 `jobDownloadUrl` 的分工：那条按拆分任务的段打 zip（段必须有后端产物 id）；
+ * 这条按草稿打 zip —— 律师不跑自动分段、自己切页命名后也要能导出。
+ *
+ * `files` 的每一项会被服务端按**文件名** `part_<partIndex>.<ext>` 认领素材：
+ * 用文件名当键而不是「按顺序对应」，是因为某份素材可能读不出来而少发一个，
+ * 按顺序会让后面每份都错位（导出的内容和段名对不上，且几乎看不出来）。
+ *
+ * 返回被服务端跳过的段数（页范围越界 / 素材对不上）：由调用方提示，不静默少几份。
+ */
+export async function exportDraftZip(opts: {
+  files: Array<{ partIndex: number; filename: string; blob: Blob }>
+  segments: DraftExportSegmentIn[]
+  /** 包名 → 下载文件名（缺省「材料导出」） */
+  name?: string
+}): Promise<{ blob: Blob; skipped: number }> {
+  const body = new FormData()
+  for (const file of opts.files) {
+    const ext = /\.[A-Za-z0-9]{1,6}$/.exec(file.filename)?.[0] ?? (file.blob.type === 'application/pdf' ? '.pdf' : '.png')
+    body.append('files', new File([file.blob], `part_${file.partIndex}${ext}`, { type: file.blob.type }))
+  }
+  body.append('spec', JSON.stringify({ segments: opts.segments }))
+  const query = opts.name?.trim() ? `?name=${encodeURIComponent(opts.name.trim())}` : ''
+  const res = await pdfSplitApi.post(`export-draft${query}`, { body, timeout: UPLOAD_TIMEOUT_MS })
+  const skipped = Number(res.headers.get('X-Export-Skipped') ?? '0') || 0
+  return { blob: await res.blob(), skipped }
+}
+
 /**
  * 只留**正整数**并去重排序。
  * 主键是后端自增 int：0 / 负数 / 小数 / NaN 只可能来自调用方把下标或空值当主键

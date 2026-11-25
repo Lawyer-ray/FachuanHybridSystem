@@ -30,10 +30,36 @@ const BAR_BTN =
 
 export function SegmentDownloadBar({ dl, total }: { dl: SegmentDownloads; total?: number }) {
   const { segments, sel } = dl
-  // 没有任何可下载段（还没跑完分段 / 段是人工拆的 / 旧草稿没产物）→ **整块不渲染**。
-  // 不是把按钮置灰：一排永远点不动的灰按钮只会让人以为下载功能坏了，而这里真实
-  // 情况是「后端还没有这一段的产物」，那就一个入口都不给。
-  if (segments.length === 0) return null
+  // 没有任何可下载段（还没跑完分段 / 段是人工拆的 / 旧草稿没产物）→ 只剩
+  // 「按草稿导出」这一个入口：那种包的数据是全的（段名与页区间都在草稿里），
+  // 以前整块不渲染，于是"没跑过自动分段的材料完全没有导出"。全空（连段都没有）
+  // 时仍然整块不渲染。
+  if (segments.length === 0) {
+    if (!dl.canExportDraft) return null
+    // 没有后端产物（人工切的段 / 没跑过自动分段）：只给「按草稿导出」。
+    // 勾选、`下载选中`、`整包下载` 在这里都是空入口（后端没有对应产物），
+    // 所以整条换成一句说明 + 一个按钮，而不是把一排点不动的按钮摆出来。
+    return (
+      <div
+        data-segment-download-bar
+        className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary/40 px-2 py-1"
+      >
+        <span className="min-w-0 flex-1 truncate text-[11.5px] text-muted-foreground" title="这些段没有后端拆分产物">
+          {total ?? 0} 段按草稿导出
+        </span>
+        <button
+          type="button"
+          onClick={dl.exportDraft}
+          disabled={dl.busy !== null}
+          title={`按草稿导出 ${total ?? 0} 段为 ZIP（按段名与页范围现切，含页旋转）`}
+          className={BAR_BTN}
+        >
+          {dl.busy === 'export:draft' ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
+          导出
+        </button>
+      </div>
+    )
+  }
   const jobs = new Set(segments.map((seg) => seg.jobId)).size
   const busy = dl.busy !== null
   // 只有「左栏的段多于可下载段」时才解释差额（人工拆的段没有后端产物）。
@@ -91,6 +117,24 @@ export function SegmentDownloadBar({ dl, total }: { dl: SegmentDownloads; total?
               <PackageOpen className="h-3.5 w-3.5" aria-hidden />
             )}
             下载选中（{sel.count}）
+          </button>
+        )}
+        {/* 还有段没有后端产物（人工切的）→ 给「按草稿导出」。
+            与「整包下载」不是一回事：那个按任务的已切产物打包，这个按草稿现切。 */}
+        {dl.canExportDraft && partial && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={dl.exportDraft}
+            title={`按草稿导出其余 ${(total ?? segments.length) - segments.length} 段（人工切的段没有后端产物）`}
+            className={BAR_BTN}
+          >
+            {dl.busy === 'export:draft' ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <FileDown className="h-3.5 w-3.5" aria-hidden />
+            )}
+            导出
           </button>
         )}
         <button

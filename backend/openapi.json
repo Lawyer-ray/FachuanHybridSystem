@@ -14306,6 +14306,38 @@
         ]
       }
     },
+    "/api/v1/pdf-splitting/export-draft": {
+      "post": {
+        "operationId": "apps_pdf_splitting_api_pdf_splitting_api_export_draft_zip",
+        "summary": "Export Draft Zip",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "name",
+            "schema": {
+              "default": "",
+              "title": "Name",
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "把**草稿里的段**导出成 zip（没跑过自动分段的材料也有导出）。\n\n与 `/download` 的分工：那条按**拆分任务**的段打 zip（段必须有后端产物 id）；\n这条按**草稿**打 zip —— 律师完全可以不跑自动分段、自己切页命名旋转后直接归案，\n那种包以前一个导出按钮都没有，数据却是全的。\n\n入参 multipart：``files``（命名为 ``part_<partIndex>.<ext>``）+ ``spec``（JSON）。\nspec / 素材结构性问题 400；单段页区间越界或素材缺失 → 跳过并计数，\n数量经 ``X-Export-Skipped`` 回给前端提示（不静默少几份）。",
+        "tags": [
+          "PDF 拆解"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/pdf-splitting/jobs/{job_id}/segments/{segment_id}/pdf": {
       "get": {
         "operationId": "apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_segment_pdf",
@@ -44860,9 +44892,15 @@
             "title": "Source Message Id"
           },
           "tier": {
-            "default": 0,
-            "title": "Tier",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
           }
         },
         "required": [

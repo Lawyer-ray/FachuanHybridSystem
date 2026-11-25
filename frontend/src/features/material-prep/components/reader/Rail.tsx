@@ -75,7 +75,7 @@ export function Rail({
       { pk: sg.splitRef.pk, jobId: sg.splitRef.jobId, name: sg.fn, partIndex, pageStart: first.p, pageEnd: last.p },
     ]
   })
-  const dl = useSegmentDownloads(downloadables, draft.pageRot)
+  const dl = useSegmentDownloads(downloadables, draft.pageRot, { mats, segs: draft.segs })
   // 全卷证件待补录页数：入口只在真有这数据时出现（旧任务没有 doc_hints，不渲染假入口）
   const docTodoCount = docTodosOf(pageQuality).length
 

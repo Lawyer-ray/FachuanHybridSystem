@@ -13,7 +13,9 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const clients = vi.hoisted(() => [] as Array<{ prefix: string; get: ReturnType<typeof vi.fn> }>)
+const clients = vi.hoisted(
+  () => [] as Array<{ prefix: string; get: ReturnType<typeof vi.fn>; post: ReturnType<typeof vi.fn> }>,
+)
 
 vi.mock('@/lib/api', () => ({
   UPLOAD_TIMEOUT_MS: 300_000,
@@ -21,7 +23,7 @@ vi.mock('@/lib/api', () => ({
     const prefix = opts?.prefix ?? '/api/v1'
     const existing = clients.find((c) => c.prefix === prefix)
     if (existing) return existing
-    const client = { prefix, get: vi.fn() }
+    const client = { prefix, get: vi.fn(), post: vi.fn() }
     clients.push(client)
     return client
   },
@@ -183,3 +185,70 @@ describe('下载直链：rotations', () => {
     expect(jobDownloadUrl('job-1', [3], '  ')).toBe(jobDownloadUrl('job-1', [3]))
   })
 })
+
+// ── 草稿导出：请求形状 ──────────────────────────────────────
+//
+// 服务端按**文件名**认领素材（`part_<partIndex>.<ext>`）。拼错这个名字的后果
+// 不是报错，而是「导出包里少一份材料」——所以这里把 FormData 的字段逐个钉住。
+
+describe('exportDraftZip', () => {
+  function formEntries(body: FormData): Array<[string, string]> {
+    return Array.from(body.entries()).map(([k, v]) => [k, typeof v === 'string' ? v : (v as File).name])
+  }
+
+  it('素材按 part_<序号>.<扩展名> 命名，spec 是 JSON 字符串', async () => {
+    const post = vi.fn(async (_path: string, _opts: { body: FormData }) => respondWith(0))
+    apiClientOf('/api/v1/pdf-splitting').post = post as never
+    const { exportDraftZip } = await import('./pdf-split')
+    await exportDraftZip({
+      files: [
+        { partIndex: 0, filename: '卷宗.pdf', blob: new Blob([new Uint8Array([1])], { type: 'application/pdf' }) },
+        { partIndex: 7, filename: '现场照片.png', blob: new Blob([new Uint8Array([2])], { type: 'image/png' }) },
+      ],
+      segments: [{ name: '起诉状', part_index: 0, page_start: 1, page_end: 4 }],
+      name: '某某案-起诉材料',
+    })
+
+    const [path, callOpts] = post.mock.calls[0]!
+    // 客户端自带 /api/v1/pdf-splitting 前缀，这里只断言相对路径与编码后的包名
+    expect(path).toBe('export-draft?name=%E6%9F%90%E6%9F%90%E6%A1%88-%E8%B5%B7%E8%AF%89%E6%9D%90%E6%96%99')
+    const entries = formEntries(callOpts.body)
+    expect(entries).toContainEqual(['files', 'part_0.pdf'])
+    expect(entries).toContainEqual(['files', 'part_7.png'])
+    // FormData.get 返回 string | File；这里是 spec 字段（字符串），显式断言类型
+    const specField = callOpts.body.get('spec')
+    expect(typeof specField).toBe('string')
+    expect(JSON.parse(specField as string)).toEqual({
+      segments: [{ name: '起诉状', part_index: 0, page_start: 1, page_end: 4 }],
+    })
+  })
+
+  it('没有包名时不带 name 查询（URL 与默认一致）', async () => {
+    const post = vi.fn(async (_path: string, _opts: { body: FormData }) => respondWith(2))
+    apiClientOf('/api/v1/pdf-splitting').post = post as never
+    const { exportDraftZip } = await import('./pdf-split')
+    const result = await exportDraftZip({
+      files: [{ partIndex: 0, filename: 'a.pdf', blob: new Blob([new Uint8Array([1])]) }],
+      segments: [{ name: 'x', part_index: 0, page_start: 1, page_end: 1 }],
+    })
+    expect(post.mock.calls[0]![0]).toBe('export-draft')
+    // 服务端跳过的段数从响应头回给调用方提示，不能静默少几份
+    expect(result.skipped).toBe(2)
+  })
+})
+
+/** 按 prefix 取客户端桩（导出用例要给 post 挂行为） */
+function apiClientOf(prefix: string) {
+  const hit = clients.find((c) => c.prefix === prefix)
+  if (!hit) throw new Error(`客户端 ${prefix} 未创建`)
+  return hit
+}
+
+/** 带 headers 的响应桩（exportDraftZip 要读 X-Export-Skipped） */
+function respondWith(skipped = 0) {
+  // ky 的 ResponsePromise：await 出来的是 Response 本身（带 headers 与 blob()）
+  return Promise.resolve({
+    blob: () => Promise.resolve(new Blob([new Uint8Array([9])], { type: 'application/zip' })),
+    headers: { get: (name: string) => (name.toLowerCase() === 'x-export-skipped' ? String(skipped) : null) },
+  })
+}

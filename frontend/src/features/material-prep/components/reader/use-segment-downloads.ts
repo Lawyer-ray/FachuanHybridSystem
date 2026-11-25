@@ -4,9 +4,19 @@ import { toast } from 'sonner'
 import { downloadUrl } from '@/lib/download'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { errMessage } from '@/lib/errors'
-import { jobDownloadUrl, segmentMdUrl, segmentPdfUrl } from '../../api'
-import { joinRotationEncodings, rotationsForRange } from '../../draft/page-rotation'
-import type { PageRotMap } from '../../types'
+import { saveBlob } from '@/lib/download'
+import {
+  exportDraftZip,
+  jobDownloadUrl,
+  segmentMdUrl,
+  segmentPdfUrl,
+  type DraftExportSegmentIn,
+} from '../../api'
+import { fetchAttachmentBytes } from '../../api'
+import { rotateImageBlob } from '../../api/rotate-image'
+import { firstRotationOf, joinRotationEncodings, rotationsForRange } from '../../draft/page-rotation'
+import { useReader } from '../../store'
+import type { BundleMat, PageRotMap, Segment } from '../../types'
 import { useSegmentSelection, type SegmentSelection } from './use-segment-selection'
 
 /**
@@ -45,6 +55,12 @@ export interface SegmentRowDownload {
 }
 
 export interface SegmentDownloads {
+  /** 能否按草稿导出（有段、且至少有一段没有后端产物时才为真） */
+  canExportDraft: boolean
+  /** 按草稿导出整包（zip） */
+  exportDraft: () => void
+  /** 没法按草稿导出的段数（跨源段：一个页区间表达不了它） */
+  crossSourceCount: number
   /** 可下载段。空数组 = 这次识别没有后端产物 → 下载 UI 整块不渲染 */
   segments: DownloadableSegment[]
   sel: SegmentSelection
@@ -70,10 +86,23 @@ export interface SegmentDownloads {
  * 裸链接在任何账号下都是 401——「用自己的账号下载自己的材料也失败」那次事故
  * （回归注释见 `inbox/components/InboxView.dom.test.tsx`）。
  */
+/**
+ * 导出草稿需要的上下文（没有它就不给「导出」入口）。
+ *
+ * 不含 messageId：包 id 就是 store 的 `openId`，在动作触发时现取——
+ * 比让调用方再传一遍少一处「两个 id 不一致」的可能。
+ */
+export interface DraftExportInput {
+  mats: readonly BundleMat[]
+  segs: readonly Segment[]
+}
+
 export function useSegmentDownloads(
   segments: DownloadableSegment[],
   /** 草稿里的页旋转表：下载出去的 PDF 也要是律师看到的方向 */
   pageRot?: PageRotMap,
+  /** 草稿导出上下文：没有后端产物的包靠它导出整包 */
+  draftExport?: DraftExportInput,
 ): SegmentDownloads {
   const sel = useSegmentSelection(segments.map((seg) => seg.pk))
   const [busy, setBusy] = useState<string | null>(null)
@@ -112,6 +141,60 @@ export function useSegmentDownloads(
   /** 这一段要带的旋转编码（md 不涉及方向，只有 pdf 用） */
   const rotationsOf = (seg: DownloadableSegment) =>
     rotationsForRange(pageRot, seg.partIndex, seg.pageStart, seg.pageEnd)
+
+  /**
+   * 按草稿导出：段名/页范围/旋转都取自草稿，源素材现取字节后一起发给服务端切页打包。
+   *
+   * 为什么整包一次发（而不是逐段调 extract-pages 再在前端打 zip）：浏览器端没有
+   * zip 库，逐段往返几十次也不现实；服务端已经有切页 + 命名 + 压缩的唯一实现。
+   */
+  const exportDraft = () => {
+    if (!draftExport || !draftExport.segs.length) return
+    const messageId = useReader.getState().openId
+    if (messageId == null) {
+      toast.error('材料包还没打开，请稍后再试')
+      return
+    }
+    const key = 'export:draft'
+    if (inFlight.current) return
+    inFlight.current = key
+    setBusy(key)
+    void (async () => {
+      try {
+        const { mats, segs } = draftExport
+        const parts = await Promise.all(
+          mats.map(async (mat) => {
+            const bytes = await fetchAttachmentBytes(messageId, mat.partIndex)
+            const raw = new Blob([bytes], {
+              type: mat.k === 'pdf' ? 'application/pdf' : 'application/octet-stream',
+            })
+            // 图片素材没有页对象：按草稿里的旋转在本地重编码（与归案上传同一函数），
+            // 转不动就原样发——总不能因为一张图解码失败让整包导出失败
+            const deg = mat.k === 'photo' ? firstRotationOf(rotationsForRange(pageRot, mat.partIndex, 1, mat.pages)) : 0
+            const blob = deg ? await rotateImageBlob(raw, deg).catch(() => raw) : raw
+            return { partIndex: mat.partIndex, filename: mat.n, blob }
+          }),
+        )
+        const { specs, crossSource } = draftExportSpecs(segs, mats, pageRot)
+        if (!specs.length) {
+          toast.error('这些段跨了多个素材，没法按草稿导出；请先拆回单源')
+          return
+        }
+        const subject = useReader.getState().detail?.subject?.trim()
+        const { blob, skipped } = await exportDraftZip({ files: parts, segments: specs, name: subject })
+        saveBlob(blob, `${subject || '材料导出'}.zip`)
+        const note = [crossSource ? `${crossSource} 段跨源未导出` : '', skipped ? `${skipped} 段被服务端跳过` : '']
+          .filter(Boolean)
+          .join('；')
+        if (note) toast.warning(`导出完成，但有 ${note}`, { duration: 8000 })
+      } catch (e) {
+        toast.error(errMessage(e, '导出失败'))
+      } finally {
+        inFlight.current = null
+        setBusy(null)
+      }
+    })()
+  }
 
   const downloadOne = (seg: DownloadableSegment, kind: SegmentFileKind) => {
     const url =
@@ -159,7 +242,59 @@ export function useSegmentDownloads(
     }
   }
 
-  return { segments, sel, busy, downloadSelected, downloadAll, rowFor }
+  const exportPlan = draftExport ? draftExportSpecs(draftExport.segs, draftExport.mats, pageRot) : null
+
+  return {
+    segments,
+    sel,
+    busy,
+    downloadSelected,
+    downloadAll,
+    rowFor,
+    canExportDraft: Boolean(exportPlan && exportPlan.specs.length > 0),
+    exportDraft,
+    crossSourceCount: exportPlan?.crossSource ?? 0,
+  }
+}
+
+/**
+ * 草稿段 → 导出 spec。
+ *
+ * 跨源段（refs 指向多个素材）**跳过并计数**：导出接口的每段只有一个页区间，
+ * 硬塞「首页到末页」会把 A 素材的第 1-6 页当成合并段导出，B 那 6 页凭空消失
+ * ——与归案里那条 fail-closed 的理由完全相同（证据丢了比导出失败严重得多）。
+ */
+export function draftExportSpecs(
+  segs: readonly Segment[],
+  mats: readonly BundleMat[],
+  pageRot?: PageRotMap,
+): { specs: DraftExportSegmentIn[]; crossSource: number } {
+  const specs: DraftExportSegmentIn[] = []
+  let crossSource = 0
+  for (const sg of segs) {
+    const first = sg.refs[0]
+    const last = sg.refs[sg.refs.length - 1]
+    if (!first || !last || sg.refs.some((ref) => ref.mi !== first.mi)) {
+      crossSource += 1
+      continue
+    }
+    const mat = mats[first.mi]
+    if (!mat) {
+      crossSource += 1
+      continue
+    }
+    const name = (sg.t || sg.fn || '').trim().replace(/\.[A-Za-z0-9]{1,5}$/, '') || '未命名材料'
+    const rotations = rotationsForRange(pageRot, mat.partIndex, first.p, last.p)
+    specs.push({
+      name,
+      part_index: mat.partIndex,
+      page_start: first.p,
+      page_end: last.p,
+      ...(rotations ? { rotations } : {}),
+      ...(sg.md?.trim() ? { md: sg.md } : {}),
+    })
+  }
+  return { specs, crossSource }
 }
 
 /**
