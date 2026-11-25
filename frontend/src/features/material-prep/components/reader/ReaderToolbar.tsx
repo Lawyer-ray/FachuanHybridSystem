@@ -126,13 +126,13 @@ export function ReaderToolbar({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
+            // 只有图标、不带可见文字：读屏与测试仍靠这个 aria-label 认出它
             aria-label={`旋转：${rotation.label}`}
             title={`旋转页面（当前作用范围：${rotation.label}）`}
             disabled={rotation.count === 0}
-            className={cn(PBTN, 'gap-1 disabled:cursor-not-allowed disabled:opacity-40')}
+            className={cn(PBTN, 'gap-1 px-[6px] disabled:cursor-not-allowed disabled:opacity-40')}
           >
             <RotateCw className="h-3.5 w-3.5" />
-            旋转
             <ChevronDown className="h-3 w-3 text-muted-foreground" />
           </button>
         </DropdownMenuTrigger>

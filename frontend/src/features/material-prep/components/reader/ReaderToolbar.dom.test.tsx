@@ -478,15 +478,18 @@ describe('ReaderBody：自动分段进度面板接线', () => {
 
 // ── 旋转入口（唯一入口）───────────────────────────────────
 //
-// 入口收敛成一个带作用范围的下拉（页卡悬停按钮 / 右键菜单 / 选页浮条的那几份
-// 已删）。这里锁它存在、能报告作用范围、三个角度都传得对。
+// 入口收敛成工具栏上一个**图标按钮**（不带可见文字，名字只进 aria-label 与
+// title），点开是带作用范围的下拉。这里锁它可被找到、能报告作用范围、
+// 三个角度都传得对。
 
 describe('ReaderToolbar：旋转入口', () => {
-  it('常驻显示「旋转」并报告作用范围（不写范围等于让律师盲按 37 页）', () => {
+  it('图标按钮（无可见文字）也能报告作用范围（不写范围等于让律师盲按 37 页）', () => {
     const rotation = { label: '当前段 37 页', count: 37, rotatedCount: 0, rotate: vi.fn() }
     render(<ReaderToolbar {...makeProps({ rotation })} />)
     const trigger = screen.getByRole('button', { name: '旋转：当前段 37 页' })
     expect(trigger).toBeTruthy()
+    // 按钮上不应再出现中文文字：只留图标 + 箭头（名字靠 aria-label/title）
+    expect(trigger.textContent?.trim()).toBe('')
     fireEvent.keyDown(trigger, { key: 'Enter' })
     expect(screen.getByText('作用于 当前段 37 页')).toBeTruthy()
   })
