@@ -110,14 +110,17 @@ class TestParseDocument:
         assert result.layout["pages"][1]["text"] == "修补后的正常正文"
         assert result.metadata["repaired_pages"] == [2]
 
-    def test_修补仍退化则保留原样(self, tmp_path: Any) -> None:
+    def test_修补仍退化则清空正文交上层兜底(self, tmp_path: Any) -> None:
+        """不能把复读正文当成功交出去——那是「假成功」：上层不会当 pending 页处理，
+        17000 字的垃圾会一路进 Markdown / 分段 / 归案（实测 617 的 p1 就是这样）。"""
         looped = "\n".join(["同一段话反复吐出来"] * 50)
         backend = _StubBackend([_payload([(0, looped, "length")]), _payload([(0, looped, "length")])])
 
         result = backend.parse_document(str(_make_pdf(tmp_path)))
 
         assert result.metadata["repaired_pages"] == []
-        assert result.layout["pages"][0]["text"] == looped
+        assert result.metadata["unrepaired_pages"] == {1: "同一行重复 50 次"}
+        assert result.layout["pages"][0]["text"] == ""
 
     def test_整页只有一张图被判退化并重试(self, tmp_path: Any) -> None:
         backend = _StubBackend(

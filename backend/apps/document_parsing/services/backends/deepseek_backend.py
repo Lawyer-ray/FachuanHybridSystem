@@ -199,6 +199,25 @@ class DeepSeekOCRBackend:
         }
 
         repairs = self._repair_degenerate_pages(path, pages, finishes) if self._max_repair_pages else {}
+        # 修补后仍然退化的页：**必须清空正文**，不能原样交出去。
+        #
+        # 原样返回的后果是「假成功」：这一页有字（是复读的垃圾），上层就不会把它当
+        # pending 页去走 MinerU / 本地 OCR，于是 17000 字的复读正文一路进 Markdown、
+        # 进分段、进归案。实测 617 的 p1 就是这样（修补后 rich 只回「整页一张图」）。
+        # 清空后 `ocr_handler` 会把它记成 `<backend>_empty` → 进 pending → 走兜底。
+        unrepaired = {
+            page_no: reason
+            for page_no, text in sorted(pages.items())
+            if (reason := degeneracy_reason(text, finishes.get(page_no)))
+        }
+        for page_no in unrepaired:
+            pages[page_no] = ""
+        if unrepaired:
+            logger.warning(
+                "DeepSeek OCR 修补后仍有 %d 页退化，已清空正文交上层兜底: %s",
+                len(unrepaired),
+                unrepaired,
+            )
 
         layout = self._build_layout(pages, repairs)
         text = "\n\n".join(page_text for _no, page_text in sorted(pages.items()))
@@ -222,6 +241,7 @@ class DeepSeekOCRBackend:
                 "purpose": self.purpose,
                 "elapsed_seconds": elapsed,
                 "repaired_pages": sorted(repairs),
+                "unrepaired_pages": unrepaired,
                 "usage": result.get("usage") or {},
             },
         )
