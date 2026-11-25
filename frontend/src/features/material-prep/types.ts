@@ -196,6 +196,17 @@ export interface InfoField {
   ta?: boolean
 }
 
+/** 页旋转角度：顺时针增量（相对 PDF 自身 `/Rotate`），只允许 90 的倍数 */
+export type RotDeg = 0 | 90 | 180 | 270
+
+/**
+ * 页旋转覆盖表：key = `${partIndex}:${page}`（page 从 1 起）。
+ *
+ * 见 `draft/page-rotation.ts` 的模块文档：旋转记在草稿里、由各「材料化边界」
+ * 在生成 PDF 时烧入，源附件一个字节都不改。
+ */
+export type PageRotMap = Record<string, RotDeg>
+
 /** 拆分草稿本体（持久化到后端 draft_state） */
 export interface DraftState {
   mats: BundleMat[]
@@ -205,6 +216,17 @@ export interface DraftState {
   status?: PackStatus
   /** 归案信息：绑定到哪个案件/合同（办案模块消费） */
   assign?: AssignInfo
+  /**
+   * 页旋转覆盖（人工前置，随草稿持久化）。
+   *
+   * 为什么它是「律师的动作」而不是机器事实：倒着送纸扫描会得到 180° 的页，
+   * 律师转正是为了自己看得懂，并把正方向一路带到归案/归档/下载的 PDF 里。
+   * 键是 `partIndex:page`，与切段无关，所以切/并/删段都不会让旋转错位。
+   *
+   * 缺省（存量草稿没有该键）= 全部按原方向，与本字段加入前的行为一致。
+   * 口径与烧入点见 `draft/page-rotation.ts`。
+   */
+  pageRot?: PageRotMap
   /**
    * 页级质量统计（哪些页是图纸 / 稀疏 / 空白）。
    *

@@ -11344,6 +11344,227 @@
         ]
       }
     },
+    "/api/v1/automation/preservation-quotes": {
+      "post": {
+        "operationId": "plugins_court_automation_preservation_quote_api_endpoint_create_preservation_quote",
+        "summary": "Create Preservation Quote",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreservationQuoteSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "创建询价任务\n\n创建一个新的财产保全担保费询价任务。任务创建后状态为 PENDING，\n需要调用执行接口来实际执行询价。\n\n**请求参数：**\n- preserve_amount: 保全金额（必须为正数）\n- corp_id: 企业/法院ID\n- category_id: 分类ID (cPid)\n- credential_id: 账号凭证ID\n\n**响应：**\n返回创建的询价任务详情\n\n**错误码：**\n- VALIDATION_ERROR: 数据验证失败",
+        "tags": [
+          "财产保全询价"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreservationQuoteCreateSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "plugins_court_automation_preservation_quote_api_endpoint_list_preservation_quotes",
+        "summary": "List Preservation Quotes",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "title": "Page",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Page Size"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteListSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "列表查询询价任务\n\n分页查询询价任务列表，支持按状态筛选。\n\n**查询参数：**\n- page: 页码（从 1 开始，默认 1）\n- page_size: 每页数量（默认 20，最大 100）\n- status: 状态筛选（可选）\n  - pending: 等待中\n  - running: 执行中\n  - success: 成功\n  - partial_success: 部分成功\n  - failed: 失败\n\n**响应：**\n返回分页的任务列表，包含总数、页码等信息",
+        "tags": [
+          "财产保全询价"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/automation/preservation-quotes/{quote_id}": {
+      "get": {
+        "operationId": "plugins_court_automation_preservation_quote_api_endpoint_get_preservation_quote",
+        "summary": "Get Preservation Quote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quote_id",
+            "schema": {
+              "title": "Quote Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreservationQuoteSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "获取询价任务详情\n\n获取指定询价任务的详细信息，包括所有保险公司的报价记录。\n\n**路径参数：**\n- quote_id: 询价任务ID\n\n**响应：**\n返回询价任务详情，包含所有保险公司报价列表\n\n**错误码：**\n- NOT_FOUND: 任务不存在",
+        "tags": [
+          "财产保全询价"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/automation/preservation-quotes/{quote_id}/execute": {
+      "post": {
+        "operationId": "plugins_court_automation_preservation_quote_api_endpoint_execute_preservation_quote",
+        "summary": "Execute Preservation Quote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quote_id",
+            "schema": {
+              "title": "Quote Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteExecuteResponseSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "执行询价任务\n\n执行指定的询价任务，系统会：\n1. 检查 Token 是否有效\n2. 获取保险公司列表\n3. 并发查询所有保险公司报价\n4. 保存报价结果\n\n**注意：**\n- 如果 Token 不存在或已过期，会返回错误提示，需要先到 /admin/automation/testcourt/ 获取 Token\n- 执行过程是异步的，可能需要几秒到几十秒\n- 单个保险公司查询失败不会影响其他查询\n\n**路径参数：**\n- quote_id: 询价任务ID\n\n**响应：**\n返回执行结果，包含成功/失败统计\n\n**错误码：**\n- NOT_FOUND: 任务不存在\n- TOKEN_ERROR: Token 相关错误\n- FETCH_COMPANIES_FAILED: 获取保险公司列表失败",
+        "tags": [
+          "财产保全询价"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/automation/preservation-quotes/{quote_id}/retry": {
+      "post": {
+        "operationId": "plugins_court_automation_preservation_quote_api_endpoint_retry_preservation_quote",
+        "summary": "Retry Preservation Quote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quote_id",
+            "schema": {
+              "title": "Quote Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteExecuteResponseSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "重试询价任务\n\n重新执行失败或部分成功的询价任务。系统会：\n1. 检查任务状态是否允许重试\n2. 重置任务状态\n3. 重新执行完整的询价流程\n\n**注意：**\n- 只有失败或部分成功的任务可以重试\n- 重试会使用最新的Token和账号策略\n- 之前的报价记录会被保留\n\n**路径参数：**\n- quote_id: 询价任务ID\n\n**响应：**\n返回重试执行结果\n\n**错误码：**\n- NOT_FOUND: 任务不存在\n- VALIDATION_ERROR: 任务状态不允许重试\n- TOKEN_ERROR: Token 相关错误",
+        "tags": [
+          "财产保全询价"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/automation/court-sms": {
       "post": {
         "operationId": "apps_automation_api_court_sms_api_submit_sms",
@@ -28139,6 +28360,456 @@
         ]
       }
     },
+    "/api/v1/court-filing/case-info/{case_id}": {
+      "get": {
+        "operationId": "plugins_court_automation_filing_api_endpoint_get_case_filing_info",
+        "summary": "Get Case Filing Info",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseFilingInfoOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "获取案件立案所需信息",
+        "tags": [
+          "一张网立案"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/court-filing/execute": {
+      "post": {
+        "operationId": "plugins_court_automation_filing_api_endpoint_execute_court_filing",
+        "summary": "Execute Court Filing",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecuteCourtFilingOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "执行一张网在线立案（后台线程）",
+        "tags": [
+          "一张网立案"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecuteCourtFilingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/court-filing/session/{session_id}": {
+      "get": {
+        "operationId": "plugins_court_automation_filing_api_endpoint_get_court_filing_session_status",
+        "summary": "Get Court Filing Session Status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "schema": {
+              "title": "Session Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecuteCourtFilingOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "查询一张网立案会话状态",
+        "tags": [
+          "一张网立案"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/court-guarantee/case-info/{case_id}": {
+      "get": {
+        "operationId": "plugins_court_automation_guarantee_api_endpoint_get_case_guarantee_info",
+        "summary": "Get Case Guarantee Info",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseGuaranteeInfoOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "一张网担保"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/court-guarantee/quote/ensure": {
+      "post": {
+        "operationId": "plugins_court_automation_guarantee_api_endpoint_ensure_case_quote",
+        "summary": "Ensure Case Quote",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseQuoteOperationOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "一张网担保"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseQuoteOperationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/court-guarantee/quote/{quote_id}/bind": {
+      "post": {
+        "operationId": "plugins_court_automation_guarantee_api_endpoint_bind_case_quote",
+        "summary": "Bind Case Quote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quote_id",
+            "schema": {
+              "title": "Quote Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseQuoteOperationOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "一张网担保"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseQuoteOperationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/court-guarantee/quote/{quote_id}/retry": {
+      "post": {
+        "operationId": "plugins_court_automation_guarantee_api_endpoint_retry_case_quote",
+        "summary": "Retry Case Quote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quote_id",
+            "schema": {
+              "title": "Quote Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseQuoteOperationOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "一张网担保"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseQuoteOperationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/court-guarantee/quote/{quote_id}/delete": {
+      "post": {
+        "operationId": "plugins_court_automation_guarantee_api_endpoint_delete_case_quote",
+        "summary": "Delete Case Quote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quote_id",
+            "schema": {
+              "title": "Quote Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseQuoteOperationOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "一张网担保"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseQuoteOperationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/court-guarantee/quote-binding/{binding_id}/delete": {
+      "post": {
+        "operationId": "plugins_court_automation_guarantee_api_endpoint_delete_case_quote_binding",
+        "summary": "Delete Case Quote Binding",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "binding_id",
+            "schema": {
+              "title": "Binding Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseQuoteOperationOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "一张网担保"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseQuoteOperationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/court-guarantee/execute": {
+      "post": {
+        "operationId": "plugins_court_automation_guarantee_api_endpoint_execute_court_guarantee",
+        "summary": "Execute Court Guarantee",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecuteCourtGuaranteeOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "一张网担保"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecuteCourtGuaranteeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/court-guarantee/session/{session_id}": {
+      "get": {
+        "operationId": "plugins_court_automation_guarantee_api_endpoint_get_court_guarantee_session_status",
+        "summary": "Get Court Guarantee Session Status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "schema": {
+              "title": "Session Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecuteCourtGuaranteeOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "一张网担保"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/social/providers": {
       "get": {
         "operationId": "apps_social_auth_api_social_auth_api_list_providers",
@@ -40698,6 +41369,461 @@
           "answer"
         ],
         "title": "CaptchaAnswerIn",
+        "type": "object"
+      },
+      "InsuranceQuoteSchema": {
+        "description": "保险公司报价输出 Schema",
+        "properties": {
+          "id": {
+            "description": "报价记录ID",
+            "title": "Id",
+            "type": "integer"
+          },
+          "preservation_quote_id": {
+            "description": "询价任务ID",
+            "title": "Preservation Quote Id",
+            "type": "integer"
+          },
+          "company_id": {
+            "description": "保险公司ID",
+            "title": "Company Id",
+            "type": "string"
+          },
+          "company_code": {
+            "description": "保险公司编码",
+            "title": "Company Code",
+            "type": "string"
+          },
+          "company_name": {
+            "description": "保险公司名称",
+            "title": "Company Name",
+            "type": "string"
+          },
+          "premium": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "报价金额",
+            "title": "Premium"
+          },
+          "min_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最低费率",
+            "title": "Min Rate"
+          },
+          "max_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最高费率",
+            "title": "Max Rate"
+          },
+          "status": {
+            "description": "查询状态 (success/failed)",
+            "title": "Status",
+            "type": "string"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "错误信息",
+            "title": "Error Message"
+          },
+          "response_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "完整响应数据",
+            "title": "Response Data"
+          },
+          "created_at": {
+            "description": "创建时间",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "preservation_quote_id",
+          "company_id",
+          "company_code",
+          "company_name",
+          "status",
+          "created_at"
+        ],
+        "title": "InsuranceQuoteSchema",
+        "type": "object"
+      },
+      "PreservationQuoteSchema": {
+        "description": "询价任务输出 Schema",
+        "properties": {
+          "id": {
+            "description": "任务ID",
+            "title": "Id",
+            "type": "integer"
+          },
+          "preserve_amount": {
+            "description": "保全金额",
+            "title": "Preserve Amount",
+            "type": "string"
+          },
+          "corp_id": {
+            "description": "企业/法院ID",
+            "title": "Corp Id",
+            "type": "string"
+          },
+          "category_id": {
+            "description": "分类ID",
+            "title": "Category Id",
+            "type": "string"
+          },
+          "credential_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "凭证ID",
+            "title": "Credential Id"
+          },
+          "status": {
+            "description": "任务状态",
+            "title": "Status",
+            "type": "string"
+          },
+          "total_companies": {
+            "description": "保险公司总数",
+            "title": "Total Companies",
+            "type": "integer"
+          },
+          "success_count": {
+            "description": "成功查询数",
+            "title": "Success Count",
+            "type": "integer"
+          },
+          "failed_count": {
+            "description": "失败查询数",
+            "title": "Failed Count",
+            "type": "integer"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "错误信息",
+            "title": "Error Message"
+          },
+          "created_at": {
+            "description": "创建时间",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "开始时间",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "完成时间",
+            "title": "Finished At"
+          },
+          "quotes": {
+            "description": "保险公司报价列表",
+            "items": {
+              "$ref": "#/components/schemas/InsuranceQuoteSchema"
+            },
+            "title": "Quotes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "preserve_amount",
+          "corp_id",
+          "category_id",
+          "status",
+          "total_companies",
+          "success_count",
+          "failed_count",
+          "created_at"
+        ],
+        "title": "PreservationQuoteSchema",
+        "type": "object"
+      },
+      "PreservationQuoteCreateSchema": {
+        "description": "创建询价任务的输入 Schema",
+        "properties": {
+          "preserve_amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "保全金额,必须为正数",
+            "example": 100000.0,
+            "title": "Preserve Amount"
+          },
+          "corp_id": {
+            "description": "企业/法院ID",
+            "example": "440100",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Corp Id",
+            "type": "string"
+          },
+          "category_id": {
+            "description": "分类ID (cPid)",
+            "example": "1",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Category Id",
+            "type": "string"
+          },
+          "credential_id": {
+            "description": "账号凭证ID",
+            "example": 1,
+            "exclusiveMinimum": 0,
+            "title": "Credential Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "preserve_amount",
+          "corp_id",
+          "category_id",
+          "credential_id"
+        ],
+        "title": "PreservationQuoteCreateSchema",
+        "type": "object"
+      },
+      "QuoteListItemSchema": {
+        "description": "询价任务列表项 Schema(不包含详细报价)",
+        "properties": {
+          "id": {
+            "description": "任务ID",
+            "title": "Id",
+            "type": "integer"
+          },
+          "preserve_amount": {
+            "description": "保全金额",
+            "title": "Preserve Amount",
+            "type": "string"
+          },
+          "corp_id": {
+            "description": "企业/法院ID",
+            "title": "Corp Id",
+            "type": "string"
+          },
+          "category_id": {
+            "description": "分类ID",
+            "title": "Category Id",
+            "type": "string"
+          },
+          "status": {
+            "description": "任务状态",
+            "title": "Status",
+            "type": "string"
+          },
+          "total_companies": {
+            "description": "保险公司总数",
+            "title": "Total Companies",
+            "type": "integer"
+          },
+          "success_count": {
+            "description": "成功查询数",
+            "title": "Success Count",
+            "type": "integer"
+          },
+          "failed_count": {
+            "description": "失败查询数",
+            "title": "Failed Count",
+            "type": "integer"
+          },
+          "success_rate": {
+            "description": "成功率(百分比)",
+            "title": "Success Rate",
+            "type": "number"
+          },
+          "created_at": {
+            "description": "创建时间",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "开始时间",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "完成时间",
+            "title": "Finished At"
+          }
+        },
+        "required": [
+          "id",
+          "preserve_amount",
+          "corp_id",
+          "category_id",
+          "status",
+          "total_companies",
+          "success_count",
+          "failed_count",
+          "success_rate",
+          "created_at"
+        ],
+        "title": "QuoteListItemSchema",
+        "type": "object"
+      },
+      "QuoteListSchema": {
+        "description": "询价任务分页列表响应 Schema",
+        "properties": {
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "description": "每页记录数",
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total_pages": {
+            "description": "总页数",
+            "title": "Total Pages",
+            "type": "integer"
+          },
+          "items": {
+            "description": "任务列表",
+            "items": {
+              "$ref": "#/components/schemas/QuoteListItemSchema"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "page_size",
+          "total_pages",
+          "items"
+        ],
+        "title": "QuoteListSchema",
+        "type": "object"
+      },
+      "QuoteExecuteResponseSchema": {
+        "description": "执行询价任务响应 Schema",
+        "properties": {
+          "success": {
+            "description": "是否成功",
+            "title": "Success",
+            "type": "boolean"
+          },
+          "message": {
+            "description": "响应消息",
+            "title": "Message",
+            "type": "string"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PreservationQuoteSchema"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "询价结果"
+          }
+        },
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "QuoteExecuteResponseSchema",
         "type": "object"
       },
       "CourtSMSMaterialIntakeOut": {
@@ -57412,6 +58538,472 @@
           "target_dir"
         ],
         "title": "SaveToDirIn",
+        "type": "object"
+      },
+      "CaseFilingInfoOut": {
+        "description": "案件立案信息",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "integer"
+          },
+          "case_name": {
+            "title": "Case Name",
+            "type": "string"
+          },
+          "cause_of_action": {
+            "title": "Cause Of Action",
+            "type": "string"
+          },
+          "court_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Court Name"
+          },
+          "target_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Amount"
+          },
+          "plaintiff_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plaintiff Name"
+          },
+          "defendant_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defendant Name"
+          },
+          "our_party_is_plaintiff_side": {
+            "default": false,
+            "title": "Our Party Is Plaintiff Side",
+            "type": "boolean"
+          },
+          "has_court_credential": {
+            "default": false,
+            "title": "Has Court Credential",
+            "type": "boolean"
+          },
+          "has_http_plugin": {
+            "default": false,
+            "title": "Has Http Plugin",
+            "type": "boolean"
+          },
+          "suggested_filing_type": {
+            "default": "civil",
+            "title": "Suggested Filing Type",
+            "type": "string"
+          },
+          "default_filing_engine": {
+            "default": "api",
+            "title": "Default Filing Engine",
+            "type": "string"
+          },
+          "plugin_available": {
+            "default": true,
+            "title": "Plugin Available",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "case_id",
+          "case_name",
+          "cause_of_action",
+          "court_name",
+          "target_amount",
+          "plaintiff_name",
+          "defendant_name"
+        ],
+        "title": "CaseFilingInfoOut",
+        "type": "object"
+      },
+      "ExecuteCourtFilingOut": {
+        "description": "执行立案响应",
+        "properties": {
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "timing": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timing"
+          }
+        },
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "ExecuteCourtFilingOut",
+        "type": "object"
+      },
+      "ExecuteCourtFilingIn": {
+        "description": "执行立案请求",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "integer"
+          },
+          "filing_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filing Type"
+          },
+          "filing_engine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filing Engine"
+          }
+        },
+        "required": [
+          "case_id"
+        ],
+        "title": "ExecuteCourtFilingIn",
+        "type": "object"
+      },
+      "CaseGuaranteeInfoOut": {
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "integer"
+          },
+          "case_name": {
+            "title": "Case Name",
+            "type": "string"
+          },
+          "court_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Court Name"
+          },
+          "cause_of_action": {
+            "title": "Cause Of Action",
+            "type": "string"
+          },
+          "preserve_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preserve Amount"
+          },
+          "preserve_category": {
+            "title": "Preserve Category",
+            "type": "string"
+          },
+          "has_case_number": {
+            "title": "Has Case Number",
+            "type": "boolean"
+          },
+          "has_court_credential": {
+            "default": false,
+            "title": "Has Court Credential",
+            "type": "boolean"
+          },
+          "our_party_is_plaintiff_side": {
+            "default": false,
+            "title": "Our Party Is Plaintiff Side",
+            "type": "boolean"
+          },
+          "insurance_company_name": {
+            "default": "阳光财产保险股份有限公司",
+            "title": "Insurance Company Name",
+            "type": "string"
+          },
+          "insurance_company_options": {
+            "default": [
+              "中国平安财产保险股份有限公司",
+              "中国人民财产保险股份有限公司",
+              "中国太平洋财产保险股份有限公司",
+              "中国人寿财产保险股份有限公司",
+              "中华联合财产保险股份有限公司",
+              "阳光财产保险股份有限公司",
+              "大地财产保险股份有限公司",
+              "太平财产保险有限公司",
+              "永安财产保险股份有限公司",
+              "安盛天平财产保险有限公司"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Insurance Company Options",
+            "type": "array"
+          },
+          "consultant_code": {
+            "default": "",
+            "title": "Consultant Code",
+            "type": "string"
+          },
+          "quote_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Context"
+          },
+          "reusable_quotes": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Reusable Quotes",
+            "type": "array"
+          },
+          "respondent_options": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Respondent Options",
+            "type": "array"
+          },
+          "plugin_available": {
+            "default": true,
+            "title": "Plugin Available",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "case_id",
+          "case_name",
+          "court_name",
+          "cause_of_action",
+          "preserve_amount",
+          "preserve_category",
+          "has_case_number"
+        ],
+        "title": "CaseGuaranteeInfoOut",
+        "type": "object"
+      },
+      "CaseQuoteOperationOut": {
+        "properties": {
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "quote_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Context"
+          }
+        },
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "CaseQuoteOperationOut",
+        "type": "object"
+      },
+      "CaseQuoteOperationIn": {
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "case_id"
+        ],
+        "title": "CaseQuoteOperationIn",
+        "type": "object"
+      },
+      "ExecuteCourtGuaranteeOut": {
+        "properties": {
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "timing": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timing"
+          }
+        },
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "ExecuteCourtGuaranteeOut",
+        "type": "object"
+      },
+      "ExecuteCourtGuaranteeIn": {
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "integer"
+          },
+          "insurance_company_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insurance Company Name"
+          },
+          "consultant_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consultant Code"
+          },
+          "selected_respondent_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Respondent Ids"
+          }
+        },
+        "required": [
+          "case_id"
+        ],
+        "title": "ExecuteCourtGuaranteeIn",
         "type": "object"
       },
       "ProviderOut": {

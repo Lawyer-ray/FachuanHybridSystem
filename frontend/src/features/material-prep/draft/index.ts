@@ -12,6 +12,21 @@
  * 不是把内部实现摊开。子模块内仍可使用的私有函数不必出现在这里。
  */
 
+export {
+  pageRotKey,
+  parsePageRotKey,
+  normalizeDeg,
+  getPageRot,
+  rotatedSizeOf,
+  rotateRefs,
+  setRefsRotation,
+  resetRefsRotation,
+  countRotated,
+  rotateNormRect,
+  rotationsForRange,
+  rotatedRefsOf,
+} from './page-rotation'
+export type { PageRefKey } from './page-rotation'
 export { nextSegId, ensureSegIds } from './seg-id'
 export { isEmptyDraft, withPageQuality, withEngineDisagreements, setEngineChecked } from './state'
 export { resolveMats, buildInitialDraft } from './resolve'

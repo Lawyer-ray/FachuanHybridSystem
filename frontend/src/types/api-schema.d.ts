@@ -6127,6 +6127,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/doc-verify/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Run
+         * @description 提交一份回传件跑核对（幂等：同一基线 + 同字节重复提交返回同一行）。
+         */
+        post: operations["apps_doc_verify_api_verify_api_create_run"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Run
+         * @description 单次核对详情（含发现项与覆盖度）。
+         */
+        get: operations["apps_doc_verify_api_verify_api_get_run"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/runs/{run_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Decision
+         * @description 记录一条裁决（append-only，不改历史行）。
+         */
+        post: operations["apps_doc_verify_api_verify_api_create_decision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/unverified": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Unverified
+         * @description 该案待裁决清单（状态需裁决 + 要求核对 + 无 accept/reject 裁决）。
+         */
+        get: operations["apps_doc_verify_api_verify_api_list_unverified"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/batch-printing/capabilities": {
         parameters: {
             query?: never;
@@ -19460,6 +19540,132 @@ export interface components {
              * @default true
              */
             write_duplicates: boolean;
+        };
+        /**
+         * FindingOut
+         * @description 一条失败项（红线 / 疑似 / 无法核对）。
+         */
+        FindingOut: {
+            /** Kind */
+            kind: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /** Severity */
+            severity: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /**
+             * Expected
+             * @default
+             */
+            expected: string;
+            /**
+             * Actual
+             * @default
+             */
+            actual: string;
+            /** Page */
+            page?: number | null;
+        };
+        /**
+         * VerifyRunOut
+         * @description 一次核对（详情与待裁决清单共用）。
+         */
+        VerifyRunOut: {
+            /** Id */
+            id: number;
+            /** Artifact Id */
+            artifact_id: number;
+            /** Case Id */
+            case_id?: number | null;
+            /** Doc Type */
+            doc_type: string;
+            /** State */
+            state: string;
+            /** State Label */
+            state_label: string;
+            /** Tier */
+            tier: number;
+            /** Inbound File Name */
+            inbound_file_name: string;
+            /** Inbound Sha256 */
+            inbound_sha256: string;
+            /** Page Count */
+            page_count: number;
+            /** Findings */
+            findings: components["schemas"]["FindingOut"][];
+            /** Coverage */
+            coverage: {
+                [key: string]: unknown;
+            };
+            /** Source Message Id */
+            source_message_id?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * VerifyRunIn
+         * @description 提交一次回传件核对。
+         */
+        VerifyRunIn: {
+            /** Artifact Id */
+            artifact_id: number;
+            /** File Base64 */
+            file_base64: string;
+            /**
+             * File Name
+             * @default
+             */
+            file_name: string;
+            /** Source Message Id */
+            source_message_id?: number | null;
+            /**
+             * Tier
+             * @default 0
+             */
+            tier: number;
+        };
+        /**
+         * DecisionOut
+         * @description 一条已留痕的裁决。
+         */
+        DecisionOut: {
+            /** Id */
+            id: number;
+            /** Verification Id */
+            verification_id: number;
+            /** Action */
+            action: string;
+            /** Reason */
+            reason: string;
+            /** Decided By Id */
+            decided_by_id?: number | null;
+            /**
+             * Decided At
+             * Format: date-time
+             */
+            decided_at: string;
+        };
+        /**
+         * DecisionIn
+         * @description 律师裁决入参。
+         */
+        DecisionIn: {
+            /** Action */
+            action: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
         };
         /** CapabilityOut */
         CapabilityOut: {
@@ -34661,6 +34867,100 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_create_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyRunIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyRunOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_get_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyRunOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_create_decision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_list_unverified: {
+        parameters: {
+            query: {
+                case_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyRunOut"][];
+                };
             };
         };
     };
