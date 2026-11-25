@@ -66,6 +66,8 @@ function runOf(over: Partial<VerifyRunOut> = {}): VerifyRunOut {
     case_id: 7,
     // 跨案件清单靠它定位「是哪一件」，后端一定会给
     case_name: '张三诉李四借款纠纷',
+    last_decision_action: '',
+    last_decision_at: null,
     doc_type: '起诉状',
     state: 'changed',
     state_label: '检出问题',

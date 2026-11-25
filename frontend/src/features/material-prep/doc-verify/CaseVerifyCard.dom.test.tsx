@@ -54,6 +54,8 @@ function runOf(over: Partial<VerifyRunOut> = {}): VerifyRunOut {
     artifact_id: 9,
     case_id: 7,
     case_name: '张三诉李四借款纠纷',
+    last_decision_action: '',
+    last_decision_at: null,
     doc_type: '起诉状',
     state: 'changed',
     state_label: '检出问题',
@@ -111,6 +113,25 @@ function searchParamsOf(n: number): Record<string, unknown> {
 beforeEach(() => {
   vi.clearAllMocks()
   kyMock.get.mockReturnValue(jsonOf(pageOf([])))
+})
+
+
+describe('CaseVerifyCard：已处置的行', () => {
+  it('标出「已采纳」，且不计入底部「待裁决」数', async () => {
+    const decided = runOf({
+      id: 91,
+      state: 'changed',
+      state_label: '疑似改动',
+      last_decision_action: 'accept',
+    })
+    kyMock.get.mockReturnValue(jsonOf(pageOf([decided])))
+
+    renderCard()
+
+    expect(await screen.findByText('已采纳')).toBeTruthy()
+    // 已采纳 = 已处置：不该再算进「还有 N 条要处理」
+    expect(screen.queryByText(/条待裁决 → 去材料准备页处理/)).toBeNull()
+  })
 })
 
 describe('CaseVerifyCard：空态', () => {

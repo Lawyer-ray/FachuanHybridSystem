@@ -257,6 +257,16 @@ function RunRow({ run }: { run: VerifyRunOut }) {
           {run.doc_type}
         </span>
         <span className="flex-none text-[11px] text-muted-foreground">{run.state_label}</span>
+        {run.last_decision_action === 'accept' && (
+          <span className="flex-none rounded bg-status-green-bg px-1 text-[10px] leading-4 text-status-green">
+            已采纳
+          </span>
+        )}
+        {run.last_decision_action === 'reject' && (
+          <span className="flex-none rounded bg-secondary px-1 text-[10px] leading-4 text-muted-foreground">
+            已退回
+          </span>
+        )}
         <span className="flex-none text-[11px] text-muted-foreground/80 tabular-nums">
           {runTimeText(run.created_at)}
         </span>
@@ -334,12 +344,19 @@ export function CaseVerifyCard({ caseId }: { caseId: number }) {
    *
    * 为什么做不到「每一行判是否已处置」：后端 `VerifyRunOut` 目前没有裁决字段
    * （`services/verify/query.py::run_detail` 只回「这次核出了什么」），前端只靠
-   * `listCaseRuns` 一个数据源时无从得知某条是否已被 accept/reject。逐行挂「去处理」
-   * 会让已经采纳过的行也带入口，点过去在材料准备页的待裁决清单里根本找不到它——
-   * 那比没有入口更糟。等后端补 `last_decision_action` 后，这里再按行显示
-   * 「已采纳 / 已退回」并只给真正未处置的行放入口；在那之前不在前端拼两个接口模拟。
+   * 逐行挂「去处理」曾会把已经采纳过的行也带上入口，点过去在材料准备页的待裁决清单里
+   * 根本找不到它——那比没有入口更糟。现在后端给了 `last_decision_action`，
+   * 行内直接标「已采纳 / 已退回」，底部计数只算**还没被 accept/reject** 的那些。
+   * 不再需要在「去处理」入口上猜处置状态。
+   *
+   * `reissue` 不算处置完：它只是「要求重出」，客户会不会回传新版还不知道，这条仍在进行中。
    */
-  const pendingShown = runs.filter((run) => BLOCKING_STATES.includes(run.state)).length
+  const pendingShown = runs.filter(
+    (run) =>
+      BLOCKING_STATES.includes(run.state) &&
+      run.last_decision_action !== 'accept' &&
+      run.last_decision_action !== 'reject',
+  ).length
 
   return (
     <section
