@@ -28,7 +28,7 @@ from apps.pdf_splitting.services.split.consistency_summary import (
     pick_top_inconsistencies,
 )
 from apps.pdf_splitting.services.split.cross_page_consistency import Inconsistency
-from apps.pdf_splitting.services.split.page_quality import PageQuality
+from apps.pdf_splitting.services.split.page_quality import PageQuality, assess_page_quality, rescue_image_region
 from apps.pdf_splitting.services.split.page_quality_summary import (
     build_page_quality_summary,
     qualities_by_page,
@@ -36,9 +36,15 @@ from apps.pdf_splitting.services.split.page_quality_summary import (
 )
 
 
-def _page(page_no: int, text: str = "", layout: dict[str, Any] | None = None) -> Any:
-    """页描述符桩：聚合层只读 page_no / text / layout 三个属性。"""
-    return SimpleNamespace(page_no=page_no, text=text, layout=layout)
+def _page(
+    page_no: int,
+    text: str = "",
+    layout: dict[str, Any] | None = None,
+    *,
+    ocr_failed: bool = False,
+) -> Any:
+    """页描述符桩：聚合层只读 page_no / text / layout / ocr_failed 四个属性。"""
+    return SimpleNamespace(page_no=page_no, text=text, layout=layout, ocr_failed=ocr_failed)
 
 
 def _quality(page_no: int, kind: str, *, review: bool, reason: str) -> PageQuality:
@@ -66,7 +72,7 @@ class TestPageQualitySummary:
         }
         with patch(
             "apps.pdf_splitting.services.split.page_quality_summary.assess_page_quality",
-            side_effect=lambda *, page_no, text, layout: qualities[page_no],
+            side_effect=lambda *, page_no, text, layout, ocr_failed=False: qualities[page_no],
         ):
             summary = build_page_quality_summary(pages)
 
@@ -74,11 +80,41 @@ class TestPageQualitySummary:
         assert summary["sparse_pages"] == [2]
         assert summary["blank_pages"] == [3]
 
+    def test_取字失败的页不进空白页桶(self) -> None:
+        """「没读出来」与「原件本来就没字」必须是两件事。
+
+        回归 2026-11-25 一份真实卷宗：某一页整案核心事实（标的金额 + 生效判决编号）
+        因为 ocr_failed=True 且正文为空，被判成 blank 且 needs_visual_review=False——
+        律师看到「空白页」会以为原件没字。
+        """
+        assert assess_page_quality(page_no=12, text="", ocr_failed=True).kind == "ocr_failed"
+        assert assess_page_quality(page_no=12, text="").kind == "blank"
+
+    def test_取字失败的页必须进details且要求看原图(self) -> None:
+        quality = assess_page_quality(page_no=12, text="", ocr_failed=True)
+        assert quality.needs_visual_review is True
+        # 文案必须说清「不是空白页」，否则与 blank 在律师眼里没区别
+        assert "不是空白页" in quality.reason
+
+    def test_部分取字失败的页也告警(self) -> None:
+        quality = assess_page_quality(page_no=12, text="已经读到的一部分正文" * 30, ocr_failed=True)
+        assert quality.kind == "ocr_failed"
+        assert quality.needs_visual_review is True
+        assert "不完整" in quality.reason
+
+    def test_取字失败页不进图片块补救清单(self) -> None:
+        """整页取字失败缺的是整页正文，不是某个 image 块；补救只重识别一个矩形区域。"""
+        quality = assess_page_quality(page_no=12, text="", ocr_failed=True)
+        page = _page(
+            12, ocr_failed=True, layout={"blocks": [{"type": "image", "text": "", "bbox": [0, 0, 1000, 1000]}]}
+        )
+        assert rescue_image_region(page, quality) is None
+
     def test_details只收需要看原图的页且直接用判据的reason(self) -> None:
         """details 的文案不再自己造：判据的 reason 就是给律师看的那句话。"""
         with patch(
             "apps.pdf_splitting.services.split.page_quality_summary.assess_page_quality",
-            side_effect=lambda *, page_no, text, layout: _quality(
+            side_effect=lambda *, page_no, text, layout, ocr_failed=False: _quality(
                 page_no, "graphic" if page_no == 147 else "sparse", review=page_no == 147, reason=f"第{page_no}页说明"
             ),
         ):
@@ -92,6 +128,7 @@ class TestPageQualitySummary:
             "graphic_pages": [],
             "sparse_pages": [],
             "blank_pages": [],
+            "ocr_failed_pages": [],
             "details": {},
             "doc_hints": {},
             "doc_missing": {},
@@ -102,13 +139,27 @@ class TestPageQualitySummary:
         seen: list[Any] = []
         with patch(
             "apps.pdf_splitting.services.split.page_quality_summary.assess_page_quality",
-            side_effect=lambda *, page_no, text, layout: (
+            side_effect=lambda *, page_no, text, layout, ocr_failed=False: (
                 seen.append(layout) or _quality(page_no, "text", review=False, reason="正常文本页")
             ),
         ):
             build_page_quality_summary([_page(1, layout={"blocks": []}), _page(2, layout=None)])
 
         assert seen == [{"blocks": []}, None]
+
+    def test_ocr_failed标志原样透传给判据(self) -> None:
+        """接入层不自己推断：`ocr_failed` 是取字链路报的事实，必须原样传下去。"""
+        seen: list[bool] = []
+        with patch(
+            "apps.pdf_splitting.services.split.page_quality_summary.assess_page_quality",
+            side_effect=lambda *, page_no, text, layout, ocr_failed=False: (
+                seen.append(ocr_failed) or _quality(page_no, "text", review=False, reason="r")
+            ),
+        ):
+            build_page_quality_summary([_page(1, ocr_failed=True), _page(2)])
+            qualities_by_page([_page(1, ocr_failed=True), _page(2)])
+
+        assert seen == [True, False, True, False]
 
     def test_落盘载荷含summary区块与逐页画像(self) -> None:
         qualities = {5: _quality(5, "graphic", review=True, reason="请核对原图")}
@@ -121,7 +172,9 @@ class TestPageQualitySummary:
     def test_qualities_by_page按页号索引(self) -> None:
         with patch(
             "apps.pdf_splitting.services.split.page_quality_summary.assess_page_quality",
-            side_effect=lambda *, page_no, text, layout: _quality(page_no, "sparse", review=False, reason="r"),
+            side_effect=lambda *, page_no, text, layout, ocr_failed=False: _quality(
+                page_no, "sparse", review=False, reason="r"
+            ),
         ):
             result = qualities_by_page([_page(3), _page(7)])
         assert sorted(result) == [3, 7]
@@ -389,13 +442,14 @@ class TestAnalyzePdfWritesSummary:
             llm_segment_detector=_OneShotLLM(),
         )
 
-        # 页面质量：三类分桶 + details + doc_hints + doc_missing 一定存在（哪怕全空），
-        # 前端凭键判断是否展示「待补录清单」入口
+        # 页面质量：四类分桶 + details + doc_hints + doc_missing 一定存在（哪怕全空），
+        # 前端凭键判断是否展示「待补录清单」入口 / 取字失败告警
         quality = outcome.summary["page_quality"]
         assert set(quality) == {
             "graphic_pages",
             "sparse_pages",
             "blank_pages",
+            "ocr_failed_pages",
             "details",
             "doc_hints",
             "doc_missing",

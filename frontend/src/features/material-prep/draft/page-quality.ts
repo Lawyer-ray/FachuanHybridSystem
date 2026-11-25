@@ -18,14 +18,17 @@ export function readPageQuality(raw: unknown): PageQuality | null {
   const graphicPages = numList(src.graphic_pages)
   const sparsePages = numList(src.sparse_pages)
   const blankPages = numList(src.blank_pages)
+  const ocrFailedPages = numList(src.ocr_failed_pages)
   const docHints = strMap(src.doc_hints)
   const docMissing = readDocMissing(src.doc_missing)
   // 全空就当没有：让调用方少一层「有没有内容」的判断。
   // doc_missing 也算内容：它可能单独出现（知道缺什么、没给类型码），丢了就整张清单消失。
+  // ocr_failed_pages 同理：它可能**单独**出现在一份其余完全干净的任务里（就是那几页没读到）。
   const empty =
     graphicPages.length === 0 &&
     sparsePages.length === 0 &&
     blankPages.length === 0 &&
+    ocrFailedPages.length === 0 &&
     Object.keys(docHints).length === 0 &&
     Object.keys(docMissing).length === 0
   if (empty) return null
@@ -33,6 +36,7 @@ export function readPageQuality(raw: unknown): PageQuality | null {
     graphic_pages: graphicPages,
     sparse_pages: sparsePages,
     blank_pages: blankPages,
+    ocr_failed_pages: ocrFailedPages,
     details: strMap(src.details),
     doc_hints: docHints,
     doc_missing: docMissing,
@@ -84,6 +88,23 @@ export function graphicPagesOf(
   const graphics = new Set(quality?.graphic_pages ?? [])
   if (graphics.size === 0) return []
   return seg.refs.map((r) => r.p).filter((p) => graphics.has(p))
+}
+
+/** 某段覆盖的**取字失败**页（一个字都没读到，正文里根本没有这几页）。
+ *
+ *  与 `graphicPagesOf` 同口径（按 `seg.refs` 位置取值、允许跨源重复页号），
+ *  但语义完全不同：图形页是「有图没字」，取字失败是「连一次都没成功」。
+ *  后者在正文里没有任何痕迹（空页不会出现在 Markdown），因此界面上必须有
+ *  一个不属于「正文内提示」的入口——左栏段行徽标就是这个入口。
+ */
+export function ocrFailedPagesOf(
+  seg: Pick<Segment, 'refs'> | null | undefined,
+  quality: PageQuality | null,
+): number[] {
+  if (!seg) return []
+  const failed = new Set(quality?.ocr_failed_pages ?? [])
+  if (failed.size === 0) return []
+  return seg.refs.map((r) => r.p).filter((p) => failed.has(p))
 }
 
 /** 某段覆盖的稀疏页（有字但少得可疑：一张图上的几个字、被拍糊的一页） */

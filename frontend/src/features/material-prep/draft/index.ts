@@ -84,6 +84,7 @@ export {
   inconsistencyKindOf,
   sortInconsistencies,
   graphicPagesOf,
+  ocrFailedPagesOf,
   sparsePagesOf,
   docHintPagesOf,
   docTypeLabel,

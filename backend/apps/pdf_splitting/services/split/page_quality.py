@@ -95,6 +95,19 @@ _RESCUE_MIN_AREA_RATIO = 0.02
 #: 具体说法（“这页是身份证，但姓名 / 身份证号 / 住址 均未读出”）。
 _SPARSE_REASON = "内容较少，可能是封面/证件/表单，建议核对"
 
+#: 取字彻底失败的页（`PageDescriptor.ocr_failed`）。
+#:
+#: 文案里必须带「不是空白页」这四个字。实测事故（2026-11-25，一份 37 页扫描卷宗的某一页）：
+#: 那一页是整案的核心事实（涉诉标的与生效刑事判决的编号全在这一页）——
+#: 云端整批鉴权失败后逐页兜底也失败，于是 `ocr_failed=True` + 空正文，
+#: 被判成 kind=blank（理由「空白页」）且 `needs_visual_review=False`：**界面上一声不响，
+#: 律师看到「空白页」会以为原件本来就没字**。空正文只有两种可能——原件空白，或我们没读出来——
+#: 后者的代价是丢掉整页事实，绝不能静默归成前者。
+_OCR_FAILED_REASON = "取字失败：这一页没有识别到任何文字（不是空白页），请核对原图并手工补录"
+
+#: 取字过程报错但仍有部分正文的页：字是真的，但可能缺了半页。
+_OCR_FAILED_PARTIAL_REASON = "取字部分失败：这一页的识别过程报错，正文可能不完整，请核对原图"
+
 #: 跨页高频的印章/核对套话的**固定短语**部分。单一词表，统计与清洗共用同一份，
 #: 两边只在「经办人」那一支的吃法上不同（见下面两个正则）。
 _STAMP_PHRASES = r"已核对与原件相符|扫描件与留档资料相符|与原件核[对符]|编号\s*NOD[0-9A-Za-z\-]*"
@@ -166,7 +179,7 @@ _TAG_RE = re.compile(r"<[^>]*>")
 _TABLE_BLOCK_TYPES = frozenset({"table"})
 _IMAGE_BLOCK_TYPES = frozenset({"image", "figure", "picture", "inline_object", "inlineimage"})
 
-PageKind = Literal["text", "sparse", "graphic", "blank"]
+PageKind = Literal["text", "sparse", "graphic", "blank", "ocr_failed"]
 
 
 @dataclass(frozen=True)
@@ -183,13 +196,21 @@ class PageQuality:
     doc_hint: str | None = None
 
 
-def assess_page_quality(*, page_no: int, text: str, layout: dict | None = None) -> PageQuality:
+def assess_page_quality(
+    *,
+    page_no: int,
+    text: str,
+    layout: dict | None = None,
+    ocr_failed: bool = False,
+) -> PageQuality:
     """判定一页的内容形态。
 
     ``text`` 是这一页的取字结果（OCR / 文本层即可，不必清洗）。
     ``layout`` 是该页的版面结构（可含 ``blocks`` 列表）；拿不到就传 None，
     此时只用文本启发——缺 layout 只会让判定更保守，不会让页面凭空变成图形页。
     ``char_count`` 是剔除印章套话后的有效字数，与判据口径一致。
+    ``ocr_failed`` 取 ``PageDescriptor.ocr_failed``：取字链路自己报的失败，
+    属于**可复核事实**，不是启发式。它必须压过所有其它分支（见 ``_OCR_FAILED_REASON``）。
     """
     raw = text if isinstance(text, str) else ""
     effective = _strip_stamp_boilerplate(raw)
@@ -197,6 +218,12 @@ def assess_page_quality(*, page_no: int, text: str, layout: dict | None = None) 
     blocks = _layout_blocks(layout)
     table_chars = _table_block_char_counts(blocks)
 
+    # 0) ocr_failed 优先于一切：取字链路明确报过错，这一页的正文不可信。
+    #    不能落到下面的 blank 分支——「空白页」与「我们没读出来」是两件完全不同的事，
+    #    而 blank 的 needs_visual_review 是 False，等于什么都没提示。
+    if ocr_failed:
+        reason = _OCR_FAILED_REASON if char_count == 0 else _OCR_FAILED_PARTIAL_REASON
+        return PageQuality(page_no, char_count, "ocr_failed", reason, True)
     # 1) blank：剔除套话后一个可见字符都没有，且版面里也没有任何块。
     #    为什么要求「无 layout 块」：扫描件页若解析器给了块，它其实是一张图或一张
     #    空表，按空白页处理会把图纸吞掉；那种情况属于 graphic。
@@ -311,6 +338,11 @@ def rescue_image_region(page: Any, quality: PageQuality) -> list[float] | None:
     原 image 块仍是空的——不标记的话同一份 PDF 每次重跑都会为它再付一次钱。
     """
     if not (quality.needs_visual_review or quality.doc_hint):
+        return None
+    # 取字整体失败的页不走图片块补救：它缺的是整页正文，不是「某个 image 块里的照片」，
+    # 而补救只重识别一个矩形区域（连坐标都得来自可靠版面）。这种页的正确处置是
+    # 换引擎重取或人工补录，不是在这里多花一次云端调用。
+    if quality.kind == "ocr_failed":
         return None
     blocks = _layout_blocks(getattr(page, "layout", None))
     boxes = [

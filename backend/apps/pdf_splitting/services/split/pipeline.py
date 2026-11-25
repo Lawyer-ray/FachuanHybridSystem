@@ -165,7 +165,26 @@ def extract_pages(
     # 都只是「这页 Markdown 可能看不全内容，请核对原图」的提示，拦下来会让律师
     # 遇到「164 页都读出来了任务却说失败」。误报的代价（律师照常读）远小于误拦
     # （整份卷宗用不成）。
-    summary["page_quality"] = build_page_quality_summary(pages)
+    page_quality = build_page_quality_summary(pages)
+    summary["page_quality"] = page_quality
+    # 取字失败的页必须留一条 WARNING，且带页号。
+    #
+    # 为什么不能只靠 summary 里的计数：`ocr_failed` 页的正文是空的，它既不会出现在
+    # Markdown 里，也不会让任务失败——**律师侧唯一的痕迹就是少了一页内容**。
+    # 2026-11-25 一份 37 页扫描卷宗的某一页（整案核心事实与金额全在那一页）就是这样
+    # 整页丢的，日志里一条都没有。
+    failed_pages = page_quality.get("ocr_failed_pages") or []
+    if failed_pages:
+        logger.warning(
+            "pdf_split_pages_without_text",
+            extra={
+                "page_numbers": failed_pages[:50],
+                "failed_count": len(failed_pages),
+                "total_pages": len(pages),
+                "ocr_provider": summary.get("ocr_provider"),
+                "ocr_fallback_reason": summary.get("ocr_fallback_reason"),
+            },
+        )
     return pages, summary
 
 

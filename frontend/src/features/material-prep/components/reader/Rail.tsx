@@ -2,7 +2,15 @@ import { useEffect, useState } from 'react'
 import { FileText, IdCard, Image, Layers, PencilLine, ScanSearch, ScanText } from 'lucide-react'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
 import type { BundleMat, DraftState, Inconsistency, PageQuality } from '../../types'
-import { docHintPagesOf, docTodosOf, graphicPagesOf, isAutoSegName, isWholeMat, segMats } from '../../draft'
+import {
+  docHintPagesOf,
+  docTodosOf,
+  graphicPagesOf,
+  isAutoSegName,
+  isWholeMat,
+  ocrFailedPagesOf,
+  segMats,
+} from '../../draft'
 import { RailSegRow, type DropPos } from './RailSegRow'
 import { SegmentDownloadBar } from './SegmentDownloadBar'
 import { useSegmentDownloads, type DownloadableSegment } from './use-segment-downloads'
@@ -111,6 +119,7 @@ export function Rail({
     si,
     graphicPages: graphicPagesOf(draft.segs[si], pageQuality),
     docHintPages: docHintPagesOf(draft.segs[si], pageQuality),
+    ocrFailedPages: ocrFailedPagesOf(draft.segs[si], pageQuality),
     whole: isWholeMat(draft, si),
     auto: isAutoSegName(draft, draft.segs[si]!),
     classified: !isAutoSegName(draft, draft.segs[si]!),

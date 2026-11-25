@@ -34,7 +34,11 @@ from .page_quality import PageQuality, assess_page_quality
 
 #: 逐页判定的 kind → summary 里的分桶键。两者同名，但**显式列出来**：
 #: 判据层将来加 kind 时，这里没跟上的话会直接在下面 KeyError，而不是静默丢页。
-_KIND_BUCKETS = ("graphic", "sparse", "blank")
+#:
+#: ``ocr_failed`` 单独一桶、**不并进 blank**：前者是「我们没读出来」（要人去补），
+#: 后者是「原件本来就没字」（不用管）。并成一桶就等于把律师最需要知道的那件事
+#: 静默成了最不需要管的那件事（2026-11-25 一份真实卷宗的整页丢字事故）。
+_KIND_BUCKETS = ("graphic", "sparse", "blank", "ocr_failed")
 
 
 def build_page_quality_summary(pages: list[Any]) -> dict[str, Any]:
@@ -70,6 +74,7 @@ def build_page_quality_summary(pages: list[Any]) -> dict[str, Any]:
             page_no=page_no,
             text=str(getattr(page, "text", "") or ""),
             layout=getattr(page, "layout", None),
+            ocr_failed=bool(getattr(page, "ocr_failed", False)),
         )
         if quality.kind in buckets:
             buckets[quality.kind].append(page_no)
@@ -95,6 +100,8 @@ def build_page_quality_summary(pages: list[Any]) -> dict[str, Any]:
         "graphic_pages": sorted(buckets["graphic"]),
         "sparse_pages": sorted(buckets["sparse"]),
         "blank_pages": sorted(buckets["blank"]),
+        # 取字彻底失败 / 部分失败的页。前端拿它出显式告警（不是「空白页」）。
+        "ocr_failed_pages": sorted(buckets["ocr_failed"]),
         "details": details,
         "doc_hints": doc_hints,
         "doc_missing": doc_missing,
@@ -116,6 +123,7 @@ def qualities_by_page(pages: list[Any]) -> dict[int, PageQuality]:
             page_no=page_no,
             text=str(getattr(page, "text", "") or ""),
             layout=getattr(page, "layout", None),
+            ocr_failed=bool(getattr(page, "ocr_failed", False)),
         )
     return result
 
