@@ -48,7 +48,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
 
       - name: Install Python
         run: uv python install 3.12
@@ -199,7 +199,7 @@ jobs:
           fi
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
 
       - name: Cache uv packages
         uses: actions/cache@v6
@@ -452,7 +452,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
 
       - name: Cache uv packages
         uses: actions/cache@v6
@@ -520,7 +520,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
 
       - name: Cache uv packages
         uses: actions/cache@v6
@@ -608,7 +608,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
 
       - name: Cache uv packages
         uses: actions/cache@v6
@@ -684,7 +684,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
       - name: Setup Python
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
@@ -728,7 +728,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
 
       - name: Setup Python
         run: uv python install ${{ matrix.python-version }}

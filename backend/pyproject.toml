@@ -70,13 +70,13 @@ dependencies = [
     "docxtpl==0.20.2",
     "python-docx==1.2.0",
     "reportlab==5.1.0",
-    "pdfplumber==0.11.10",
-    "pikepdf==10.18.1",
+    "pdfplumber==0.11.11",
+    "pikepdf==10.18.2",
     "pymupdf==2.1",
     "openpyxl==3.1.5",
     "xlrd>=2.0.1",
     # --- 图像处理 ---
-    "opencv-python-headless==5.0.0.93",
+    "opencv-python-headless==5.1.0.95",
     "Pillow==13.0.0",
     # --- OCR ---
     "rapidocr==3.10.0",
@@ -91,9 +91,9 @@ dependencies = [
     "playwright==1.65.2",
     # --- 数据处理 ---
     "pandas==3.1.1",
-    "pydantic==2.14.3",
+    "pydantic==2.14.4",
     "python-dateutil==2.9.0.post0",
-    "pyyaml==6.0.3",
+    "pyyaml==6.0.4",
     # --- 安全 / 加密 ---
     "cryptography==50.0.2",
     # --- 可观测性 ---
@@ -116,7 +116,7 @@ dependencies = [
     # mcp 的传递依赖；固定下限避开 CVE-2026-114603（pip-audit 报 1.44.0 命中，修于 1.45.1）
     "opentelemetry-api>=1.45.1",
     "gmssl==3.2.2",
-    "python-multipart==0.0.33",
+    "python-multipart==0.0.34",
     "aiohttp>=3.14.3",
     "starlette>=1.3.1",
     # --- 日历同步 ---
@@ -142,7 +142,7 @@ dependencies = [
 dev = [
     # --- 代码格式化 ---
     "isort==9.0.2",
-    "ruff==0.17.5",
+    "ruff==0.17.6",
     # --- 类型检查 ---
     "mypy==2.4.1",
     "django-stubs==6.1.2",
@@ -164,7 +164,7 @@ test = [
     "pytest-xdist==3.8.0",
     "pytest-timeout==2.4.0",
     # --- Property-Based Testing ---
-    "hypothesis==6.170.15",
+    "hypothesis==6.170.17",
     # --- 测试工厂 ---
     "factory-boy==3.3.3",
     # --- Temporal workflow 测试 ---
