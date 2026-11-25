@@ -9,21 +9,59 @@ from pydantic import Field
 from mcp_server.client import client
 from mcp_server.tool_shaping import list_result
 
+#: 列表项里最多保留几个附件名。
+#:
+#: 收件箱列表现在带附件元信息（文件名/页数），这是好事——模型不用为「这封邮件
+#: 有什么材料」再跑一次详情；但**原始元信息一条就约 200 字节**（8 个字段 + 键名），
+#: 一封法院送达带 6 份文书就能让单条从 0.57KB 涨到 1.8KB。pi 对工具输出 20KB 起
+#: 腰斩（见 `tool_shaping.list_result` 的说明），不收敛就会在默认调用上被拦腰
+#: 截断——模型看到的是半截 JSON，而不是一个「还能翻页」的信封。
+#:
+#: 所以列表只做「有哪几份材料」的投影（名字 + 页数）；要看全部字段/正文/下载
+#: 走 `get_inbox_message`。
+MAX_ATTACHMENTS_PER_ROW = 3
+
+
+def _compact_row(item: dict[str, Any]) -> dict[str, Any]:
+    """列表投影：附件只留「名字 + 页数」（最多 3 份），其余走详情工具。
+
+    没有附件（或老后端不带该字段）时把 `attachments` 整个去掉——空数组在
+    每行白占 16 字节，在 20KB 的预算里不是零成本。
+    """
+    attachments = item.get("attachments")
+    if not isinstance(attachments, list) or not attachments:
+        return {k: v for k, v in item.items() if k != "attachments"}
+
+    compact: list[dict[str, Any]] = []
+    for att in attachments[:MAX_ATTACHMENTS_PER_ROW]:
+        if not isinstance(att, dict):
+            continue
+        name = str(att.get("custom_filename") or att.get("original_filename") or att.get("filename") or "")
+        compact.append({"filename": name, "pages": int(att.get("page_count") or 0)})
+
+    row = {**item, "attachments": compact}
+    if len(attachments) > MAX_ATTACHMENTS_PER_ROW:
+        # 让模型知道「还有几份没列出来」，而不是误以为这份材料只有 3 个附
+        row["attachments_truncated"] = len(attachments) - MAX_ATTACHMENTS_PER_ROW
+    return row
+
 
 def list_inbox_messages(
     source_id: Annotated[int | None, Field(description="按消息来源筛选(来源 ID 见 list_message_sources)")] = None,
     has_attachments: Annotated[bool | None, Field(description="按是否有附件筛选")] = None,
     search: Annotated[str | None, Field(description="主题/发件人/正文关键词")] = None,
-    limit: Annotated[
-        int, Field(description="最多返回条数(默认 30,约 0.57KB/条,默认调用留在 20KB 截断线内)", ge=1)
-    ] = 30,
+    limit: Annotated[int, Field(description="最多返回条数(默认 20,约 0.7KB/条,默认调用留在 20KB 截断线内)", ge=1)] = 20,
     offset: Annotated[
         int, Field(description="跳过前 offset 条再取——truncated=true 时续取翻页用(第 N 页传 offset=N×limit)", ge=0)
     ] = 0,
 ) -> dict[str, Any]:
     """查询收件箱消息列表。可按来源（source_id）、是否有附件（has_attachments）、关键词（search）筛选。
 
-    limit 默认 30（实测约 0.57KB/条,30 条 ≈ 17KB——pi 对工具输出 20KB 起
+    每行带 `attachments`（前 3 份的**文件名 + 页数**，超出部分记在
+    `attachments_truncated`）——扫描件的主题行常常等于没信息（`Attached Image`），
+    材料名才是判断依据。全字段 / 正文 / 附件字节请用 `get_inbox_message`。
+
+    limit 默认 20（实测约 0.7KB/条,20 条 ≈ 14KB——pi 对工具输出 20KB 起
     腰斩,默认调用应留在截断线内;REST 端点默认 500 是给前端收件箱的）;
     truncated=true 时用 offset 续取(第 N 页传 offset=N×limit),或换更窄筛选。
 
@@ -41,7 +79,9 @@ def list_inbox_messages(
         params["has_attachments"] = has_attachments
     if search:
         params["search"] = search
-    return list_result(client.get("/inbox/messages", params=params), limit=limit)
+    items = client.get("/inbox/messages", params=params)
+    rows = [_compact_row(item) for item in items if isinstance(item, dict)] if isinstance(items, list) else []
+    return list_result(rows, limit=limit)
 
 
 def get_inbox_message(message_id: int) -> dict[str, Any]:

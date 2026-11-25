@@ -16939,6 +16939,66 @@
         ]
       }
     },
+    "/api/v1/inbox/messages/{message_id}/attachments/{part_index}/thumbnail": {
+      "get": {
+        "operationId": "apps_message_hub_api_inbox_api_attachment_thumbnail",
+        "summary": "Attachment Thumbnail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "schema": {
+              "title": "Message Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "part_index",
+            "schema": {
+              "title": "Part Index",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "title": "Page",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "width",
+            "schema": {
+              "default": 320,
+              "title": "Width",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "附件缩略图（PDF 第 ``page`` 页 / 位图本身），JPEG。\n\n收件箱列表用它在行内给一张「小样」：**服务端渲染**，不让前端为了一张小图去\n下载整份扫描件（一本 40 页 26MB，见 ``attachment_thumbnail_service`` 的模块\n文档）。列表接口不随行预取，只在用户展开附件条 / 点预览时请求。\n\n缓存协议：首次生成后落盘，之后恒从磁盘读；响应带 ETag（= 缓存键），浏览器\n复访带 ``If-None-Match`` 时直接 304，连字节都不发。",
+        "tags": [
+          "收件箱"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/inbox/messages/{message_id}/attachments": {
       "post": {
         "operationId": "apps_message_hub_api_inbox_api_append_attachments",
@@ -46079,6 +46139,79 @@
         "title": "ReminderUpdate",
         "type": "object"
       },
+      "AttachmentMeta": {
+        "description": "附件元信息。",
+        "properties": {
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "original_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Filename"
+          },
+          "custom_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom Filename"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "part_index": {
+            "title": "Part Index",
+            "type": "integer"
+          },
+          "page_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Count"
+          },
+          "expanded_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expanded From"
+          }
+        },
+        "required": [
+          "filename",
+          "size",
+          "content_type",
+          "part_index"
+        ],
+        "title": "AttachmentMeta",
+        "type": "object"
+      },
       "InboxMessageOut": {
         "description": "收件箱消息列表项。",
         "properties": {
@@ -46233,6 +46366,14 @@
             "default": "",
             "title": "Upload Contract Name",
             "type": "string"
+          },
+          "attachments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AttachmentMeta"
+            },
+            "title": "Attachments",
+            "type": "array"
           }
         },
         "required": [
@@ -46252,81 +46393,8 @@
         "title": "InboxMessageOut",
         "type": "object"
       },
-      "AttachmentMeta": {
-        "description": "附件元信息。",
-        "properties": {
-          "filename": {
-            "title": "Filename",
-            "type": "string"
-          },
-          "original_filename": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Original Filename"
-          },
-          "custom_filename": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Custom Filename"
-          },
-          "size": {
-            "title": "Size",
-            "type": "integer"
-          },
-          "content_type": {
-            "title": "Content Type",
-            "type": "string"
-          },
-          "part_index": {
-            "title": "Part Index",
-            "type": "integer"
-          },
-          "page_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Page Count"
-          },
-          "expanded_from": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expanded From"
-          }
-        },
-        "required": [
-          "filename",
-          "size",
-          "content_type",
-          "part_index"
-        ],
-        "title": "AttachmentMeta",
-        "type": "object"
-      },
       "InboxMessageDetailOut": {
-        "description": "收件箱消息详情（含正文和附件详情）。",
+        "description": "收件箱消息详情（含正文和草稿）。\n\n``attachments`` 已上提到父类（列表也要用），这里不再重复声明——重复声明\n会多出一份「父类解析器 / 子类解析器」二选一的隐患，而两份实现迟早漂移。",
         "properties": {
           "id": {
             "title": "Id",
@@ -46480,6 +46548,14 @@
             "title": "Upload Contract Name",
             "type": "string"
           },
+          "attachments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AttachmentMeta"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
           "body_text": {
             "title": "Body Text",
             "type": "string"
@@ -46487,13 +46563,6 @@
           "body_html": {
             "title": "Body Html",
             "type": "string"
-          },
-          "attachments": {
-            "items": {
-              "$ref": "#/components/schemas/AttachmentMeta"
-            },
-            "title": "Attachments",
-            "type": "array"
           },
           "draft_state": {
             "additionalProperties": true,
@@ -46516,8 +46585,7 @@
           "uploaded_by_name",
           "created_at",
           "body_text",
-          "body_html",
-          "attachments"
+          "body_html"
         ],
         "title": "InboxMessageDetailOut",
         "type": "object"

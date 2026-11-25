@@ -71,11 +71,12 @@ export function InboxList({
               {TIME_GROUP_LABEL[group.key]}
               <span className="ml-1.5 font-normal">({group.rows.length})</span>
             </h3>
-            <div className="divide-y divide-border/70">
+            {/* 行本体是 <li>（行内有真按钮，不能再包一层 <button>，见 InboxRowItem 的说明） */}
+            <ul className="divide-y divide-border/70">
               {group.rows.map((row) => (
                 <InboxRowItem key={row.id} row={row} active={activeId === row.id} onSelect={onSelect} />
               ))}
-            </div>
+            </ul>
           </section>
         ))}
     </div>

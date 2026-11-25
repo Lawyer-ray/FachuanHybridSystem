@@ -1,4 +1,4 @@
-import type { InboxRow } from './types'
+import type { InboxAttachment, InboxRow } from './types'
 
 /**
  * 收件箱列表的纯领域逻辑（可单测，不依赖 React）。
@@ -78,4 +78,57 @@ export function filterRows(
 /** 未读条数（顶栏徽章用） */
 export function countUnread(rows: InboxRow[]): number {
   return rows.reduce((n, r) => (r.is_read ? n : n + 1), 0)
+}
+
+// ── 附件：名称 / 类型 / 页数（列表小样与预览弹窗共用的口径） ──────────────
+//
+// 这三件放在纯函数里而不是散在组件中：行内小样、抽屉附件清单、预览弹窗三处都要
+// 用同一套判定，各写一份必然漂移（例如「.PDF 大写后缀」只有一处认得出来）。
+
+/**
+ * 附件展示名：用户改过的名字优先，其次原始名，最后兜底名。
+ *
+ * 后端已经把 `filename` 归一成「一定有值」（缺失时给 `attachment_N`），但
+ * `custom_filename` 才是用户在收件箱里点过重命名后的真名——卷宗归档、材料包
+ * 命名都认它，列表里也必须认，否则「我明明改过名，这里还是 1153_001.pdf」。
+ */
+export function attachmentDisplayName(att: InboxAttachment): string {
+  const custom = att.custom_filename?.trim()
+  if (custom) return custom
+  return (att.original_filename || att.filename || '').trim() || '未命名附件'
+}
+
+/** 附件能怎么预览：PDF 走 pdf.js 分页，位图直接显示，其余只能下载 */
+export type AttachmentKind = 'pdf' | 'image' | 'other'
+
+const IMAGE_CONTENT_TYPES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/bmp',
+  'image/tiff',
+])
+const IMAGE_SUFFIXES = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tif', '.tiff']
+
+/**
+ * 预览类型判定：与后端 `attachment_thumbnail_service.thumbnail_kind` 同口径。
+ *
+ * 前后端口径必须一致：后端说「能出缩略图」而前端说「不能预览」，用户会看到
+ * 有图却点不开；反过来则是点开一片空白。
+ */
+export function attachmentKind(att: InboxAttachment): AttachmentKind {
+  const contentType = (att.content_type || '').split(';')[0]?.trim().toLowerCase() ?? ''
+  const name = (att.filename || att.original_filename || '').toLowerCase()
+  if (contentType.includes('pdf') || name.endsWith('.pdf')) return 'pdf'
+  if (IMAGE_CONTENT_TYPES.has(contentType) || IMAGE_SUFFIXES.some((s) => name.endsWith(s))) return 'image'
+  return 'other'
+}
+
+/** 页数文案：PDF 有页数就写「12 页」，其余不写（图片恒 1 页说「1 页」是噪音） */
+export function attachmentPagesLabel(att: InboxAttachment): string {
+  const pages = att.page_count ?? 0
+  if (attachmentKind(att) !== 'pdf' || pages <= 0) return ''
+  return `${pages} 页`
 }

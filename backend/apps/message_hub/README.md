@@ -8,6 +8,9 @@
 - IMAP 增量拉取：UID 水位增量 + SINCE 日期、发件人白/黑名单过滤（大小写不敏感子串）、附件落盘 `message_hub/imap/...`、正文截断 2000 字、IMAP 主机候选自动推断与回退（mail. / imap. 前缀互换）
 - 前端材料预处理：多文件上传打包成「材料包」消息、追加附件、拆分草稿 `draft_state`（纯 UI 状态，语义由前端定义、后端仅存储）、重命名、硬删并清理物理文件
 - 附件按需下载 + 预览（inline）、自定义下载名（custom_filename，自动补原扩展名，超长截断）
+- 附件**首页缩略图**（服务端 PyMuPDF 渲染 → JPEG + 落盘缓存）：
+  收件箱列表用它给「这封是什么材料」一张小样。列表接口顺带返回附件元信息
+  （文件名/页数/类型），前端不必为了一张小图下载整份扫描件
 - Admin 提交到短信流程：从收件箱消息附件建 `CourtSMS`（正则提取案号）直接进入匹配阶段并派发 Q 任务
 - OCR 框选取字端点：RapidOCR 识别页面图片返回归一化文字块坐标（供前端材料预处理拆分命名）
 - 跨环境附件路径兼容：归一化 WSL `/mnt/d/...` 与 Windows `D:\...` 历史绝对路径，新数据统一存相对 MEDIA_ROOT 路径
@@ -25,6 +28,8 @@ message_hub/
 │   ├── base.py            # MessageFetcher 抽象 + 路径工具
 │   ├── imap/imap_fetcher.py
 │   ├── inbox_query.py / manual_upload_service.py
+│   ├── attachment_page_service.py     # 附件页数（回填 / 重命名）
+│   ├── attachment_thumbnail_service.py # 附件缩略图（渲染 / 缓存 / 回收）
 ├── admin/                 # InboxMessageAdmin（552 行）+ MessageSourceAdmin
 ├── tasks.py               # 同步任务 + _register_schedule
 ├── static/ + templates/   # Admin 样式与附件面板模板
@@ -48,6 +53,7 @@ message_hub/
 | POST | `/messages/upload` | 多文件建材料包 |
 | POST | `/messages/{id}/attachments` | 追加附件 |
 | GET | `/messages/{id}/attachments/{part}/download`、`/preview` | 附件下载 / 预览 |
+| GET | `/messages/{id}/attachments/{part}/thumbnail?page=1&width=320` | 附件首页缩略图（JPEG，ETag + 落盘缓存） |
 | POST | `.../rename` | 附件重命名 |
 | POST | `/ocr` | RapidOCR 框选取字 |
 | GET/POST | `/sources`、GET/PUT/DELETE `/sources/{id}` | 来源 CRUD |

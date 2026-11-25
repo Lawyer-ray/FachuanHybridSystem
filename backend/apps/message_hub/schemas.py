@@ -70,6 +70,12 @@ class InboxMessageOut(SchemaMixin, Schema):
     upload_link_title: str = ""
     upload_contract_id: int | None = None
     upload_contract_name: str = ""
+    # 附件元信息（文件名 / 页数 / 类型）。**列表也带**：收件箱要判断「这条要不要
+    # 进材料预处理」，而扫描件的主题行常常毫无信息（`Attached Image`、
+    # `1153_001.pdf`）——只给 `attachment_count` 等于让人逐条点开看。这些字段
+    # 全部来自已经读进内存的 `attachments_meta` JSON，不额外查库，也不含
+    # local_path 等内部字段（见 `InboxMessage.get_public_attachments_meta`）。
+    attachments: list[AttachmentMeta] = []
 
     @staticmethod
     def resolve_is_read(obj: InboxMessage) -> bool:
@@ -198,6 +204,11 @@ class InboxMessageOut(SchemaMixin, Schema):
         return len(obj.attachments_meta) if obj.attachments_meta else 0
 
     @staticmethod
+    def resolve_attachments(obj: InboxMessage) -> list[dict[str, Any]]:
+        """附件元信息（去掉本地路径等内部字段）。列表与详情共用同一份解析。"""
+        return obj.get_public_attachments_meta()
+
+    @staticmethod
     def resolve_created_at(obj: InboxMessage) -> str:
         return SchemaMixin._resolve_datetime_iso(obj.created_at) or ""
 
@@ -221,16 +232,15 @@ class InboxMessageOut(SchemaMixin, Schema):
 
 
 class InboxMessageDetailOut(InboxMessageOut):
-    """收件箱消息详情（含正文和附件详情）。"""
+    """收件箱消息详情（含正文和草稿）。
+
+    ``attachments`` 已上提到父类（列表也要用），这里不再重复声明——重复声明
+    会多出一份「父类解析器 / 子类解析器」二选一的隐患，而两份实现迟早漂移。
+    """
 
     body_text: str
     body_html: str
-    attachments: list[AttachmentMeta]
     draft_state: dict = {}
-
-    @staticmethod
-    def resolve_attachments(obj: InboxMessage) -> list[dict[str, Any]]:
-        return obj.get_public_attachments_meta()
 
     @staticmethod
     def resolve_draft_state(obj: InboxMessage) -> dict[str, Any]:

@@ -6968,6 +6968,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inbox/messages/{message_id}/attachments/{part_index}/thumbnail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Attachment Thumbnail
+         * @description 附件缩略图（PDF 第 ``page`` 页 / 位图本身），JPEG。
+         *
+         *     收件箱列表用它在行内给一张「小样」：**服务端渲染**，不让前端为了一张小图去
+         *     下载整份扫描件（一本 40 页 26MB，见 ``attachment_thumbnail_service`` 的模块
+         *     文档）。列表接口不随行预取，只在用户展开附件条 / 点预览时请求。
+         *
+         *     缓存协议：首次生成后落盘，之后恒从磁盘读；响应带 ETag（= 缓存键），浏览器
+         *     复访带 ``If-None-Match`` 时直接 304，连字节都不发。
+         */
+        get: operations["apps_message_hub_api_inbox_api_attachment_thumbnail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inbox/messages/{message_id}/attachments": {
         parameters: {
             query?: never;
@@ -20183,6 +20210,28 @@ export interface components {
             } | null;
         };
         /**
+         * AttachmentMeta
+         * @description 附件元信息。
+         */
+        AttachmentMeta: {
+            /** Filename */
+            filename: string;
+            /** Original Filename */
+            original_filename?: string | null;
+            /** Custom Filename */
+            custom_filename?: string | null;
+            /** Size */
+            size: number;
+            /** Content Type */
+            content_type: string;
+            /** Part Index */
+            part_index: number;
+            /** Page Count */
+            page_count?: number | null;
+            /** Expanded From */
+            expanded_from?: string | null;
+        };
+        /**
          * InboxMessageOut
          * @description 收件箱消息列表项。
          */
@@ -20269,32 +20318,18 @@ export interface components {
              * @default
              */
             upload_contract_name: string;
-        };
-        /**
-         * AttachmentMeta
-         * @description 附件元信息。
-         */
-        AttachmentMeta: {
-            /** Filename */
-            filename: string;
-            /** Original Filename */
-            original_filename?: string | null;
-            /** Custom Filename */
-            custom_filename?: string | null;
-            /** Size */
-            size: number;
-            /** Content Type */
-            content_type: string;
-            /** Part Index */
-            part_index: number;
-            /** Page Count */
-            page_count?: number | null;
-            /** Expanded From */
-            expanded_from?: string | null;
+            /**
+             * Attachments
+             * @default []
+             */
+            attachments: components["schemas"]["AttachmentMeta"][];
         };
         /**
          * InboxMessageDetailOut
-         * @description 收件箱消息详情（含正文和附件详情）。
+         * @description 收件箱消息详情（含正文和草稿）。
+         *
+         *     ``attachments`` 已上提到父类（列表也要用），这里不再重复声明——重复声明
+         *     会多出一份「父类解析器 / 子类解析器」二选一的隐患，而两份实现迟早漂移。
          */
         InboxMessageDetailOut: {
             /** Id */
@@ -20379,12 +20414,15 @@ export interface components {
              * @default
              */
             upload_contract_name: string;
+            /**
+             * Attachments
+             * @default []
+             */
+            attachments: components["schemas"]["AttachmentMeta"][];
             /** Body Text */
             body_text: string;
             /** Body Html */
             body_html: string;
-            /** Attachments */
-            attachments: components["schemas"]["AttachmentMeta"][];
             /**
              * Draft State
              * @default {}
@@ -35822,6 +35860,30 @@ export interface operations {
     apps_message_hub_api_inbox_api_preview_attachment: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                message_id: number;
+                part_index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_message_hub_api_inbox_api_attachment_thumbnail: {
+        parameters: {
+            query?: {
+                page?: number;
+                width?: number;
+            };
             header?: never;
             path: {
                 message_id: number;

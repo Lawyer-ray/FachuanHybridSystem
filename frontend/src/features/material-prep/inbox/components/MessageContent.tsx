@@ -1,13 +1,18 @@
-import { Download, Eye, Loader2, PackagePlus, ArrowRight } from 'lucide-react'
+import { Download, Eye, Loader2, PackagePlus, ArrowRight, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
 
 import { ErrorBlock } from '@/components/shared/AsyncState'
 import { errMessage } from '@/lib/errors'
+import { formatBytes } from '@/lib/format'
 import { getInboxMessage } from '../api'
+import { attachmentDisplayName, attachmentPagesLabel } from '../domain'
 import { useConvertToPack } from '../hooks/use-inbox'
 import { useAttachmentOpener } from '../hooks/use-attachment-opener'
+import { useAttachmentPreview } from '../hooks/use-attachment-preview'
 import { canConvert, isPackSource, packIdOf, type InboxDetail, type PackJudgement } from '../types'
+import { AttachmentThumb } from './AttachmentPeek'
+import { AttachmentPreview } from './AttachmentPreview'
 import { ContractMatchPanel } from './ContractMatchPanel'
 import { MailHtmlBody } from './MailHtmlBody'
 
@@ -112,6 +117,7 @@ function MessageBody({ detail }: { detail: InboxDetail }) {
   const hasHtml = Boolean(detail.body_html?.trim())
   const attachments = detail.attachments ?? []
   const open = useAttachmentOpener(detail.id)
+  const preview = useAttachmentPreview()
 
   return (
     <div className="space-y-3">
@@ -119,26 +125,45 @@ function MessageBody({ detail }: { detail: InboxDetail }) {
         <section>
           <h3 className="mb-1.5 text-[11px] font-semibold text-muted-foreground">附件</h3>
           <ul className="space-y-1">
-            {attachments.map((att) => (
+            {attachments.map((att, index) => (
               <li
                 key={att.part_index}
-                className="flex items-center gap-2 rounded-[8px] border border-border bg-secondary/30 px-2.5 py-1.5"
+                className="flex items-center gap-2 rounded-[8px] border border-border bg-secondary/30 px-2 py-1.5"
               >
-                <span className="min-w-0 flex-1 truncate text-[12px]" title={att.filename}>
-                  {att.custom_filename?.trim() || att.original_filename || att.filename}
-                </span>
+                {/* 左侧小样：与行内附件条同源（服务端渲染的首页缩略图） */}
+                <AttachmentThumb messageId={detail.id} attachment={att} className="h-9 w-7" />
+                <button
+                  type="button"
+                  onClick={() => preview.open({ messageId: detail.id, subject: detail.subject, attachments, index })}
+                  className="min-w-0 flex-1 text-left"
+                  title={`预览 ${attachmentDisplayName(att)}`}
+                >
+                  <span className="block truncate text-[12px]">{attachmentDisplayName(att)}</span>
+                  <span className="block text-[10.5px] text-muted-foreground">
+                    {attachmentPagesLabel(att) || formatBytes(att.size)}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => preview.open({ messageId: detail.id, subject: detail.subject, attachments, index })}
+                  className="flex h-6 w-6 flex-none items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  aria-label="预览附件"
+                  title="预览（应用内）"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                </button>
                 <button
                   type="button"
                   onClick={() => void open.run(att.part_index, 'preview')}
                   disabled={open.pending?.partIndex === att.part_index}
                   className="flex h-6 w-6 flex-none items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50"
-                  aria-label="预览附件"
-                  title="预览"
+                  aria-label="在新窗口打开附件"
+                  title="新窗口打开（可打印/批注）"
                 >
                   {open.pending?.partIndex === att.part_index && open.pending.kind === 'preview' ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <Eye className="h-3.5 w-3.5" />
+                    <ExternalLink className="h-3.5 w-3.5" />
                   )}
                 </button>
                 <button
@@ -159,6 +184,10 @@ function MessageBody({ detail }: { detail: InboxDetail }) {
             ))}
           </ul>
         </section>
+      )}
+
+      {preview.target && (
+        <AttachmentPreview target={preview.target} onClose={preview.close} onSwitch={preview.select} />
       )}
 
       {hasText ? (
