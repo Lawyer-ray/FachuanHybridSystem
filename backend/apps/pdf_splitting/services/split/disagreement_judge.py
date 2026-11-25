@@ -662,6 +662,26 @@ def _sleep_before_retry(*, attempt: int, slept_seconds: float) -> float:
     return slept_seconds + delay
 
 
+def is_enabled() -> bool:
+    """是否已启用：开关打开**且**配了 key。
+
+    调用方据此在**渲染页面/裁块之前**就短路——判定关着时不该为它付一次 PDF 渲染。
+
+    ``ENABLED=1`` 但 key 为空是**配置错误**，不是「想开」：那种状态下去请求只会拿到
+    401 白白等超时，还可能把并发位占满拖慢其它判定。所以这里一并要求 key 非空，
+    并在缺 key 时 warning 一次（运维看到就知道是漏填而不是功能坏了）。
+    """
+    if not _parse_bool(OCR_JUDGE_ENABLED_KEY, _config_value(OCR_JUDGE_ENABLED_KEY), default=False):
+        return False
+    if not _config_value(OCR_JUDGE_API_KEY_KEY):
+        logger.warning(
+            "ocr_judge_enabled_without_key",
+            extra={"hint": "OCR_JUDGE_ENABLED=1 但 OCR_JUDGE_API_KEY 为空，判定按未启用处理"},
+        )
+        return False
+    return True
+
+
 def _load_settings() -> _Settings:
     """每次判定现读一遍配置（线上热改即时生效，单测可直接 monkeypatch）。
 
@@ -669,7 +689,7 @@ def _load_settings() -> _Settings:
     （见上方注释：工程常数不进配置表，避免被随手调坏且无声）。
     """
     return _Settings(
-        enabled=_parse_bool(OCR_JUDGE_ENABLED_KEY, _config_value(OCR_JUDGE_ENABLED_KEY), default=False),
+        enabled=is_enabled(),
         api_key=_config_value(OCR_JUDGE_API_KEY_KEY),
     )
 

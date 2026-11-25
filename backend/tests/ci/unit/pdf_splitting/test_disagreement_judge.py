@@ -142,6 +142,27 @@ def test_default_config_is_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.api_key == ""
 
 
+def test_enabled_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """开关打开但 key 为空 = 配置错误：按未启用处理，并留一条可定位的 warning。
+
+    否则每次判定都会去请求一个注定 401 的接口，白等超时、白占全局并发位
+    （并发上限只有 2，占满会把真正该判的条目排在后面）。
+    """
+    stored = {judge.OCR_JUDGE_ENABLED_KEY: "1", judge.OCR_JUDGE_API_KEY_KEY: ""}
+    monkeypatch.setattr(judge.SystemConfigService, "get_value", lambda self, key, default="": stored.get(key, default))
+    logger = _RecordingLogger()
+    monkeypatch.setattr(judge, "logger", logger)
+
+    assert judge.is_enabled() is False
+    assert any(event == "ocr_judge_enabled_without_key" for event, _extra in logger.records)
+
+
+def test_enabled_true_when_key_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    stored = {judge.OCR_JUDGE_ENABLED_KEY: "1", judge.OCR_JUDGE_API_KEY_KEY: "k"}
+    monkeypatch.setattr(judge.SystemConfigService, "get_value", lambda self, key, default="": stored.get(key, default))
+    assert judge.is_enabled() is True
+
+
 def test_only_two_keys_live_in_system_config() -> None:
     """棘轮：**只有开关与 key** 允许进配置表。
 

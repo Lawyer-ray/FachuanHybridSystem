@@ -50,6 +50,7 @@ from typing import Any
 
 import pymupdf as fitz
 
+from .disagreement_judge import is_enabled as is_judge_enabled
 from .dual_engine import (
     ENGINE_MINERU,
     ENGINE_PADDLEOCR_VL,
@@ -60,17 +61,26 @@ from .dual_engine import (
     EngineDisagreement,
     EngineVariant,
     compare_pages,
+    disagreement_key,
     is_markdown_table_line,
     link_disagreement_to_blocks,
     normalize_mineru_blocks,
     normalize_paddleocr_vl_blocks,
 )
+from .dual_engine_judgement import judge_disagreements
+from .dual_engine_judgement import summarize as judge_summary
 from .page_rotation import page_angle
 
 logger = logging.getLogger("apps.pdf_splitting")
 
+#: 判定整体失败时可预期的异常族：裁定只是「多一票参考」，不许把双引擎任务拖挂。
+_JUDGE_ERRORS = (OSError, ValueError, RuntimeError, KeyError, TypeError)
+
 #: summary 里挂分歧数据的键名（前端 draft.ts 按这个读）。
 SUMMARY_ENGINE_DISAGREEMENTS = "engine_disagreements"
+#: 分歧裁定的汇总（开关状态 + 命中/采信/留人工计数 + 各原因分布）。
+#: 与分歧数据分开：前端据此说「本次 332 条分歧里自动裁定 12 条」而不是去数每条的 judge 键。
+SUMMARY_ENGINE_DISAGREE_JUDGE = "engine_disagreements_judge"
 SUMMARY_ENGINE_DISAGREE_SUMMARY = "engine_disagree_summary"
 
 #: 严重度桶的固定顺序：前端抽屉就是按这三组渲染，缺哪组都要给 0。
@@ -233,14 +243,35 @@ def run_dual_engine(
         if blocks:
             annotations[disagreement_key(item)] = blocks
 
+    # 分歧裁定：只有开关打开时才真跑（关着时 judge_disagreements 直接返回空 dict，
+    # 一页都不渲染）。异常在这里兜住——判定是「多一票参考」，不许把双引擎任务拖挂。
+    judgements: dict[tuple[int, str, str], dict[str, Any]] = {}
+    try:
+        judgements = judge_disagreements(
+            pdf_path=source,
+            disagreements=disagreements,
+            blocks_by_disagreement=annotations,
+            page_angles=engine_page_angles,
+        )
+    except _JUDGE_ERRORS:
+        logger.exception("pdf_split_judge_failed", extra={"pdf_path": Path(source).as_posix()})
+
     return DualEngineOutcome(
         engine_pages=engine_pages,
         blocks_by_engine=blocks_by_engine,
         disagreements=disagreements,
         engine_page_angles=engine_page_angles,
         summary={
-            SUMMARY_ENGINE_DISAGREEMENTS: disagreements_to_dicts(disagreements, blocks_by_disagreement=annotations),
+            SUMMARY_ENGINE_DISAGREEMENTS: disagreements_to_dicts(
+                disagreements,
+                blocks_by_disagreement=annotations,
+                judgements=judgements,
+            ),
             SUMMARY_ENGINE_DISAGREE_SUMMARY: summarize_severities(disagreements),
+            SUMMARY_ENGINE_DISAGREE_JUDGE: {
+                "enabled": is_judge_enabled(),
+                **judge_summary(judgements),
+            },
             # 编排层自身的可观测字段：哪个引擎没跑起来、跑了多少页。
             # 与分歧数据分开，避免前端把「引擎挂了」误读成「没有分歧」。
             "dual_engine": {
@@ -284,15 +315,6 @@ def _remap_to_source_pages(
             continue
         remapped_blocks.append(replace(block, page_no=source_page))
     return remapped_pages, remapped_blocks, remapped_angles
-
-
-def disagreement_key(item: EngineDisagreement) -> tuple[int, str, str]:
-    """一条分歧的稳定标识：``(页码, 类型, 上下文)``。
-
-    只用于内部的“分歧 → 块矩形”配对，与前端 `draft/engine.ts` 的
-    `disagreementKey` 不是同一个用途（那边面给“已核对”做勾选键）。
-    """
-    return (item.page_no, item.kind, item.context)
 
 
 def engine_block_to_dict(engine: str, block: Any) -> dict[str, Any]:
@@ -348,6 +370,7 @@ def disagreements_to_dicts(
     disagreements: Iterable[EngineDisagreement],
     *,
     blocks_by_disagreement: Mapping[tuple[int, str, str], list[dict[str, Any]]] | None = None,
+    judgements: Mapping[tuple[int, str, str], Mapping[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """``EngineDisagreement``（frozen dataclass）→ 纯 dict，供 JSON 序列化。
 
@@ -357,8 +380,13 @@ def disagreements_to_dicts(
 
     ``blocks`` 只有拿到对应块时才出现（匹配不上就不写这个键，而不是给空列表）：
     前端对“缺坐标”与“坐标为空”的处理是同一件事，但缺键能区分“根本没过这一层”。
+
+    ``judge`` 同理：只有真跑过判定（或明确判为「不适用」，如证件类）才出现。
+    **判成 accept 的条目也照样保留在列表里**——只多一个「已自动裁定 + 分数」标记，
+    绝不因为自动裁定就把一条分歧从律师眼前拿掉。
     """
     blocks_by_disagreement = blocks_by_disagreement or {}
+    judgements = judgements or {}
     out: list[dict[str, Any]] = []
     for item in disagreements:
         payload: dict[str, Any] = {
@@ -370,9 +398,13 @@ def disagreements_to_dicts(
             "anchor_hit": item.anchor_hit,
             "similarity": round(float(item.similarity), 4),
         }
-        blocks = blocks_by_disagreement.get(disagreement_key(item))
+        key = disagreement_key(item)
+        blocks = blocks_by_disagreement.get(key)
         if blocks:
             payload["blocks"] = blocks
+        judgement = judgements.get(key)
+        if judgement:
+            payload["judge"] = dict(judgement)
         out.append(payload)
     return out
 

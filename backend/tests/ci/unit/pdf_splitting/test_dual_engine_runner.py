@@ -116,7 +116,8 @@ def _factories(mineru: object, vl: object) -> dict[str, object]:
     return {runner.ENGINE_MINERU: lambda: mineru, runner.ENGINE_PADDLEOCR_VL: lambda: vl}
 
 
-def test_runs_both_engines_in_parallel_not_serially(tmp_path: Path) -> None:
+def test_runs_both_engines_in_parallel_not_serially(
+    monkeypatch: pytest.MonkeyPatch,tmp_path: Path) -> None:
     """两引擎并行：各睡 0.4s 时总耗时明显低于串行的 0.8s。
 
     用「远小于串行总时长」做判据而不是精确秒数：线程池调度抖动很大，
@@ -136,6 +137,9 @@ def test_runs_both_engines_in_parallel_not_serially(tmp_path: Path) -> None:
     pdf = _make_pdf(tmp_path / "sample.pdf", 1)
 
     started = time.monotonic()
+    # 本用例只测「两引擎是否真并行」：判定必须打桩，否则开关一旦在库里打开，
+    # 这里就会去打真实服务，测出来的耗时也不是引擎的耗时。
+    monkeypatch.setattr(runner, "judge_disagreements", lambda **kwargs: {})
     runner.run_dual_engine(pdf, engine_factories=_factories(_SlowMineru(), _SlowVL()))
     elapsed = time.monotonic() - started
 
@@ -184,10 +188,13 @@ def test_engine_error_message_is_sanitized(tmp_path: Path) -> None:
     assert "***" in error
 
 
-def test_disagreements_are_json_serializable_with_expected_keys(tmp_path: Path) -> None:
+def test_disagreements_are_json_serializable_with_expected_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """分歧 dict 是纯 JSON，且键名/结构与前端约定一致（含 variants 与 label）。"""
     pdf = _make_pdf(tmp_path / "sample.pdf", 1)
 
+    monkeypatch.setattr(runner, "judge_disagreements", lambda **kwargs: {})
     outcome = runner.run_dual_engine(
         pdf,
         engine_factories=_factories(_FakeMineru(text="借款人：张三丰"), _FakeVL(text="借款人：张三半")),
@@ -366,7 +373,9 @@ def test_paddleocr_slot_is_locked_to_vl_model(monkeypatch: pytest.MonkeyPatch) -
     assert seen == ["paddleocr_vl_1_6"]
 
 
-def test_disagreements_carry_block_rects_for_double_box(tmp_path: Path) -> None:
+def test_disagreements_carry_block_rects_for_double_box(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """每条分歧挂上两引擎各自的块矩形——前端「双框对照」读的就是 ``blocks``。
 
     坐标口径必须与 ``PositionedBlockOut.rect`` 一致（归一化 0-1），否则两个框
@@ -374,6 +383,7 @@ def test_disagreements_carry_block_rects_for_double_box(tmp_path: Path) -> None:
     """
     pdf = _make_pdf(tmp_path / "sample.pdf", 1)
 
+    monkeypatch.setattr(runner, "judge_disagreements", lambda **kwargs: {})
     outcome = runner.run_dual_engine(
         pdf,
         engine_factories=_factories(_FakeMineru(text="借款人：张三丰"), _FakeVL(text="借款人：张三半")),

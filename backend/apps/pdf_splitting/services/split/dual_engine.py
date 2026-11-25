@@ -267,6 +267,15 @@ class EngineBlock:
     approx: bool = False
 
 
+def disagreement_key(item: EngineDisagreement) -> tuple[int, str, str]:
+    """一条分歧的稳定标识：``(页码, 类型, 上下文)``。
+
+    只用于内部的“分歧 → 块矩形”配对，与前端 `draft/engine.ts` 的
+    `disagreementKey` 不是同一个用途（那边面给“已核对”做勾选键）。
+    """
+    return (item.page_no, item.kind, item.context)
+
+
 def _normalize(text: str) -> str:
     """把一行文本归一化到「只保留有语义的字符」，用于判断差异是否真实。
 
