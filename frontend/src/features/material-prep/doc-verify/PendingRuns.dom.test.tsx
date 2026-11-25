@@ -6,15 +6,17 @@
  * 的 URL / 查询参数 / 请求体也一并被验证（`.json()` 之外没有别的活，形状由后端
  * schema 保证）。
  *
- * 锁四件事（每一件错了律师都会做出错误处置）：
+ * 锁五件事（每一件错了律师都会做出错误处置）：
  * 1. 三档 severity 都渲染出来且档位可分（红线 / 疑似 / 无法核对）；
  * 2. `pages_no_text > 0` 必须显式写「N 页无文本层，未核对」——否则律师以为整份都比过了；
  * 3. 「采纳改动」真的是 `action=accept`、「退回重签」是 `reject`（两个按钮调反了
  *    等于把客户改错的地方直接放行）；
- * 4. 空白清单说的是「本案没有待核对的回传件」，不是静默不渲染。
+ * 4. 空白清单说的是「本案没有待核对的回传件」，不是静默不渲染；
+ * 5. 批量与「要求重出」各自的口径：批量一次提交这一批 `run_ids` 并把 decided/skipped
+ *    都报出来；`reissue` **不**把条从清单里拿掉（后端只把 accept/reject 当已裁决）。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -103,6 +105,18 @@ function runOf(over: Partial<VerifyRunOut> = {}): VerifyRunOut {
     created_at: '2026-11-24T10:00:00+08:00',
     ...over,
   }
+}
+
+/** 第二件待裁决（不同文书名、不同 id）：批量要按条分清这一批到底是哪几条。 */
+function otherRunOf(): VerifyRunOut {
+  return runOf({
+    id: 5,
+    artifact_id: 12,
+    doc_type: '授权委托书',
+    state: 'unverifiable',
+    state_label: '无法核对',
+    inbound_file_name: '授权委托书-回传.pdf',
+  })
 }
 
 function renderPending(caseId = 7) {
@@ -227,6 +241,134 @@ describe('PendingRuns：裁决', () => {
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('裁决失败：该件已有裁决'),
     )
+    container.remove()
+  })
+})
+
+describe('PendingRuns：要求重出', () => {
+  it('点「要求重出」：action=reissue，且刷新后这条仍在清单里', async () => {
+    // 后端只把 accept/reject 当「已裁决」（DECIDED_ACTIONS），reissue 之后这条仍在
+    // 待裁决口径里——所以刷新回来它还在，toast 也不能说「已移除」。
+    kyMock.get.mockReturnValueOnce(jsonOf([runOf()])).mockReturnValue(jsonOf([runOf()]))
+    const { container } = renderPending()
+
+    fireEvent.click(await screen.findByRole('button', { name: '要求重出' }))
+
+    await waitFor(() =>
+      expect(kyMock.post).toHaveBeenCalledWith(
+        'runs/3/decision',
+        expect.objectContaining({ json: { action: 'reissue', reason: '' } }),
+      ),
+    )
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        '已要求重出',
+        expect.objectContaining({ description: expect.stringContaining('仍在待裁决清单') }),
+      ),
+    )
+    // 失效重拉之后这一条还在：不是本地删行骗自己
+    await waitFor(() => expect(kyMock.get).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText('起诉状')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '要求重出' })).toBeTruthy()
+    container.remove()
+  })
+})
+
+describe('PendingRuns：批量裁决', () => {
+  it('勾选 2 条才出现批量条；「批量采纳」一次提交这一批 run_ids 并把跳过数报出来', async () => {
+    kyMock.get
+      .mockReturnValueOnce(jsonOf([runOf(), otherRunOf()]))
+      // 重拉后只剩被跳过的那条（起诉状已裁掉）
+      .mockReturnValue(jsonOf([otherRunOf()]))
+    kyMock.post.mockReturnValue(
+      jsonOf({
+        decided: 1,
+        skipped: 1,
+        items: [
+          { run_id: 3, decision_id: 11 },
+          { run_id: 5, skipped_reason: 'ALREADY_DECIDED' },
+        ],
+      }),
+    )
+    const { container } = renderPending()
+
+    const first = await screen.findByLabelText(/选择「起诉状」/)
+    // 一条都没选时不该出现批量条（否则会让人以为默认全选）
+    expect(screen.queryByText(/已选/)).toBeNull()
+
+    fireEvent.click(first)
+    expect(screen.getByText('已选 1 条')).toBeTruthy()
+    fireEvent.click(screen.getByLabelText(/选择「授权委托书」/))
+    expect(screen.getByText('已选 2 条')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '批量采纳' }))
+
+    await waitFor(() =>
+      expect(kyMock.post).toHaveBeenCalledWith(
+        'decisions/batch',
+        expect.objectContaining({
+          json: { run_ids: [3, 5], action: 'accept', reason: '' },
+        }),
+      ),
+    )
+    // toast 必须同时说清「处理了几条、跳过几条、为什么跳过」
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        expect.stringContaining('已处理 1 条，跳过 1 条'),
+        expect.objectContaining({ description: expect.stringContaining('已有裁决') }),
+      ),
+    )
+    // 批量完清空选中 + 重拉清单：还没裁掉的那条仍在，且不再被勾着
+    await waitFor(() => expect(screen.queryByText(/已选/)).toBeNull())
+    await waitFor(() => expect(kyMock.get).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText('授权委托书')).toBeTruthy()
+    expect((screen.getByLabelText(/选择「授权委托书」/) as HTMLInputElement).checked).toBe(false)
+    container.remove()
+  })
+
+  it('「批量退回」也是这一批一起走 action=reject', async () => {
+    kyMock.get.mockReturnValue(jsonOf([runOf(), otherRunOf()]))
+    kyMock.post.mockReturnValue(jsonOf({ decided: 2, skipped: 0, items: [] }))
+    const { container } = renderPending()
+
+    fireEvent.click(await screen.findByLabelText(/选择「起诉状」/))
+    fireEvent.click(screen.getByLabelText(/选择「授权委托书」/))
+    fireEvent.click(screen.getByRole('button', { name: '批量退回' }))
+
+    await waitFor(() =>
+      expect(kyMock.post).toHaveBeenCalledWith(
+        'decisions/batch',
+        expect.objectContaining({
+          json: { run_ids: [3, 5], action: 'reject', reason: '' },
+        }),
+      ),
+    )
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        expect.stringContaining('已处理 2 条，跳过 0 条'),
+        expect.anything(),
+      ),
+    )
+    container.remove()
+  })
+
+  it('数据刷新后，已不在清单里的 id 从选中集自动剔除', async () => {
+    kyMock.get
+      .mockReturnValueOnce(jsonOf([runOf(), otherRunOf()]))
+      // 别处把「起诉状」裁掉了：新清单里只剩授权委托书
+      .mockReturnValue(jsonOf([otherRunOf()]))
+    const { container, queryClient } = renderPending()
+
+    fireEvent.click(await screen.findByLabelText(/选择「起诉状」/))
+    fireEvent.click(screen.getByLabelText(/选择「授权委托书」/))
+    expect(screen.getByText('已选 2 条')).toBeTruthy()
+
+    await act(async () => {
+      await queryClient.invalidateQueries()
+    })
+
+    await waitFor(() => expect(screen.getByText('已选 1 条')).toBeTruthy())
+    expect((screen.getByLabelText(/选择「授权委托书」/) as HTMLInputElement).checked).toBe(true)
     container.remove()
   })
 })
