@@ -2,7 +2,7 @@
 
 ## 为什么需要这一层
 
-``mcp_server/server.py`` 里的 409 个工具是一条**硬编码 import 清单**：想多一个
+``mcp_server/server.py`` 里的 433 个工具是一条**硬编码 import 清单**：想多一个
 工具，必须改主仓代码。而 ``backend/plugins/`` 是**独立版本控制**（子模块 + 私有
 目录），插件自带的能力（威科私有 API、法院自动化、OCR…）只能被 app 层调用，
 变不成模型能直接调的工具。
@@ -69,7 +69,7 @@ def check_available() -> bool:
 
 ### 命名与分层
 
-- **工具名不可与内置 409 个重名**：撞名直接跳过并告警（内置优先）。
+- **工具名不可与内置 433 个重名**：撞名直接跳过并告警（内置优先）。
 - **分层自动生效**：未登记进 ``DIRECT_TOOLS`` 的插件工具默认走 ``deferred``
   （``tool_search`` 按需加载），所以不会白占每轮的固定前缀。
 
@@ -280,7 +280,7 @@ def register_plugin_tools(
         register_tool: 主仓的注册装饰器（``mcp_server.server._t``），以
             ``register_tool(func, annotations=...)`` 调用：注解由插件声明的风险等级
             决定（:func:`tool_annotations_for`），不再按名字推导。传函数而不是
-            让本模块 import ``server``——``server`` 在 import 期就会注册 409 个工具，
+            让本模块 import ``server``——``server`` 在 import 期就会注册 433 个工具，
             反向依赖会让「导入本模块」产生一次完整注册副作用。
         reserved_names: 内置工具名集合。插件工具与之撞名时**跳过插件侧**：
             内置工具是审计与审批口径的基准，不能被插件覆盖。

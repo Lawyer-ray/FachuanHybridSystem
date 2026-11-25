@@ -15,6 +15,11 @@ from apps.core.http.download import build_download_response
 from apps.core.security import get_request_access_context
 from apps.pdf_splitting.services import PdfSplitJobService, PdfSplitService
 from apps.pdf_splitting.services.split.export_utils import export_segment_pdf
+from apps.pdf_splitting.services.split.output_rotation import (
+    apply_page_rotations,
+    merge_page_rotations,
+    parse_page_rotations,
+)
 from apps.pdf_splitting.services.split.page_fingerprint import page_signature as _page_signature
 from apps.pdf_splitting.services.storage import PdfSplitStorage
 
@@ -232,6 +237,9 @@ class ArchiveSegmentIn(BaseModel):
     doc_type: str
     #: 材料类型（一般是任务的 segment_type），决定落到案件文件夹的哪一层
     material_type: str
+    #: 人工转正角度编码 ``"页码:角度,页码:角度"``（页码=源 PDF 绝对页号，角度=在
+    #: 页自身 /Rotate 之上再顺时针多少度）。空串 = 不转；脏 token/越界页忽略并告警。
+    rotations: str = ""
 
 
 class ArchiveToCaseFolderIn(BaseModel):
@@ -274,6 +282,7 @@ def extract_pdf_pages(
     file: UploadedFile = File(...),
     page_start: int = Form(...),
     page_end: int = Form(...),
+    rotations: str = Form(""),
 ) -> HttpResponse:
     """从上传的 PDF 里按页范围切出一份小 PDF，回字节流。
 
@@ -304,7 +313,9 @@ def extract_pdf_pages(
                     message="页范围超出文件页数",
                     errors={"page_end": page_end, "total_pages": total_pages},
                 )
-            # 切页逻辑只此一份（export_utils），本端点不重写
+            # 人工转正必须在切页**之前**烧进页对象：insert_pdf 复制的是页对象，
+            # /Rotate 跟着走；切完再改已经来不及（切页逻辑只此一份，见 export_utils）
+            apply_page_rotations(source_doc, parse_page_rotations(rotations))
             pdf_bytes = export_segment_pdf(source_doc, page_start, page_end)
     except ValidationException:
         raise
@@ -455,6 +466,10 @@ def archive_pdf_split_to_case_folder(
     items: list[Any] = []
     with fitz.open(storage.source_pdf_path) as source_doc:
         total_pages = int(source_doc.page_count)
+        # 一份 source_doc 复用给所有段、且页指纹也在同一份文档上算（page_signature
+        # 走 get_pixmap，会吃 /Rotate）。所以角度必须**先合并成一张表、apply 一次**，
+        # 再切页与算指纹——逐段 apply 会让先切出的段与后算的指纹方向不一致。
+        apply_page_rotations(source_doc, merge_page_rotations(seg.rotations for seg in payload.segments))
         for index, segment in enumerate(payload.segments):
             content, signatures = _segment_pdf_and_signatures(source_doc, segment, index=index, total_pages=total_pages)
             items.append(
@@ -493,8 +508,42 @@ def archive_pdf_split_to_case_folder(
     )
 
 
+def _safe_export_name(name: str) -> str:
+    """包名 → 文件名：去掉路径分隔符/控制字符（Content-Disposition 已被
+    build_download_response 转义，这里只防 name 里带 `../` 这类脏字符进日志与提示）。"""
+    cleaned = "".join(ch for ch in name if ch not in '\\/:*?"<>|' and ord(ch) >= 32).strip(" .")
+    return cleaned[:80] or "材料导出"
+
+
+@router.post("/export-draft")
+def export_draft_zip(request: Any, name: str = "") -> HttpResponse:
+    """把**草稿里的段**导出成 zip（没跑过自动分段的材料也有导出）。
+
+    与 `/download` 的分工：那条按**拆分任务**的段打 zip（段必须有后端产物 id）；
+    这条按**草稿**打 zip —— 律师完全可以不跑自动分段、自己切页命名旋转后直接归案，
+    那种包以前一个导出按钮都没有，数据却是全的。
+
+    入参 multipart：``files``（命名为 ``part_<partIndex>.<ext>``）+ ``spec``（JSON）。
+    spec / 素材结构性问题 400；单段页区间越界或素材缺失 → 跳过并计数，
+    数量经 ``X-Export-Skipped`` 回给前端提示（不静默少几份）。
+    """
+    from apps.pdf_splitting.services.export_draft_service import build_export_zip, collect_files, parse_spec
+
+    raw_spec = request.POST.get("spec") or ""
+    segments = parse_spec(raw_spec)
+    files = collect_files(request.FILES.getlist("files"))
+    content, skipped = build_export_zip(files, segments)
+    # 文件名取调用方给的包名（律师在文件夹里看到的是「某某案-起诉材料.zip」，
+    # 而不是一堆同名的「材料导出.zip」）；缺省仍给一个能读的名字
+    filename = f"{_safe_export_name(name)}.zip" if name.strip() else "材料导出.zip"
+    response = build_download_response(content, filename, "application/zip")
+    if skipped:
+        response["X-Export-Skipped"] = str(skipped)
+    return response
+
+
 @router.get("/jobs/{job_id}/segments/{segment_id}/pdf")
-def get_pdf_split_segment_pdf(request: Any, job_id: UUID, segment_id: int) -> HttpResponse:
+def get_pdf_split_segment_pdf(request: Any, job_id: UUID, segment_id: int, rotations: str = "") -> HttpResponse:
     """单段 PDF 下载（Content-Disposition: attachment）。
 
     单个下载 / 多选下载 / 整包下载共用同一份切页与命名实现（见
@@ -502,7 +551,7 @@ def get_pdf_split_segment_pdf(request: Any, job_id: UUID, segment_id: int) -> Ht
     会在页边界或文件名上对不上。
     """
     job = PdfSplitJobService().get_job(job_id, user=_request_user(request))  # 安全审计第4轮：校验任务属主
-    content, filename = PdfSplitService().build_download_pdf(job, segment_id)
+    content, filename = PdfSplitService().build_download_pdf(job, segment_id, rotations=rotations)
     return build_download_response(content, filename, "application/pdf")
 
 
@@ -515,7 +564,7 @@ def get_pdf_split_segment_markdown(request: Any, job_id: UUID, segment_id: int) 
 
 
 @router.get("/jobs/{job_id}/download")
-def get_pdf_split_download(request: Any, job_id: UUID, ids: str = "") -> HttpResponse:
+def get_pdf_split_download(request: Any, job_id: UUID, ids: str = "", rotations: str = "") -> HttpResponse:
     """整包 / 多选打包下载（zip，平铺）：每段一份 pdf + 一份同名 md。
 
     不带 ``ids`` 就是原来的整包（向后兼容，只是包里多了 md）；带 ``ids``（段
@@ -525,7 +574,7 @@ def get_pdf_split_download(request: Any, job_id: UUID, ids: str = "") -> HttpRes
     是每份 pdf 必须配一份 md。
     """
     job = PdfSplitJobService().get_job(job_id, user=_request_user(request))  # 安全审计第4轮：校验任务属主
-    package = PdfSplitService().build_download_zip(job=job, segment_ids=_parse_segment_ids(ids))
+    package = PdfSplitService().build_download_zip(job=job, segment_ids=_parse_segment_ids(ids), rotations=rotations)
     if package is None:
         # 没段可打：沿用旧 /download 的契约（404 + 空响应体），不要把半个包发出去。
         return HttpResponse(status=404)

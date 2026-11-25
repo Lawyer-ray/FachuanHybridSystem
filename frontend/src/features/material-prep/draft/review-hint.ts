@@ -19,6 +19,7 @@ const REVIEW_LABELS: Record<string, string> = {
   low_confidence: '建议复核',
   unrecognized: '未识别',
   ocr_failed: 'OCR 失败',
+  boundary_disagreement: '两种切法不一致',
 }
 
 /**
@@ -114,6 +115,12 @@ export function reviewHintOf(seg: {
   }
   if (flag === 'unrecognized') return { label, reason: '这一段没认出是哪类材料，可能是模板里没有的新类型' }
   if (flag === 'ocr_failed') return { label, reason: '这一段的文字没有取出来，正文可能是空的' }
+  // 整本一次 vs 逐批摘要两条路给出的边界不同。**不是错字题、也不是识别置信度低**：
+  // 整本看得全但可能把两份并成一份，分批看得窄反而拆得更细。所以文案只陈述
+  // 「两种切法不一致」并要求裁定，不暗示哪边对。
+  if (flag === 'boundary_disagreement') {
+    return { label, reason: '整本一次和逐批摘要切出的边界不同，请核对这一段该不该从这一页开始' }
+  }
   // 后端将来新增的取值：原样展示标签，原因留空（不编）
   return { label, reason: '' }
 }

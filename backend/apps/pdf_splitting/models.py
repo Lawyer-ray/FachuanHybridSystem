@@ -74,6 +74,8 @@ class PdfSplitCloudBackend(models.TextChoices):
     AUTO = "auto", "自动（优先 + 失败容灾）"
     MINERU = "mineru", "仅 MinerU"
     TEXTIN = "textin", "仅 Textin"
+    # 凭证在 SystemConfig 的 DEEPSEEK_OCR_API_KEY，不在「解析平台」管理页
+    DEEPSEEK = "deepseek", "仅 DeepSeek"
 
 
 #: 「交叉比对」可用的引擎码。与 `services/split/dual_engine.ENGINE_*` 逐字一致。
@@ -178,6 +180,10 @@ class PdfSplitReviewFlag(models.TextChoices):
     LOW_CONFIDENCE = "low_confidence", "低置信度"
     UNRECOGNIZED = "unrecognized", "未识别"
     OCR_FAILED = "ocr_failed", "OCR失败"
+    #: 两条分段路径（整本一次 vs 逐批摘要）在这一段给出的边界不一样。
+    #: 这是**判断题**不是错字题：整本看得全、但可能把两份并成一份；分批看得窄、
+    #: 反而更可能拆细。谁对取决于产品口径，所以只提示、交给人裁定。
+    BOUNDARY_DISAGREEMENT = "boundary_disagreement", "两种切法不一致"
 
 
 class PdfSplittingTool(models.Model):

@@ -382,9 +382,23 @@ def delete_manual_message(message: InboxMessage) -> int:
             logger.warning("收件箱消息 id=%s 删除后残留附件未清理: %s", pk, local_path)
 
     _purge_derived_split_data(pk, split_targets)
+    _purge_message_thumbnails(pk)
 
     logger.info("删除收件箱消息 id=%s，清理附件 %d/%d 份", pk, deleted, len(local_paths))
     return deleted
+
+
+def _purge_message_thumbnails(message_id: int) -> None:
+    """回收该消息的缩略图缓存（`inbox_thumbnails/<pk>/`）。
+
+    同样是尽力而为：缩略图是可再生的派生数据，删不掉最多留一张孤儿图，
+    不能因此让「删除材料包」失败。
+    """
+    from apps.message_hub.services.attachment_thumbnail_service import purge_message_thumbnails
+
+    removed = purge_message_thumbnails(message_id)
+    if removed:
+        logger.info("回收收件箱缩略图 %d 张 message=%s", removed, message_id)
 
 
 def _purge_derived_split_data(

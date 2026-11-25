@@ -155,7 +155,9 @@ describe('onOcrBox 框选取字', () => {
     expect(useReader.getState().ocrPending).toMatchObject({ mi: 0, p: 1, loading: true, text: '' })
     expect(bytesMock).toHaveBeenCalledWith(5, 0)
     expect(loadDocMock).toHaveBeenCalledWith('5:0', buf)
-    expect(renderRegionMock).toHaveBeenCalledWith(docStub, 1, RECT)
+    // 第 5 个入参是人工转正角度：框是画在**屏幕上**的（可能已转正），
+    // 抓图必须按同一角度裁，否则圈的是金额、识别出来的是隔壁的日期
+    expect(renderRegionMock).toHaveBeenCalledWith(docStub, 1, RECT, 1600, 0)
     expect(canvasBlobMock).toHaveBeenCalledWith(canvasStub)
     expect(ocrMock).toHaveBeenCalledWith(blob)
 
@@ -183,7 +185,7 @@ describe('onOcrBox 框选取字', () => {
       result.current.onOcrBox(0, 1, RECT)
     })
     await waitFor(() => expect(useReader.getState().ocrPending?.loading).toBe(false))
-    expect(imageRegionMock).toHaveBeenCalledWith(buf, RECT)
+    expect(imageRegionMock).toHaveBeenCalledWith(buf, RECT, 0)
     expect(loadDocMock).not.toHaveBeenCalled()
     expect(renderRegionMock).not.toHaveBeenCalled()
     expect(useReader.getState().ocrPending).toMatchObject({ text: '甲方 乙方' })

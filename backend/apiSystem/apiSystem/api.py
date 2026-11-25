@@ -180,6 +180,9 @@ def _register_app_routers() -> None:
     from apps.contracts.api import router as contracts_router
     from apps.core.api import router as config_router
     from apps.core.api.ninja_llm_api import llm_router
+    from apps.doc_verify.api import artifact_router as doc_verify_artifact_router
+    from apps.doc_verify.api import policy_router as doc_verify_policy_router
+    from apps.doc_verify.api import router as doc_verify_router
     from apps.document_recognition.api import router as document_recognition_router
     from apps.documents.api import (
         authorization_material_router,
@@ -220,6 +223,9 @@ def _register_app_routers() -> None:
     api_v1.add_router("/invoice-recognition", invoice_recognition_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/document-recognition", document_recognition_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/pdf-splitting", pdf_splitting_router, auth=JWTOrSessionAuth())
+    api_v1.add_router("/doc-verify", doc_verify_router, auth=JWTOrSessionAuth(), tags=["回传件核对"])
+    api_v1.add_router("/doc-verify", doc_verify_artifact_router, auth=JWTOrSessionAuth(), tags=["回传件核对"])
+    api_v1.add_router("/doc-verify", doc_verify_policy_router, auth=JWTOrSessionAuth(), tags=["回传件核对"])
     api_v1.add_router("/batch-printing", batch_printing_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/story-viz", story_viz_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/enterprise-data", enterprise_data_router, auth=JWTOrSessionAuth(), tags=["企业数据查询"])

@@ -43,6 +43,7 @@ function makePack(id: number, subject: string): InboxMessage {
     sender: '',
     recipient: '',
     received_at: '2026-10-01 10:00:00',
+    attachments: [],
     has_attachments: true,
     attachment_count: 1,
     uploaded_by_id: null,

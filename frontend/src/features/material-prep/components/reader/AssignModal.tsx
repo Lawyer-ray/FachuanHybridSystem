@@ -5,8 +5,14 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useTypeaheadSearch } from '@/hooks/use-typeahead-search'
 import { searchCases } from '../../api'
+import { PendingRuns, PolicyToggle } from '../../doc-verify'
 import type { AssignInfo, CaseRow, InfoField } from '../../types'
-import { isArchiveToCaseFolderEnabled, setArchiveToCaseFolderEnabled } from './use-assign-launch'
+import {
+  isArchiveToCaseFolderEnabled,
+  isVerifyAfterReturnEnabled,
+  setArchiveToCaseFolderEnabled,
+  setVerifyAfterReturnEnabled,
+} from './use-assign-launch'
 import { cn } from '@/lib/utils'
 
 type Target = 'existing' | 'new'
@@ -31,6 +37,10 @@ export function AssignModal({
   // 「同时归档到案件文件夹」默认勾选。状态由 use-assign-launch 模块持有
   // （为什么不在本组件里、也没走 AssignInfo：见那边的注释），这里只是渲染镜像。
   const [archiveToFolder, setArchiveToFolder] = useState<boolean>(() => isArchiveToCaseFolderEnabled())
+  // 「回传后核对内容」的模块级偏好同上：新建案件直接按它落库。选中既有案件后
+  // 显示值改由该案的服务端策略决定（见 PolicyToggle），这份偏好只作读不到时的兜底。
+  // 两个勾选都不随弹窗开关重置——它们是偏好，不是本次归案的参数。
+  const [verifyAfterReturn, setVerifyAfterReturn] = useState<boolean>(() => isVerifyAfterReturnEnabled())
 
   const who = infos.find((f) => f.k === '委托人')?.v || ''
   // 生成委托合同要用的字段：委托人不填不能提交，另两个可空
@@ -191,6 +201,13 @@ export function AssignModal({
               </div>
             </div>
           )}
+          {/* 选中案件后摊开「这案子有哪些回传件还没裁决」：归案与回传核对是同一个
+              案子的两件事，在这里一次看全，律师不必再去别处找第二个入口。 */}
+          {target === 'existing' && pickCase && (
+            <div className="mt-2">
+              <PendingRuns caseId={pickCase.id} />
+            </div>
+          )}
 
           {/* 新建案件 */}
           <label
@@ -253,6 +270,17 @@ export function AssignModal({
             />
             同时归档到案件文件夹（按案件卷宗命名）
           </label>
+          {/* 回传后核对内容：选中了案件就以该案的**服务端策略**为准（切换即写库，见
+              PolicyToggle）；新建案件还没有案子可写，先按偏好，归案成功后由
+              use-assign-launch 落库 */}
+          <PolicyToggle
+            caseId={target === 'existing' ? pickCase?.id : undefined}
+            checked={verifyAfterReturn}
+            onChange={(next) => {
+              setVerifyAfterReturn(next)
+              setVerifyAfterReturnEnabled(next)
+            }}
+          />
           <div className="mt-2.5 flex items-center gap-2">
             <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted-foreground">{why}</span>
             <Button variant="outline" size="sm" onClick={onCancel}>

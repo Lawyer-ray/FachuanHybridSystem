@@ -317,7 +317,7 @@ def test_requesting_tools_are_contract_visible(registered_tools: dict[str, Any])
     """发 REST 请求的工具必须能被 _rest_call_of 识别——否则路径/参数/
     输出三张契约全部对它失明,契约漂移无人报错(2026-10-25 审计十一轮)。
 
-    409 工具实测:未识别的 8 个里 6 个是纯本地/外部工具(不发 REST),
+    433 工具实测:未识别的 8 个里 6 个是纯本地/外部工具(不发 REST),
     2 个走登记豁免。本门禁把「新增发请求工具但模式没被识别」变成红灯。
     """
     sources = {name: segment for name, _file, segment in _iter_tool_functions()}

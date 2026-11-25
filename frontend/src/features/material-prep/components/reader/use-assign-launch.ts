@@ -5,7 +5,9 @@ import { bankLitigation, projectDetail, projectReview } from '@/app/paths'
 import { archiveSplitToCaseFolder, assignPack, fetchAttachmentBytes } from '../../api'
 import type { ArchiveToCaseFolderSegment } from '../../api'
 import { errMessage } from '@/lib/errors'
-import type { AssignInfo, DraftState, Segment } from '../../types'
+import { putPolicy } from '../../doc-verify/api'
+import type { AssignInfo, BundleMat, DraftState, PageRotMap, Segment } from '../../types'
+import { rotationsForRange } from '../../draft/page-rotation'
 
 /**
  * 「同时归档到案件文件夹」的勾选状态（默认勾选）。
@@ -25,6 +27,54 @@ export function isArchiveToCaseFolderEnabled(): boolean {
 
 export function setArchiveToCaseFolderEnabled(enabled: boolean): void {
   archiveToCaseFolderOn = enabled
+}
+
+/**
+ * 「回传后核对内容」的勾选状态（默认勾选）。
+ *
+ * 与上面「同时归档到案件文件夹」同构、同理由：这是律师的**偏好**，关掉弹窗再打开
+ * 不该自己弹回来；而 `AssignInfo`（`types.ts`）不归这次改动，弹窗到 hook 的唯一通道
+ * `onConfirm` 在 `Reader.tsx` 里也被包成了单参箭头。所以状态留在本模块，
+ * `AssignModal` 通过下面两个函数读写，归案成功后按它把策略落库。
+ */
+let verifyAfterReturnOn = true
+
+export function isVerifyAfterReturnEnabled(): boolean {
+  return verifyAfterReturnOn
+}
+
+export function setVerifyAfterReturnEnabled(enabled: boolean): void {
+  verifyAfterReturnOn = enabled
+}
+
+/**
+ * 新建案件归案成功后，把「回传后核对内容」的策略写到案件上（fire-and-forget）。
+ *
+ * 只服务新建案件：那时的勾选框没有案件可写，归案返回的 case id 是唯一落库机会。
+ * 选中既有案件时勾选框自己已经写过该案策略（见 `doc-verify/PolicyToggle.tsx`）。
+ *
+ * 为什么是附加动作、失败只记日志不 toast：此刻归案已经写库成功，策略没存上只是
+ * 「客户回传时不会自动核对」，不能让律师以为归案失败（重试会建出第二个案子）。
+ * 也刻意不弹 warning —— 归档有可见产物（卷宗目录）所以值得提示，而策略是个静默的
+ * 开关，失败时再弹一条只会让人去追一个看不到结果的动作。
+ *
+ * 拿不到可用的 case id 就跳过：宁可这次没存上，也不能猜一个 id 把策略写到别人案子上。
+ */
+function saveVerifyPolicy(caseId: number): void {
+  if (!Number.isInteger(caseId) || caseId <= 0) {
+    console.warn('[doc-verify] 归案结果没有可用的 case id，跳过核对策略落库', caseId)
+    return
+  }
+  // `doc_types: []` = 按后端口径「改全部高风险类」（四类文书一起开/关），
+  // 与勾选框文案点名的四类一致。
+  void putPolicy({ case_id: caseId, enabled: isVerifyAfterReturnEnabled(), doc_types: [] }).catch(
+    (e: unknown) => {
+      // 只在**没存上**的时候说一句：此刻归案已写库成功，说清「不影响归案」，别让律师重试建出第二个案子。
+      // 用 warning 而不是 error：客户回传时不会自动核，但代码默认（高风险四类）仍会核，
+      // 后果是「多核了」或「回落默认」，不是「少核了没发现」。
+      toast.warning(`归案成功，但「回传后核对内容」的设置没存上（不影响本案）：${errMessage(e, '未知错误')}`)
+    },
+  )
 }
 
 /**
@@ -89,14 +139,29 @@ export function useAssignLaunch(params: {
       return
     }
 
-    const segs = (draft?.segs ?? []).map((sg) => ({
-      name: sg.t || sg.fn || '未命名材料',
-      partIndex: sg.refs[0]?.mi ?? 0,
-      pageStart: sg.refs[0]?.p ?? 1,
-      pageEnd: sg.refs[sg.refs.length - 1]?.p ?? 1,
-      // 段标识随材料一起进案件侧：起草 RAG 靠它找回律师核对过的那一段预处理 Markdown
-      segmentRef: sg.id,
-    }))
+    const mats = draft?.mats ?? []
+    const pageRot = draft?.pageRot
+    const segs = (draft?.segs ?? []).map((sg) => {
+      const first = sg.refs[0]
+      const last = sg.refs[sg.refs.length - 1]
+      // refs 里的 mi 是**素材下标**；附件 partIndex 才是后端认的标识，也是页旋转
+      // 的键。常规包里两者数值相同，追加过附件后就会漂，所以显式换算。
+      const partIndex = mats[first?.mi ?? 0]?.partIndex ?? first?.mi ?? 0
+      const pageStart = first?.p ?? 1
+      const pageEnd = last?.p ?? 1
+      // 人工转正：切页在服务端做，角度必须跟着切页请求走，否则案件里那份还是歪的。
+      // 空串不进字段——没有旋转的包里请求体保持与改动前逐字相同。
+      const rotations = rotationsForRange(pageRot, partIndex, pageStart, pageEnd)
+      return {
+        name: sg.t || sg.fn || '未命名材料',
+        partIndex,
+        pageStart,
+        pageEnd,
+        ...(rotations ? { rotations } : {}),
+        // 段标识随材料一起进案件侧：起草 RAG 靠它找回律师核对过的那一段预处理 Markdown
+        segmentRef: sg.id,
+      }
+    })
 
     toast.loading('正在归案…', { id: 'assign' })
     try {
@@ -141,7 +206,7 @@ export function useAssignLaunch(params: {
       // 任何失败只提示、绝不改判「归案失败」——归档挂了律师也得进得去案件看材料。
       // 一个 job 挂了不影响其余 job：循环里逐组 catch。
       if (isArchiveToCaseFolderEnabled()) {
-        for (const group of archiveGroupsOf(draft?.segs ?? [])) {
+        for (const group of archiveGroupsOf(draft?.segs ?? [], draft?.pageRot, draft?.mats)) {
           try {
             await archiveSplitToCaseFolder(group.jobId, r.caseId, group.segments)
           } catch (e) {
@@ -152,6 +217,14 @@ export function useAssignLaunch(params: {
           }
         }
       }
+
+      // 回传后核对内容的策略：勾了=客户回传时自动比正文，没勾=不核。
+      // 用归案**返回**的 case id（不是用户选的/猜的），新建案件时只有这里才拿得到。
+      //
+      // 只在**新建案件**时写：选中既有案件的话，勾选框已经在弹窗里按该案的服务端值
+      // 逐次 putPolicy 过了（见 doc-verify/PolicyToggle.tsx），这里再按模块偏好写一遍，
+      // 会把律师刚才在弹窗里针对这个案子的选择覆盖成全局偏好。
+      if (assign.target !== 'existing') saveVerifyPolicy(r.caseId)
 
       // 归案后跳到该项目，让用户看到结果（此前只弹 toast，用户以为没成）。
       //
@@ -233,7 +306,11 @@ export interface ArchiveGroup {
  * - `page_start` / `page_end` 取该段的页区间（归案前已校验单源连续，见
  *   `isSingleSourceContiguous`，所以首尾就是最小/最大页）。
  */
-export function archiveGroupsOf(segs: Segment[]): ArchiveGroup[] {
+export function archiveGroupsOf(
+  segs: Segment[],
+  pageRot?: PageRotMap,
+  mats?: readonly BundleMat[],
+): ArchiveGroup[] {
   const groups = new Map<string, ArchiveToCaseFolderSegment[]>()
   for (const sg of segs) {
     const jobId = sg.splitRef?.jobId
@@ -243,7 +320,17 @@ export function archiveGroupsOf(segs: Segment[]): ArchiveGroup[] {
     if (!first || !last) continue
     const name = archiveDocTypeOf(sg)
     const list = groups.get(jobId) ?? []
-    list.push({ page_start: first.p, page_end: last.p, doc_type: name, material_type: name })
+    // 落进卷宗的那份也必须是律师看到的方向：后端在切页前把角度烧进页对象
+    const partIndex = mats?.[first.mi]?.partIndex ?? first.mi
+    // 只在该段真有旋转时才带字段：没有旋转的包里请求体保持与改动前逐字相同
+    const rotations = pageRot ? rotationsForRange(pageRot, partIndex, first.p, last.p) : ''
+    list.push({
+      page_start: first.p,
+      page_end: last.p,
+      doc_type: name,
+      material_type: name,
+      ...(rotations ? { rotations } : {}),
+    })
     groups.set(jobId, list)
   }
   return [...groups].map(([jobId, segments]) => ({ jobId, segments }))

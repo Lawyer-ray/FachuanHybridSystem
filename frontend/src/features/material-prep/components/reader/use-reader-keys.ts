@@ -5,6 +5,7 @@ import { useReader } from '../../store'
  * 阅读器全局键位：
  *   - Esc 逐级退出（OCR 待确认 → 选页模式 → 有选页 → 取字态 → 关闭阅读器）
  *   - S（无修饰键）合并当前选中页
+ *   - R / Shift+R 把选中页顺时针 / 逆时针转 90°（倒着送纸扫出来的页最常用）
  * 输入框内不劫持。直读 store.getState()，不随状态重建 listener。
  *
  * 归案弹窗（AssignModal）**不在这条 Esc 栈里**：它已改成 Radix Dialog，Esc 由
@@ -35,6 +36,15 @@ export function useReaderKeys() {
           s.setPickInfo(-1)
         } else {
           s.close()
+        }
+        return
+      }
+      // 旋转：只对「已选中的页」生效。没选中就不动——盲转当前页会让律师
+      // 不知道该页到底转没转（页流里一屏十几页，转错一页很难找回来）。
+      if ((e.key === 'r' || e.key === 'R') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (s.selPages.length) {
+          e.preventDefault()
+          s.rotatePages(s.selPages, e.shiftKey ? -90 : 90)
         }
         return
       }

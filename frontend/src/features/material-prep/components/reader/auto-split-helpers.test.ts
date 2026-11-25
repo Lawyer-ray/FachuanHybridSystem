@@ -285,6 +285,17 @@ describe('segmentBackendOf / segmentBackendNote：mixed 三态', () => {
     expect(segmentBackendNote([], 0)).toBe('')
   })
 
+  it('整本一次（llm_wholebook）也算律所 AI 分段，不能说成规则降级', () => {
+    // 回归：只认 'llm' 的写法会把整本分段算进「其余含规则引擎」，把更好的切法说成降级
+    expect(segmentBackendNote(['llm_wholebook'], 0)).toBe('律所 AI 分段（整本一次）')
+    expect(segmentBackendNote(['llm_wholebook_cross'], 0)).toBe(
+      '律所 AI 分段（整本一次 + 交叉核对）；两种切法不一致的段已标「待裁定」',
+    )
+    expect(segmentBackendNote(['llm_wholebook', 'rule'], 2)).toBe(
+      '1/2 律所 AI 分段，其余含规则引擎；2 段为规则分段请重点复核',
+    )
+  })
+
   it('mixed 说混合分段并报出规则段数（律师据此重点复核）', () => {
     expect(segmentBackendNote(['mixed'], 4)).toBe('律所 AI 与规则引擎混合分段；4 段为规则分段请重点复核')
     expect(segmentBackendNote(['llm', 'mixed'], 2)).toBe('1/2 律所 AI 分段，其余含规则引擎；2 段为规则分段请重点复核')

@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState, type CSSProperties, type ComponentProps
 import { Scissors } from 'lucide-react'
 import { SEG_COLORS } from '../../constants'
 import { useElementWidth } from '@/hooks/use-element-width'
+import type { RotDeg } from '../../types'
 import type { DraftState, EngineBlockRect, EngineDisagreement, OcrPending, PageKey } from '../../types'
 import { engineBlocksOfPage, selKeyOf } from '../../draft'
 import { COL_GAP, effectiveCols, fitPageWidth, rowWidth } from './layout'
@@ -170,6 +171,21 @@ export function Flow({
 
   const selKeys = useMemo(() => new Set(selPages.map(selKeyOf)), [selPages])
 
+  /** 页卡只认 `mi:page`（它手里只有素材下标），旋转表按 partIndex 存——在这里摊平一次 */
+  const rotations = useMemo(() => {
+    const flat: Record<string, RotDeg> = {}
+    const map = draft.pageRot
+    if (!map) return flat
+    mats.forEach((mat, mi) => {
+      for (const [key, deg] of Object.entries(map)) {
+        const [partText, pageText] = key.split(':')
+        if (Number(partText) !== mat.partIndex) continue
+        flat[`${mi}:${pageText}`] = deg
+      }
+    })
+    return flat
+  }, [draft.pageRot, mats])
+
   const openMenu = useCallback((e: React.MouseEvent, mi: number, p: number) => {
     setMenu({ x: e.clientX, y: e.clientY, mi, p })
   }, [])
@@ -196,8 +212,9 @@ export function Flow({
       onContextMenu: openMenu,
       focusedHitKey: focusedBlockKey,
       onActivateHit,
+      rotation: rotations[`${ref.mi}:${ref.p}`] ?? 0,
     }),
-    [messageId, mats, singleSource, picking, selMode, selKeys, marksOf, hitsOf, engineBoxesOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu, focusedBlockKey, onActivateHit],
+    [messageId, mats, singleSource, picking, selMode, selKeys, marksOf, hitsOf, engineBoxesOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu, focusedBlockKey, onActivateHit, rotations],
   )
 
   const menuInSel = menu ? selKeys.has(`${menu.mi}:${menu.p}`) : false

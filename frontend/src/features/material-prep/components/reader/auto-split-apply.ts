@@ -124,5 +124,13 @@ export function summarizeAutoSplitResults(params: {
   const failedTotal = pdfFailed + photoFailed + officeFailed
   const filled = detected.our || detected.their ? '；已自动填入当事人' : ''
   const tail = failedTotal > 0 ? `；${failedTotal} 份识别失败，可稍后重试` : '；未识别材料仍需人工归类'
-  return { message: `${parts.join('，')}${filled}${tail}`, warned: failedTotal > 0 }
+  // 页级取字失败必须让收尾提示升级成 warning。
+  //
+  // 为什么不能只看 `failedTotal`：那数的是「整份任务失败」。而某一页没取到字时，
+  // 任务状态是成功的、分段也是成功的——**正文里只是少了几页**，律师看到的是一条
+  // 绿色「已完成」。2026-11-25 一份真实卷宗里，某一页整案的核心事实（标的金额 +
+  // 生效刑事判决编号）就是这样静默消失的。
+  const lostPages = results.reduce((sum, item) => sum + (item.pageQuality?.ocr_failed_pages?.length ?? 0), 0)
+  const lost = lostPages > 0 ? `；${lostPages} 页未取到任何文字，正文里没有这几页，请核对原图补录` : ''
+  return { message: `${parts.join('，')}${filled}${tail}${lost}`, warned: failedTotal > 0 || lostPages > 0 }
 }

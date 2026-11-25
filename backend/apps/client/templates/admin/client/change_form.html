@@ -781,9 +781,19 @@
         };
     }
     </script>
+    {% endif %}
 
-    <div class="enterprise-prefill-section" x-data="enterprisePrefillApp()" x-init="init()">
-        <h3>🏢 {% trans "企业信息查询并填充" %}</h3>
+    {# 企业信息查询：新增页用来预填，编辑页用来**重新查询**（对齐企查查/天眼查最新数据后覆盖表单字段） #}
+    <div class="enterprise-prefill-section"
+         x-data="enterprisePrefillApp({ initialKeyword: '{% if original %}{{ original.name|escapejs }}{% endif %}', currentClientId: {% if original %}{{ original.pk }}{% else %}null{% endif %} })"
+         x-init="init()">
+        <h3>
+            {% if original %}
+                🏢 {% trans "重新查询企业信息" %}
+            {% else %}
+                🏢 {% trans "企业信息查询并填充" %}
+            {% endif %}
+        </h3>
         <div class="enterprise-prefill-toolbar">
             <select x-model="provider" @change="onProviderChange()" class="enterprise-prefill-select">
                 <option value="tianyancha">{% trans "天眼查" %}</option>
@@ -804,7 +814,13 @@
                 <span x-text="isSearching ? '搜索中...' : '搜索企业'"></span>
             </button>
         </div>
-        <div class="format-hint">💡 {% trans "先搜索企业，再点击候选项，系统会自动填充表单字段" %}</div>
+        <div class="format-hint">
+            {% if original %}
+                💡 {% trans "关键词已按当前当事人名称填好，直接点「搜索企业」；点候选项会覆盖表单里的名称/信用代码/法人/地址/电话，核对后点页面底部「保存」生效" %}
+            {% else %}
+                💡 {% trans "先搜索企业，再点击候选项，系统会自动填充表单字段" %}
+            {% endif %}
+        </div>
 
         <div x-show="statusHint" class="info-message">
             <span x-text="statusHint"></span>
@@ -845,9 +861,12 @@
                         <strong>注册地址：</strong><span x-text="profile.address || '-'"></span>
                     </div>
 
-                    <div class="enterprise-existing-warning" x-show="existingClient">
+                    <div class="enterprise-existing-warning" x-show="existingClient && !isSameClient()">
                         检测到当前统一社会信用代码已存在于当事人：
                         <a :href="existingClientUrl()" target="_blank" x-text="existingClient ? ('#' + existingClient.id + ' ' + existingClient.name) : ''"></a>
+                    </div>
+                    <div class="info-message" x-show="isSameClient()">
+                        查询结果与当前当事人（<span x-text="existingClient ? ('#' + existingClient.id + ' ' + existingClient.name) : ''"></span>）是同一主体，可对照下方企业档案核对差异。
                     </div>
 
                     <div x-show="applyMessage" class="success-message" x-text="applyMessage"></div>
@@ -856,8 +875,7 @@
         </div>
     </div>
 
-    <script src="{% static 'client/enterprise_prefill_app.js' %}?v=4"></script>
-    {% endif %}
+    <script src="{% static 'client/enterprise_prefill_app.js' %}?v=5"></script>
 
     <!-- 身份材料智能识别内联区域 - Alpine.js 版本（默认隐藏，需要时取消 display:none） -->
     <div class="identity-recognition-inline"

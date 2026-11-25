@@ -38,7 +38,7 @@ import { toast } from 'sonner'
 
 import { assignPack, fetchAttachmentBytes } from '../../api'
 import type { AssignInfo, DraftState } from '../../types'
-import { loadDocxBytes, partiesOf, useAssignLaunch } from './use-assign-launch'
+import { archiveGroupsOf, loadDocxBytes, partiesOf, useAssignLaunch } from './use-assign-launch'
 
 const assignPackMock = vi.mocked(assignPack)
 const fetchBytesMock = vi.mocked(fetchAttachmentBytes)
@@ -325,5 +325,44 @@ describe('onAssignConfirm：拒绝与失败', () => {
     expect(arg.caseName).toBe('新收材料金融借款合同纠纷')
     // 空草稿没有页可切，归案本身仍要成功，只是不绑材料
     expect(deps.setAssign).toHaveBeenCalled()
+  })
+})
+
+// ── 人工转正：外发链路的两个入口都必须带上角度 ──────────────────
+//
+// 旋转只记在草稿里，真正落地要靠在切页/归档请求里带上编码。这里锁住
+// 「草稿里有旋转 → 归档段的 rotations 字段就有值」，且页范围外的旋转不带。
+
+describe('archiveGroupsOf：带人工转正角度', () => {
+  const mats = [
+    { partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 6 },
+    { partIndex: 7, n: 'b.pdf', k: 'pdf', pages: 4 },
+  ] as never
+
+  const seg = (id: string, refs: { mi: number; p: number }[], jid = 'job-1'): never =>
+    ({ id, t: '', fn: '起诉状', refs, manual: false, splitRef: { jobId: jid, pk: 1 } }) as never
+
+  it('段内旋转编成 页码:角度，页码用源 PDF 绝对页号', () => {
+    const groups = archiveGroupsOf([seg('s1', [{ mi: 0, p: 2 }, { mi: 0, p: 3 }])], {
+      '0:2': 90,
+      '0:3': 90,
+      '0:5': 180, // 段外，不该带上
+    }, mats)
+    expect(groups[0]?.segments[0]?.rotations).toBe('2:90,3:90')
+  })
+
+  it('键换算：素材下标 1 对应附件 partIndex 7', () => {
+    const groups = archiveGroupsOf([seg('s1', [{ mi: 1, p: 1 }])], { '7:1': 270 }, mats)
+    expect(groups[0]?.segments[0]?.rotations).toBe('1:270')
+  })
+
+  it('没有旋转时不带该字段（请求体与改动前逐字相同）', () => {
+    const groups = archiveGroupsOf([seg('s1', [{ mi: 0, p: 1 }])], {}, mats)
+    expect(groups[0]?.segments[0]).not.toHaveProperty('rotations')
+  })
+
+  it('不传 pageRot 时保持旧签名行为（兼容既有调用点）', () => {
+    const groups = archiveGroupsOf([seg('s1', [{ mi: 0, p: 1 }])])
+    expect(groups[0]?.segments[0]).not.toHaveProperty('rotations')
   })
 })

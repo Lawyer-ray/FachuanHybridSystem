@@ -743,3 +743,70 @@ class TestDuplicatePageDedupe:
 
         assert all(p.source_method != "dedupe_copy" for p in pages)
         assert summary["dedupe_skipped_pages"] == 0
+
+
+class TestDegeneratePageRouting:
+    """云端/缓存给出的「废正文」不能当取字成功——它们要么进 pending 重取，要么被挡住。
+
+    「有字 = 成功」这个判据骗得过人：复读循环与空返回都有字、任务成功、分段还给高置信度，
+    而正文是垃圾。实测一页复读吐到 17000 字，一路进了 Markdown / 分段 / 归案。
+    """
+
+    _LOOPED = "\n".join(["同一段话被模型反复吐出来"] * 60)
+
+    def test_云端退化页不进描述符_转本地兜底(self, tmp_path: Path) -> None:
+        from apps.pdf_splitting.services.split.page_degeneracy import degeneracy_reason
+
+        pdf = tmp_path / "scan.pdf"
+        _make_pdf(pdf, [None])
+        handler = _StubOCRHandler(
+            cloud={1: OCRPageResult(page_no=1, text=self._LOOPED, source_method="mineru_ocr", ocr_failed=False)},
+            local={1: OCRPageResult(page_no=1, text="本地 OCR 读回来的正常正文", source_method="ocr", ocr_failed=False)},
+        )
+
+        pages, summary = PageTextExtractor(ocr_handler=handler).extract(
+            pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY
+        )
+
+        # 云端那份垃圾既没进正文，也没写进页缓存（写进去 = 这页永久是垃圾）
+        assert degeneracy_reason(pages[0].text) == ""
+        assert pages[0].text == "本地 OCR 读回来的正常正文"
+        # 云端那份垃圾一次都没写进「云端缓存档案」（本地兜底自己那份可以写）
+        assert [item for item in handler.written if item[0] != "balanced"] == []
+        # 本地兜底确实被调到了这一页
+        assert handler.local_calls == [[1]]
+        assert summary["degenerate_pages"] == [1]
+
+    def test_缓存里的退化页不采信_重新取字(self, tmp_path: Path) -> None:
+        pdf = tmp_path / "scan.pdf"
+        _make_pdf(pdf, [None])
+        handler = _StubOCRHandler(
+            cloud={1: OCRPageResult(page_no=1, text="重新取到的正常正文", source_method="mineru_ocr", ocr_failed=False)}
+        )
+        handler.read_ocr_cache = lambda **kwargs: OCRPageResult(  # type: ignore[method-assign]
+            page_no=1, text=self._LOOPED, source_method="mineru_ocr", ocr_failed=False
+        )
+
+        pages, summary = PageTextExtractor(ocr_handler=handler).extract(
+            pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY
+        )
+
+        assert pages[0].text == "重新取到的正常正文"
+        assert summary["degenerate_pages"] == [1]
+
+    def test_正常页不受影响(self, tmp_path: Path) -> None:
+        pdf = tmp_path / "scan.pdf"
+        _make_pdf(pdf, [None])
+        body = "5.4 借款人应在本合同签订后三十日内办理抵押登记手续，并将登记证明文件交由贷款人保管。"
+        handler = _StubOCRHandler(
+            cloud={1: OCRPageResult(page_no=1, text=body, source_method="mineru_ocr", ocr_failed=False)}
+        )
+
+        pages, summary = PageTextExtractor(ocr_handler=handler).extract(
+            pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY
+        )
+
+        assert pages[0].text == body
+        assert summary["degenerate_pages"] == []
+        # 正常页照旧写缓存（批量回调 + 逐页各写一次，重复写是既有行为）
+        assert handler.written and all(item == ("balanced_mineru_text_v2", 1) for item in handler.written)

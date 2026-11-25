@@ -1,4 +1,4 @@
-"""``dsh_mcp`` —— 给 dsh 接法穿 430 个 MCP 业务工具的 patch 层。
+"""``dsh_mcp`` —— 给 dsh 接法穿 434 个 MCP 业务工具的 patch 层。
 
 只验**不需要 dsh 子进程、不需要真 MCP** 的部分：
 

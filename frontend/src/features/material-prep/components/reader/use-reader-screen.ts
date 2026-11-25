@@ -118,6 +118,7 @@ export function useReaderScreen() {
     onResetSegments: actions.onResetSegments,
     onFocusSeg: actions.focusSeg,
     addInput: view.addInput,
+    focusedSeg: actions.focusedSeg,
     autoSplit,
   })
 

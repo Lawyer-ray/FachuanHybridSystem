@@ -16,6 +16,7 @@ import {
   docTypeLabel,
   graphicPagesOf,
   inconsistencyKindOf,
+  ocrFailedPagesOf,
   pagesText,
   qualityFlagLabel,
   reviewHintOf,
@@ -199,6 +200,31 @@ describe('graphicPagesOf / sparsePagesOf', () => {
 
   it('稀疏页单独取（图上的几个字 / 拍糊的一页）', () => {
     expect(sparsePagesOf(seg([[0, 149]]), quality)).toEqual([149])
+  })
+})
+
+describe('ocrFailedPagesOf：取字失败的页必须能被单独告警', () => {
+  // 回归 2026-11-25 材料包 617 的 p12：整页关键事实因为「一个字都没读到」
+  // 被判成 blank，界面上只有一句「空白页」——律师会以为原件本来就没字。
+  const quality = readPageQuality({ ocr_failed_pages: [12, 34], blank_pages: [7] })
+
+  it('只有 ocr_failed_pages 也算「有质量数据」，不能返回 null', () => {
+    expect(quality).not.toBeNull()
+    expect(readPageQuality({ ocr_failed_pages: [12] })).not.toBeNull()
+  })
+
+  it('按段内页序返回覆盖到的失败页', () => {
+    expect(ocrFailedPagesOf(seg([[0, 11], [0, 12], [0, 13]]), quality)).toEqual([12])
+    expect(ocrFailedPagesOf(seg([[0, 12], [1, 12]]), quality)).toEqual([12, 12])
+  })
+
+  it('空白页不算取字失败（两者必须分开）', () => {
+    expect(ocrFailedPagesOf(seg([[0, 7]]), quality)).toEqual([])
+  })
+
+  it('没有质量数据 / seg 为空时返回空数组', () => {
+    expect(ocrFailedPagesOf(seg([[0, 12]]), null)).toEqual([])
+    expect(ocrFailedPagesOf(null, quality)).toEqual([])
   })
 })
 
@@ -386,6 +412,14 @@ describe('reviewHintOf：复核信号 → 人话', () => {
   it('后端将来新增的取值：标签原样展示，原因留空（不编）', () => {
     expect(reviewHintOf({ reviewFlag: 'need_manual_merge' })).toEqual({ label: 'need_manual_merge', reason: '' })
   })
+  it('两种切法不一致：陈述分歧并要求裁定，不暗示哪边对', () => {
+    const hint = reviewHintOf({ reviewFlag: 'boundary_disagreement', sourceMethod: 'llm', confidence: 0.98 })
+    expect(hint?.label).toBe('两种切法不一致')
+    expect(hint?.reason).toContain('请核对这一段该不该从这一页开始')
+    // 置信度 98% 不得被拿来当复核理由（写成「建议复核 · 置信度 98%」是自相矛盾）
+    expect(hint?.reason).not.toContain('98%')
+  })
+
 })
 
 /**

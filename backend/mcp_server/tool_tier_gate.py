@@ -2,8 +2,9 @@
 
 ## 为什么需要在服务端裁剪
 
-``mcp_server`` 注册了 424 个工具，全量 ``tools/list`` 实测 **244 KB / 约 8.3 万
-token**，而这份 schema 是模型**每一轮请求都要重发的固定前缀**。
+``mcp_server`` 注册了 434 个工具，全量 ``tools/list`` 实测 **314 KB / 约 10.2 万
+token**（2026-11-25 重测；旧「244 KB / 8.3 万」系工具面扩张前的过期数），
+而这份 schema 是模型**每一轮请求都要重发的固定前缀**。
 
 pi 侧已有分层（``mcp_server/tool_tiers.py`` 的 ``toolExposure``：直连层声明给
 模型，长尾走 ``tool_search`` 按需加载）。但第二个 agent 后端 dsh
@@ -14,7 +15,7 @@ pi 侧已有分层（``mcp_server/tool_tiers.py`` 的 ``toolExposure``：直连�
    之后动态解锁」也不成立。
 
 于是只能在**服务端**按客户端要求裁剪：同一个 MCP 进程，pi 拿全量（它自己要
-``tool_search``），dsh 拿直连层（61 个 / 33 KB / 约 1.1 万 token）。
+``tool_search``），dsh 拿直连层（61 个 / 44 KB / 约 1.5 万 token，2026-11-25 重测）。
 
 ## 请求头协议
 

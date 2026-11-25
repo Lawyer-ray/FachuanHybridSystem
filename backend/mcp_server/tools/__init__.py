@@ -260,6 +260,7 @@ from mcp_server.tools.doc_converter import (
     get_conversion_progress,
     save_to_directory,
 )
+from mcp_server.tools.doc_verify import get_returned_document_check, list_unverified_returns, verify_returned_document
 from mcp_server.tools.documents import (
     analyze_template,
     confirm_mappings,
@@ -512,7 +513,7 @@ from mcp_server.tools.reminders import (
 )
 from mcp_server.tools.web_search import fetch_url, web_search
 
-# 东盟域外法查明（BARLC）。插件缺失时降级为「工具不存在」，不影响其余 409 个工具
+# 东盟域外法查明（BARLC）。插件缺失时降级为「工具不存在」，不影响其余 433 个工具
 # 的注册——与 web_search 的 optional 依赖同一处理口径。
 # 本文件不设 _HAS_FOREIGN_LAW 开关：四个名字在 __all__ 里是无条件声明的，
 # server.py 自己的注册门控另有独立开关，这里的 try/except 只负责插件缺失时不炸。
@@ -810,6 +811,10 @@ __all__ = [
     "download_review_original",
     "normalize_contract_format",
     "download_normalized_result",
+    # 回传件核对
+    "list_unverified_returns",
+    "get_returned_document_check",
+    "verify_returned_document",
     # 文书生产
     "list_document_templates",
     "get_document_template",

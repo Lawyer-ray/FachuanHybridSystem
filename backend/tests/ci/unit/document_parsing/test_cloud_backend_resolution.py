@@ -24,8 +24,16 @@ class _Provider:
 
 @pytest.fixture
 def providers(monkeypatch: pytest.MonkeyPatch) -> Any:
+    """装一组「解析平台」行，并把 DeepSeek 钉成**未配置**。
+
+    DeepSeek 的可用性看 SystemConfig 而不是 provider 行，而 SystemConfig 有共享缓存
+    （开发库配了 Key 就会漏进测试库的这次运行）。本文件测的是「provider 链」，
+    所以必须把它钉死；DeepSeek 自己的口径在 `test_deepseek_backend.py` 里测。
+    """
+
     def _install(rows: list[_Provider]) -> None:
         monkeypatch.setattr(parser_factory.ParseProviderService, "get_providers", classmethod(lambda cls: rows))
+        monkeypatch.setattr(parser_factory, "_deepseek_configured", lambda: False)
 
     return _install
 
@@ -78,3 +86,26 @@ class TestEdgeCases:
     def test_大小写不敏感(self, providers: Any) -> None:
         providers([_Provider("mineru", 5, 1), _Provider("textin", 10, 2)])
         assert resolve_cloud_backends("MINERU") == ["mineru"]
+
+
+class TestDeepSeekAvailability:
+    """DeepSeek 是唯一「凭证在 SystemConfig、没有 provider 行」的平台，可用性单独一条判据。"""
+
+    def test_Key未配置时auto链里没有它(self, providers: Any) -> None:
+        providers([_Provider("mineru", 5, 1)])
+        assert resolve_cloud_backends("auto") == ["mineru"]
+
+    def test_Key已配置时追加在最后(self, providers: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        providers([_Provider("mineru", 5, 1), _Provider("textin", 10, 2)])
+        monkeypatch.setattr(parser_factory, "_deepseek_configured", lambda: True)
+        # 是**兜底**不是首选：想让它当首选得显式锁定
+        assert resolve_cloud_backends("auto") == ["mineru", "textin", "deepseek"]
+
+    def test_只有Key没有任何provider时auto只给deepseek(self, providers: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        providers([])
+        monkeypatch.setattr(parser_factory, "_deepseek_configured", lambda: True)
+        assert resolve_cloud_backends("auto") == ["deepseek"]
+
+    def test_一个平台都没有时返回空表(self, providers: Any) -> None:
+        providers([])
+        assert resolve_cloud_backends("auto") == []

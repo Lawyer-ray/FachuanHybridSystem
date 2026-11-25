@@ -101,7 +101,7 @@ def test_stdio_session_stdout_is_pure_jsonrpc() -> None:
 
     2026-10-25 三十五轮审计:此前只测 bootstrap 探针,从未端到端跑过
     ``python -m mcp_server`` 的 stdio 会话。工具导入发生在 setup 改道窗口
-    **之外**(main() 里),409 个工具模块任何一个 import 期写 stdout 都会
+    **之外**(main() 里),433 个工具模块任何一个 import 期写 stdout 都会
     插进协议流毁掉握手且没有任何报错——现在导入已并入改道窗口,本门禁用
     真会话(initialize→tools/list)逐行验证 stdout 纯度,并确认全量工具可达。
     冷启动实测 ~4.5s。

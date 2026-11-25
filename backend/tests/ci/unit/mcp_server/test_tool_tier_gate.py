@@ -7,7 +7,7 @@ dsh 后端无法自己分层，只能靠服务端按请求头裁剪 ``tools/list
 
 1. **改错对象**：中间件拿到的是 ``_serialize`` 之后的 wire dict。写
    ``result.tools = [...]``（pydantic 对象属性）**不报错但无效**——模型照样收
-   424 个工具，账单照样 8.3 万 token，没有任何日志。
+   434 个工具，账单照样 10.2 万 token，没有任何日志。
 2. **破坏性工具被裁掉**：``lite`` 层靠 ``DIRECT_TOOLS`` + ``DIRECT_PATTERNS``
    命中。新增的 ``delete_xxx`` 一旦漏进长尾，模型在 ``lite`` 下就看不见"这个
    AI 有删除能力"——这是产品可见性红线，不是性能取舍。
@@ -76,7 +76,7 @@ def _capture_tool_payloads() -> list[dict[str, Any]]:
     """真实 ``MCPServer`` 的 ``tools/list`` 结果（pydantic 模型 → wire dict），缓存一份。
 
     走 ``model_dump`` 是因为中间件实际看到的就是这个形态——用 dict 形状才能
-    复现“赋值到 pydantic 属性无效”那个坑。424 个工具的 schema 串行化不便宜，
+    复现“赋值到 pydantic 属性无效”那个坑。434 个工具的 schema 串行化不便宜，
     缓存住让每个用例只付一次。
     """
     if _CAPTURED:
@@ -93,7 +93,7 @@ def _prime_capture() -> None:
     **不能 lazy capture**：``_run_chain`` 是 async，若在它内部调
     ``asyncio.run(mcp.list_tools())`` 会撞上「事件循环已在运行」。
     放在模块顶层最省事——pytest 的 collection 阶段是同步的，那时跑安全。
-    424 个工具的序列化要几秒，所以只付一次（``_CAPTURED`` 缓存）。
+    434 个工具的序列化要几秒，所以只付一次（``_CAPTURED`` 缓存）。
     """
     if _CAPTURED:
         return

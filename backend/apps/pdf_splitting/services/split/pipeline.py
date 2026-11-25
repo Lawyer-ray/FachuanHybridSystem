@@ -40,15 +40,17 @@ from pathlib import Path
 from typing import Any
 
 import pymupdf as fitz
+from django.db import DatabaseError
 
 from apps.document_parsing.services.backends._page_artifacts import clean_page_artifacts
 from apps.pdf_splitting.services.heartbeat import heartbeat_block
 from apps.pdf_splitting.services.template_registry import get_template_definition
 
 from .consistency_summary import attach_quality_flags_to_markdown, detect_inconsistencies, pick_top_inconsistencies
-from .llm_segment_detector import LLMSegmentDetector
+from .llm_segment_detector import LLMSegmentationError, LLMSegmentDetector
 from .markdown_builder import build_segments_markdown
 from .ocr_handler import OCRHandler, OCRStageBudget, cloud_backend_of_method
+from .page_degeneracy import degeneracy_reason
 from .page_fingerprint import find_duplicate_pages, page_signature
 from .page_quality import mark_rescued_image_blocks, rescue_image_region, strip_stamp_boilerplate_lines
 from .page_quality_summary import attach_page_quality_flags, build_page_quality_summary, qualities_by_page
@@ -165,7 +167,26 @@ def extract_pages(
     # 都只是「这页 Markdown 可能看不全内容，请核对原图」的提示，拦下来会让律师
     # 遇到「164 页都读出来了任务却说失败」。误报的代价（律师照常读）远小于误拦
     # （整份卷宗用不成）。
-    summary["page_quality"] = build_page_quality_summary(pages)
+    page_quality = build_page_quality_summary(pages)
+    summary["page_quality"] = page_quality
+    # 取字失败的页必须留一条 WARNING，且带页号。
+    #
+    # 为什么不能只靠 summary 里的计数：`ocr_failed` 页的正文是空的，它既不会出现在
+    # Markdown 里，也不会让任务失败——**律师侧唯一的痕迹就是少了一页内容**。
+    # 2026-11-25 一份 37 页扫描卷宗的某一页（整案核心事实与金额全在那一页）就是这样
+    # 整页丢的，日志里一条都没有。
+    failed_pages = page_quality.get("ocr_failed_pages") or []
+    if failed_pages:
+        logger.warning(
+            "pdf_split_pages_without_text",
+            extra={
+                "page_numbers": failed_pages[:50],
+                "failed_count": len(failed_pages),
+                "total_pages": len(pages),
+                "ocr_provider": summary.get("ocr_provider"),
+                "ocr_fallback_reason": summary.get("ocr_fallback_reason"),
+            },
+        )
     return pages, summary
 
 
@@ -182,6 +203,7 @@ def analyze_pdf(
     llm_segment_detector: Any = None,
     heartbeat: HeartbeatCallback | None = None,
     budget: OCRStageBudget | None = None,
+    segment_strategy: str | None = None,
 ) -> PdfAnalysisOutcome:
     """整条流水线的无状态门面：取字 → 分段 → Markdown。
 
@@ -216,6 +238,8 @@ def analyze_pdf(
         pages,
         template_key=template_key,
         llm_segment_detector=llm_segment_detector,
+        # None = 取 SystemConfig 的 PDF_SPLIT_SEGMENT_STRATEGY（默认 batch）
+        strategy=segment_strategy,
     )
     # 分段完成后再做跨页一致性校对：判据要的是「全本哪些短词被写成两种样子」，
     # 与分段结果无关，放在这里是为了让两条产物（summary 清单 / 段级 flag）出自同一次计算。
@@ -308,12 +332,48 @@ def _inconsistency_summary(inconsistencies: list[Any]) -> dict[str, Any]:
     }
 
 
+#: 分段策略。``batch`` = 逐批摘要（现状，稳）；``wholebook`` = 整本一次（看得全）；
+#: ``wholebook_cross`` = 两条都跑，边界不一致的段标成「待裁定」。
+SEGMENT_STRATEGY_BATCH = "batch"
+SEGMENT_STRATEGY_WHOLEBOOK = "wholebook"
+SEGMENT_STRATEGY_WHOLEBOOK_CROSS = "wholebook_cross"
+SEGMENT_STRATEGIES: tuple[str, ...] = (
+    SEGMENT_STRATEGY_BATCH,
+    SEGMENT_STRATEGY_WHOLEBOOK,
+    SEGMENT_STRATEGY_WHOLEBOOK_CROSS,
+)
+
+
+def resolve_segment_strategy(explicit: str | None = None) -> str:
+    """分段策略的取值来源：显式参数 > SystemConfig > batch。
+
+    为什么默认仍是 batch：整本一次要一口气看完一本书，大卷宗会撞 LLM 超时；
+    分批是踩过「164 页整本一次跑到 499s 被 worker 杀掉」之后才改成默认的。
+    想用整本路径就显式开——不存在「悄悄换成另一种切法」。
+    """
+    want = str(explicit or "").strip().lower()
+    if not want:
+        try:
+            from apps.core.services.system_config_service import SystemConfigService
+
+            want = str(SystemConfigService().get_value("PDF_SPLIT_SEGMENT_STRATEGY", "") or "").strip().lower()
+        except (ImportError, RuntimeError, DatabaseError):  # pragma: no cover - 读不到配置就用默认
+            logger.warning("读取 PDF_SPLIT_SEGMENT_STRATEGY 失败，按 batch 处理", exc_info=True)
+            want = ""
+    if want in SEGMENT_STRATEGIES:
+        return want
+    if want:
+        logger.warning("未知的分段策略 %r，按 batch 处理", want)
+    return SEGMENT_STRATEGY_BATCH
+
+
 def detect_segments_with_fallback(
     pages: list[PageDescriptor],
     *,
     template_key: str,
     llm_segment_detector: Any = None,
     checkpoint_path: Path | None = None,
+    strategy: str | None = None,
 ) -> tuple[list[SegmentDraft], dict[str, Any]]:
     """分段检测：律所 LLM（语义分类）优先，任何失败降级关键词规则引擎。
 
@@ -322,8 +382,34 @@ def detect_segments_with_fallback(
 
     ``checkpoint_path``：批级成果落盘位置（由调用方给到 job 的 analysis 目录）。
     worker 被杀后重跑据此续跑，不再为已完成的批重付 LLM 费用。
+
+    ``strategy``：见 ``SEGMENT_STRATEGIES``。整本路径失败（超时/输出非法/覆盖不全）
+    会**降级回分批**并把原因写进 ``segment_llm_fallback_reason``——不会退回规则引擎，
+    因为分批 LLM 也失败了那才是规则引擎的事。
     """
-    detector = llm_segment_detector if llm_segment_detector is not None else LLMSegmentDetector()
+    chosen = resolve_segment_strategy(strategy)
+    if chosen == SEGMENT_STRATEGY_BATCH:
+        return _detect_segments_batched(
+            pages, template_key=template_key, detector=llm_segment_detector, checkpoint_path=checkpoint_path
+        )
+    return _detect_segments_wholebook(
+        pages,
+        template_key=template_key,
+        batch_detector=llm_segment_detector,
+        checkpoint_path=checkpoint_path,
+        cross_check=chosen == SEGMENT_STRATEGY_WHOLEBOOK_CROSS,
+    )
+
+
+def _detect_segments_batched(
+    pages: list[PageDescriptor],
+    *,
+    template_key: str,
+    detector: Any = None,
+    checkpoint_path: Path | None = None,
+) -> tuple[list[SegmentDraft], dict[str, Any]]:
+    """逐批摘要分段（原路径，逐字未改）。"""
+    detector = detector if detector is not None else LLMSegmentDetector()
     # 单批降级必须能被 summary 说出来：前端 segmentBackendOf 读到 "llm" 就不提示
     # 规则降级，而「有几批其实是规则切的」只有分批执行器知道。
     batch_stats: dict[str, Any] = {}
@@ -357,6 +443,105 @@ def detect_segments_with_fallback(
         logger.warning("pdf_split_llm_segment_fallback", extra={"action": "llm_segment_fallback", "reason": reason})
         drafts = SegmentDetector().detect_segments(pages, template_key=template_key)
         return drafts, {"segment_backend": "rule", "segment_llm_fallback_reason": reason}
+
+
+def _detect_segments_wholebook(
+    pages: list[PageDescriptor],
+    *,
+    template_key: str,
+    batch_detector: Any = None,
+    checkpoint_path: Path | None = None,
+    cross_check: bool = False,
+) -> tuple[list[SegmentDraft], dict[str, Any]]:
+    """整本一次分段；可要求同时跑分批路径并标出**边界分歧**。
+
+    整本路径失败一律降级回分批（而不是直接掉到规则引擎）：分批 LLM 才是这个仓库
+    原本的唯一 LLM 路径，整本只是「看得更全」的增强。降级原因写进 summary，
+    否则「这次怎么切得不如上次」无从解释。
+    """
+    from .segment_merge import merge_continuation_segments
+    from .wholebook_segment_detector import WholeBookSegmentDetector
+
+    detector = WholeBookSegmentDetector()
+    whole: list[SegmentDraft] | None = None
+    fallback_reason = ""
+    try:
+        whole = detector.detect(pages, template_key=template_key)
+        whole = merge_continuation_segments(whole, {page.page_no: page.text for page in pages})
+    except (LLMSegmentationError, ValueError, RuntimeError, TimeoutError) as exc:
+        # 只接「LLM 这条路失败」的可预期类型：供给不可用 / 输出非法 / 覆盖不全 / 超时。
+        # 不接 Exception——编程错误应当炸出来，而不是被降级掩盖成「这次切得糙一点」。
+        fallback_reason = f"{type(exc).__name__}: {str(exc)[:200]}"
+        logger.warning(
+            "pdf_split_wholebook_fallback", extra={"action": "wholebook_fallback", "reason": fallback_reason}
+        )
+        whole = None
+
+    if whole is None:
+        fallback_drafts, fallback_summary = _detect_segments_batched(
+            pages, template_key=template_key, detector=batch_detector, checkpoint_path=checkpoint_path
+        )
+        fallback_summary["segment_llm_fallback_reason"] = fallback_reason or fallback_summary.get(
+            "segment_llm_fallback_reason", ""
+        )
+        fallback_summary["segment_strategy"] = SEGMENT_STRATEGY_WHOLEBOOK
+        return fallback_drafts, fallback_summary
+
+    summary: dict[str, Any] = {
+        "segment_backend": "llm_wholebook",
+        "segment_llm_fallback_reason": "",
+        "segment_total_batches": 1,
+        "segment_rule_batches": 0,
+        "segment_strategy": SEGMENT_STRATEGY_WHOLEBOOK_CROSS if cross_check else SEGMENT_STRATEGY_WHOLEBOOK,
+        "segment_wholebook_budget": dict(getattr(detector, "last_budget", {}) or {}),
+    }
+    if not cross_check:
+        return whole, summary
+
+    # 交叉：分批路径的边界与整本不一致的地方，交给人裁定。
+    #
+    # 为什么不自动采信任一边：两条路径的分歧恰恰是「这段到底是一份还是两份」这种
+    # 判断题——整本看得全但有幻觉风险，分批看得窄但对局部更专心。实测两者在
+    # 「主体资格材料是否拆开」上稳定不同，这属于产品口径，不是谁能算出来的。
+    batch_drafts, batch_summary = _detect_segments_batched(
+        pages, template_key=template_key, detector=batch_detector, checkpoint_path=checkpoint_path
+    )
+    summary["segment_batch_backend"] = batch_summary.get("segment_backend", "")
+    boundaries_whole = _boundary_set(whole)
+    boundaries_batch = _boundary_set(batch_drafts)
+    disagreed = sorted(boundaries_whole ^ boundaries_batch)
+    summary["segment_boundary_disagreement_pages"] = disagreed
+    summary["segment_boundary_disagreement_total"] = len(disagreed)
+    if disagreed:
+        _mark_boundary_disagreement(whole, disagreed)
+        logger.info(
+            "pdf_split_segment_boundary_disagreement",
+            extra={"pages": disagreed, "wholebook": sorted(boundaries_whole), "batch": sorted(boundaries_batch)},
+        )
+    summary["segment_backend"] = "llm_wholebook_cross"
+    return whole, summary
+
+
+def _boundary_set(drafts: list[SegmentDraft]) -> set[int]:
+    """一段的**起点页**集合就是它的切点集合（1 恒在，不算分歧）。"""
+    return {int(d.page_start) for d in drafts if int(d.page_start) > 1}
+
+
+def _mark_boundary_disagreement(drafts: list[SegmentDraft], disagreed: list[int]) -> None:
+    """把落在分歧点附近的整本段标成「待裁定」。
+
+    「附近」= 段首或段尾正好是某个分歧页；两侧各放一页，是因为分歧常常表现为
+    「整本说 p22 起新段、分批说 p26 才起」，这时 p22 段的尾部与 p26 段的首部
+    都值得看。
+    """
+    from apps.pdf_splitting.models import PdfSplitReviewFlag
+
+    points = set(disagreed)
+    for draft in drafts:
+        start, end = int(draft.page_start), int(draft.page_end)
+        if not (points & {start, start + 1, end, end + 1}):
+            continue
+        draft.review_flag = str(PdfSplitReviewFlag.BOUNDARY_DISAGREEMENT)
 
 
 def _segment_backend_of(batch_stats: dict[str, Any]) -> str:
@@ -560,6 +745,10 @@ class PageTextExtractor:
             "budget_skipped_pages": [],
             # 因预算不足整批放弃的图片补救页数（补救是附加内容，不是正文必要的路）
             "image_rescue_skipped_budget": 0,
+            # 云端/缓存给出的正文被判为「废的」（复读循环、空返回）的页。
+            # 它们不算取字成功——清掉后进 pending，走既有兜底链重新取字。
+            "degenerate_pages": [],
+            "cache_degenerate_pages": [],
         }
         with fitz.open(pdf_path) as doc:
             total_pages = int(doc.page_count)
@@ -647,6 +836,16 @@ class PageTextExtractor:
                 cached = self._ocr_handler.read_ocr_cache(
                     pdf_hash=pdf_hash, profile_key=runtime_profile_key, page_no=page_no
                 )
+            if cached is not None and (cached_reason := degeneracy_reason(cached.text)):
+                # 缓存里躺着的是复读/空的垃圾：**不能采信**，否则这一页永久是垃圾
+                # （缓存命中会一遍遍把同一份垃圾搬回来）。把它重新扔回 pending，
+                # 这一轮重新取字；取到干净结果时会覆盖缓存条目。
+                stats["cache_degenerate_pages"].append(page_no)
+                logger.warning(
+                    "pdf_split_cache_page_degenerate",
+                    extra={"page_no": page_no, "reason": cached_reason, "source": cached.source_method[:32]},
+                )
+                cached = None
             if cached is not None:
                 descriptors[page_index] = build_page_descriptor(
                     page_no=page_no,
@@ -752,6 +951,17 @@ class PageTextExtractor:
             self._raise_if_cancelled(page_no)
             result = cloud_results[page_no]
             if not result.text:
+                continue
+            if reason := degeneracy_reason(result.text):
+                # 云端「成功」但正文是废的（复读循环 / 空返回）。这类页**不能**当成功：
+                # 留着它就一路进 Markdown、进分段、进归案（实测一页 17000 字的复读正文）。
+                # 也**不写页缓存**——写进去就变成「这页永久是垃圾」，下一轮照样命中它。
+                # 清掉后它落在 local_fallback_pages 里，走本地 OCR 兜底。
+                stats["degenerate_pages"].append(page_no)
+                logger.warning(
+                    "pdf_split_cloud_page_degenerate",
+                    extra={"page_no": page_no, "reason": reason, "source": result.source_method[:32]},
+                )
                 continue
             self._ocr_handler.write_ocr_cache(
                 pdf_hash=pdf_hash,
@@ -1004,6 +1214,11 @@ class PageTextExtractor:
         for page_no, result in batch.items():
             if not getattr(result, "text", ""):
                 continue
+            # 退化页**不写缓存**：缓存是「这页已经取好了」的账本，把复读/空的垃圾写进去
+            # 等于把这页永久钉死成垃圾——下一轮命中缓存直接采信，永远救不回来。
+            # （写缓存发生在批次回调里，比逐页判退化更早，所以这里必须再挡一道。）
+            if degeneracy_reason(getattr(result, "text", "")):
+                continue
             try:
                 # page_no 传**权威键**（绝对页号），不要依赖 result 自带的页号：
                 # 分批解析曾只平移字典键、不改值，导致多批写到同一批缓存文件名上互相覆盖
@@ -1138,6 +1353,12 @@ class PageTextExtractor:
             "ocr_workers": runtime_profile.workers,
             "ocr_cache_hit_count": int(max(stats["cache_hit_count"], 0)),
             "ocr_miss_count": int(max(pending, 0)),
+            # 云端/缓存给出「废正文」的页：这些页已被重新扔回 pending 走兜底。
+            # 必须单独报——它们**曾经**被当成取字成功（有字、任务成功、日志无痕）。
+            "degenerate_pages": sorted(
+                {int(no) for no in (stats.get("degenerate_pages") or [])}
+                | {int(no) for no in (stats.get("cache_degenerate_pages") or [])}
+            ),
             "ocr_provider": self._actual_provider(stats),
             # 实际生效平台与首选不同 = 发生过容灾；把首选链一并记下便于排障
             "cloud_failover_from": stats.get("cloud_failover_from", []),

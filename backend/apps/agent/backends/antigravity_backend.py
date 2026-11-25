@@ -42,12 +42,12 @@ Python 侧只管配置与事件，真正的 agent 循环在随 wheel 分发的 G
 
 harness 的 MCP 客户端**只有一条通道**：把 ``call_mcp_tool`` 交给模型，或
 ``force_all_tools_eager=True`` 把服务端 ``tools/list`` 的全部工具注册成
-``mcp_<server>_<tool>`` 原生工具。后者在 ``full`` 档是 424 个工具 / 244KB /
-8.3 万 token **每轮**——四个后端里最贵的一份 prefill。
+``mcp_<server>_<tool>`` 原生工具。后者在 ``full`` 档是 434 个工具 / 314KB /
+约 10.2 万 token **每轮**（2026-11-25 重测）——四个后端里最贵的一份 prefill。
 
 所以：
 
-- 默认请求头 ``x-fachuan-tool-tier: lite``（61 个直连工具 / 33KB / 1.1 万 token，
+- 默认请求头 ``x-fachuan-tool-tier: lite``（61 个直连工具 / 44KB / 约 1.5 万 token，
   与 dsh 默认一致，见 ``toolface/constants.py``），模型拿到的是**带 schema 的原生
   工具**（``force_all_tools_eager=True``）；
 - ``FACHUAN_ANTIGRAVITY_TOOL_TIER=full`` 可放开到全量（代价就是上面那 8.3 万 token）；

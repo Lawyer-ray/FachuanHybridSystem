@@ -9,6 +9,7 @@ import { useDeskRing } from '../hooks/use-desk-ring'
 import { useDeskRouteSync } from '../hooks/use-desk-route-sync'
 import { DeskTabs } from './DeskTabs'
 import { DeskToolbar } from './DeskToolbar'
+import { PendingEntry } from '../doc-verify/PendingEntry'
 import { DESK_SURFACE_CLASS, toolbarSlotsFor } from './desk-toolbar-types'
 import { DeskDropLayer } from './DeskDropLayer'
 import { Reader } from './reader/Reader'
@@ -56,6 +57,7 @@ export function DeskPage() {
     setSel,
     source,
     setSource,
+    overrideSource,
     search,
     setSearch,
     unreadOnly,
@@ -214,6 +216,11 @@ export function DeskPage() {
           onOpenShareLinks={() => setShareLinksOpen(true)}
         />
 
+        {/* 回传件待核对：跨案件、按可见性收窄。挂在页签下、主卡之外——
+            不走工具栏槽位契约（那要改 desk-toolbar-types 与 stages 的槽位推导），
+            一行组件即可，切页签也不重挂。 */}
+        <PendingEntry />
+
         {/* 统一工具栏：阶段切换时它不重挂（在 key={stage} 那层之外），只有槽位变化，
             这样切页签时是「同一条工具栏换了控件」而不是「换了个页面」。 */}
         {/* 工具栏与主区域共用**同一个**卡片容器：工具栏是这张卡的表头（自带 border-b），
@@ -241,7 +248,8 @@ export function DeskPage() {
             tab={tab}
             viewMode={viewMode}
             source={source}
-            onSourceChange={setSource}
+            // 主区域这条只被深链接用来「放开筛选找目标消息」，不记进偏好
+            onSourceChange={overrideSource}
             search={search}
             onSearchChange={setSearch}
             unreadOnly={unreadOnly}

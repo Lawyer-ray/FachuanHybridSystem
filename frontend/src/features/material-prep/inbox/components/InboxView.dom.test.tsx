@@ -39,6 +39,19 @@ vi.mock('../api', async (importOriginal) => {
 })
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() } }))
 
+// 应用内预览弹窗会加载 pdf.js 与附件字节：这里只验证「点开哪个入口」，
+// 真实渲染链路在 AttachmentPreview.dom.test.tsx 里单独测。
+const pdfMock = vi.hoisted(() => ({
+  loadPdfDocument: vi.fn(async () => ({ numPages: 3 })),
+  renderPdfPage: vi.fn(async () => document.createElement('canvas')),
+}))
+vi.mock('@/lib/pdf', () => pdfMock)
+
+const bytesMock = vi.hoisted(() => ({
+  fetchAttachmentBytes: vi.fn(async () => new ArrayBuffer(16)),
+}))
+vi.mock('../../api', () => ({ fetchAttachmentBytes: bytesMock.fetchAttachmentBytes }))
+
 // 下载票据与下载触发都是跨模块副作用（换票要发请求、downloadUrl 要操作 DOM），
 // 在这里打桩以断言「确实换票了」——这正是曾经漏掉、导致 401 的那一步。
 const dlMock = vi.hoisted(() => ({
@@ -69,6 +82,7 @@ function row(over: Partial<InboxRow> & { id: number }): InboxRow {
     segs: 0,
     named: 0,
     pages: 0,
+    attachments: [],
     mats: 0,
     types: [],
     compose: '',
@@ -194,6 +208,18 @@ beforeEach(() => {
   })
 })
 
+/**
+ * 点开一行。
+ *
+ * 行本体现在是 `<li>`，可点的主操作是铺满整行的「打开：<主题>」按钮
+ * （行内还要放预览/展开按钮，不能嵌套在 `<button>` 里，见 InboxRowItem 的注释）。
+ * jsdom 不做命中测试，点文字不会冒泡到覆盖层，所以必须点那个按钮本身。
+ */
+async function clickRow(subject: string | RegExp) {
+  const name = typeof subject === 'string' ? new RegExp(`打开：${subject}`) : new RegExp(`打开：.*${subject.source}`)
+  fireEvent.click(await screen.findByRole('button', { name }))
+}
+
 describe('InboxView', () => {
   it('渲染消息行（页面标题与阶段页签由 DeskPage 提供，不归本视图）', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1 })])
@@ -220,7 +246,7 @@ describe('InboxView', () => {
   it('点开一行 → 抽屉出现并标记已读', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1 })])
     wrap()
-    fireEvent.click(await screen.findByText(/执保XXXX号/))
+    await clickRow(/执保XXXX号/)
     expect(await screen.findByRole('dialog', { name: '消息详情' })).toBeTruthy()
     // 未读消息点开即标已读
     await waitFor(() => {
@@ -231,7 +257,7 @@ describe('InboxView', () => {
   it('已读的消息点开不重复发标记请求', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1, is_read: true })])
     wrap()
-    fireEvent.click(await screen.findByText(/执保XXXX号/))
+    await clickRow(/执保XXXX号/)
     await screen.findByRole('dialog', { name: '消息详情' })
     expect(apiMock.setReadState).not.toHaveBeenCalled()
   })
@@ -239,7 +265,7 @@ describe('InboxView', () => {
   it('抽屉内转材料包 → 跳材料预处理详情（闭环）', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1, has_attachments: true, converted_message_id: null })])
     wrap()
-    fireEvent.click(await screen.findByText(/执保XXXX号/))
+    await clickRow(/执保XXXX号/)
     const btn = await screen.findByRole('button', { name: /转材料包并打开/ })
     fireEvent.click(btn)
     await waitFor(() => {
@@ -252,13 +278,13 @@ describe('InboxView', () => {
   // 回归：附件预览/下载曾用裸 <a href> 打开后端端点，浏览器带不上 JWT、
   // 后端又刻意不收 ?token=，导致任何账号都是 401（「用自己的账号下载自己的
   // 一张网材料也失败」，与权限无关）。必须经一次性下载票据换 ?ticket=。
-  it('预览附件：先换下载票据，再带 ticket 开新标签', async () => {
+  it('新窗口预览：先换下载票据，再带 ticket 开新标签', async () => {
     const openSpy = vi.fn()
     vi.stubGlobal('open', openSpy)
     apiMock.listInbox.mockResolvedValue([row({ id: 1, has_attachments: true })])
     wrap()
-    fireEvent.click(await screen.findByText(/执保XXXX号/))
-    fireEvent.click(await screen.findByRole('button', { name: '预览附件' }))
+    await clickRow(/执保XXXX号/)
+    fireEvent.click(await screen.findByRole('button', { name: '在新窗口打开附件' }))
 
     await waitFor(() => expect(dlMock.withDownloadTicket).toHaveBeenCalled())
     // 换票的入参必须是 preview 端点，且不含任何 JWT
@@ -269,10 +295,25 @@ describe('InboxView', () => {
     vi.unstubAllGlobals()
   })
 
+  it('应用内预览：走弹窗，不换票、不开新标签', async () => {
+    const openSpy = vi.fn()
+    vi.stubGlobal('open', openSpy)
+    apiMock.listInbox.mockResolvedValue([row({ id: 1, has_attachments: true })])
+    wrap()
+    await clickRow(/执保XXXX号/)
+    fireEvent.click(await screen.findByRole('button', { name: '预览附件' }))
+
+    expect(await screen.findByRole('dialog', { name: /附件预览：裁定书\.pdf/ })).toBeTruthy()
+    // 应用内预览不该换票（票据是给「新窗口/下载」用的），也不该开新标签
+    expect(dlMock.withDownloadTicket).not.toHaveBeenCalled()
+    expect(openSpy).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
   it('下载附件：先换下载票据，再以带 ticket 的 URL 触发下载', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1, has_attachments: true })])
     wrap()
-    fireEvent.click(await screen.findByText(/执保XXXX号/))
+    await clickRow(/执保XXXX号/)
     fireEvent.click(await screen.findByRole('button', { name: '下载附件' }))
 
     await waitFor(() => expect(dlMock.withDownloadTicket).toHaveBeenCalled())
@@ -286,7 +327,7 @@ describe('InboxView', () => {
   it('附件按钮不再渲染裸 <a href> 指向受保护端点（否则必然 401）', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1, has_attachments: true })])
     wrap()
-    fireEvent.click(await screen.findByText(/执保XXXX号/))
+    await clickRow(/执保XXXX号/)
     await screen.findByRole('button', { name: '预览附件' })
     const links = Array.from(document.querySelectorAll('a[href*="/attachments/"]'))
     expect(links).toHaveLength(0)
@@ -295,7 +336,7 @@ describe('InboxView', () => {
   it('无附件的通知类消息不给转材料包按钮，并说明原因', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1, has_attachments: false, attachment_count: 0 })])
     wrap()
-    fireEvent.click(await screen.findByText(/执保XXXX号/))
+    await clickRow(/执保XXXX号/)
     await screen.findByRole('dialog', { name: '消息详情' })
     expect(screen.queryByRole('button', { name: /转材料包/ })).toBeNull()
     expect(screen.getByText(/没有附件，无可拆分材料/)).toBeTruthy()
@@ -304,7 +345,7 @@ describe('InboxView', () => {
   it('已转过材料包的消息直接给「打开已转的材料包」', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1, converted_message_id: 42 })])
     wrap()
-    fireEvent.click(await screen.findByText(/执保XXXX号/))
+    await clickRow(/执保XXXX号/)
     expect(await screen.findByRole('button', { name: /打开已转的材料包/ })).toBeTruthy()
   })
 
@@ -313,7 +354,7 @@ describe('InboxView', () => {
       row({ id: 5, source_type: 'manual_upload', source_name: '前端材料预处理上传', subject: '手动上传材料' }),
     ])
     wrap()
-    fireEvent.click(await screen.findByText('手动上传材料'))
+    await clickRow('手动上传材料')
     expect(await screen.findByRole('button', { name: /打开材料预处理/ })).toBeTruthy()
   })
 

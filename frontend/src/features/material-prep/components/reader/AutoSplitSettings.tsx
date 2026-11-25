@@ -34,6 +34,20 @@ import {
  * 文本层」的判断是按包做的，换包不继承、重开同一包保留。新建包默认开双引擎
  * （见 constants.defaultRecognition），所以这里必须给一键关闭的入口。
  */
+/**
+ * 一个引擎项的副标题。
+ *
+ * DeepSeek 单独一种说法：它**不参与交叉比对**（后端 `DUAL_ENGINE_CHOICES` 里没有它），
+ * 所以不能沿用「再勾一个就比对」那句，否则用户勾了 DeepSeek + MinerU 会以为开了比对。
+ */
+function engineHintOf(engine: CloudEngine, selection: CloudSelection): string {
+  const picked = selection.includes(engine)
+  if (engine === 'deepseek') {
+    return picked ? '锁定 · 不参与交叉比对' : '取字引擎 · 可单独使用'
+  }
+  return picked && !crossChecks(selection) ? '锁定 · 失败不降级' : '版面解析 · 可定位'
+}
+
 export function AutoSplitSettings({
   disabled,
   layoutMode,
@@ -96,7 +110,7 @@ export function AutoSplitSettings({
             checked={cloudSelection.includes(e)}
             onToggle={() => onToggleCloudEngine(e)}
             label={cloudEngineLabel(e)}
-            hint={cloudSelection.includes(e) && !crossChecks(cloudSelection) ? '锁定 · 失败不降级' : '版面解析 · 可定位'}
+            hint={engineHintOf(e, cloudSelection)}
           />
         ))}
         {/* 新建包默认双引擎，所以「关掉」必须一步可达：勾掉两个引擎要两次点击，
@@ -121,6 +135,10 @@ export function AutoSplitSettings({
         ) : cloudSelection.length === 0 ? (
           <p className="px-2 pb-1 pt-0.5 text-[11px] leading-4 text-muted-foreground">
             不勾任何引擎 = 自动容灾（首选失败自动切下一个）
+          </p>
+        ) : cloudSelection.some((e) => e === 'deepseek') && cloudSelection.length === 1 ? (
+          <p className="px-2 pb-1 pt-0.5 text-[11px] leading-4 text-muted-foreground">
+            仅 DeepSeek 取字：读得更准（旋转页也不读反），但约 1/5 的页会整页崩，需靠单页重试救回
           </p>
         ) : (
           <p className="px-2 pb-1 pt-0.5 text-[11px] leading-4 text-muted-foreground">

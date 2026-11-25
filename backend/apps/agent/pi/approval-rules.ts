@@ -175,6 +175,10 @@ export const WRITE_PREFIXES: readonly string[] = [
   // 扫描件归档（archive_pdf_split_to_case_folder）：落盘到律师案卷目录，幂等且不覆盖，
   // 与 generate_/export_/bind_ 同档（MEDIUM）；不补就只能判 LOW = 无留痕。
   "archive_",
+  // 回传件核对（verify_returned_document 落一条核对运行，POST /doc-verify/runs）：
+  // 不碰律师文件且幂等（同基线+同字节返回同一行），与 generate_/archive_ 同档；
+  // 不补只能判 LOW = 连留痕都没有（verify_citations 一并升到 MEDIUM，无审批摩擦）。
+  "verify_",
 ];
 
 /**

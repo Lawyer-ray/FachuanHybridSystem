@@ -1,4 +1,5 @@
 /** 选页汇总条（原型 selbar）：底部浮条，左侧计数、中间说明、右侧操作 */
+
 export function SelectionBar({
   count,
   cross,
@@ -17,6 +18,7 @@ export function SelectionBar({
       <span className="text-[12px] text-muted-foreground">
         {cross ? '来自多份材料，将合并为一份' : '来自同一份，将独立成一份新材料'}
       </span>
+
       <button type="button" onClick={onClear} className="text-[12px] text-secondary-foreground hover:underline">
         取消选择
       </button>

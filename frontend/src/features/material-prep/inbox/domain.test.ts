@@ -11,8 +11,15 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { countUnread, filterRows, groupByTime } from './domain'
-import { canConvert, isPackSource, packIdOf, type InboxRow } from './types'
+import {
+  attachmentDisplayName,
+  attachmentKind,
+  attachmentPagesLabel,
+  countUnread,
+  filterRows,
+  groupByTime,
+} from './domain'
+import { canConvert, isPackSource, packIdOf, type InboxAttachment, type InboxRow } from './types'
 
 /** 造一行最小可用的收件箱数据（只填被测字段，其余用后端恒返回的空默认值兜） */
 function row(over: Partial<InboxRow> & { id: number; received_at: string }): InboxRow {
@@ -34,6 +41,7 @@ function row(over: Partial<InboxRow> & { id: number; received_at: string }): Inb
     mats: 0,
     types: [],
     compose: '',
+    attachments: [],
     is_read: true,
     upload_link_title: '',
     upload_contract_name: '',
@@ -161,5 +169,74 @@ describe('材料预处理入口判定', () => {
     const notice = row({ id: 10, received_at: NOW.toISOString(), has_attachments: false })
     expect(packIdOf(notice)).toBeNull()
     expect(canConvert(notice)).toBe(false)
+  })
+})
+
+// ── 附件三件套：名称 / 类型 / 页数 ──────────────────────────────
+//
+// 行内小样、抽屉清单、预览弹窗三处共用这几条口径，任何一处改判定都会让
+// 「有缩略图却点不开」或「点开一片空白」，所以按边界逐个钉住。
+
+function att(over: Partial<InboxAttachment> = {}): InboxAttachment {
+  return {
+    filename: 'a.pdf',
+    original_filename: 'a.pdf',
+    custom_filename: null,
+    size: 100,
+    content_type: 'application/pdf',
+    part_index: 0,
+    page_count: 5,
+    expanded_from: null,
+    ...over,
+  }
+}
+
+describe('attachmentDisplayName', () => {
+  it('用户改过的名字优先（归档命名也认它）', () => {
+    expect(attachmentDisplayName(att({ custom_filename: '1-起诉状（某某案）V4_20261106.pdf' }))).toBe(
+      '1-起诉状（某某案）V4_20261106.pdf',
+    )
+  })
+
+  it('没改过名时用原始名，其次归一化后的 filename', () => {
+    expect(attachmentDisplayName(att({ custom_filename: '', original_filename: '扫描件.pdf' }))).toBe('扫描件.pdf')
+    expect(attachmentDisplayName(att({ original_filename: null, filename: 'x.pdf' }))).toBe('x.pdf')
+  })
+
+  it('全空时给兜底名，不返回空串（空标题在列表里等于一行空白）', () => {
+    expect(attachmentDisplayName(att({ filename: '', original_filename: null }))).toBe('未命名附件')
+  })
+})
+
+describe('attachmentKind', () => {
+  it('PDF 认 content_type 也认大写后缀', () => {
+    expect(attachmentKind(att({ content_type: 'application/pdf', filename: 'a' }))).toBe('pdf')
+    expect(attachmentKind(att({ content_type: '', filename: 'a.PDF' }))).toBe('pdf')
+  })
+
+  it('位图按 content_type 或后缀判定（含 jpg/jpeg/webp 等常见档）', () => {
+    expect(attachmentKind(att({ content_type: 'image/jpeg', filename: 'a' }))).toBe('image')
+    expect(attachmentKind(att({ content_type: '', filename: '现场.JPEG' }))).toBe('image')
+    expect(attachmentKind(att({ content_type: '', filename: 'x.webp' }))).toBe('image')
+  })
+
+  it('Office / 压缩包 / 未知类型一律 other（只能下载）', () => {
+    expect(attachmentKind(att({ content_type: 'application/msword', filename: 'a.docx' }))).toBe('other')
+    expect(attachmentKind(att({ content_type: 'application/zip', filename: 'a.zip' }))).toBe('other')
+  })
+})
+
+describe('attachmentPagesLabel', () => {
+  it('PDF 有页数就写页数', () => {
+    expect(attachmentPagesLabel(att({ page_count: 12 }))).toBe('12 页')
+  })
+
+  it('PDF 缺页数（老数据）不写，避免显示「0 页」这种假信息', () => {
+    expect(attachmentPagesLabel(att({ page_count: null }))).toBe('')
+    expect(attachmentPagesLabel(att({ page_count: 0 }))).toBe('')
+  })
+
+  it('图片即使后端给了 1 也不写（恒为 1 页是噪音）', () => {
+    expect(attachmentPagesLabel(att({ content_type: 'image/png', filename: 'a.png', page_count: 1 }))).toBe('')
   })
 })

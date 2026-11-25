@@ -38,6 +38,7 @@ export function RailSegRow({
   dropPos = null,
   graphicPages = [],
   docHintPages = [],
+  ocrFailedPages = [],
   editing,
   download,
   onStartEdit,
@@ -63,6 +64,9 @@ export function RailSegRow({
   graphicPages?: number[]
   /** 本段覆盖到的证件页（含该页缺失字段）。`missing` 为空 = 字段都在，只是认出类型 */
   docHintPages?: { page: number; doc: string; missing: string[] }[]
+  /** 本段里**一个字都没读到**的页号（`summary.page_quality.ocr_failed_pages`）。
+   *  这些页在正文里完全不存在，所以必须靠徽标告警，而不是正文内提示 */
+  ocrFailedPages?: number[]
   /** 行内改名由父层持有（右键「重命名」也要打开它） */
   editing: boolean
   /** 勾选 + 单个下载的视图模型；undefined = 本段没有后端产物（人工拆的段 / 旧草稿），
@@ -191,7 +195,12 @@ export function RailSegRow({
               证件页优先级高于图纸页：两者都有时只显示证件图标——缺的是必须抄进
               卷宗的字段，比「这页看不出内容」更该先处理；两个图标并排只会互相稀释。 */}
           {!editing && (
-            <SegmentMarks seg={seg} docHintPages={docHintPages} graphicPages={graphicPages} />
+            <SegmentMarks
+              seg={seg}
+              docHintPages={docHintPages}
+              graphicPages={graphicPages}
+              ocrFailedPages={ocrFailedPages}
+            />
           )}
         </div>
       </ContextMenuTrigger>
@@ -280,15 +289,28 @@ function SegmentMarks({
   seg,
   docHintPages,
   graphicPages,
+  ocrFailedPages,
 }: {
   seg: Segment
   docHintPages: { page: number; doc: string; missing: string[] }[]
   graphicPages: number[]
+  ocrFailedPages: number[]
 }) {
   const reviewHint = reviewHintOf(seg)
   return (
     <span className="flex flex-none items-center gap-0.5">
-      {docHintPages.length > 0 ? (
+      {/* 取字失败优先于一切其它徽标：它比「图纸/证件缺字段」严重一档（
+          那两类至少还有字可读），且正文里根本没有这几页。用琥珀色与「建议复核」
+          同一套语义色，因为它要的也是动作（去翻原图补录）。 */}
+      {ocrFailedPages.length > 0 ? (
+        <span
+          data-ocr-failed-mark
+          className="flex-none text-amber-600"
+          title={`含 ${ocrFailedPages.length} 页未取到任何文字（P${ocrFailedPages.join('、P')}），正文里没有这几页 · 请核对原图补录`}
+        >
+          <AlertTriangle className="h-3 w-3" aria-hidden />
+        </span>
+      ) : docHintPages.length > 0 ? (
         <span data-doc-mark className="flex-none text-zinc-400" title={docHintTooltip(docHintPages)}>
           <IdCard className="h-3 w-3" aria-hidden />
         </span>

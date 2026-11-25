@@ -112,10 +112,14 @@ EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
 CJK_PATTERN = re.compile(r"[\u4e00-\u9fa5]")
 # kimi 每把 key 限 3 并发；LLMProvider 表可配多把 key，槽位 = Σ(每 key 并发 × key 数)，
 # 走后端进程级 KeyPool 轮转，无需自己记账
-LLM_PRIVACY_CHUNK_LINES = 60
+LLM_PRIVACY_CHUNK_LINES = 40
 LLM_PRIVACY_MAX_LINES = 400
 LLM_PRIVACY_MAX_CHARS = 24_000
 LLM_PRIVACY_LINE_CHARS = 300
+#: 单片输出上限。原值 2000 实测会把「先说一段话再给数组」的输出截断在数组中间，
+#: 于是整片被判「不是 JSON 数组」→ 静默放行（隐私复审最不该发生的失败方向）。
+LLM_PRIVACY_MAX_TOKENS = 3000
+
 LLM_PRIVACY_TIMEOUT_S = 60
 LLM_PRIVACY_MAX_SLOTS = 12
 # 模型自己在理由里说「应放行 / 虚构 / 示例」的条目不算命中
@@ -563,15 +567,39 @@ def _llm_slot_capacity() -> int:
 
 
 def _parse_llm_json_array(text: str) -> list[dict] | None:
-    """宽松取出模型输出里的 JSON 数组（容忍 ``` 围栏与前后废话）；解析不出返回 None。"""
+    """宽松取出模型输出里的 JSON 数组（容忍 ``` 围栏与前后废话）；解析不出返回 None。
+
+    两级解析，第二级是为了**截断**：推理模型常在数组中间被 max_tokens 掐断，
+    整段 `json.loads` 必然失败，但里面**已经完整写出来的对象仍然是有效命中**。
+    把它们抢救出来，比整片放行安全得多——隐私复审的失败方向必须偏「多报」。
+    """
     start, end = text.find("["), text.rfind("]")
-    if start < 0 or end <= start:
-        return None
-    try:
-        data = json.loads(text[start : end + 1])
-    except json.JSONDecodeError:
-        return None
-    return [item for item in data if isinstance(item, dict)] if isinstance(data, list) else None
+    if start >= 0 and end > start:
+        try:
+            data = json.loads(text[start : end + 1])
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+    salvaged = _salvage_json_objects(text)
+    return salvaged or None
+
+
+def _salvage_json_objects(text: str) -> list[dict]:
+    """从**截断**的数组里抢救出完整的 `{...}` 对象（无嵌套，本协议的对象都是扁平的）。
+
+    解析不出来的片段直接丢弃：半个对象里没有可信的 `id`/`evidence`，
+    硬猜会把「幻觉片段」也变成拦截项。
+    """
+    objects: list[dict] = []
+    for match in re.finditer(r"\{[^{}]*\}", text):
+        try:
+            item = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(item, dict):
+            objects.append(item)
+    return objects
 
 
 def _review_chunk(chunk: list[tuple[str, int, str]]) -> tuple[list[dict], str | None]:
@@ -584,14 +612,17 @@ def _review_chunk(chunk: list[tuple[str, int, str]]) -> tuple[list[dict], str | 
             prompt,
             system_prompt=LLM_PRIVACY_SYSTEM_PROMPT,
             temperature=0,
-            max_tokens=2000,
+            max_tokens=LLM_PRIVACY_MAX_TOKENS,
             caller="security_guard.llm_privacy",
         )
     except Exception as exc:
         return [], f"{exc.__class__.__name__}: {str(exc)[:120]}"
     items = _parse_llm_json_array(response.content or "")
     if items is None:
-        return [], "模型输出不是 JSON 数组"
+        items = _parse_llm_json_array(_retry_for_json(chunk))
+    if items is None:
+        head = " ".join((response.content or "").split())[:120]
+        return [], f"模型输出不是 JSON 数组（重试一次仍失败；开头：{head or '空'}）"
     findings: list[dict] = []
     for item in items:
         idx = item.get("id")
@@ -616,6 +647,28 @@ def _review_chunk(chunk: list[tuple[str, int, str]]) -> tuple[list[dict], str | 
     return findings, None
 
 
+def _retry_for_json(chunk: list[tuple[str, int, str]]) -> str:
+    """解析失败后重试一次：把「只要 JSON」再说一遍，并压到更小的片段。
+
+    同一份 chunk、temperature=0 重发一次是有意义的——失败几乎都来自输出被截断或
+    模型插了一句解释，而这两件事都不是确定性的。
+    """
+    from apps.core.llm.service import get_llm_service
+
+    prompt = "\n".join(f"{idx}|{content}" for idx, (_, _, content) in enumerate(chunk))
+    try:
+        response = get_llm_service().complete(
+            prompt,
+            system_prompt=LLM_PRIVACY_SYSTEM_PROMPT + "\n\n再次强调：本次只许输出 JSON 数组本体，不要任何解释、不要围栏。",
+            temperature=0,
+            max_tokens=LLM_PRIVACY_MAX_TOKENS,
+            caller="security_guard.llm_privacy",
+        )
+    except Exception:
+        return ""
+    return response.content or ""
+
+
 def _run_llm_review(candidates: list[tuple[str, int, str]]) -> tuple[list[dict], list[str]]:
     """分片并发送审；槽位吃满多 key 配额。返回 (命中, 提示)。"""
     from concurrent.futures import ThreadPoolExecutor
@@ -627,7 +680,10 @@ def _run_llm_review(candidates: list[tuple[str, int, str]]) -> tuple[list[dict],
     with ThreadPoolExecutor(max_workers=workers) as pool:
         for index, (chunk_findings, error) in enumerate(pool.map(_review_chunk, chunks), start=1):
             if error:
-                notices.append(f"llm-privacy: 第 {index}/{len(chunks)} 片审查失败已放行（{error}）")
+                notices.append(
+                    f"llm-privacy: ⚠️ 第 {index}/{len(chunks)} 片**未审**（已放行，{error}）"
+                    "——隐私审查没覆盖这几行，要补审请重跑本钩子"
+                )
             findings.extend(chunk_findings)
     notices.insert(0, f"llm-privacy: 大模型复审 {len(candidates)} 行，{len(chunks)} 片 × {workers} 并发")
     return findings, notices

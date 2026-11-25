@@ -7,7 +7,7 @@ import logging
 from typing import Any
 
 from django.db import transaction
-from django.http import FileResponse, HttpRequest
+from django.http import FileResponse, HttpRequest, HttpResponse
 from ninja import Form, Query, Router, Schema
 
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -246,6 +246,42 @@ def preview_attachment(  # pragma: no cover
     """预览附件（inline）。"""
     msg = _get_message_or_404(request, message_id)
     return _serve_attachment(msg, part_index, inline=True)
+
+
+@router.get("/messages/{message_id}/attachments/{part_index}/thumbnail")
+def attachment_thumbnail(
+    request: HttpRequest,
+    message_id: int,
+    part_index: int,
+    page: int = 1,
+    width: int = 320,
+) -> Any:
+    """附件缩略图（PDF 第 ``page`` 页 / 位图本身），JPEG。
+
+    收件箱列表用它在行内给一张「小样」：**服务端渲染**，不让前端为了一张小图去
+    下载整份扫描件（一本 40 页 26MB，见 ``attachment_thumbnail_service`` 的模块
+    文档）。列表接口不随行预取，只在用户展开附件条 / 点预览时请求。
+
+    缓存协议：首次生成后落盘，之后恒从磁盘读；响应带 ETag（= 缓存键），浏览器
+    复访带 ``If-None-Match`` 时直接 304，连字节都不发。
+    """
+    msg = _get_message_or_404(request, message_id)
+    from apps.message_hub.services.attachment_thumbnail_service import build_attachment_thumbnail
+
+    path, etag = build_attachment_thumbnail(msg, part_index=part_index, page=page, width=width)
+    quoted = f'"{etag}"'
+    if request.headers.get("If-None-Match") == quoted:
+        not_modified = HttpResponse(status=304)
+        not_modified["ETag"] = quoted
+        return not_modified
+
+    response = FileResponse(path.open("rb"), content_type="image/jpeg")
+    response["ETag"] = quoted
+    # private：缩略图就是办案材料的内容，只允许进用户自己的浏览器缓存，不进共享缓存
+    # 一天而不是一周：URL 不含内容指纹，附件万一被同名替换，最坏也就旧一天
+    response["Cache-Control"] = "private, max-age=86400"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @router.post("/messages/{message_id}/attachments", response={201: InboxMessageDetailOut})

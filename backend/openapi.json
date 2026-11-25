@@ -13852,6 +13852,11 @@
                   "page_end": {
                     "title": "Page End",
                     "type": "integer"
+                  },
+                  "rotations": {
+                    "default": "",
+                    "title": "Rotations",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -14301,6 +14306,38 @@
         ]
       }
     },
+    "/api/v1/pdf-splitting/export-draft": {
+      "post": {
+        "operationId": "apps_pdf_splitting_api_pdf_splitting_api_export_draft_zip",
+        "summary": "Export Draft Zip",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "name",
+            "schema": {
+              "default": "",
+              "title": "Name",
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "把**草稿里的段**导出成 zip（没跑过自动分段的材料也有导出）。\n\n与 `/download` 的分工：那条按**拆分任务**的段打 zip（段必须有后端产物 id）；\n这条按**草稿**打 zip —— 律师完全可以不跑自动分段、自己切页命名旋转后直接归案，\n那种包以前一个导出按钮都没有，数据却是全的。\n\n入参 multipart：``files``（命名为 ``part_<partIndex>.<ext>``）+ ``spec``（JSON）。\nspec / 素材结构性问题 400；单段页区间越界或素材缺失 → 跳过并计数，\n数量经 ``X-Export-Skipped`` 回给前端提示（不静默少几份）。",
+        "tags": [
+          "PDF 拆解"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/pdf-splitting/jobs/{job_id}/segments/{segment_id}/pdf": {
       "get": {
         "operationId": "apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_segment_pdf",
@@ -14324,6 +14361,16 @@
               "type": "integer"
             },
             "required": true
+          },
+          {
+            "in": "query",
+            "name": "rotations",
+            "schema": {
+              "default": "",
+              "title": "Rotations",
+              "type": "string"
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -14404,6 +14451,16 @@
             "schema": {
               "default": "",
               "title": "Ids",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "rotations",
+            "schema": {
+              "default": "",
+              "title": "Rotations",
               "type": "string"
             },
             "required": false
@@ -14512,6 +14569,508 @@
         "tags": [
           "PDF 拆解"
         ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-verify/runs": {
+      "post": {
+        "operationId": "apps_doc_verify_api_verify_api_create_run",
+        "summary": "Create Run",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyRunOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "提交一份回传件跑核对（幂等：同一基线 + 同字节重复提交返回同一行）。",
+        "tags": [
+          "回传件核对"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRunIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "apps_doc_verify_api_verify_api_list_runs",
+        "summary": "List Runs",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "default": "",
+              "title": "State",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunPageOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "该案的全部核对历史（含已裁决的），按 -created_at,-id 分页。\n\n与 `/unverified` 的分工：那边是「现在还有几条要人看」，这里是「这案核过几次、\n结论怎么变」——历史必须含已裁决的，否则律师看不到结论是被谁翻过来的。",
+        "tags": [
+          "回传件核对"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-verify/runs/from-material": {
+      "post": {
+        "operationId": "apps_doc_verify_api_verify_api_create_run_from_material",
+        "summary": "Create Run From Material",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyRunOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "用收件箱里已有的附件跑核对：字节由服务端取，前端不必上传整本 PDF。\n\n参数顺序与 `POST /runs` 一致：基线 404 → 案件不可见 403 → 附件拿不到 404。\n附件取不到是**数据状态**（消息/part_index/字节不在），不是服务端故障。",
+        "tags": [
+          "回传件核对"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunFromMaterialIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-verify/runs/{run_id}": {
+      "get": {
+        "operationId": "apps_doc_verify_api_verify_api_get_run",
+        "summary": "Get Run",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "schema": {
+              "title": "Run Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyRunOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "单次核对详情（含发现项与覆盖度）。",
+        "tags": [
+          "回传件核对"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-verify/runs/{run_id}/decision": {
+      "post": {
+        "operationId": "apps_doc_verify_api_verify_api_create_decision",
+        "summary": "Create Decision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "schema": {
+              "title": "Run Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "记录一条裁决（append-only，不改历史行）。",
+        "tags": [
+          "回传件核对"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-verify/decisions/batch": {
+      "post": {
+        "operationId": "apps_doc_verify_api_verify_api_create_batch_decisions",
+        "summary": "Create Batch Decisions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionBatchOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "批量记录裁决：逐条判，脏 id 只跳过它自己（原因写进 `items`），不整批失败。",
+        "tags": [
+          "回传件核对"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionBatchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-verify/unverified": {
+      "get": {
+        "operationId": "apps_doc_verify_api_verify_api_list_unverified",
+        "summary": "List Unverified",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VerifyRunOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        "description": "该案待裁决清单（状态需裁决 + 要求核对 + 无 accept/reject 裁决）。",
+        "tags": [
+          "回传件核对"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-verify/pending": {
+      "get": {
+        "operationId": "apps_doc_verify_api_verify_api_list_pending",
+        "summary": "List Pending",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VerifyRunOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        "description": "**跨案件**待裁决清单（按可见性收窄），材料准备页全局入口用。",
+        "tags": [
+          "回传件核对"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-verify/artifacts": {
+      "post": {
+        "operationId": "apps_doc_verify_api_artifact_api_create_artifact",
+        "summary": "Create Artifact",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "冻结一份出站基线（幂等：同案+同文书+同版本+同字节只留一行）。\n\n出站那一刻是**唯一**能确定「客户收到的是什么」的时点。事后拿最新定稿当基线\n去比客户按旧版改的回传件，会全盘误报。",
+        "tags": [
+          "回传件核对"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtifactIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "apps_doc_verify_api_artifact_api_list_artifacts",
+        "summary": "List Artifacts",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ArtifactOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "回传件核对"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-verify/policy": {
+      "get": {
+        "operationId": "apps_doc_verify_api_policy_api_get_policy",
+        "summary": "Get Policy",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "该案每类高风险文书的实际策略（库里没有就取代码默认）。",
+        "tags": [
+          "回传件核对"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "apps_doc_verify_api_policy_api_put_policy",
+        "summary": "Put Policy",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "批量改策略（`doc_types` 留空 = 改全部高风险类），返回改后的全量。",
+        "tags": [
+          "回传件核对"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyIn"
+              }
+            }
+          },
+          "required": true
+        },
         "security": [
           {
             "JWTOrSessionAuth": []
@@ -16929,6 +17488,66 @@
           }
         },
         "description": "预览附件（inline）。",
+        "tags": [
+          "收件箱"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/inbox/messages/{message_id}/attachments/{part_index}/thumbnail": {
+      "get": {
+        "operationId": "apps_message_hub_api_inbox_api_attachment_thumbnail",
+        "summary": "Attachment Thumbnail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "schema": {
+              "title": "Message Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "part_index",
+            "schema": {
+              "title": "Part Index",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "title": "Page",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "width",
+            "schema": {
+              "default": 320,
+              "title": "Width",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "附件缩略图（PDF 第 ``page`` 页 / 位图本身），JPEG。\n\n收件箱列表用它在行内给一张「小样」：**服务端渲染**，不让前端为了一张小图去\n下载整份扫描件（一本 40 页 26MB，见 ``attachment_thumbnail_service`` 的模块\n文档）。列表接口不随行预取，只在用户展开附件条 / 点预览时请求。\n\n缓存协议：首次生成后落盘，之后恒从磁盘读；响应带 ETag（= 缓存键），浏览器\n复访带 ``If-None-Match`` 时直接 304，连字节都不发。",
         "tags": [
           "收件箱"
         ],
@@ -44226,6 +44845,11 @@
           "material_type": {
             "title": "Material Type",
             "type": "string"
+          },
+          "rotations": {
+            "default": "",
+            "title": "Rotations",
+            "type": "string"
           }
         },
         "required": [
@@ -44272,6 +44896,601 @@
           "segments"
         ],
         "title": "ArchiveToCaseFolderIn",
+        "type": "object"
+      },
+      "FindingOut": {
+        "description": "一条失败项（红线 / 疑似 / 无法核对）。",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "expected": {
+            "default": "",
+            "title": "Expected",
+            "type": "string"
+          },
+          "actual": {
+            "default": "",
+            "title": "Actual",
+            "type": "string"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          }
+        },
+        "required": [
+          "kind",
+          "code",
+          "title",
+          "severity"
+        ],
+        "title": "FindingOut",
+        "type": "object"
+      },
+      "VerifyRunOut": {
+        "description": "一次核对（详情、待裁决清单与核对历史共用）。",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "artifact_id": {
+            "title": "Artifact Id",
+            "type": "integer"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "case_name": {
+            "default": "",
+            "title": "Case Name",
+            "type": "string"
+          },
+          "doc_type": {
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "state_label": {
+            "title": "State Label",
+            "type": "string"
+          },
+          "tier": {
+            "title": "Tier",
+            "type": "integer"
+          },
+          "inbound_file_name": {
+            "title": "Inbound File Name",
+            "type": "string"
+          },
+          "inbound_sha256": {
+            "title": "Inbound Sha256",
+            "type": "string"
+          },
+          "page_count": {
+            "title": "Page Count",
+            "type": "integer"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingOut"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "coverage": {
+            "additionalProperties": true,
+            "title": "Coverage",
+            "type": "object"
+          },
+          "source_message_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Message Id"
+          },
+          "last_decision_action": {
+            "default": "",
+            "title": "Last Decision Action",
+            "type": "string"
+          },
+          "last_decision_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Decision At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "artifact_id",
+          "doc_type",
+          "state",
+          "state_label",
+          "tier",
+          "inbound_file_name",
+          "inbound_sha256",
+          "page_count",
+          "findings",
+          "coverage",
+          "created_at"
+        ],
+        "title": "VerifyRunOut",
+        "type": "object"
+      },
+      "VerifyRunIn": {
+        "description": "提交一次回传件核对。",
+        "properties": {
+          "artifact_id": {
+            "title": "Artifact Id",
+            "type": "integer"
+          },
+          "file_base64": {
+            "title": "File Base64",
+            "type": "string"
+          },
+          "file_name": {
+            "default": "",
+            "title": "File Name",
+            "type": "string"
+          },
+          "source_message_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Message Id"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "file_base64"
+        ],
+        "title": "VerifyRunIn",
+        "type": "object"
+      },
+      "RunPageOut": {
+        "description": "某案的全部核对历史（分页）。`total` 是**过滤后的总数**，不是本页条数。",
+        "properties": {
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VerifyRunOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "total",
+          "items"
+        ],
+        "title": "RunPageOut",
+        "type": "object"
+      },
+      "RunFromMaterialIn": {
+        "description": "从收件箱附件直接跑核对：字节由服务端自己取，前端不再整本 base64 上传。",
+        "properties": {
+          "artifact_id": {
+            "title": "Artifact Id",
+            "type": "integer"
+          },
+          "message_id": {
+            "title": "Message Id",
+            "type": "integer"
+          },
+          "part_index": {
+            "title": "Part Index",
+            "type": "integer"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "message_id",
+          "part_index"
+        ],
+        "title": "RunFromMaterialIn",
+        "type": "object"
+      },
+      "DecisionOut": {
+        "description": "一条已留痕的裁决。",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "verification_id": {
+            "title": "Verification Id",
+            "type": "integer"
+          },
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "decided_by_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By Id"
+          },
+          "decided_at": {
+            "format": "date-time",
+            "title": "Decided At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "verification_id",
+          "action",
+          "reason",
+          "decided_at"
+        ],
+        "title": "DecisionOut",
+        "type": "object"
+      },
+      "DecisionIn": {
+        "description": "律师裁决入参。",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "DecisionIn",
+        "type": "object"
+      },
+      "DecisionBatchOut": {
+        "description": "批量裁决结果。\n\n逐条判：`items` 与入参 `run_ids` 等长，落库的带 `decision_id`，没落的带\n`skipped_reason`——前端据此提示「哪几条为什么没处理」。",
+        "properties": {
+          "decided": {
+            "title": "Decided",
+            "type": "integer"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "decided",
+          "skipped",
+          "items"
+        ],
+        "title": "DecisionBatchOut",
+        "type": "object"
+      },
+      "DecisionBatchIn": {
+        "description": "批量裁决：一次提交多条待裁决的核对运行。",
+        "properties": {
+          "run_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Run Ids",
+            "type": "array"
+          },
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_ids",
+          "action"
+        ],
+        "title": "DecisionBatchIn",
+        "type": "object"
+      },
+      "ArtifactOut": {
+        "description": "一份出站基线。",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "doc_type": {
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "file_sha256": {
+            "title": "File Sha256",
+            "type": "string"
+          },
+          "page_count": {
+            "title": "Page Count",
+            "type": "integer"
+          },
+          "capture_source": {
+            "title": "Capture Source",
+            "type": "string"
+          },
+          "verify_required": {
+            "title": "Verify Required",
+            "type": "boolean"
+          },
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "doc_type",
+          "version",
+          "file_name",
+          "file_sha256",
+          "page_count",
+          "capture_source",
+          "verify_required",
+          "captured_at"
+        ],
+        "title": "ArtifactOut",
+        "type": "object"
+      },
+      "ArtifactIn": {
+        "description": "冻结一份出站基线（我们发出去的那一份）。\n\n`verify_required` 留空 = 按案件策略决定（高风险四类默认要核）。显式传 True/False\n可以覆盖策略——出站那一刻律师最清楚「这份要不要回签核对」。",
+        "properties": {
+          "doc_type": {
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "file_base64": {
+            "title": "File Base64",
+            "type": "string"
+          },
+          "file_name": {
+            "default": "",
+            "title": "File Name",
+            "type": "string"
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
+            "type": "string"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "verify_required": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verify Required"
+          },
+          "capture_source": {
+            "default": "manual",
+            "title": "Capture Source",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "doc_type",
+          "file_base64"
+        ],
+        "title": "ArtifactIn",
+        "type": "object"
+      },
+      "PolicyItemOut": {
+        "description": "一类文书的策略：实际值 + 代码默认值（前端据此标「恢复默认」）。",
+        "properties": {
+          "doc_type": {
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "default": {
+            "type": "boolean",
+            "title": "Default"
+          }
+        },
+        "required": [
+          "doc_type",
+          "enabled",
+          "default"
+        ],
+        "title": "PolicyItemOut",
+        "type": "object"
+      },
+      "PolicyOut": {
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PolicyItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id",
+          "items"
+        ],
+        "title": "PolicyOut",
+        "type": "object"
+      },
+      "PolicyIn": {
+        "description": "批量改策略；`doc_types` 留空 = 改全部高风险类。",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "integer"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "doc_types": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Doc Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id",
+          "enabled"
+        ],
+        "title": "PolicyIn",
         "type": "object"
       },
       "CapabilityOut": {
@@ -46079,6 +47298,79 @@
         "title": "ReminderUpdate",
         "type": "object"
       },
+      "AttachmentMeta": {
+        "description": "附件元信息。",
+        "properties": {
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "original_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Filename"
+          },
+          "custom_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom Filename"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "part_index": {
+            "title": "Part Index",
+            "type": "integer"
+          },
+          "page_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Count"
+          },
+          "expanded_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expanded From"
+          }
+        },
+        "required": [
+          "filename",
+          "size",
+          "content_type",
+          "part_index"
+        ],
+        "title": "AttachmentMeta",
+        "type": "object"
+      },
       "InboxMessageOut": {
         "description": "收件箱消息列表项。",
         "properties": {
@@ -46233,6 +47525,14 @@
             "default": "",
             "title": "Upload Contract Name",
             "type": "string"
+          },
+          "attachments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AttachmentMeta"
+            },
+            "title": "Attachments",
+            "type": "array"
           }
         },
         "required": [
@@ -46252,81 +47552,8 @@
         "title": "InboxMessageOut",
         "type": "object"
       },
-      "AttachmentMeta": {
-        "description": "附件元信息。",
-        "properties": {
-          "filename": {
-            "title": "Filename",
-            "type": "string"
-          },
-          "original_filename": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Original Filename"
-          },
-          "custom_filename": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Custom Filename"
-          },
-          "size": {
-            "title": "Size",
-            "type": "integer"
-          },
-          "content_type": {
-            "title": "Content Type",
-            "type": "string"
-          },
-          "part_index": {
-            "title": "Part Index",
-            "type": "integer"
-          },
-          "page_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Page Count"
-          },
-          "expanded_from": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expanded From"
-          }
-        },
-        "required": [
-          "filename",
-          "size",
-          "content_type",
-          "part_index"
-        ],
-        "title": "AttachmentMeta",
-        "type": "object"
-      },
       "InboxMessageDetailOut": {
-        "description": "收件箱消息详情（含正文和附件详情）。",
+        "description": "收件箱消息详情（含正文和草稿）。\n\n``attachments`` 已上提到父类（列表也要用），这里不再重复声明——重复声明\n会多出一份「父类解析器 / 子类解析器」二选一的隐患，而两份实现迟早漂移。",
         "properties": {
           "id": {
             "title": "Id",
@@ -46480,6 +47707,14 @@
             "title": "Upload Contract Name",
             "type": "string"
           },
+          "attachments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AttachmentMeta"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
           "body_text": {
             "title": "Body Text",
             "type": "string"
@@ -46487,13 +47722,6 @@
           "body_html": {
             "title": "Body Html",
             "type": "string"
-          },
-          "attachments": {
-            "items": {
-              "$ref": "#/components/schemas/AttachmentMeta"
-            },
-            "title": "Attachments",
-            "type": "array"
           },
           "draft_state": {
             "additionalProperties": true,
@@ -46516,8 +47744,7 @@
           "uploaded_by_name",
           "created_at",
           "body_text",
-          "body_html",
-          "attachments"
+          "body_html"
         ],
         "title": "InboxMessageDetailOut",
         "type": "object"

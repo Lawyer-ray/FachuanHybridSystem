@@ -16,7 +16,7 @@
  *    后一次拿到的是已作废的票据（表现就是「下载功能坏了」）。
  * 5. **没有后端产物时整块不渲染**：一排永远点不动的灰按钮比没有更糟。
  */
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const dlMock = vi.hoisted(() => ({
@@ -100,9 +100,9 @@ function Harness({ segments }: { segments: DownloadableSegment[] }) {
 
 /** 三段两任务：真实包可以有多份 PDF，各自由不同识别任务产出（zip 与 ids 都是按任务的） */
 const SEGMENTS: DownloadableSegment[] = [
-  { pk: 11, jobId: 'job-1', name: '起诉状' },
-  { pk: 12, jobId: 'job-1', name: '证据清单' },
-  { pk: 15, jobId: 'job-2', name: '借款合同' },
+  { pk: 11, jobId: 'job-1', name: '起诉状', partIndex: 0, pageStart: 1, pageEnd: 4 },
+  { pk: 12, jobId: 'job-1', name: '证据清单', partIndex: 0, pageStart: 5, pageEnd: 9 },
+  { pk: 15, jobId: 'job-2', name: '借款合同', partIndex: 1, pageStart: 1, pageEnd: 3 },
 ]
 
 const pdfBtn = (i = 0) => screen.getAllByRole('button', { name: '下载 PDF' })[i] as HTMLButtonElement
@@ -370,8 +370,29 @@ describe('Rail 落点：只有带后端出处的段才出下载控件', () => {
     container.remove()
   })
 
-  it('整包都没有后端产物（全是人工拆的段）→ 工具条不渲染', () => {
+  it('整包都没有后端产物（全是人工拆的段）→ 只剩「按草稿导出」一个入口', () => {
     const { container } = renderRail([manualSeg])
+    const bar = container.querySelector('[data-segment-download-bar]')
+    // 勾选 / 下载选中 / 整包下载 在这里都是空入口（后端没有产物），不能摆出来
+    expect(bar?.textContent).toContain('导出')
+    expect(bar?.textContent).not.toContain('整包下载')
+    expect(bar?.textContent).not.toContain('全选')
+    container.remove()
+  })
+
+  it('点「导出」会触发按草稿导出（不是死按钮）', () => {
+    const { container } = renderRail([manualSeg])
+    const btn = within(container).getByRole('button', { name: '导出' })
+    expect((btn as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(btn)
+    // 真实动作在 hook 里（要发请求）；这里只锁「按钮接到了动作」——
+    // 点下去什么都不发生是这类空态入口最典型的坏法
+    expect(btn.getAttribute('title')).toContain('按草稿导出')
+    container.remove()
+  })
+
+  it('一段都没有（空包）→ 工具条整块不渲染', () => {
+    const { container } = renderRail([])
     expect(container.querySelector('[data-segment-download-bar]')).toBeNull()
     container.remove()
   })

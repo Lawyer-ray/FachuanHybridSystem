@@ -38,6 +38,7 @@ from .dual_engine_runner import plan_dual_engine_factories, run_dual_engine
 from .export_utils import ExportUtils, deduplicate_filename, export_segment_pdf
 from .markdown_builder import build_segments_markdown, load_segment_markdown_map
 from .ocr_handler import OCRHandler, cloud_backend_of_method
+from .output_rotation import apply_page_rotations, parse_page_rotations
 from .page_quality_summary import attach_page_quality_flags, qualities_by_page
 from .pipeline import (
     PdfAnalysisOutcome,
@@ -330,7 +331,7 @@ class PdfSplitService:
         “确认分段后点格子又画错”。
         """
         from . import table_geometry_switches, two_stage
-        from .pipeline import PageDescriptor
+        from .pipeline import PageDescriptor, resolve_segment_strategy
 
         storage = PdfSplitStorage(job.id)
         storage.ensure_dirs()
@@ -350,6 +351,9 @@ class PdfSplitService:
                 # 批级成果落在 job 目录里：worker 被杀后重跑接着已完成的批跑，
                 # 不再为同一批 LLM 付第二次钱。
                 checkpoint_path=storage.analysis_dir / "segment_checkpoint.json",
+                # 策略取 SystemConfig（PDF_SPLIT_SEGMENT_STRATEGY），默认 batch。
+                # 整本路径失败会自动降级回分批，所以这里不必先探测可用性。
+                strategy=resolve_segment_strategy(),
             )
 
         # 跨页一致性校对与段级质量标记：与 analyze_pdf 走同一条路径（同一份判据、
@@ -692,7 +696,7 @@ class PdfSplitService:
     # 下载产物（单段 pdf / 单段 md / 整包与多选 zip）
     # ==================================================================
 
-    def build_download_pdf(self, job: PdfSplitJob, segment_id: int) -> tuple[bytes, str]:
+    def build_download_pdf(self, job: PdfSplitJob, segment_id: int, *, rotations: str = "") -> tuple[bytes, str]:
         """单段 PDF：返回 ``(pdf 字节, 安全文件名)``。
 
         文件名只由「数据库里的段名 → sanitize → 本模块重生扩展名」构成，
@@ -707,6 +711,8 @@ class PdfSplitService:
                 errors={"segment_id": segment_id},
             )
         with fitz.open(storage.source_pdf_path) as source_doc:
+            # 人工转正先烧进页对象再切：insert_pdf 复制页对象，/Rotate 跟着走
+            apply_page_rotations(source_doc, parse_page_rotations(rotations))
             pdf_bytes = export_segment_pdf(source_doc, segment.page_start, segment.page_end)
         return pdf_bytes, f"{self._segment_stem(segment)}.pdf"
 
@@ -729,7 +735,13 @@ class PdfSplitService:
             )
         return markdown, f"{self._segment_stem(segment)}.md"
 
-    def build_download_zip(self, job: PdfSplitJob, *, segment_ids: list[int] | None = None) -> tuple[bytes, str] | None:
+    def build_download_zip(
+        self,
+        job: PdfSplitJob,
+        *,
+        segment_ids: list[int] | None = None,
+        rotations: str = "",
+    ) -> tuple[bytes, str] | None:
         """整包 / 多选打包：返回 ``(zip 字节, zip 文件名)``，包内**平铺**且每段配同名 md。
 
         ``segment_ids`` 为 ``None`` 时是整包（与既有 ``/download`` 语义一致，只是
@@ -752,6 +764,8 @@ class PdfSplitService:
         entries: list[tuple[str, bytes]] = []
         seen_names: set[str] = set()
         with fitz.open(storage.source_pdf_path) as source_doc:
+            # 包内所有段共用这一份源文档：角度一次 apply 到位（页级属性，与段无关）
+            apply_page_rotations(source_doc, parse_page_rotations(rotations))
             for segment in segments:
                 entries.extend(
                     self._segment_zip_entries(

@@ -119,15 +119,17 @@ def test_registration_count_matches_registry() -> None:
     （数字对不上 / 工具注册了但模型看不到）。
     """
     registered = _registered_names()
-    assert len(registered) == 430, (
-        f"注册工具数 {len(registered)} != 430。新增/删除工具时同步更新该基线数"
+    assert len(registered) == 433, (
+        f"注册工具数 {len(registered)} != 433。新增/删除工具时同步更新该基线数"
         "（2026-10-25: 410→409→415，删除 auto_namer_process 后新增 6 个记忆工具；"
         "再新增 ask_user 提问工具 → 416；子 agent 调研 + 引用核查 → 418；"
         "2026-10-26 新增 rewrite_folder_file → 419；新增四个 BARLC 东盟域外法查明工具"
         "（asean_law_countries / asean_law_search / asean_law_read / asean_law_verify）→ 423；"
         "项目笔记三件套 save_project_note / save_case_note / confirm_project_fact）→ 427；"
         "2026-11-20 多栏写安全（propose_write_patch / apply_file_write_patches）→ 429；"
-        "扫描件归档（archive_pdf_split_to_case_folder）→ 430"
+        "扫描件归档（archive_pdf_split_to_case_folder）→ 430；"
+        "2026-11-25 回传件核对三件套（list_unverified_returns / get_returned_document_check / "
+        "verify_returned_document）→ 433"
         "（本测试防的是「注册面静默缩水」,正常增删改数字即可）。"
     )
 

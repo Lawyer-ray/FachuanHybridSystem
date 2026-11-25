@@ -6017,6 +6017,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pdf-splitting/export-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Draft Zip
+         * @description 把**草稿里的段**导出成 zip（没跑过自动分段的材料也有导出）。
+         *
+         *     与 `/download` 的分工：那条按**拆分任务**的段打 zip（段必须有后端产物 id）；
+         *     这条按**草稿**打 zip —— 律师完全可以不跑自动分段、自己切页命名旋转后直接归案，
+         *     那种包以前一个导出按钮都没有，数据却是全的。
+         *
+         *     入参 multipart：``files``（命名为 ``part_<partIndex>.<ext>``）+ ``spec``（JSON）。
+         *     spec / 素材结构性问题 400；单段页区间越界或素材缺失 → 跳过并计数，
+         *     数量经 ``X-Export-Skipped`` 回给前端提示（不静默少几份）。
+         */
+        post: operations["apps_pdf_splitting_api_pdf_splitting_api_export_draft_zip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pdf-splitting/jobs/{job_id}/segments/{segment_id}/pdf": {
         parameters: {
             query?: never;
@@ -6120,6 +6148,204 @@ export interface paths {
          */
         get: operations["apps_pdf_splitting_api_pdf_splitting_api_get_pdf_preview_page"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Runs
+         * @description 该案的全部核对历史（含已裁决的），按 -created_at,-id 分页。
+         *
+         *     与 `/unverified` 的分工：那边是「现在还有几条要人看」，这里是「这案核过几次、
+         *     结论怎么变」——历史必须含已裁决的，否则律师看不到结论是被谁翻过来的。
+         */
+        get: operations["apps_doc_verify_api_verify_api_list_runs"];
+        put?: never;
+        /**
+         * Create Run
+         * @description 提交一份回传件跑核对（幂等：同一基线 + 同字节重复提交返回同一行）。
+         */
+        post: operations["apps_doc_verify_api_verify_api_create_run"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/runs/from-material": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Run From Material
+         * @description 用收件箱里已有的附件跑核对：字节由服务端取，前端不必上传整本 PDF。
+         *
+         *     参数顺序与 `POST /runs` 一致：基线 404 → 案件不可见 403 → 附件拿不到 404。
+         *     附件取不到是**数据状态**（消息/part_index/字节不在），不是服务端故障。
+         */
+        post: operations["apps_doc_verify_api_verify_api_create_run_from_material"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Run
+         * @description 单次核对详情（含发现项与覆盖度）。
+         */
+        get: operations["apps_doc_verify_api_verify_api_get_run"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/runs/{run_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Decision
+         * @description 记录一条裁决（append-only，不改历史行）。
+         */
+        post: operations["apps_doc_verify_api_verify_api_create_decision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/decisions/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Batch Decisions
+         * @description 批量记录裁决：逐条判，脏 id 只跳过它自己（原因写进 `items`），不整批失败。
+         */
+        post: operations["apps_doc_verify_api_verify_api_create_batch_decisions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/unverified": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Unverified
+         * @description 该案待裁决清单（状态需裁决 + 要求核对 + 无 accept/reject 裁决）。
+         */
+        get: operations["apps_doc_verify_api_verify_api_list_unverified"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pending
+         * @description **跨案件**待裁决清单（按可见性收窄），材料准备页全局入口用。
+         */
+        get: operations["apps_doc_verify_api_verify_api_list_pending"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/artifacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Artifacts */
+        get: operations["apps_doc_verify_api_artifact_api_list_artifacts"];
+        put?: never;
+        /**
+         * Create Artifact
+         * @description 冻结一份出站基线（幂等：同案+同文书+同版本+同字节只留一行）。
+         *
+         *     出站那一刻是**唯一**能确定「客户收到的是什么」的时点。事后拿最新定稿当基线
+         *     去比客户按旧版改的回传件，会全盘误报。
+         */
+        post: operations["apps_doc_verify_api_artifact_api_create_artifact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Policy
+         * @description 该案每类高风险文书的实际策略（库里没有就取代码默认）。
+         */
+        get: operations["apps_doc_verify_api_policy_api_get_policy"];
+        /**
+         * Put Policy
+         * @description 批量改策略（`doc_types` 留空 = 改全部高风险类），返回改后的全量。
+         */
+        put: operations["apps_doc_verify_api_policy_api_put_policy"];
         post?: never;
         delete?: never;
         options?: never;
@@ -6960,6 +7186,33 @@ export interface paths {
          * @description 预览附件（inline）。
          */
         get: operations["apps_message_hub_api_inbox_api_preview_attachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/messages/{message_id}/attachments/{part_index}/thumbnail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Attachment Thumbnail
+         * @description 附件缩略图（PDF 第 ``page`` 页 / 位图本身），JPEG。
+         *
+         *     收件箱列表用它在行内给一张「小样」：**服务端渲染**，不让前端为了一张小图去
+         *     下载整份扫描件（一本 40 页 26MB，见 ``attachment_thumbnail_service`` 的模块
+         *     文档）。列表接口不随行预取，只在用户展开附件条 / 点预览时请求。
+         *
+         *     缓存协议：首次生成后落盘，之后恒从磁盘读；响应带 ETag（= 缓存键），浏览器
+         *     复访带 ``If-None-Match`` 时直接 304，连字节都不发。
+         */
+        get: operations["apps_message_hub_api_inbox_api_attachment_thumbnail"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19419,6 +19672,11 @@ export interface components {
             doc_type: string;
             /** Material Type */
             material_type: string;
+            /**
+             * Rotations
+             * @default
+             */
+            rotations: string;
         };
         /** ArchiveToCaseFolderIn */
         ArchiveToCaseFolderIn: {
@@ -19433,6 +19691,297 @@ export interface components {
              * @default true
              */
             write_duplicates: boolean;
+        };
+        /**
+         * FindingOut
+         * @description 一条失败项（红线 / 疑似 / 无法核对）。
+         */
+        FindingOut: {
+            /** Kind */
+            kind: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /** Severity */
+            severity: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /**
+             * Expected
+             * @default
+             */
+            expected: string;
+            /**
+             * Actual
+             * @default
+             */
+            actual: string;
+            /** Page */
+            page?: number | null;
+        };
+        /**
+         * VerifyRunOut
+         * @description 一次核对（详情、待裁决清单与核对历史共用）。
+         */
+        VerifyRunOut: {
+            /** Id */
+            id: number;
+            /** Artifact Id */
+            artifact_id: number;
+            /** Case Id */
+            case_id?: number | null;
+            /**
+             * Case Name
+             * @default
+             */
+            case_name: string;
+            /** Doc Type */
+            doc_type: string;
+            /** State */
+            state: string;
+            /** State Label */
+            state_label: string;
+            /** Tier */
+            tier: number;
+            /** Inbound File Name */
+            inbound_file_name: string;
+            /** Inbound Sha256 */
+            inbound_sha256: string;
+            /** Page Count */
+            page_count: number;
+            /** Findings */
+            findings: components["schemas"]["FindingOut"][];
+            /** Coverage */
+            coverage: {
+                [key: string]: unknown;
+            };
+            /** Source Message Id */
+            source_message_id?: number | null;
+            /**
+             * Last Decision Action
+             * @default
+             */
+            last_decision_action: string;
+            /** Last Decision At */
+            last_decision_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * VerifyRunIn
+         * @description 提交一次回传件核对。
+         */
+        VerifyRunIn: {
+            /** Artifact Id */
+            artifact_id: number;
+            /** File Base64 */
+            file_base64: string;
+            /**
+             * File Name
+             * @default
+             */
+            file_name: string;
+            /** Source Message Id */
+            source_message_id?: number | null;
+            /** Tier */
+            tier?: number | null;
+        };
+        /**
+         * RunPageOut
+         * @description 某案的全部核对历史（分页）。`total` 是**过滤后的总数**，不是本页条数。
+         */
+        RunPageOut: {
+            /** Total */
+            total: number;
+            /** Items */
+            items: components["schemas"]["VerifyRunOut"][];
+        };
+        /**
+         * RunFromMaterialIn
+         * @description 从收件箱附件直接跑核对：字节由服务端自己取，前端不再整本 base64 上传。
+         */
+        RunFromMaterialIn: {
+            /** Artifact Id */
+            artifact_id: number;
+            /** Message Id */
+            message_id: number;
+            /** Part Index */
+            part_index: number;
+            /** Tier */
+            tier?: number | null;
+        };
+        /**
+         * DecisionOut
+         * @description 一条已留痕的裁决。
+         */
+        DecisionOut: {
+            /** Id */
+            id: number;
+            /** Verification Id */
+            verification_id: number;
+            /** Action */
+            action: string;
+            /** Reason */
+            reason: string;
+            /** Decided By Id */
+            decided_by_id?: number | null;
+            /**
+             * Decided At
+             * Format: date-time
+             */
+            decided_at: string;
+        };
+        /**
+         * DecisionIn
+         * @description 律师裁决入参。
+         */
+        DecisionIn: {
+            /** Action */
+            action: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /**
+         * DecisionBatchOut
+         * @description 批量裁决结果。
+         *
+         *     逐条判：`items` 与入参 `run_ids` 等长，落库的带 `decision_id`，没落的带
+         *     `skipped_reason`——前端据此提示「哪几条为什么没处理」。
+         */
+        DecisionBatchOut: {
+            /** Decided */
+            decided: number;
+            /** Skipped */
+            skipped: number;
+            /** Items */
+            items: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * DecisionBatchIn
+         * @description 批量裁决：一次提交多条待裁决的核对运行。
+         */
+        DecisionBatchIn: {
+            /** Run Ids */
+            run_ids: number[];
+            /** Action */
+            action: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /**
+         * ArtifactOut
+         * @description 一份出站基线。
+         */
+        ArtifactOut: {
+            /** Id */
+            id: number;
+            /** Case Id */
+            case_id?: number | null;
+            /** Doc Type */
+            doc_type: string;
+            /** Version */
+            version: string;
+            /** File Name */
+            file_name: string;
+            /** File Sha256 */
+            file_sha256: string;
+            /** Page Count */
+            page_count: number;
+            /** Capture Source */
+            capture_source: string;
+            /** Verify Required */
+            verify_required: boolean;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+        };
+        /**
+         * ArtifactIn
+         * @description 冻结一份出站基线（我们发出去的那一份）。
+         *
+         *     `verify_required` 留空 = 按案件策略决定（高风险四类默认要核）。显式传 True/False
+         *     可以覆盖策略——出站那一刻律师最清楚「这份要不要回签核对」。
+         */
+        ArtifactIn: {
+            /** Doc Type */
+            doc_type: string;
+            /** File Base64 */
+            file_base64: string;
+            /**
+             * File Name
+             * @default
+             */
+            file_name: string;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
+            /** Case Id */
+            case_id?: number | null;
+            /** Verify Required */
+            verify_required?: boolean | null;
+            /**
+             * Capture Source
+             * @default manual
+             */
+            capture_source: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /**
+         * PolicyItemOut
+         * @description 一类文书的策略：实际值 + 代码默认值（前端据此标「恢复默认」）。
+         */
+        PolicyItemOut: {
+            /** Doc Type */
+            doc_type: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Default */
+            default: boolean;
+        };
+        /** PolicyOut */
+        PolicyOut: {
+            /** Case Id */
+            case_id: number;
+            /** Items */
+            items: components["schemas"]["PolicyItemOut"][];
+        };
+        /**
+         * PolicyIn
+         * @description 批量改策略；`doc_types` 留空 = 改全部高风险类。
+         */
+        PolicyIn: {
+            /** Case Id */
+            case_id: number;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Doc Types
+             * @default []
+             */
+            doc_types: string[];
         };
         /** CapabilityOut */
         CapabilityOut: {
@@ -20183,6 +20732,28 @@ export interface components {
             } | null;
         };
         /**
+         * AttachmentMeta
+         * @description 附件元信息。
+         */
+        AttachmentMeta: {
+            /** Filename */
+            filename: string;
+            /** Original Filename */
+            original_filename?: string | null;
+            /** Custom Filename */
+            custom_filename?: string | null;
+            /** Size */
+            size: number;
+            /** Content Type */
+            content_type: string;
+            /** Part Index */
+            part_index: number;
+            /** Page Count */
+            page_count?: number | null;
+            /** Expanded From */
+            expanded_from?: string | null;
+        };
+        /**
          * InboxMessageOut
          * @description 收件箱消息列表项。
          */
@@ -20269,32 +20840,18 @@ export interface components {
              * @default
              */
             upload_contract_name: string;
-        };
-        /**
-         * AttachmentMeta
-         * @description 附件元信息。
-         */
-        AttachmentMeta: {
-            /** Filename */
-            filename: string;
-            /** Original Filename */
-            original_filename?: string | null;
-            /** Custom Filename */
-            custom_filename?: string | null;
-            /** Size */
-            size: number;
-            /** Content Type */
-            content_type: string;
-            /** Part Index */
-            part_index: number;
-            /** Page Count */
-            page_count?: number | null;
-            /** Expanded From */
-            expanded_from?: string | null;
+            /**
+             * Attachments
+             * @default []
+             */
+            attachments: components["schemas"]["AttachmentMeta"][];
         };
         /**
          * InboxMessageDetailOut
-         * @description 收件箱消息详情（含正文和附件详情）。
+         * @description 收件箱消息详情（含正文和草稿）。
+         *
+         *     ``attachments`` 已上提到父类（列表也要用），这里不再重复声明——重复声明
+         *     会多出一份「父类解析器 / 子类解析器」二选一的隐患，而两份实现迟早漂移。
          */
         InboxMessageDetailOut: {
             /** Id */
@@ -20379,12 +20936,15 @@ export interface components {
              * @default
              */
             upload_contract_name: string;
+            /**
+             * Attachments
+             * @default []
+             */
+            attachments: components["schemas"]["AttachmentMeta"][];
             /** Body Text */
             body_text: string;
             /** Body Html */
             body_html: string;
-            /** Attachments */
-            attachments: components["schemas"]["AttachmentMeta"][];
             /**
              * Draft State
              * @default {}
@@ -34283,6 +34843,11 @@ export interface operations {
                     page_start: number;
                     /** Page End */
                     page_end: number;
+                    /**
+                     * Rotations
+                     * @default
+                     */
+                    rotations?: string;
                 };
             };
         };
@@ -34518,9 +35083,31 @@ export interface operations {
             };
         };
     };
+    apps_pdf_splitting_api_pdf_splitting_api_export_draft_zip: {
+        parameters: {
+            query?: {
+                name?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_segment_pdf: {
         parameters: {
-            query?: never;
+            query?: {
+                rotations?: string;
+            };
             header?: never;
             path: {
                 job_id: string;
@@ -34564,6 +35151,7 @@ export interface operations {
         parameters: {
             query?: {
                 ids?: string;
+                rotations?: string;
             };
             header?: never;
             path: {
@@ -34623,6 +35211,287 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_list_runs: {
+        parameters: {
+            query: {
+                case_id: number;
+                state?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunPageOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_create_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyRunIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyRunOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_create_run_from_material: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunFromMaterialIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyRunOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_get_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyRunOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_create_decision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_create_batch_decisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionBatchIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionBatchOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_list_unverified: {
+        parameters: {
+            query: {
+                case_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyRunOut"][];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_list_pending: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyRunOut"][];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_artifact_api_list_artifacts: {
+        parameters: {
+            query: {
+                case_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactOut"][];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_artifact_api_create_artifact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArtifactIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_policy_api_get_policy: {
+        parameters: {
+            query: {
+                case_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_policy_api_put_policy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyOut"];
+                };
             };
         };
     };
@@ -35822,6 +36691,30 @@ export interface operations {
     apps_message_hub_api_inbox_api_preview_attachment: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                message_id: number;
+                part_index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_message_hub_api_inbox_api_attachment_thumbnail: {
+        parameters: {
+            query?: {
+                page?: number;
+                width?: number;
+            };
             header?: never;
             path: {
                 message_id: number;

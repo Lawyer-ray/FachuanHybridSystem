@@ -1,4 +1,4 @@
-import { ChevronDown, Loader2, Minus, Plus } from 'lucide-react'
+import { ChevronDown, Loader2, Minus, Plus, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -44,6 +44,7 @@ export function ReaderToolbar({
   onSetCols,
   colsDisabled,
   onResetSegments,
+  rotation,
   onAutoSplit,
   autoSplitRunning,
   autoSplitProgress,
@@ -73,6 +74,13 @@ export function ReaderToolbar({
   onSetCols: (n: number) => void
   colsDisabled: boolean
   onResetSegments: () => void
+  /** 页旋转：作用范围（选中页/当前段/全部）+ 动作 */
+  rotation: {
+    label: string
+    count: number
+    rotatedCount: number
+    rotate: (deg: number) => void
+  }
   onAutoSplit: () => void
   autoSplitRunning: boolean
   autoSplitProgress: string
@@ -109,6 +117,51 @@ export function ReaderToolbar({
         <Plus className="h-3.5 w-3.5" />
         追加材料
       </button>
+
+      {/* 旋转：**唯一的旋转入口**。倒着送纸扫出来的页在这里转回来。
+          为什么只留这一个：页卡悬停按钮 / 右键菜单 / 选页浮条各有一份同样的动作，
+          四份入口说的是同一件事，既占地方又让人不确定该按哪个。收成一个带
+          作用范围的下拉，路径唯一。 */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            // 只有图标、不带可见文字：读屏与测试仍靠这个 aria-label 认出它
+            aria-label={`旋转：${rotation.label}`}
+            title={`旋转页面（当前作用范围：${rotation.label}）`}
+            disabled={rotation.count === 0}
+            className={cn(PBTN, 'gap-1 px-[6px] disabled:cursor-not-allowed disabled:opacity-40')}
+          >
+            <RotateCw className="h-3.5 w-3.5" />
+            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-[210px]">
+          <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+            作用于 {rotation.label}
+          </DropdownMenuLabel>
+          <DropdownMenuItem onSelect={() => rotation.rotate(90)} className="text-[12.5px]">
+            顺时针旋转 90°
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => rotation.rotate(-90)} className="text-[12.5px]">
+            逆时针旋转 90°
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => rotation.rotate(180)} className="text-[12.5px]">
+            旋转 180°
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => rotation.rotate(0)}
+            disabled={rotation.rotatedCount === 0}
+            className="text-[12.5px]"
+          >
+            重置旋转{rotation.rotatedCount > 0 ? `（已转 ${rotation.rotatedCount} 页）` : ''}
+          </DropdownMenuItem>
+          <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+            勾选页后只旋转所选
+          </DropdownMenuLabel>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <span className="h-4 w-px flex-none bg-border max-[760px]:hidden" />
 

@@ -122,3 +122,38 @@ describe('cloudSelectionSummary：悬浮说明里的选择描述', () => {
     expect(cloudSelectionSummary(['paddleocr_vl', 'textin'])).toBe('双引擎 · VL+Textin')
   })
 })
+
+describe('DeepSeek 只能单独用，不参与交叉比对', () => {
+  // 后端 `DUAL_ENGINE_CHOICES` 里没有 deepseek：它没有独立于 cloud_backend 的第二条
+  // 通道。前端若还按「勾两个就比对」显示「将交叉比对」，就是在承诺一件不会发生的事。
+  it('只勾 DeepSeek：它就是正主，不发 dual_engines', () => {
+    expect(resolveBackendRequest(['deepseek'])).toEqual({ cloudBackend: 'deepseek', dualEngines: null })
+  })
+
+  it('DeepSeek + MinerU：正主仍是 MinerU，dual_engines 不含 DeepSeek', () => {
+    expect(resolveBackendRequest(['mineru', 'deepseek'])).toEqual({
+      cloudBackend: 'mineru',
+      dualEngines: null,
+    })
+  })
+
+  it('DeepSeek + 两个可比对引擎：比对名单里只有那两个', () => {
+    const req = resolveBackendRequest(['mineru', 'paddleocr_vl', 'deepseek'])
+    expect(req.cloudBackend).toBe('mineru')
+    expect(req.dualEngines).toEqual(['mineru', 'paddleocr_vl'])
+  })
+
+  it('勾了 DeepSeek 不构成「交叉比对」', () => {
+    expect(crossChecks(['mineru', 'deepseek'])).toBe(false)
+    expect(crossChecks(['mineru', 'textin', 'deepseek'])).toBe(true)
+  })
+
+  it('收窄时保留 deepseek，并排在最后', () => {
+    expect(normalizeCloudSelection(['deepseek', 'mineru'])).toEqual(['mineru', 'deepseek'])
+  })
+
+  it('摘要要说清「DeepSeek 仅兜底」，不能让用户以为开了比对', () => {
+    expect(cloudSelectionSummary(['mineru', 'deepseek'])).toContain('DeepSeek 仅兜底')
+    expect(cloudSelectionSummary(['deepseek'])).toBe('仅 DeepSeek')
+  })
+})

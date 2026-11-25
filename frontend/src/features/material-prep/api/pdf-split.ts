@@ -20,8 +20,11 @@ type PdfSplitJobPayload = components['schemas']['PdfSplitJobOut']
 /** POST /pdf-splitting/jobs 的响应（生成物 PdfSplitJobSubmitOut） */
 type PdfSplitJobSubmit = components['schemas']['PdfSplitJobSubmitOut']
 
-/** 云端解析平台偏好：auto=优先+容灾；锁定值=只用它，失败不降级 */
-export type CloudBackend = 'auto' | 'mineru' | 'textin'
+/** 云端解析平台偏好：auto=优先+容灾；锁定值=只用它，失败不降级。
+ *
+ *  `deepseek` 与前两者的区别只有一处：它的凭证在系统配置（`DEEPSEEK_OCR_API_KEY`），
+ *  不在「解析平台」管理页。对前端调用方没有差别——都是发一个 `cloud_backend` 单值。 */
+export type CloudBackend = 'auto' | 'mineru' | 'textin' | 'deepseek'
 
 /**
  * 第二引擎（交叉比对用）：`paddleocr_vl` 不是可注册的解析平台
@@ -75,11 +78,15 @@ export async function extractPdfPages(
   name: string,
   pageStart: number,
   pageEnd: number,
+  /** 人工转正角度编码 `页码:角度,页码:角度`（见 draft/page-rotation.ts 的 rotationsForRange） */
+  rotations = '',
 ): Promise<Blob> {
   const body = new FormData()
   body.append('file', new File([file], name, { type: 'application/pdf' }))
   body.append('page_start', String(pageStart))
   body.append('page_end', String(pageEnd))
+  // 空串不传：老后端不认这个字段，多传一个空字段只会让日志多一行噪音
+  if (rotations) body.append('rotations', rotations)
   const res = await pdfSplitApi.post('extract-pages', { body, timeout: UPLOAD_TIMEOUT_MS })
   return await res.blob()
 }
@@ -95,8 +102,9 @@ export async function extractPdfPages(
  *
  * 正确用法：`downloadUrl(await withDownloadTicket(segmentPdfUrl(jobId, pk)))`。
  */
-export function segmentPdfUrl(jobId: string, segmentId: number): string {
-  return `${PDF_SPLIT_PREFIX}/jobs/${encodeURIComponent(jobId)}/segments/${segmentId}/pdf`
+export function segmentPdfUrl(jobId: string, segmentId: number, rotations = ''): string {
+  const base = `${PDF_SPLIT_PREFIX}/jobs/${encodeURIComponent(jobId)}/segments/${segmentId}/pdf`
+  return appendRotations(base, rotations)
 }
 
 /** 单段 Markdown 直链（GET .../segments/{segment_id}/md）。与 PDF 同一套票据换票纪律，见上 */
@@ -113,10 +121,67 @@ export function segmentMdUrl(jobId: string, segmentId: number): string {
  * 同样**不能当 `<a href>` 用**；且这是**带 query 的 URL**，换票时 `appendTicket`
  * 会拼成 `&ticket=`（拼错成第二个 `?` 时后端只会收到一个叫 `?ids` 的垃圾参数）。
  */
-export function jobDownloadUrl(jobId: string, segmentIds?: number[]): string {
+export function jobDownloadUrl(jobId: string, segmentIds?: number[], rotations = ''): string {
   const ids = normalizeSegmentIds(segmentIds)
   const base = `${PDF_SPLIT_PREFIX}/jobs/${encodeURIComponent(jobId)}/download`
-  return ids.length > 0 ? `${base}?ids=${ids.join(',')}` : base
+  const withIds = ids.length > 0 ? `${base}?ids=${ids.join(',')}` : base
+  return appendRotations(withIds, rotations)
+}
+
+/**
+ * 给下载直链追加旋转参数。
+ *
+ * ⚠️ 拼 `&` 还是 `?` 必须看已有 query：`jobDownloadUrl` 带 `ids` 时已经有一个
+ * `?`，再拼第二个 `?` 后端只会收到一个叫 `?ids` 的垃圾参数（同 `appendTicket`
+ * 的教训）。空串不加——URL 保持与不带旋转时**逐字相同**，日志/快照比对才有意义。
+ */
+function appendRotations(url: string, rotations: string): string {
+  const value = rotations.trim()
+  if (!value) return url
+  const sep = url.includes('?') ? '&' : '?'
+  return `${url}${sep}rotations=${encodeURIComponent(value)}`
+}
+
+/** 草稿导出的段（`POST /export-draft` 的 spec 项） */
+export interface DraftExportSegmentIn {
+  name: string
+  part_index: number
+  page_start: number
+  page_end: number
+  /** 同 extract-pages 的编码；空串不传 */
+  rotations?: string
+  /** 段正文（云端识别才会产生）；空则包里只出 pdf */
+  md?: string
+}
+
+/**
+ * 把**草稿里的段**导出成 zip（POST /pdf-splitting/export-draft）。
+ *
+ * 与 `jobDownloadUrl` 的分工：那条按拆分任务的段打 zip（段必须有后端产物 id）；
+ * 这条按草稿打 zip —— 律师不跑自动分段、自己切页命名后也要能导出。
+ *
+ * `files` 的每一项会被服务端按**文件名** `part_<partIndex>.<ext>` 认领素材：
+ * 用文件名当键而不是「按顺序对应」，是因为某份素材可能读不出来而少发一个，
+ * 按顺序会让后面每份都错位（导出的内容和段名对不上，且几乎看不出来）。
+ *
+ * 返回被服务端跳过的段数（页范围越界 / 素材对不上）：由调用方提示，不静默少几份。
+ */
+export async function exportDraftZip(opts: {
+  files: Array<{ partIndex: number; filename: string; blob: Blob }>
+  segments: DraftExportSegmentIn[]
+  /** 包名 → 下载文件名（缺省「材料导出」） */
+  name?: string
+}): Promise<{ blob: Blob; skipped: number }> {
+  const body = new FormData()
+  for (const file of opts.files) {
+    const ext = /\.[A-Za-z0-9]{1,6}$/.exec(file.filename)?.[0] ?? (file.blob.type === 'application/pdf' ? '.pdf' : '.png')
+    body.append('files', new File([file.blob], `part_${file.partIndex}${ext}`, { type: file.blob.type }))
+  }
+  body.append('spec', JSON.stringify({ segments: opts.segments }))
+  const query = opts.name?.trim() ? `?name=${encodeURIComponent(opts.name.trim())}` : ''
+  const res = await pdfSplitApi.post(`export-draft${query}`, { body, timeout: UPLOAD_TIMEOUT_MS })
+  const skipped = Number(res.headers.get('X-Export-Skipped') ?? '0') || 0
+  return { blob: await res.blob(), skipped }
 }
 
 /**
@@ -145,6 +210,13 @@ export interface ArchiveToCaseFolderSegment {
   page_end: number
   doc_type: string
   material_type: string
+  /**
+   * 人工转正角度（`页码:角度,...`，页码=源 PDF 绝对页号）。
+   *
+   * 后端在**切页之前**把它烧进页对象，再切页与算副本指纹——所以落进卷宗的
+   * 就是律师看到的方向，而不是扫描仪给的原始方向。空/缺省 = 不转。
+   */
+  rotations?: string
 }
 
 /** 归档结果：落在哪儿、写了哪些文件、哪些疑似副本、哪些段跳过 */

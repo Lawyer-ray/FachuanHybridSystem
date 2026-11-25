@@ -99,3 +99,39 @@ def test_case_name_trimmed_to_nearest_delimiter() -> None:
     assert hit is not None
     assert "刘建军" in hit
     assert "本案系" not in hit
+
+
+# ── 大模型复审的解析层：截断与不听话的输出 ──────────────────────────────
+#
+# 为什么单独测解析：这一层曾经把「输出被截断」判成「不是 JSON 数组」→ 整片放行。
+# 隐私复审的失败方向必须偏「多报」——截断的数组里前几项**是有效命中**，不能丢。
+
+
+def test_parse_accepts_fenced_array_with_chatter() -> None:
+    text = '好的，结果如下：\n```json\n[{"id": 3, "kind": "姓名", "evidence": "刘建军", "reason": "真实全名"}]\n```\n以上。'
+    items = sg._parse_llm_json_array(text)
+
+    assert items == [{"id": 3, "kind": "姓名", "evidence": "刘建军", "reason": "真实全名"}]
+
+
+def test_parse_salvages_objects_from_a_truncated_array() -> None:
+    """被 max_tokens 掐断：整段解析不可能成功，但完整写出来的那几项要留下。"""
+    text = '[{"id": 1, "kind": "姓名", "evidence": "刘建军", "reason": "真实全名"}, {"id": 2, "kind": "地址", "evi'
+    items = sg._parse_llm_json_array(text)
+
+    assert items is not None
+    assert [item["id"] for item in items] == [1]
+
+
+def test_parse_returns_none_for_pure_prose() -> None:
+    """全是废话就明说解析不出来，交给上层重试——不许当成「没有隐私」。"""
+    assert sg._parse_llm_json_array("这几行看起来没问题，没有发现隐私。") is None
+
+
+def test_parse_ignores_half_written_object() -> None:
+    """半个对象里没有可信的 id/evidence，硬猜会把幻觉片段变成拦截项。"""
+    text = '[{"id": 1, "kind": "姓名", "evidence": "刘建军", "reason": "真实全名"}, {"id": 2, "kind": "地址'
+    items = sg._parse_llm_json_array(text)
+
+    assert items is not None
+    assert [item["id"] for item in items] == [1]

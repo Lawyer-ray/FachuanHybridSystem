@@ -149,8 +149,8 @@ def _annotations_from_live_server(server: Any) -> dict[str, dict[str, Any] | Non
     为什么不能走审批内核的 ``_annotation_table()``：它内部调
     ``mcp.list_tools()``（async，依赖请求上下文），在启动期调用会抛错并缓存
     空表——线上表现就是启动日志「注解 0 条」，分级退回纯名字判定。而
-    ``server._tool_manager.list_tools()`` 是同步纯内存读取，实测 429 个工具
-    全部带 annotations。
+    ``server._tool_manager.list_tools()`` 是同步纯内存读取，实测 434 个工具
+    全部带 annotations（2026-11-25 重测）。
     """
     manager = getattr(server, "_tool_manager", None)
     if manager is None or not hasattr(manager, "list_tools"):

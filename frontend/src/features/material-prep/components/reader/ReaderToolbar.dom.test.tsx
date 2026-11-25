@@ -27,6 +27,8 @@ function makeProps(over: Partial<ToolbarProps> = {}): ToolbarProps {
     onToggleMeta: vi.fn(),
     selMode: false,
     onToggleSelMode: vi.fn(),
+    // 旋转：作用范围（默认空 → 按钮置灰，用例可覆盖）
+    rotation: { label: '当前段 0 页', count: 0, rotatedCount: 0, rotate: vi.fn() },
     onAddFiles: vi.fn(),
     zoomVal: 100,
     onZoomIn: vi.fn(),
@@ -233,12 +235,28 @@ describe('ReaderToolbar：自动分段 split button', () => {
     unmount()
   })
 
-  it('解析平台是多选：三个引擎都能勾，且 PaddleOCR-VL 在列', async () => {
+  it('解析平台是多选：四个引擎都能勾，且 PaddleOCR-VL / DeepSeek 在列', async () => {
     const { unmount } = renderToolbar()
     await openSettings()
-    for (const name of ['MinerU', 'PaddleOCR-VL', 'Textin']) {
+    for (const name of ['MinerU', 'PaddleOCR-VL', 'Textin', 'DeepSeek']) {
       expect(screen.getByRole('menuitemcheckbox', { name: new RegExp(name) })).toBeTruthy()
     }
+    unmount()
+  })
+
+  it('DeepSeek 单独使用：说明它崩塌/需重试的代价，而不是「再勾一个可比对」', async () => {
+    const { unmount } = renderToolbar({ cloudSelection: ['deepseek'] })
+    await openSettings()
+    expect(screen.getByText(/仅 DeepSeek 取字/)).toBeTruthy()
+    expect(screen.queryByText(/将交叉比对/)).toBeNull()
+    unmount()
+  })
+
+  it('DeepSeek + MinerU 不出现「将交叉比对」（它不参与比对）', async () => {
+    const { unmount } = renderToolbar({ cloudSelection: ['mineru', 'deepseek'] })
+    await openSettings()
+    expect(screen.queryByText(/将交叉比对/)).toBeNull()
+    expect(screen.getByRole('menuitemcheckbox', { name: /DeepSeek/ }).getAttribute('aria-checked')).toBe('true')
     unmount()
   })
 
@@ -471,5 +489,43 @@ describe('ReaderBody：自动分段进度面板接线', () => {
     expect(screen.getByTestId('auto-split-progress')).toBeTruthy()
     expect(screen.getByText('正在识别文字')).toBeTruthy()
     container.remove()
+  })
+})
+
+// ── 旋转入口（唯一入口）───────────────────────────────────
+//
+// 入口收敛成工具栏上一个**图标按钮**（不带可见文字，名字只进 aria-label 与
+// title），点开是带作用范围的下拉。这里锁它可被找到、能报告作用范围、
+// 三个角度都传得对。
+
+describe('ReaderToolbar：旋转入口', () => {
+  it('图标按钮（无可见文字）也能报告作用范围（不写范围等于让律师盲按 37 页）', () => {
+    const rotation = { label: '当前段 37 页', count: 37, rotatedCount: 0, rotate: vi.fn() }
+    render(<ReaderToolbar {...makeProps({ rotation })} />)
+    const trigger = screen.getByRole('button', { name: '旋转：当前段 37 页' })
+    expect(trigger).toBeTruthy()
+    // 按钮上不应再出现中文文字：只留图标 + 箭头（名字靠 aria-label/title）
+    expect(trigger.textContent?.trim()).toBe('')
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+    expect(screen.getByText('作用于 当前段 37 页')).toBeTruthy()
+  })
+
+  it('顺时针 / 逆时针 / 180° 各传对应角度', () => {
+    const rotate = vi.fn()
+    const rotation = { label: '所选 3 页', count: 3, rotatedCount: 0, rotate }
+    render(<ReaderToolbar {...makeProps({ rotation })} />)
+    fireEvent.keyDown(screen.getByRole('button', { name: '旋转：所选 3 页' }), { key: 'Enter' })
+    fireEvent.click(screen.getByText('顺时针旋转 90°'))
+    fireEvent.keyDown(screen.getByRole('button', { name: '旋转：所选 3 页' }), { key: 'Enter' })
+    fireEvent.click(screen.getByText('逆时针旋转 90°'))
+    fireEvent.keyDown(screen.getByRole('button', { name: '旋转：所选 3 页' }), { key: 'Enter' })
+    fireEvent.click(screen.getByText(/旋转 180°/))
+    expect(rotate.mock.calls.map((c) => c[0])).toEqual([90, -90, 180])
+  })
+
+  it('没有可转的页时按钮置灰（草稿未就绪）', () => {
+    const rotation = { label: '没有可转的页', count: 0, rotatedCount: 0, rotate: vi.fn() }
+    render(<ReaderToolbar {...makeProps({ rotation })} />)
+    expect((screen.getByRole('button', { name: '旋转：没有可转的页' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })

@@ -103,6 +103,34 @@ export function attachmentUrl(messageId: number, partIndex: number, inline: bool
   return `/api/v1/inbox/messages/${messageId}/attachments/${partIndex}/${kind}`
 }
 
+/** 附件的服务端缩略图（PDF 首页 / 位图本身，JPEG）。
+ *
+ *  ⚠️ **不走 `attachmentUrl + withDownloadTicket`**，与上面的预览/下载不同：
+ *
+ *  - 缩略图要的是 **blob**（交给 `<img>` / `<canvas>` 画），不是让浏览器导航；
+ *  - 票据是**单次使用**的，同一张缩略图每次都要现换一张，URL 每次都变，
+ *    浏览器的 HTTP 缓存永远命中不了；
+ *  - 这里用带鉴权的 ky 请求，URL 稳定，后端又给了
+ *    `Cache-Control: private, max-age=604800`，同一附件在同一会话里只付一次流量。
+ *
+ *  失败语义与 ``fetchAttachmentBytes`` 一致：抛错由调用方（hook）落到「占位」态，
+ *  不在这里静默返回空 blob（空 blob 会让 `<img>` 显示破图图标）。
+ */
+export async function fetchAttachmentThumbnail(
+  messageId: number,
+  partIndex: number,
+  opts: { page?: number; width?: number } = {},
+): Promise<Blob> {
+  return inboxApi
+    .get(`messages/${messageId}/attachments/${partIndex}/thumbnail`, {
+      searchParams: {
+        page: String(opts.page ?? 1),
+        width: String(opts.width ?? 320),
+      },
+    })
+    .blob()
+}
+
 // ── 来源同步 ──────────────────────────────────────────────
 //
 // 接口在同一个 /api/v1/inbox 域下（sources / sources/sync-all / sources/{id}/sync），

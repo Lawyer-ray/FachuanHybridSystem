@@ -65,7 +65,11 @@ export function PageContextMenu({
       className="fixed z-[90] min-w-[160px] overflow-hidden rounded-lg border border-border bg-card py-1 text-[13px] shadow-2xl"
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className="px-3 py-1.5 text-[11px] text-muted-foreground">{title}</div>
+      <div className="px-3 py-1.5 text-[11px] text-muted-foreground">
+        {title}
+      </div>
+
+      <div className="border-t border-border/60 pt-1">
       <button
         type="button"
         onClick={onDelete}
@@ -76,6 +80,7 @@ export function PageContextMenu({
         <Trash2 className="h-3.5 w-3.5" />
         {count > 1 ? `删除所选 ${count} 页` : '删除此页'}
       </button>
+      </div>
     </div>
   )
 }

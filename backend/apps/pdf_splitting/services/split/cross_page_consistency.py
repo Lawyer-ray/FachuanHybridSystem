@@ -137,6 +137,77 @@ _BUSINESS_CHARS = frozenset(
 KIND_FREQUENCY = "frequency"
 KIND_ENTITY_CLUSTER = "entity_cluster"
 KIND_ID_MALFORMED = "id_malformed"
+KIND_CASE_NUMBER = "case_number_variant"
+KIND_AMOUNT = "amount_variant"
+
+# ────────── 案号 / 金额：同一条事实写成了两个版本 ──────────
+#
+# 为什么单开一类：前面三类都在比「文字写法」，而法律文书里**数字写错一位就是另一件事**。
+# 实测（617 卷宗）OCRing 会在不同页把同一个数写成两版：应补税额 `6529346.56元` 在 p23/p27/p28
+# 一致、到 p32 变成 `6592946.56元`；案号 `（20XX）粤XX民终XXXX号` 在 p13/p34 对、p18 掉了
+# 一位成 `621号`。这两处**都不是「错字」**，前面的判据（差 1 个汉字 + 频次悬殊）看不见。
+#
+# 两道门都是 medium：只提示、不自动改正文（改数字比改错字危险得多）。
+
+#: 案号：`（20XX）粤XX民终XXXX号` 形态。分四段捕获，用于「同法院 + 同年份 + 同案件类型」
+#: 分桶——只有这三项都相同时，号码不同才可能是同一个案件被写错。
+_CASE_NUMBER_RE = re.compile(
+    r"[（(]\s*(?P<year>20\d{2})\s*[)）]\s*(?P<court>[\u4e00-\u9fff]{1,3}\d{0,4})"
+    r"\s*(?P<kind>[\u4e00-\u9fff]{1,3})\s*(?P<num>\d{1,6})\s*号",
+)
+
+#: 金额：`1,234,567.89元`。**必须有 `元` 收尾**——没有单位的数字（页码、账号、
+#: 流水号）一旦进来，噪声会盖掉真信号。
+_AMOUNT_RE = re.compile(r"(?P<value>\d[\d,]{3,}(?:\.\d{1,2})?)\s*元")
+
+#: 金额的角色标签白名单。只在**金额前 40 字内**出现这些词时才算「有角色」，
+#: 否则这个金额不参与比对——“无角色的数字”根本不构成「同一条事实」。
+_AMOUNT_LABEL_WINDOW = 40
+_AMOUNT_LABELS = [
+    "应补税额",
+    "应补缴",
+    "应补",
+    "核定",
+    "计税依据",
+    "合同价",
+    "交易价",
+    "转让价",
+    "合计金额",
+    "合计",
+    "本金",
+    "利息",
+    "罚息",
+    "税额",
+    "金额",
+    "收入",
+    "成本",
+    "扣除",
+    "余额",
+    "补缴",
+    "缴纳",
+    "价款",
+    "罚款",
+    "滞纳金",
+    "诉讼费",
+]
+
+#: 案号变体的判据：**短号码是长号码删掉 1–2 位得到的**（只认删除）。
+#:
+#: 只凭「同法院 + 同年 + 同类型」就两两报不行：同一法院同年的两个真实不同案件
+#: （`民终6121号` 与 `民终6122号`）也会落进同一桶。实测的错法是**漏了一位**（`6121` → `621`），
+#: 删除关系能把它与「替换一位」分开：6121/6122 不命中。
+_CASE_SUFFIX_LEN_DIFF = 2
+
+#: 金额变体的数值容差：同一长度的数字串最多差 2 位。
+#: 一位之差是 OCR 最典型形态；2 位容下 `6529346` vs `6592946`（抄位 + 错位共 3 处，
+#: 编辑距离 2）。再宽就会把「本来就是两个数」（一次交易的不同项）并进来。
+_AMOUNT_MAX_EDIT_DISTANCE = 2
+
+#: 多数派至少要出现这么多次。**这条是必需的，不是调优**：
+#: 去掉它以后，那份 164 页银行催收卷宗会出 4 条假阳性
+#: （`100000` vs `1310000`、`10020` vs `100000`、`11700` vs `11530`——全是两个真实存在
+#: 的不同金额）。加上以后 4 条全滤掉，而 617 的真错仍在。
+_AMOUNT_MAJORITY_MIN = 2
 
 #: 姓名聚类的前缀长度（姓 + 名首字）。只同姓太松（同姓的人满卷都是），
 #: 同姓又同名首字才像「同一个人的多种 OCR 写法」。
@@ -510,6 +581,156 @@ def _id_card_hits(pages_text: dict[int, str], reported: set[tuple[str, str]]) ->
     return hits
 
 
+def _is_case_number_deletion(reference: str, variant: str) -> bool:
+    """短号码是不是长号码**删掉 1–2 位数字**得到的（只认删除，不认替换）。
+
+    `6121` vs `621` 命中（掉的是中间那位）；`6121` vs `6122` 不命中
+    （同年同类的两个真实案件，形态是替换而不是删除）。
+
+    只认删除是刻意的：OCR 把一位数字**漏掉**是实测到的唯一形态，而替换一位
+    恰恰是两个相邻案件号最自然的差异（`…6121号` / `…6122号`）。放进来就再也分不开。
+    """
+    longer, shorter = (reference, variant) if len(reference) >= len(variant) else (variant, reference)
+    if not (1 <= len(longer) - len(shorter) <= _CASE_SUFFIX_LEN_DIFF):
+        return False
+    cursor = 0
+    for digit in longer:
+        if cursor < len(shorter) and digit == shorter[cursor]:
+            cursor += 1
+    return cursor == len(shorter)
+
+
+def _case_number_hits(pages_text: dict[int, str], reported: set[tuple[str, str]]) -> list[Inconsistency]:
+    """同一「法院 + 年份 + 案件类型」下短号码是长号码删除 1–2 位的产物 → 提示。
+
+    分两层收窄：先用「法院 + 年份 + 案件类型」分桶（同一法院同年的不同案件不上同桶），
+    桶内再要求「删除关系」（`6121` → `621` 是漏了一位，这是实测到的错法形态）。
+    只凭分桶两两报不行——`民终6121号` 与 `民终6122号` 是同年同类的两个真实案件。
+    """
+    buckets: dict[tuple[str, str, str], dict[str, set[int]]] = defaultdict(lambda: defaultdict(set))
+    display: dict[str, str] = {}
+    for page_no, text in pages_text.items():
+        for match in _CASE_NUMBER_RE.finditer(text or ""):
+            key = (match.group("year"), match.group("court"), match.group("kind"))
+            num = match.group("num")
+            buckets[key][num].add(int(page_no))
+            display[num] = match.group(0).strip()
+
+    hits: list[Inconsistency] = []
+    for (year, court, kind), by_num in buckets.items():
+        if len(by_num) < 2:
+            continue
+        ordered = sorted(by_num, key=lambda n: (-len(by_num[n]), n))
+        reference = ordered[0]
+        ref_name = display[reference]
+        for variant in ordered[1:]:
+            if not _is_case_number_deletion(reference, variant):
+                continue
+            var_name = display[variant]
+            if (ref_name, var_name) in reported:
+                continue
+            hits.append(
+                Inconsistency(
+                    canonical=ref_name,
+                    variant=var_name,
+                    canonical_count=len(by_num[reference]),
+                    variant_count=len(by_num[variant]),
+                    pages=sorted(by_num[variant]),
+                    confidence="medium",
+                    kind=KIND_CASE_NUMBER,
+                )
+            )
+    return hits
+
+
+def _amount_label_of(text: str, start: int) -> str:
+    """金额前 40 字内最靠近的角色标签；没有则空串。"""
+    context = text[max(0, start - _AMOUNT_LABEL_WINDOW) : start]
+    label, best = "", -1
+    for candidate in _AMOUNT_LABELS:
+        pos = context.rfind(candidate)
+        if pos > best:
+            label, best = candidate, pos
+    return label
+
+
+def _digits(value: str) -> str:
+    return re.sub(r"[,\s]", "", value)
+
+
+def _amount_hits(pages_text: dict[int, str], reported: set[tuple[str, str]]) -> list[Inconsistency]:
+    """同一角色标签下，数值只差几位 → 提示（不判哪个对）。
+
+    两道阀门：同标签（金额所属的法律含义相同）+ 多数派出现 ≥2 次（真有一个「一致写法」
+    存在）。只剩一道都不行：只要标签会把「一笔交易的不同项」塞进同一桶；
+    只要多数派会让两个各出现一次的真不同金额两两相撞。
+    """
+    buckets: dict[str, dict[str, set[int]]] = defaultdict(lambda: defaultdict(set))
+    display: dict[str, str] = {}
+    for page_no, text in pages_text.items():
+        body = text or ""
+        for match in _AMOUNT_RE.finditer(body):
+            label = _amount_label_of(body, match.start())
+            if not label:
+                continue
+            value = _digits(match.group("value"))
+            buckets[label][value].add(int(page_no))
+            display.setdefault(value, f"{match.group('value').strip()}元")
+
+    hits: list[Inconsistency] = []
+    for _label, by_value in buckets.items():
+        if len(by_value) < 2:
+            continue
+        for canonical, variant in _amount_pairs(by_value):
+            ref_name, var_name = display[canonical], display[variant]
+            if (ref_name, var_name) in reported:
+                continue
+            hits.append(
+                Inconsistency(
+                    canonical=ref_name,
+                    variant=var_name,
+                    canonical_count=len(by_value[canonical]),
+                    variant_count=len(by_value[variant]),
+                    pages=sorted(by_value[variant]),
+                    confidence="medium",
+                    kind=KIND_AMOUNT,
+                )
+            )
+    return hits
+
+
+def _amount_pairs(by_value: dict[str, set[int]]) -> list[tuple[str, str]]:
+    """一个标签桶里所有「多数派 vs 少数派」的近似数值对。"""
+    ordered = sorted(by_value, key=lambda v: (-len(by_value[v]), len(v), v))
+    pairs: list[tuple[str, str]] = []
+    for index, canonical in enumerate(ordered):
+        if len(by_value[canonical]) < _AMOUNT_MAJORITY_MIN:
+            continue
+        for variant in ordered[index + 1 :]:
+            if len(variant) != len(canonical):
+                continue
+            if _digit_edit_distance(canonical, variant) <= _AMOUNT_MAX_EDIT_DISTANCE:
+                pairs.append((canonical, variant))
+    return pairs
+
+
+def _digit_edit_distance(left: str, right: str) -> int:
+    """两个同长度数字串的编辑距离（保留小数点，使 `.56` 与 `.65` 也算差异）。"""
+    previous = list(range(len(right) + 1))
+    for i, char_left in enumerate(left, 1):
+        current = [i]
+        for j, char_right in enumerate(right, 1):
+            current.append(
+                min(
+                    previous[j] + 1,
+                    current[j - 1] + 1,
+                    previous[j - 1] + (char_left != char_right),
+                )
+            )
+        previous = current
+    return previous[-1]
+
+
 def find_inconsistencies(
     pages_text: dict[int, str],
     *,
@@ -572,5 +793,9 @@ def find_inconsistencies(
     role_names = _role_name_pages(pages_text, max_len=max_len)
     hits.extend(_entity_cluster_hits(role_names, counts, reported))
     hits.extend(_id_card_hits(pages_text, reported))
+    # 数字类：案号与金额写成了两个版本。前面三类都比「文字写法」，看不见数字错位。
+    for hit in _case_number_hits(pages_text, reported) + _amount_hits(pages_text, reported):
+        reported.add((hit.canonical, hit.variant))
+        hits.append(hit)
 
     return sorted(hits, key=lambda item: (-item.variant_count, item.canonical, item.variant))

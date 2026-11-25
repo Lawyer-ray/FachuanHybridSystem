@@ -178,7 +178,10 @@ class TestCloudBackendUntouched:
         from apps.pdf_splitting.models import PdfSplitCloudBackend
 
         values = {choice for choice, _label in PdfSplitCloudBackend.choices}
-        assert values == {"auto", "mineru", "textin"}
+        # deepseek 是合法的 cloud_backend（凭证在 SystemConfig，不走 DocumentParseProvider）；
+        # paddleocr_vl 仍然不行——它没有独立于 cloud_backend 的第二条通道。
+        assert values == {"auto", "mineru", "textin", "deepseek"}
+        assert "paddleocr_vl" not in values
         assert all("," not in value for value in values)
 
     def test_cloud_backend字段仍是16长度单选(self) -> None:

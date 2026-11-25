@@ -2,7 +2,15 @@ import { useEffect, useState } from 'react'
 import { FileText, IdCard, Image, Layers, PencilLine, ScanSearch, ScanText } from 'lucide-react'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
 import type { BundleMat, DraftState, Inconsistency, PageQuality } from '../../types'
-import { docHintPagesOf, docTodosOf, graphicPagesOf, isAutoSegName, isWholeMat, segMats } from '../../draft'
+import {
+  docHintPagesOf,
+  docTodosOf,
+  graphicPagesOf,
+  isAutoSegName,
+  isWholeMat,
+  ocrFailedPagesOf,
+  segMats,
+} from '../../draft'
 import { RailSegRow, type DropPos } from './RailSegRow'
 import { SegmentDownloadBar } from './SegmentDownloadBar'
 import { useSegmentDownloads, type DownloadableSegment } from './use-segment-downloads'
@@ -63,10 +71,19 @@ export function Rail({
   const rail = useRailWidth(wide)
   // 可下载的段 = 有后端出处的段（`splitRef` 由自动识别落地时写入）。人工切/合的段
   // 后端没有产物，不进这份清单，也就不出勾选框与下载按钮。
-  const downloadables: DownloadableSegment[] = draft.segs.flatMap((sg) =>
-    sg.splitRef ? [{ pk: sg.splitRef.pk, jobId: sg.splitRef.jobId, name: sg.fn }] : [],
-  )
-  const dl = useSegmentDownloads(downloadables)
+  const downloadables: DownloadableSegment[] = draft.segs.flatMap((sg) => {
+    if (!sg.splitRef) return []
+    const first = sg.refs[0]
+    const last = sg.refs[sg.refs.length - 1]
+    if (!first || !last) return []
+    // refs 里的 mi 是**素材下标**，页旋转的键用的是附件 partIndex —— 两者在常规
+    // 材料包里数值相同，但追加过附件后就会漂；这里按 mats 显式换算。
+    const partIndex = mats[first.mi]?.partIndex ?? first.mi
+    return [
+      { pk: sg.splitRef.pk, jobId: sg.splitRef.jobId, name: sg.fn, partIndex, pageStart: first.p, pageEnd: last.p },
+    ]
+  })
+  const dl = useSegmentDownloads(downloadables, draft.pageRot, { mats, segs: draft.segs })
   // 全卷证件待补录页数：入口只在真有这数据时出现（旧任务没有 doc_hints，不渲染假入口）
   const docTodoCount = docTodosOf(pageQuality).length
 
@@ -102,6 +119,7 @@ export function Rail({
     si,
     graphicPages: graphicPagesOf(draft.segs[si], pageQuality),
     docHintPages: docHintPagesOf(draft.segs[si], pageQuality),
+    ocrFailedPages: ocrFailedPagesOf(draft.segs[si], pageQuality),
     whole: isWholeMat(draft, si),
     auto: isAutoSegName(draft, draft.segs[si]!),
     classified: !isAutoSegName(draft, draft.segs[si]!),

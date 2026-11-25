@@ -224,13 +224,21 @@ export function ruleSegmentCountOf(backend: string, segments: { source_method?: 
  */
 export function segmentBackendNote(backends: string[], ruleSegments: number): string {
   if (backends.length === 0) return ''
+  // 整本一次（`llm_wholebook`）与整本+交叉（`llm_wholebook_cross`）都是 LLM 分段，
+  // 而且比逐批看得更全。不认它们会被算进「其余含规则引擎」，把一次更好的分段说成降级。
+  const wholebook = backends.filter((b) => b === 'llm_wholebook' || b === 'llm_wholebook_cross').length
   const llm = backends.filter((b) => b === 'llm').length
   const mixed = backends.filter((b) => b === 'mixed').length
+  const cross = backends.filter((b) => b === 'llm_wholebook_cross').length
   const review = ruleSegments > 0 ? `；${ruleSegments} 段为规则分段请重点复核` : ''
-  if (llm === backends.length) return '律所 AI 分段'
-  if (llm === 0 && mixed === 0) return `规则引擎分段（律所 AI 不可用）${review}`
-  if (llm === 0) return `律所 AI 与规则引擎混合分段${review}`
-  return `${llm}/${backends.length} 律所 AI 分段，其余含规则引擎${review}`
+  const crossNote = cross > 0 ? '；两种切法不一致的段已标「待裁定」' : ''
+  if (wholebook > 0 && llm + wholebook === backends.length) {
+    return `律所 AI 分段（整本一次${cross > 0 ? ' + 交叉核对' : ''}）${crossNote}`
+  }
+  if (llm + wholebook === backends.length) return '律所 AI 分段'
+  if (llm === 0 && wholebook === 0 && mixed === 0) return `规则引擎分段（律所 AI 不可用）${review}`
+  if (llm === 0 && wholebook === 0) return `律所 AI 与规则引擎混合分段${review}`
+  return `${llm + wholebook}/${backends.length} 律所 AI 分段，其余含规则引擎${review}`
 }
 
 /** 由文件名推图片 MIME（后端只存 content_type，缺失时靠它补齐） */

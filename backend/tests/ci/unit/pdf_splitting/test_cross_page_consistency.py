@@ -17,6 +17,8 @@
 from __future__ import annotations
 
 from apps.pdf_splitting.services.split.cross_page_consistency import (
+    KIND_AMOUNT,
+    KIND_CASE_NUMBER,
     KIND_ENTITY_CLUSTER,
     KIND_FREQUENCY,
     KIND_ID_MALFORMED,
@@ -538,3 +540,100 @@ class TestIdCardMalformed:
         assert not _is_valid_id_card(_FAKE_ID_BROKEN)
         assert not _is_valid_id_card("11010119900101123Y")
         assert not _is_valid_id_card("12345")
+
+
+class TestCaseNumberVariant:
+    """案号：同法院 + 同年 + 同案件类型下，短号码是长号码**删掉一位**的产物。
+
+    真实样本（某 37 页卷宗）：完整案号在 p13/p34 一致、p18 掉了一位成三位数。
+    这是「数字错位」，前面三类判据（差一个汉字 + 频次悬殊）都看不见。
+    """
+
+    def test_dropped_digit_is_reported(self) -> None:
+        pages_text = {
+            13: "见（2099）测试民终6121号判决书。",  # privacy-allow 虚构案号
+            18: "见(2099)测试民终621号判决书。",  # privacy-allow 虚构案号
+            34: "（2099）测试民终6121号判决再次确认。",  # privacy-allow 虚构案号
+        }
+
+        hits = [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_CASE_NUMBER]
+
+        assert len(hits) == 1
+        assert hits[0].canonical_count == 2  # 多数派是 6121
+        assert "6121" in hits[0].canonical
+        assert "621" in hits[0].variant
+        assert hits[0].pages == [18]
+        assert hits[0].confidence == "medium"
+
+    def test_two_real_neighbouring_cases_are_not_reported(self) -> None:
+        """6121 与 6122 是同年同类的两个真实案件——形态是「替换一位」而不是「删一位」。"""
+        pages_text = {
+            1: "（2099）测试民终6121号 判决如下。",  # privacy-allow 虚构案号
+            2: "（2099）测试民终6122号 裁定如下。",  # privacy-allow 虚构案号
+            3: "（2099）测试民终6121号 再次提及。",  # privacy-allow 虚构案号
+        }
+
+        assert [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_CASE_NUMBER] == []
+
+    def test_different_court_or_kind_is_not_bucketed_together(self) -> None:
+        pages_text = {
+            1: "（2099）测试民终6121号。",  # privacy-allow 虚构案号
+            2: "（2099）测试民初621号。",  # privacy-allow 虚构案号（案件类型不同）
+            3: "（2099）另院民终621号。",  # privacy-allow 虚构案号（法院不同）
+        }
+
+        assert [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_CASE_NUMBER] == []
+
+
+class TestAmountVariant:
+    """金额：同一角色标签下，数值只差几位，且多数派出现 ≥2 次。
+
+    真实样本（617 卷宗）：应补税额 `6529346.56元` 在 p23/p27/p28 一致、p32 成 `6592946.56元`。
+    """
+
+    def test_amount_typo_under_same_label_is_reported(self) -> None:
+        pages_text = {
+            27: "应补缴税款 6529346.56元和滞纳金。",
+            28: "应补缴税款 6529346.56元已核定。",
+            32: "应补缴税款 6592946.56元。",
+        }
+
+        hits = [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_AMOUNT]
+
+        assert len(hits) == 1
+        assert "6529346.56" in hits[0].canonical
+        assert "6592946.56" in hits[0].variant
+        assert hits[0].canonical_count == 2
+        assert hits[0].pages == [32]
+        assert hits[0].confidence == "medium"
+
+    def test_without_a_majority_nothing_is_reported(self) -> None:
+        """两个各出现一次的真不同金额（实测某 164 页卷宗 `11700` vs `11530`）→ 不报。"""
+        pages_text = {31: "收入 11700元。", 48: "收入 11530元。"}
+
+        assert [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_AMOUNT] == []
+
+    def test_same_numbers_under_different_labels_are_not_compared(self) -> None:
+        pages_text = {
+            1: "合同价 100000元。",
+            2: "违约金 10020元。",
+            3: "合同价 100000元。",
+        }
+
+        assert [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_AMOUNT] == []
+
+    def test_amount_without_unit_is_ignored(self) -> None:
+        """没有 `元` 的数字（页码 / 账号 / 流水号）不参与比对。"""
+        pages_text = {1: "凭证号 6529346 与 6529346。", 2: "凭证号 6592946。"}
+
+        assert [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_AMOUNT] == []
+
+    def test_clearly_different_amounts_under_same_label_are_not_reported(self) -> None:
+        """差 3 位以上的两个金额是两笔不同的钱，不是同一个数写错。"""
+        pages_text = {
+            1: "本金 1000000元。",
+            2: "本金 1000000元。",
+            3: "本金 7777777元。",
+        }
+
+        assert [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_AMOUNT] == []

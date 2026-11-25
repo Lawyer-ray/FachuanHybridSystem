@@ -196,6 +196,17 @@ export interface InfoField {
   ta?: boolean
 }
 
+/** 页旋转角度：顺时针增量（相对 PDF 自身 `/Rotate`），只允许 90 的倍数 */
+export type RotDeg = 0 | 90 | 180 | 270
+
+/**
+ * 页旋转覆盖表：key = `${partIndex}:${page}`（page 从 1 起）。
+ *
+ * 见 `draft/page-rotation.ts` 的模块文档：旋转记在草稿里、由各「材料化边界」
+ * 在生成 PDF 时烧入，源附件一个字节都不改。
+ */
+export type PageRotMap = Record<string, RotDeg>
+
 /** 拆分草稿本体（持久化到后端 draft_state） */
 export interface DraftState {
   mats: BundleMat[]
@@ -205,6 +216,17 @@ export interface DraftState {
   status?: PackStatus
   /** 归案信息：绑定到哪个案件/合同（办案模块消费） */
   assign?: AssignInfo
+  /**
+   * 页旋转覆盖（人工前置，随草稿持久化）。
+   *
+   * 为什么它是「律师的动作」而不是机器事实：倒着送纸扫描会得到 180° 的页，
+   * 律师转正是为了自己看得懂，并把正方向一路带到归案/归档/下载的 PDF 里。
+   * 键是 `partIndex:page`，与切段无关，所以切/并/删段都不会让旋转错位。
+   *
+   * 缺省（存量草稿没有该键）= 全部按原方向，与本字段加入前的行为一致。
+   * 口径与烧入点见 `draft/page-rotation.ts`。
+   */
+  pageRot?: PageRotMap
   /**
    * 页级质量统计（哪些页是图纸 / 稀疏 / 空白）。
    *
@@ -251,13 +273,17 @@ export interface DraftState {
  * 定义在域根 types.ts 而不是 `components/reader/platform-selection.ts`：
  * 阅读器会话契约（reader-state.ts）与 store 都在域根层，根层不该反向指向子目录。
  */
-export type CloudEngine = EngineName
+export type CloudEngine = EngineName | 'deepseek'
 
 /** 勾选的引擎集合。**空数组 = 自动容灾**（不勾任何引擎时的默认行为） */
 export type CloudSelection = CloudEngine[]
 
-/** 菜单里的固定顺序：MinerU 在最前，因为它也是双引擎的正主（见 `resolveBackendRequest`） */
-export const CLOUD_ENGINES: readonly CloudEngine[] = ['mineru', 'paddleocr_vl', 'textin']
+/** 菜单里的固定顺序：MinerU 在最前，因为它也是双引擎的正主（见 `resolveBackendRequest`）。
+ *
+ *  `deepseek` 排最后且**不参与交叉比对**（后端 `DUAL_ENGINE_CHOICES` 里没有它）：
+ *  它只能当 `cloud_backend` 用，所以勾了它之后要么是正主、要么是 auto 链上的兜底。
+ *  它的真实价值是「MinerU/Textin 整批失败时把结果捞回来」，不是第二意见。 */
+export const CLOUD_ENGINES: readonly CloudEngine[] = ['mineru', 'paddleocr_vl', 'textin', 'deepseek']
 
 function isCloudEngine(v: unknown): v is CloudEngine {
   return typeof v === 'string' && (CLOUD_ENGINES as readonly string[]).includes(v)
@@ -292,8 +318,9 @@ export function toggleCloudEngine(selection: CloudSelection, engine: CloudEngine
 export interface RecognitionPrefs {
   /** fast_text = 电子页只抽文本层（不计费、无坐标）；layout = 电子页也上云（更准、更慢、按页计费） */
   layoutMode?: 'fast_text' | 'layout'
-  /** 勾选的云端引擎：空 = 自动容灾；1 个 = 锁定；≥2 个 = 交叉比对（多付一次云端费用） */
-  engines?: EngineName[]
+  /** 勾选的云端引擎：空 = 自动容灾；1 个 = 锁定；≥2 个**可比对的** = 交叉比对
+   *  （多付一次云端费用）。`deepseek` 不参与比对，见 `DUAL_CAPABLE`。 */
+  engines?: CloudSelection
 }
 
 /**

@@ -21,6 +21,7 @@
 export {
   readPageQuality,
   graphicPagesOf,
+  ocrFailedPagesOf,
   sparsePagesOf,
   docHintPagesOf,
   docTypeLabel,

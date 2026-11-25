@@ -30,7 +30,7 @@ AI 对话运行时；其中唯一被外部依赖的 `DashboardService` 已迁至
 |:-|:-|
 | 工具调用前能阻塞等人工审批 | `tool_call` 钩子返回 `{ block: true }` |
 | 能挂起等外部系统决策 | 钩子内 `await fetch(...)`（实测 allow/reject/timeout 三路） |
-| 能吃下 430 个 MCP 工具 | 实测 `make mcp-verify` 真握手：注册表与线上均 430（2026-11-24）。早期日志 `fachuan: connected, 378 tools` 是工具面扩张前的记录 |
+| 能吃下全量 MCP 工具 | 实测 `make mcp-verify` 真握手：注册表与线上均 434（2026-11-25）。早期日志 `fachuan: connected, 378 tools` 是工具面扩张前的记录 |
 
 对照：DSH 的 Python SDK 实测收不到审批事件。
 
@@ -48,7 +48,7 @@ AI 对话运行时；其中唯一被外部依赖的 `DashboardService` 已迁至
 | 硬约束 | opencode 的满足方式 |
 |:-|:-|
 | 工具调用前能**阻塞**等人工审批 | `session/request_permission` 往返（实测批准/拒绝两路都通） |
-| 能吃下 430 个 MCP 工具 | `session/new` 的 `mcpServers` 直挂共享 MCP（带律师 token + tier 头），实测 `inputTokens≈80810` |
+| 能吃下全量 MCP 工具（434 个） | `session/new` 的 `mcpServers` 直挂共享 MCP（带律师 token + tier 头），实测 `inputTokens≈80810`（430 工具时） |
 | 工具名能进审批口径 | 审批请求的 `title` 就是工具 id（`fachuan_x`），归一化成 `mcp__fachuan__x` 后再判级 |
 | 走律所网关 | 自定义 provider（`@ai-sdk/openai-compatible` + `baseURL`），模型全部来自 `LLMProvider` |
 | 逐字流 / 用量 | `agent_message_chunk`（一轮 630 块）+ `prompt` 的 `usage` |
@@ -351,8 +351,8 @@ pi 决定调用 mcp__fachuan__delete_case
 
 四张清单（`DANGER_PATTERNS` / `CRITICAL_PATTERNS` / `SENSITIVE_ARG_MARKERS` /
 `WRITE_PREFIXES`）在 Python 与 `approval-gate.ts` 之间**逐项同步**，并有
-parity 单测守护；对 mcp_server 实际注册表（409 个工具，2026-10-25 补注册
-workflow 模板管理 10 件后）的覆盖由
+parity 单测守护；对 mcp_server 实际注册表（当时 409 个内置工具，2026-10-25 补注册
+workflow 模板管理 10 件后；现 433）的覆盖由
 `test_agent_risk_tiers.py` 对账（新增 `delete_xxx` 忘进审批即红灯，读类被误拦也红灯）。
 `approve_` 亦属高危：`approve_workflow_step` 是工作流 gate 的人工确认动作
 本身，模型低危直调 = 替人批准自己发起的工作流（详见 DANGER_PATTERNS 注释）。
@@ -609,7 +609,7 @@ POST /tasks {message, title?, case_id?}
    代理**按「一次运行一个随机 token」注入 `Authorization`。key 不进 URL、不进日志。
 2. **工具面必须 eager**。惰性通道（`call_mcp_tool`）要求模型先用 `view_file` 读
    schema 文件，而本后端没有文件工具面 → `force_all_tools_eager=True` 恒开，并用
-   `x-fachuan-tool-tier: lite` 把工具面压到 61 个（`full` 是 424 个 / 8.3 万 token/轮）。
+   `x-fachuan-tool-tier: lite` 把工具面压到 61 个（`full` 是 434 个 / 约 10.2 万 token/轮）。
 3. **它默认是代码 agent**。默认 18 个内置工具（文件/命令/子 agent/联网）必须全关
    （`enabled_tools=[]`），身份提示词必须用 `CustomSystemInstructions` 全量替换——
    传 `str` 只「追加一节」，模型仍自称 DeepMind 的编程助手。
