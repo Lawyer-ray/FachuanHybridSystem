@@ -49,6 +49,7 @@ from .consistency_summary import attach_quality_flags_to_markdown, detect_incons
 from .llm_segment_detector import LLMSegmentDetector
 from .markdown_builder import build_segments_markdown
 from .ocr_handler import OCRHandler, OCRStageBudget, cloud_backend_of_method
+from .page_degeneracy import degeneracy_reason
 from .page_fingerprint import find_duplicate_pages, page_signature
 from .page_quality import mark_rescued_image_blocks, rescue_image_region, strip_stamp_boilerplate_lines
 from .page_quality_summary import attach_page_quality_flags, build_page_quality_summary, qualities_by_page
@@ -579,6 +580,10 @@ class PageTextExtractor:
             "budget_skipped_pages": [],
             # 因预算不足整批放弃的图片补救页数（补救是附加内容，不是正文必要的路）
             "image_rescue_skipped_budget": 0,
+            # 云端/缓存给出的正文被判为「废的」（复读循环、空返回）的页。
+            # 它们不算取字成功——清掉后进 pending，走既有兜底链重新取字。
+            "degenerate_pages": [],
+            "cache_degenerate_pages": [],
         }
         with fitz.open(pdf_path) as doc:
             total_pages = int(doc.page_count)
@@ -666,6 +671,16 @@ class PageTextExtractor:
                 cached = self._ocr_handler.read_ocr_cache(
                     pdf_hash=pdf_hash, profile_key=runtime_profile_key, page_no=page_no
                 )
+            if cached is not None and (cached_reason := degeneracy_reason(cached.text)):
+                # 缓存里躺着的是复读/空的垃圾：**不能采信**，否则这一页永久是垃圾
+                # （缓存命中会一遍遍把同一份垃圾搬回来）。把它重新扔回 pending，
+                # 这一轮重新取字；取到干净结果时会覆盖缓存条目。
+                stats["cache_degenerate_pages"].append(page_no)
+                logger.warning(
+                    "pdf_split_cache_page_degenerate",
+                    extra={"page_no": page_no, "reason": cached_reason, "source": cached.source_method[:32]},
+                )
+                cached = None
             if cached is not None:
                 descriptors[page_index] = build_page_descriptor(
                     page_no=page_no,
@@ -771,6 +786,17 @@ class PageTextExtractor:
             self._raise_if_cancelled(page_no)
             result = cloud_results[page_no]
             if not result.text:
+                continue
+            if reason := degeneracy_reason(result.text):
+                # 云端「成功」但正文是废的（复读循环 / 空返回）。这类页**不能**当成功：
+                # 留着它就一路进 Markdown、进分段、进归案（实测一页 17000 字的复读正文）。
+                # 也**不写页缓存**——写进去就变成「这页永久是垃圾」，下一轮照样命中它。
+                # 清掉后它落在 local_fallback_pages 里，走本地 OCR 兜底。
+                stats["degenerate_pages"].append(page_no)
+                logger.warning(
+                    "pdf_split_cloud_page_degenerate",
+                    extra={"page_no": page_no, "reason": reason, "source": result.source_method[:32]},
+                )
                 continue
             self._ocr_handler.write_ocr_cache(
                 pdf_hash=pdf_hash,
@@ -1023,6 +1049,11 @@ class PageTextExtractor:
         for page_no, result in batch.items():
             if not getattr(result, "text", ""):
                 continue
+            # 退化页**不写缓存**：缓存是「这页已经取好了」的账本，把复读/空的垃圾写进去
+            # 等于把这页永久钉死成垃圾——下一轮命中缓存直接采信，永远救不回来。
+            # （写缓存发生在批次回调里，比逐页判退化更早，所以这里必须再挡一道。）
+            if degeneracy_reason(getattr(result, "text", "")):
+                continue
             try:
                 # page_no 传**权威键**（绝对页号），不要依赖 result 自带的页号：
                 # 分批解析曾只平移字典键、不改值，导致多批写到同一批缓存文件名上互相覆盖
@@ -1157,6 +1188,12 @@ class PageTextExtractor:
             "ocr_workers": runtime_profile.workers,
             "ocr_cache_hit_count": int(max(stats["cache_hit_count"], 0)),
             "ocr_miss_count": int(max(pending, 0)),
+            # 云端/缓存给出「废正文」的页：这些页已被重新扔回 pending 走兜底。
+            # 必须单独报——它们**曾经**被当成取字成功（有字、任务成功、日志无痕）。
+            "degenerate_pages": sorted(
+                {int(no) for no in (stats.get("degenerate_pages") or [])}
+                | {int(no) for no in (stats.get("cache_degenerate_pages") or [])}
+            ),
             "ocr_provider": self._actual_provider(stats),
             # 实际生效平台与首选不同 = 发生过容灾；把首选链一并记下便于排障
             "cloud_failover_from": stats.get("cloud_failover_from", []),

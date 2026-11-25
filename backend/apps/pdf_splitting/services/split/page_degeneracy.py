@@ -70,8 +70,15 @@ _BLOCK_TYPE_WORD_RE = re.compile(
     re.IGNORECASE,
 )
 
-#: 判定「有可用正文」的最小有效字符数。1–3 个字符在真实卷宗里只会是页码/水印残渣。
-_USABLE_MIN_CHARS = 4
+#: 「有正文」= 剥掉版面标记后还剩至少一个内容字符（汉字 / 字母 / 数字）。
+#:
+#: 刻意**不设最小字数**：`平面图` 这种三个字的图注是合法正文（图形页本来就只有一行字），
+#: 用「字数太少 = 坏页」判它会把它推去重取字，而图形页重取一次还是三个字。
+#: 「字太少」属于 `page_quality` 的 sparse **提示**，不是这里要判的「废」。
+_CONTENT_CHAR_RE = re.compile(r"[0-9A-Za-z\u4e00-\u9fff]")
+
+#: rich 模式的版面标记（只要出现，就说明这页至少带坐标）。
+_MARKER_PRESENT_RE = re.compile(r"<\uFF5C(?:ref|box)\uFF5C>")
 
 #: 同一行重复到这个次数就算复读。5 是实测下限：真实银行流水同一行最多出现 3 次。
 _SAME_LINE_REPEAT_MIN = 5
@@ -114,13 +121,12 @@ def strip_cloud_markers(text: str | None) -> str:
 
 
 def has_usable_text(text: str | None) -> bool:
-    """这一页剥掉标记后是否还有像正文的东西。
+    """这一页剥掉版面标记后是否还剩**任何**内容字符。
 
     用于「整页就是一张图」这种形态：云端会返回「整页一个 image 块 + 全页坐标」，
     有字（是标记）但没有任何正文。
     """
-    body = re.sub(r"[\s\W_]+", "", strip_cloud_markers(text))
-    return len(body) >= _USABLE_MIN_CHARS
+    return bool(_CONTENT_CHAR_RE.search(strip_cloud_markers(text)))
 
 
 def degeneracy_reason(text: str | None, finish_reason: str | None = None) -> str:
@@ -161,7 +167,9 @@ def degeneracy_reason(text: str | None, finish_reason: str | None = None) -> str
         # 只是撞了输出上限、内容并不重复：正文可用，不判死。
         return ""
 
-    if not has_usable_text(body):
+    # 只有「本来就带标记、剥完什么都不剩」才算废页。不带标记的纯文本页即使只有
+    # 三个字（`平面图` 这种图注）也是合法正文，不在这里判。
+    if _MARKER_PRESENT_RE.search(body) and not has_usable_text(body):
         return "只有标记没有正文"
     return ""
 
