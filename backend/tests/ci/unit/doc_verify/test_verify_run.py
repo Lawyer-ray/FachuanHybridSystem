@@ -110,82 +110,56 @@ def _run(artifact: OutboundArtifact, *, state: str, decisions: tuple[str, ...] =
     return run
 
 
+def _report(
+    *findings: Finding,
+    text_compared: bool = False,
+    pages_no_text: int = 0,
+    identical: bool = False,
+    tier: int = 0,
+) -> Report:
+    """造一份报告：覆盖度键名与 `domain/compare._coverage` 逐字一致。"""
+    coverage = {"text_compared": text_compared, "pages_no_text": pages_no_text, "bytes_identical": identical}
+    return Report(findings=list(findings), coverage=coverage, tier=tier)
+
+
 class TestDeriveState:
-    """状态是推导出来的，不接受调用方拍板。"""
+    """状态是推导出来的，不接受调用方拍板。
+
+    判据是**覆盖度**不是 tier：tier 只说明花了多少钱，不说明比了什么
+    （见 `domain/states.py` 的 docstring）。
+    """
 
     def test_red_finding_means_changed(self) -> None:
-        state = run_service.derive_state(
-            findings=[_finding(Severity.RED)],
-            tier=0,
-            baseline_sha256="a" * 64,
-            inbound_sha256="b" * 64,
-        )
-        assert state == VerifyState.CHANGED
+        assert run_service.derive_state(_report(_finding(Severity.RED))) == VerifyState.CHANGED
 
     def test_yellow_finding_means_changed(self) -> None:
-        state = run_service.derive_state(
-            findings=[_finding(Severity.YELLOW)],
-            tier=1,
-            baseline_sha256="a" * 64,
-            inbound_sha256="b" * 64,
-        )
-        assert state == VerifyState.CHANGED
+        assert run_service.derive_state(_report(_finding(Severity.YELLOW))) == VerifyState.CHANGED
 
     def test_gray_finding_means_unverifiable(self) -> None:
-        state = run_service.derive_state(
-            findings=[_finding(Severity.GRAY, code="no_text_layer")],
-            tier=0,
-            baseline_sha256="a" * 64,
-            inbound_sha256="b" * 64,
-        )
-        assert state == VerifyState.UNVERIFIABLE
+        report = _report(_finding(Severity.GRAY, code="PAGE_NO_TEXT"))
+        assert run_service.derive_state(report) == VerifyState.UNVERIFIABLE
 
     def test_yellow_wins_over_gray(self) -> None:
         """有具体可疑差异时先说「疑似改动」：它才是最需要立刻裁决的那件事。"""
-        state = run_service.derive_state(
-            findings=[_finding(Severity.GRAY), _finding(Severity.YELLOW)],
-            tier=0,
-            baseline_sha256="a" * 64,
-            inbound_sha256="b" * 64,
-        )
-        assert state == VerifyState.CHANGED
+        report = _report(_finding(Severity.GRAY), _finding(Severity.YELLOW))
+        assert run_service.derive_state(report) == VerifyState.CHANGED
 
-    def test_no_findings_on_free_tier_means_no_difference_detected(self) -> None:
-        state = run_service.derive_state(
-            findings=[],
-            tier=0,
-            baseline_sha256="a" * 64,
-            inbound_sha256="b" * 64,
-        )
-        assert state == VerifyState.NO_DIFFERENCE_DETECTED
+    def test_no_findings_without_text_means_no_difference_detected(self) -> None:
+        assert run_service.derive_state(_report()) == VerifyState.NO_DIFFERENCE_DETECTED
 
-    def test_no_findings_with_text_tier_means_verified_clean(self) -> None:
-        state = run_service.derive_state(
-            findings=[],
-            tier=1,
-            baseline_sha256="a" * 64,
-            inbound_sha256="b" * 64,
-        )
-        assert state == VerifyState.VERIFIED_CLEAN
+    def test_no_findings_with_full_text_comparison_means_verified_clean(self) -> None:
+        """tier 0 也能逐字比数字件的文本层：比完干净就是真的干净。"""
+        report = _report(text_compared=True, pages_no_text=0, tier=0)
+        assert run_service.derive_state(report) == VerifyState.VERIFIED_CLEAN
+
+    def test_partial_text_coverage_is_never_green(self) -> None:
+        """tier 1 但有一页没取到字 → 不许给 verified_clean（那是句假话）。"""
+        report = _report(text_compared=True, pages_no_text=1, tier=1)
+        assert run_service.derive_state(report) == VerifyState.NO_DIFFERENCE_DETECTED
 
     def test_identical_bytes_win_over_any_finding(self) -> None:
-        state = run_service.derive_state(
-            findings=[_finding(Severity.RED)],
-            tier=1,
-            baseline_sha256="c" * 64,
-            inbound_sha256="c" * 64,
-        )
-        assert state == VerifyState.IDENTICAL
-
-    def test_empty_baseline_sha_is_never_identical(self) -> None:
-        """基线没存 sha 时不能凭「都是空串」判 identical。"""
-        state = run_service.derive_state(
-            findings=[],
-            tier=0,
-            baseline_sha256="",
-            inbound_sha256=_sha(PDF_BYTES),
-        )
-        assert state == VerifyState.NO_DIFFERENCE_DETECTED
+        report = _report(_finding(Severity.RED), identical=True, tier=1)
+        assert run_service.derive_state(report) == VerifyState.IDENTICAL
 
 
 @pytest.mark.django_db
@@ -276,14 +250,19 @@ class TestVerifyInboundRecord:
 
         assert run.inbound_file_name == "回传件.pdf"
 
-    def test_identical_bytes_skip_the_compare_engine(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_identical_bytes_short_circuit_inside_the_engine(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """原样回传：短路发生在**引擎内部**（sha 相同直接返回 identical 覆盖度）。
+
+        编排层不再自己短路——同一个事实两处实现，迟早有一处少写一个 coverage 键，
+        于是「原样回传」被报成「未发现差异」。引擎那一步是 O(1) 的 sha 比较，不浪费。
+        """
         artifact = _artifact(file_sha256=_sha(PDF_BYTES))
         _patch_extract(monkeypatch)
-        compare_calls = _patch_compare(monkeypatch)
+        compare_calls = _patch_compare(monkeypatch, Report(findings=[], coverage={"bytes_identical": True}))
 
         run = run_service.verify_inbound(artifact=artifact, data=PDF_BYTES)
 
-        assert compare_calls == []
+        assert len(compare_calls) == 1
         assert run.state == VerifyState.IDENTICAL
         assert run.findings == []
 

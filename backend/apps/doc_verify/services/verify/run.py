@@ -29,7 +29,8 @@ from typing import Any, get_args
 from django.db import IntegrityError, transaction
 
 from apps.core.exceptions import ValidationException
-from apps.doc_verify.domain.contracts import Baseline, Finding, Inbound, Report, Severity, Tier
+from apps.doc_verify.domain.contracts import Baseline, Inbound, Report, Tier
+from apps.doc_verify.domain.states import derive_state
 from apps.doc_verify.models import VerificationRun, VerifyState
 from apps.doc_verify.services.verify import deps
 
@@ -97,12 +98,7 @@ def verify_inbound(
 
     inbound = deps.extract_document(data, file_name)
     report = _report_for(artifact=artifact, inbound=inbound, tier=tier)
-    state = derive_state(
-        findings=report.findings,
-        tier=tier,
-        baseline_sha256=artifact.file_sha256,
-        inbound_sha256=inbound.sha256,
-    )
+    state = derive_state(report)
     return _create_run(
         artifact=artifact,
         run_key=run_key,
@@ -134,34 +130,6 @@ def verify_existing_bytes(*, artifact: Any, tier: int = 0) -> Any:
     )
 
 
-def derive_state(
-    *,
-    findings: list[Finding],
-    tier: int,
-    baseline_sha256: str,
-    inbound_sha256: str,
-) -> str:
-    """由发现项**推导**状态；调用方不许自己拍。
-
-    优先级与理由：
-
-    1. 字节相同 → `identical`：原样回传是硬事实，任何比对结论在它面前都没有增量。
-    2. 任一 red → `changed`：红线就是「未裁决前不得送法院/用印」的那一档。
-    3. 任一 yellow → `changed`：疑似实质差异同样要律师点头，不能自己放行。
-    4. 任一 gray → `unverifiable`：有页没有文本层可比，不给绿灯。
-    5. 无发现项：tier≥1 才算 `verified_clean`（断言真的跑过），tier=0 只能是
-       `no_difference_detected`——「没发现差异」不等于「没改」。
-    """
-    if baseline_sha256 and inbound_sha256 and baseline_sha256 == inbound_sha256:
-        return VerifyState.IDENTICAL
-    severities = {finding.severity for finding in findings}
-    if Severity.RED in severities or Severity.YELLOW in severities:
-        return VerifyState.CHANGED
-    if Severity.GRAY in severities:
-        return VerifyState.UNVERIFIABLE
-    return VerifyState.VERIFIED_CLEAN if tier >= 1 else VerifyState.NO_DIFFERENCE_DETECTED
-
-
 def _run_key(*, artifact_id: int, inbound_sha256: str) -> str:
     """幂等键：同一基线 + 同一入站字节 = 同一次核对。"""
     material = f"{artifact_id}:{inbound_sha256}"
@@ -169,13 +137,12 @@ def _run_key(*, artifact_id: int, inbound_sha256: str) -> str:
 
 
 def _report_for(*, artifact: Any, inbound: Any, tier: int) -> Report:
-    """跑比对；字节相同则跳过。
+    """跑比对。
 
-    字节相同意味着「客户原样传回」，比对不可能给出比这更强的结论，
-    所以不把 164 页的断言集白跑一遍；返回空报告让 `derive_state` 走 identical 分支。
+    **不在这里自己短路「字节相同」**：比对引擎的第一步就是 sha 相同直接返回
+    `bytes_identical` 覆盖度，短路两次等于给同一个事实两处实现——其中一处迟早
+    会少写一个 coverage 键，于是「原样回传」被报成「未发现差异」。
     """
-    if artifact.file_sha256 and artifact.file_sha256 == inbound.sha256:
-        return Report(tier=tier)
     return deps.compare_documents(_baseline_from_artifact(artifact), inbound, tier=tier)
 
 
