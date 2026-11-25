@@ -81,15 +81,19 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
                 {"config": config, "value_text": value_text, "value_title": value_title}
             )
 
+        # 遍历「枚举顺序 + 库里实际出现但枚举里没有的分类」：
+        # 只认枚举会让脏分类值（如 0038 误删 onlyoffice 后留存的 3 条 ONLYOFFICE_*）
+        # 在页面上凭空消失——数据还在库里，用户却看不见、也点不进去改。
         category_labels = dict(SystemConfig.Category.choices)
+        unknown_categories = sorted(name for name in grouped if name not in category_labels)
         groups = []
-        for category in SystemConfig.Category.values:
+        for category in [*SystemConfig.Category.values, *unknown_categories]:
             rows = grouped.get(category, [])
             if rows:
                 groups.append(
                     {
                         "category": category,
-                        "label": category_labels.get(category, category),
+                        "label": category_labels.get(category, f"{category}（未知分类）"),
                         "count": len(rows),
                         "rows": rows,
                     }

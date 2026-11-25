@@ -30,6 +30,16 @@ def _make_request(path: str = "/admin/") -> Any:
 class TestSystemConfigAdmin:
     """SystemConfigAdmin 测试"""
 
+    def test_category_choices_keep_onlyoffice(self) -> None:
+        """`onlyoffice` 分类必须留在枚举里。
+
+        0036 加过，0038（删 docspace 时整份重写 choices）误删 → 3 条 ONLYOFFICE_* 活配置
+        分类值变非法，admin 列表页不显示、编辑页下拉里没有当前值（一保存就被改分类）。
+        0042 已恢复，这条测试防止再被"整份复制旧列表"式改动抹掉。
+        """
+        assert "onlyoffice" in SystemConfig.Category.values
+        assert dict(SystemConfig.Category.choices)["onlyoffice"] == "OnlyOffice 编辑器配置"
+
     def test_list_helpers_removed(self) -> None:
         """列表页 result_list 整块重写后，list_display / list_filter / 两个展示方法都不需要了。
 

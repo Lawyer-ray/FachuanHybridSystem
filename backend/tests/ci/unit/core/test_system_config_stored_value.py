@@ -307,3 +307,23 @@ class TestChangelistPage:
 
         assert "changelist-filter" not in body
         assert "changelist-footer" not in body
+
+
+class TestChangelistUnknownCategoryGroup:
+    """列表页分组兜底：库里出现、枚举里没有的分类也必须显示。"""
+
+    def test_unknown_category_is_rendered(self, client: Any, admin_user: Any, encryption_settings: Any) -> None:
+        """回归：0038 误删 onlyoffice 枚举后，3 条活配置曾在列表页凭空消失。"""
+        _config(key="TEST_LEGACY_CATEGORY_KEY", category="legacy_unknown", is_secret=False, value="legacy-v")
+        client.force_login(admin_user)
+
+        body = client.get("/admin/core/systemconfig/").content.decode()
+
+        assert "TEST_LEGACY_CATEGORY_KEY" in body
+        assert "legacy_unknown（未知分类）" in body
+
+    def test_onlyoffice_category_is_back_in_enum(self) -> None:
+        """0036 加过、0038 误删的 onlyoffice 分类必须回到枚举里（否则编辑页分类下拉没有当前值）。"""
+        from apps.core.models import SystemConfig
+
+        assert "onlyoffice" in SystemConfig.Category.values
