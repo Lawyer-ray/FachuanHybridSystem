@@ -149,6 +149,26 @@ def count_segments(raw_value: str | None) -> int:
     return describe_stored_value(raw_value, is_secret=True).segment_count
 
 
+def value_cell(raw_value: str | None, *, is_secret: bool, limit: int = 50) -> tuple[str, str]:
+    """列表页单元格：(显示文本, hover 全文)。
+
+    - 敏感项：`已配置 N 个值` 或单段掩码；**title 恒空**，不泄露任何片段
+    - 非敏感项：超长时截断，全文放 title（列表页原来截断后没有 title，看不到全文）
+    - 空值：返回 ("", "")，由模板决定显示「未设置」
+    """
+    raw = str(raw_value or "")
+    if not raw:
+        return "", ""
+    if is_secret:
+        desc = describe_stored_value(raw, is_secret=True)
+        if desc.decrypt_failed:
+            return desc.failure_message, ""
+        return desc.display, ""
+    if len(raw) > limit:
+        return f"{raw[:limit]}…", raw
+    return raw, ""
+
+
 def reveal_stored_value(raw_value: str | None) -> str:
     """解密并返回完整明文。失败抛 `SecretValueUndecryptable`，由调用方决定怎么提示。"""
     raw = str(raw_value or "")
@@ -168,4 +188,5 @@ __all__ = [
     "mask_segment",
     "mask_summary",
     "reveal_stored_value",
+    "value_cell",
 ]

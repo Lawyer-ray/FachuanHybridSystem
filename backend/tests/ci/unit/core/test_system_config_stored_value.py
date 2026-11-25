@@ -24,6 +24,7 @@ from apps.core.security.secret_display import (
     describe_stored_value,
     mask_summary,
     reveal_stored_value,
+    value_cell,
 )
 
 pytestmark = pytest.mark.django_db
@@ -230,3 +231,79 @@ class TestMaskHelpers:
     def test_empty_value(self) -> None:
         assert describe_stored_value("", is_secret=True).display == "未设置"
         assert count_segments(None) == 0
+
+
+class TestValueCell:
+    """列表页单元格口径：敏感项不给片段，非敏感长值给 title。"""
+
+    def test_secret_shows_count_not_dots(self, encryption_settings: Any) -> None:
+        raw = _encrypt("\n".join([KEY_ONE, KEY_TWO, KEY_THREE]))
+
+        text, title = value_cell(raw, is_secret=True)
+
+        assert text == "已配置 3 个值"
+        assert title == ""
+        for key in (KEY_ONE, KEY_TWO, KEY_THREE):
+            assert key not in text
+
+    def test_secret_single_line_is_masked(self, encryption_settings: Any) -> None:
+        text, title = value_cell(_encrypt(KEY_ONE), is_secret=True)
+
+        assert text.startswith(KEY_ONE[:4])
+        assert text.endswith(KEY_ONE[-4:])
+        assert KEY_ONE not in text
+        assert title == ""
+
+    def test_plain_long_value_gets_title(self) -> None:
+        long_value = "a" * 120
+
+        text, title = value_cell(long_value, is_secret=False)
+
+        assert text.endswith("…")
+        assert len(text) == 51
+        assert title == long_value
+
+    def test_plain_short_value_has_no_title(self) -> None:
+        text, title = value_cell("paddleocr_api", is_secret=False)
+
+        assert text == "paddleocr_api"
+        assert title == ""
+
+    def test_empty_value(self) -> None:
+        assert value_cell("", is_secret=True) == ("", "")
+        assert value_cell(None, is_secret=False) == ("", "")
+
+
+class TestChangelistPage:
+    """列表页：搜索真生效、敏感项显示个数、无筛选侧栏、无分页页脚。"""
+
+    def test_secret_row_shows_segment_count(self, client: Any, admin_user: Any, encryption_settings: Any) -> None:
+        _config()
+        client.force_login(admin_user)
+
+        body = client.get("/admin/core/systemconfig/").content.decode()
+
+        assert "已配置 3 个值" in body
+        assert "••••••••" not in body
+
+    def test_search_actually_filters(self, client: Any, admin_user: Any, encryption_settings: Any) -> None:
+        """回归：分组数据早先直接取 objects.all()，搜索框等于摆设。"""
+        _config(key="UNIQUE_SEARCH_TARGET_KEY")
+        client.force_login(admin_user)
+
+        hit = client.get("/admin/core/systemconfig/", {"q": "UNIQUE_SEARCH_TARGET_KEY"}).content.decode()
+        miss = client.get("/admin/core/systemconfig/", {"q": "NO_SUCH_CONFIG_ANYWHERE"}).content.decode()
+
+        assert "UNIQUE_SEARCH_TARGET_KEY" in hit
+        assert "UNIQUE_SEARCH_TARGET_KEY" not in miss
+
+    def test_no_filter_sidebar_and_no_pagination_footer(
+        self, client: Any, admin_user: Any, encryption_settings: Any
+    ) -> None:
+        _config()
+        client.force_login(admin_user)
+
+        body = client.get("/admin/core/systemconfig/").content.decode()
+
+        assert "changelist-filter" not in body
+        assert "changelist-footer" not in body

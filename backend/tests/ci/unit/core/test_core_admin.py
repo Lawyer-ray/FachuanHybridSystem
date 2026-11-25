@@ -30,67 +30,20 @@ def _make_request(path: str = "/admin/") -> Any:
 class TestSystemConfigAdmin:
     """SystemConfigAdmin 测试"""
 
-    def test_list_display_fields(self) -> None:
-        """list_display 包含必要字段"""
-        admin_obj = SystemConfigAdmin(SystemConfig, AdminSite())
-        assert "key" in admin_obj.list_display
-        assert "category_display" in admin_obj.list_display
-        assert "masked_value" in admin_obj.list_display
+    def test_list_helpers_removed(self) -> None:
+        """列表页 result_list 整块重写后，list_display / list_filter / 两个展示方法都不需要了。
 
-    def test_list_filter(self) -> None:
-        """list_filter 包含 category"""
+        留着只会制造「看似生效、其实没人调用」的死代码：旧版 category_display 27 行全仓无
+        调用者，list_filter 的侧栏还被 CSS 隐藏、每次加载仍白跑两次 DISTINCT 查询。
+        值列的展示口径已收进 security 层（value_cell），单测见
+        test_system_config_stored_value.py::TestValueCell。
+        """
         admin_obj = SystemConfigAdmin(SystemConfig, AdminSite())
-        assert "category" in admin_obj.list_filter
-        assert "is_secret" in admin_obj.list_filter
 
-    def test_category_display_normal(self) -> None:
-        """category_display 应返回带颜色的标签"""
-        config = SystemConfig.objects.create(
-            key="test_key", value="test_value", category="general", description="测试配置"
-        )
-        admin_obj = SystemConfigAdmin(SystemConfig, AdminSite())
-        result = admin_obj.category_display(config)
-        assert "background-color" in result
-
-    def test_masked_value_non_secret(self) -> None:
-        """非密钥配置应显示完整值"""
-        config = SystemConfig.objects.create(
-            key="test_key", value="short_value", category="general", description="测试配置", is_secret=False
-        )
-        admin_obj = SystemConfigAdmin(SystemConfig, AdminSite())
-        result = admin_obj.masked_value(config)
-        assert result == "short_value"
-
-    def test_masked_value_secret(self) -> None:
-        """密钥配置应显示脱敏值"""
-        config = SystemConfig.objects.create(
-            key="test_secret",
-            value="super_secret_key_12345",
-            category="general",
-            description="密钥配置",
-            is_secret=True,
-        )
-        admin_obj = SystemConfigAdmin(SystemConfig, AdminSite())
-        result = admin_obj.masked_value(config)
-        # 应该包含遮罩字符
-        assert "*" in result
-
-    def test_masked_value_empty(self) -> None:
-        """空值应显示'未设置'"""
-        config = SystemConfig.objects.create(key="empty_key", value="", category="general", description="空配置")
-        admin_obj = SystemConfigAdmin(SystemConfig, AdminSite())
-        result = admin_obj.masked_value(config)
-        assert "未设置" in result
-
-    def test_masked_value_long_non_secret(self) -> None:
-        """长非密钥值应截断显示"""
-        long_value = "a" * 100
-        config = SystemConfig.objects.create(
-            key="long_key", value=long_value, category="general", description="长配置", is_secret=False
-        )
-        admin_obj = SystemConfigAdmin(SystemConfig, AdminSite())
-        result = admin_obj.masked_value(config)
-        assert "..." in result
+        assert not hasattr(admin_obj, "category_display")
+        assert not hasattr(admin_obj, "masked_value")
+        assert admin_obj.list_display == ("__str__",)
+        assert admin_obj.list_filter == ()
 
 
 @pytest.mark.django_db

@@ -13,7 +13,7 @@ from django.utils.html import format_html
 
 from apps.core.models import SystemConfig
 from apps.core.security.secret_codec import SecretCodec
-from apps.core.security.secret_display import mask_summary
+from apps.core.security.secret_display import value_cell
 
 from ._system_config_data import get_default_configs
 from .forms import SystemConfigAdminForm
@@ -26,13 +26,8 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
     show_in_index = False  # 不在左侧菜单显示，通过右上角快捷入口访问
 
     form = SystemConfigAdminForm
-    list_display = [
-        "key",
-        "category_display",
-        "masked_value",
-        "updated_at",
-    ]
-    list_filter = ["category", "is_secret"]
+    # list_display / list_filter 刻意不设：本页 `result_list` 整块重写成分组卡片，
+    # 二者都不参与渲染（list_filter 的侧栏还被 CSS 隐藏），只会白跑 DISTINCT 查询。
     search_fields = ["key", "description"]
     ordering = ["category", "key"]
     change_list_template = "admin/core/systemconfig/change_list.html"
@@ -44,49 +39,6 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
     )
 
     readonly_fields: ClassVar[list[str]] = ["created_at", "updated_at"]
-
-    def category_display(self, obj: Any) -> Any:  # pragma: no cover
-        """显示分类标签"""
-        colors = {
-            "feishu": "#3370ff",
-            "dingtalk": "#0089ff",
-            "wechat_work": "#07c160",
-            "telegram": "#0088cc",
-            "court_sms": "#ff6b35",
-            "ai": "#9c27b0",
-            "llm": "#e91e63",
-            "enterprise_data": "#0f766e",
-            "scraper": "#ff9800",
-            "ocr": "#009688",
-            "email": "#2196f3",
-            "cloud_storage": "#1565c0",
-            "general": "#607d8b",
-        }
-        color = colors.get(obj.category, "#607d8b")
-        return format_html(
-            '<span style="background-color: {}; color: white; padding: 2px 8px; '
-            'border-radius: 4px; font-size: 12px; white-space: nowrap;">{}</span>',
-            color,
-            obj.get_category_display(),
-        )
-
-    category_display.short_description = "分类"  # type: ignore[attr-defined]
-    category_display.admin_order_field = "category"  # type: ignore[attr-defined]
-
-    def masked_value(self, obj: Any) -> Any:  # pragma: no cover
-        """显示脱敏后的值"""
-        if not obj.value:
-            return format_html('<span style="color: #999;">{}</span>', "未设置")
-
-        if obj.is_secret:
-            masked = self._mask_secret_value(obj.value)
-            return format_html('<span style="font-family: monospace;">{}</span>', masked)
-        else:
-            if len(obj.value) > 50:
-                return format_html('<span title="{}">{}</span>', obj.value, obj.value[:50] + "...")
-            return obj.value
-
-    masked_value.short_description = "配置值"  # type: ignore[attr-defined]
 
     def get_urls(self) -> list[Any]:  # pragma: no cover
         """添加自定义 URL"""
@@ -111,33 +63,35 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
         return custom_urls + urls
 
     def changelist_view(self, request: Any, extra_context: Any = None) -> Any:  # pragma: no cover
-        """自定义列表页面"""
-        extra_context = extra_context or {}
+        """自定义列表页面：按分类分组的卡片列表。
 
+        分组数据取自 `changelist.queryset`（已应用搜索框条件），所以搜索是真的能用——
+        早先这里直接 `SystemConfig.objects.all()`，搜索框等于摆设。
+        敏感项的值在这里就算成「已配置 N 个值」，模板不再写死 `••••••••`。
+        """
+        extra_context = extra_context or {}
         extra_context["show_init_button"] = True
         extra_context["show_clear_cache_button"] = True
-        extra_context["has_add_permission"] = self.has_add_permission(request)
 
-        # 按分类分组获取配置项
-        from collections import defaultdict
+        changelist = self.get_changelist_instance(request)
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for config in changelist.queryset.order_by("category", "key"):
+            value_text, value_title = value_cell(config.value, is_secret=bool(config.is_secret))
+            grouped.setdefault(config.category, []).append(
+                {"config": config, "value_text": value_text, "value_title": value_title}
+            )
 
-        grouped_configs = defaultdict(list)
-        for config in SystemConfig.objects.all().order_by("category", "key"):
-            grouped_configs[config.category].append(config)
-
-        # 构建分组数据
         category_labels = dict(SystemConfig.Category.choices)
-
         groups = []
         for category in SystemConfig.Category.values:
-            configs = grouped_configs.get(category, [])
-            if configs:
+            rows = grouped.get(category, [])
+            if rows:
                 groups.append(
                     {
                         "category": category,
                         "label": category_labels.get(category, category),
-                        "count": len(configs),
-                        "configs": configs,
+                        "count": len(rows),
+                        "rows": rows,
                     }
                 )
 
@@ -218,10 +172,6 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
     def _get_default_configs(self) -> list[dict[str, Any]]:  # pragma: no cover
         """委托给模块级函数"""
         return get_default_configs()
-
-    def _mask_secret_value(self, value: str) -> str:  # pragma: no cover
-        """changelist 「配置值」列：委托给 security 层的统一掩码口径。"""
-        return mask_summary(value)
 
     @staticmethod
     def _clear_config_cache(key: str, *, previous_key: str = "") -> None:  # pragma: no cover
