@@ -18,21 +18,34 @@
 `derive_state()` 是唯一入口：状态由发现项（以及「字节是否相同」这个硬事实）
 推导，不接受调用方拍板。前端按状态上色，状态一错，报告说的就是一句
 没有证据的话。
+
+## 什么时候升级到 tier 1（以及 OCR 结果怎么落地）
+
+提取完入站件才知道到底要不要花钱：`resolve_tier()` 只看「入站件有没有文本层」
+与「律师勾没勾核对」，落库的 tier 是它算出来的**实际值**，不是入参。
+
+OCR 结果有两处落点，顺序是硬的：覆盖度先写 `coverage["ocr"]`（花了多少钱、
+补了几页），灰项再补进 findings，然后才 `derive_state()`。反过来的话，
+「预算用尽」「引擎不可用」会被推导成 `verified_clean`——一句系统没有证据
+支持的绿灯，比不核更糟。
 """
 
 from __future__ import annotations
 
 import base64
 import hashlib
+from dataclasses import replace
 from typing import Any, get_args
 
 from django.db import IntegrityError, transaction
 
 from apps.core.exceptions import ValidationException
-from apps.doc_verify.domain.contracts import Baseline, Inbound, Report, Tier
+from apps.doc_verify.domain.contracts import AssertionKind, Baseline, Finding, Inbound, Report, Severity, Tier
+from apps.doc_verify.domain.normalize import split_pages
 from apps.doc_verify.domain.states import derive_state
 from apps.doc_verify.models import VerificationRun, VerifyState
 from apps.doc_verify.services.verify import deps
+from apps.doc_verify.services.verify.tier import TIER_OCR, resolve_tier
 
 #: 核对层级只认 domain 契约里的 `Tier`（0 免费层 / 1 OCR / 2 重核），
 #: 不在这里另写一份取值表——两份口径迟早会漂。
@@ -79,6 +92,8 @@ def verify_inbound(
     """对一份回传件跑一次核对，返回 `VerificationRun`（已存在则返回既有行）。
 
     只写 `VerificationRun`：不写裁决，也不回写 artifact 的任何字段。
+    落库的 `tier` 是 `resolve_tier()` 算出的实际值（扫描件 + 勾了核对会自动升到
+    OCR 层），不是入参原样透传。
     """
     if tier not in TIERS:
         raise ValidationException(message=f"核对层级不合法：{tier}", errors={"tier": list(TIERS)})
@@ -97,7 +112,14 @@ def verify_inbound(
         return existing
 
     inbound = deps.extract_document(data, file_name)
-    report = _report_for(artifact=artifact, inbound=inbound, tier=tier)
+    actual_tier = resolve_tier(
+        requested=tier,
+        verify_required=bool(artifact.verify_required),
+        inbound_text=inbound.text,
+    )
+    inbound, fill = _inbound_with_ocr(data=data, inbound=inbound, tier=actual_tier)
+    report = _report_for(artifact=artifact, inbound=inbound, tier=actual_tier)
+    _record_ocr(report=report, fill=fill)
     state = derive_state(report)
     return _create_run(
         artifact=artifact,
@@ -107,7 +129,7 @@ def verify_inbound(
         state=state,
         file_name=file_name,
         source_message_id=source_message_id,
-        tier=tier,
+        tier=actual_tier,
     )
 
 
@@ -131,9 +153,81 @@ def verify_existing_bytes(*, artifact: Any, tier: int = 0) -> Any:
 
 
 def _run_key(*, artifact_id: int, inbound_sha256: str) -> str:
-    """幂等键：同一基线 + 同一入站字节 = 同一次核对。"""
+    """幂等键：同一基线 + 同一入站字节 = 同一次核对。
+
+    刻意**不含 tier**：同一份回传件不会因为「这次多花了 OCR 的钱」变成另一件事。
+    把 tier 掺进键里，第一次跑 tier 0、再跑 tier 1 就会落两行同一事实的记录。
+    """
     material = f"{artifact_id}:{inbound_sha256}"
     return hashlib.sha256(material.encode("utf-8")).hexdigest()[:64]
+
+
+def _inbound_with_ocr(*, data: bytes, inbound: Any, tier: int) -> tuple[Any, Any | None]:
+    """tier ≥ 1 且有页没有文本层时用 OCR 补字，返回（实际参与比对的入站件, OCR 结果）。
+
+    补字判据是**逐页**的：整篇没字（扫描件）、中间夹着扫描页、末尾几页没字
+    （提取层只拼有字的页）都要补。`pages_failed` 那几页随后由比对引擎报
+    `PAGE_NO_TEXT`，落成 gray。
+
+    `hint_pages` 留空：指纹定位哪几页变了是另一条线，这里不猜。
+    """
+    if tier < TIER_OCR or not _has_page_without_text(inbound):
+        return inbound, None
+    fill = deps.fill_text_with_ocr(data=data, inbound=inbound)
+    # `Inbound` 是 frozen：替换出一个新对象，「提取结果」与「比对输入」才是两份事实。
+    return replace(inbound, text=fill.text), fill
+
+
+def _has_page_without_text(inbound: Any) -> bool:
+    """入站件是否有页没有文本层。"""
+    pages = split_pages(inbound.text)
+    if not pages:
+        return True
+    if len(pages) < int(inbound.page_count):
+        return True
+    return any(not page.strip() for page in pages)
+
+
+def _record_ocr(*, report: Report, fill: Any | None) -> None:
+    """把 OCR 结果写进覆盖度，并补上**先于状态推导**的灰项。
+
+    没跑 OCR 就不写 `coverage["ocr"]`：那张覆盖度表里没有「花了多少钱补字」
+    这个事实，写一个全零的壳只会让人以为跑了。
+    """
+    if fill is None:
+        return
+    report.coverage["ocr"] = {
+        "pages_attempted": fill.pages_attempted,
+        "pages_filled": fill.pages_filled,
+        "pages_failed": fill.pages_failed,
+        "budget_exhausted": bool(fill.budget_exhausted),
+        "engine": fill.engine,
+    }
+    report.findings.extend(_ocr_findings(fill))
+
+
+def _ocr_findings(fill: Any) -> list[Finding]:
+    """OCR 的两种「没核完」：预算用尽、引擎不在。都是 gray——不给绿灯。"""
+    findings: list[Finding] = []
+    if fill.budget_exhausted:
+        findings.append(
+            Finding(
+                kind=AssertionKind.COVERAGE,
+                code="OCR_BUDGET_EXHAUSTED",
+                title="OCR 预算用尽，仍有页未核对",
+                severity=Severity.GRAY,
+            )
+        )
+    if fill.engine == "unavailable":
+        findings.append(
+            Finding(
+                kind=AssertionKind.COVERAGE,
+                code="OCR_UNAVAILABLE",
+                title="OCR 引擎不可用，无法核对正文",
+                severity=Severity.GRAY,
+            )
+        )
+    return findings
 
 
 def _report_for(*, artifact: Any, inbound: Any, tier: int) -> Report:

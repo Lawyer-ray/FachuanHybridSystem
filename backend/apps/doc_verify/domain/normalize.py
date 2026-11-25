@@ -97,6 +97,11 @@ _TAG_ANY_RE = re.compile(r"<\s*/?\s*[a-zA-Z][^>]*>")
 #: 水平空白（空格、制表符、全角空格、不换行空格）压缩成一个半角空格。换行不在内。
 _HORIZONTAL_SPACE_RE = re.compile(r"[ \t\u3000\u00a0]+")
 
+#: 数字夹缝里的空白：OCR 会把 `998,702.06` 读成 `998 702.06`，那个空格是识别噪声，
+#: 不是内容。只删「数字 + 空白 + 数字」——汉字之间的空格是排版，删了会把 `甲 方`
+#: 粘成 `甲方`，那是改字。千分位逗号的口径不在这里动（见 compare 的金额去重）。
+_DIGIT_GAP_RE = re.compile(r"(?<=\d)\s+(?=\d)")
+
 #: 「有正文」的判据：至少一个汉字、字母或数字。整行只剩装饰符（`---`、`___`）的行丢掉。
 _TEXT_CHAR_RE = re.compile(r"[0-9A-Za-z\u4e00-\u9fff\u3007]")
 
@@ -136,8 +141,8 @@ def split_pages(text: str) -> list[str]:
 def normalize_text(text: str) -> str:
     """把正文归一化成「只保留承载法律事实的字符」，逐行拼接（空行不留）。
 
-    做四件事：全角标点折半角、剥 Markdown/LaTeX/HTML 标记、水平空白压缩、去页码行与
-    （有分页符时）跨页重复的页眉页脚。
+    做五件事：全角标点折半角、剥 Markdown/LaTeX/HTML 标记、水平空白压缩、删数字夹缝
+    里的空白（OCR 噪声）、去页码行与（有分页符时）跨页重复的页眉页脚。
     """
     lines: list[str] = []
     for page_lines in _normalized_pages(str(text or "")):
@@ -183,6 +188,8 @@ def _normalize_line(raw: str) -> str:
     line = line.replace("$", "").replace("\\_", "_").replace("{", "").replace("}", "")
     line = _MARKDOWN_MARKS_RE.sub("", line)
     line = _HORIZONTAL_SPACE_RE.sub(" ", line.translate(PUNCT_MAP)).strip()
+    # 删除放在逐行这一步：换行是段落边界，整篇上跑 `\s` 会把「…100\n200…」两行粘成一行。
+    line = _DIGIT_GAP_RE.sub("", line)
     if not line or _is_page_number_line(line):
         return ""
     if not _TEXT_CHAR_RE.search(line):
