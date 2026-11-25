@@ -502,7 +502,7 @@ mcp = MCPServer("法穿SI Copilot")
 # readOnlyHint 做只读徽标/免审批策略,destructiveHint 标销毁型操作,
 # idempotentHint 标幂等写(客户端重试安全)。payload 纪律:只有「读」
 # 「销毁」「幂等写」带标注,create_/add_ 等非幂等写不带(默认即各项
-# false,省 ~45B/工具 × 409 的 tools/list 体积)。
+# false,省 ~45B/工具 × 433 的 tools/list 体积)。
 # ---------------------------------------------------------------------------
 _DESTRUCTIVE_PREFIXES = ("delete_", "clear_", "reset_", "cleanup_")
 
@@ -534,7 +534,7 @@ def _tool_annotations(name: str) -> ToolAnnotations:
     这类普通写当销毁型动作加确认拦截。官方 reference server 也是全量
     显式(含 false 值)。pi 侧逐键解析缺失即 false 不受影响,显式化
     的代价仅 ~3KB(对照剥 schema title 省下的 36KB),换取规范语义
-    正确。openWorld 的缺省 true 刻意不逐工具补 false——409 个 ×24B
+    正确。openWorld 的缺省 true 刻意不逐工具补 false——433 个 ×24B
     ≈10KB 只防「客户端误以为会外发数据」这一低危误读,pi 不受影响,
     体量纪律优先。"""
     level = classify_risk(name)
@@ -596,7 +596,7 @@ _REGISTERED_TOOL_NAMES: set[str] = set()
 
 
 def _t(func: Any, *, annotations: ToolAnnotations | None = None) -> Any:
-    """409 个工具的统一注册装饰器(替代裸 ``mcp.tool()``)。
+    """433 个内置工具的统一注册装饰器(替代裸 ``mcp.tool()``)。
 
     ``annotations`` 只给插件工具用:插件按自己声明的风险等级传入
     (``plugin_tools.tool_annotations_for``);内置工具一律不传,按名字推导
@@ -1356,7 +1356,7 @@ _t(list_pending_court_document_tasks)
 # 审批与审计口径的基准），所以注册前要先拿到内置名单。总开关
 # ``FACHUAN_PLUGIN_TOOLS=off`` 可一键不注册（回滚用）。
 def _builtin_tool_names() -> set[str]:
-    """此刻已注册的内置工具名（插件注册前调用，等于 409 个内置工具）。
+    """此刻已注册的内置工具名（插件注册前调用，等于 433 个内置工具）。
 
     读 ``_t`` 自己的登记表而不是 FastMCP 私有的 ``_tool_manager``（理由见
     ``_REGISTERED_TOOL_NAMES``）。返回副本：插件注册也走 ``_t``，不能让名单跟着变。

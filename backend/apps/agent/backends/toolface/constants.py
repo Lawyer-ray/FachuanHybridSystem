@@ -73,10 +73,10 @@ SESSION_ID_ENV = "FACHUAN_SESSION_ID"
 TOOL_TIER_HEADER = "x-fachuan-tool-tier"
 
 #: ``TOOL_TIER_HEADER`` 的取值：只用 ``DIRECT_TOOLS`` + ``DIRECT_PATTERNS``
-#: （实测 61 个工具 / 33KB / 1.1 万 token）。
+#: （实测 61 个工具 / 44KB / 约 1.5 万 token，2026-11-25 重测）。
 TIER_LITE = "lite"
 
-#: 全量工具面（424 个 / 244KB / 8.3 万 token）。不带头时的默认行为。
+#: 全量工具面（434 个 / 314KB / 约 10.2 万 token，2026-11-25 重测）。不带头时的默认行为。
 TIER_FULL = "full"
 
 

@@ -218,7 +218,7 @@ class TestMcpSpecNameCompliance:
 
 
 class TestSignatureHygiene:
-    """签名结构卫生门禁(2026-10-25 审计七轮,409 工具基线全零)。
+    """签名结构卫生门禁(2026-10-25 审计七轮,当时 409 工具基线全零;现 433)。
 
     - ``**kwargs`` 会让输入 schema 退化成任意属性透传,ninja 静默忽略未知
       参数——这正是 REST 参数契约审计修掉的 17 处「假参数」模式的**结构性

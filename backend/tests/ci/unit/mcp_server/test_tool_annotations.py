@@ -94,7 +94,7 @@ def test_spec_default_alignment_non_destructive_writes() -> None:
 
 
 def test_every_registered_tool_name_derives_consistently() -> None:
-    """对 tools/__all__ 全量 409 个名字,推导结果与 classify_risk 分层一致。"""
+    """对 tools/__all__ 全量 433 个内置名字,推导结果与 classify_risk 分层一致。"""
     derive, destructive_prefixes = _tool_annotations_from_source()
     idempotent_prefixes = ("update_", "save_", "sync_", "move_", "delete_")
     tools_init = _SERVER_PY.parent / "tools" / "__init__.py"

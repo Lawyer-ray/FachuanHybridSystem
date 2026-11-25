@@ -1,4 +1,4 @@
-"""给 dsh 接上法穿的 430 个 MCP 业务工具（生成 mcp-client 的 patch 层）。
+"""给 dsh 接上法穿的 434 个 MCP 业务工具（生成 mcp-client 的 patch 层）。
 
 ## 为什么必须自己写 patch（不是 ``dsh plugin add`` 一下就好）
 
@@ -192,7 +192,8 @@ def patch_body(endpoint: McpEndpoint, user_token: str, *, session_id: str = "") 
             #  docs/04-计划/活跃/工具面分层方案.md）。所以「给多少」
             # 必须在连接建立那一刻就定下来，唯一能表达这个意图的位置是请求头。
             #
-            # 实测收益：424 个工具 244KB / 8.3 万 token → 61 个 33KB / 1.1 万。
+            # 实测收益（2026-11-25 重测）：434 个工具 314KB / 约 10.2 万 token
+            # → 61 个 44KB / 约 1.5 万。
             #
             # 不带这个头 = 全量（MCP server 侧的兼容底线），所以老客户端与
             # 手工调试仍然看到完整工具面。

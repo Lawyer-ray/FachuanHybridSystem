@@ -77,7 +77,7 @@ def main() -> None:
         return
 
     # 必须在 django.setup() 之后导入：工具模块在导入期就会访问 Django 模型。
-    # 工具导入同样包在 stdout 改道窗口内——409 个模块任何一个在 import 期
+    # 工具导入同样包在 stdout 改道窗口内——433 个模块任何一个在 import 期
     # print/写 stdout 都会插进 JSON-RPC 流毁掉握手（setup 期的改道只护住
     # Django 自身日志;2026-10-25 实测当时干净,这是结构性防御,纯度由
     # test_entrypoint 的真 stdio 会话门禁逐行钉死）。

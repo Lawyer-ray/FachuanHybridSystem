@@ -118,9 +118,9 @@ class TestDshPatchServerName:
         assert f"toolCallTimeoutMs: {toolface.TOOL_TIMEOUT_SECONDS * 1000}\n" in body
 
     def test_patch_declares_lite_tool_tier(self) -> None:
-        """dsh 必须声明工具面档位，否则 MCP server 返回全量 424 个工具。
+        """dsh 必须声明工具面档位，否则 MCP server 返回全量 434 个工具。
 
-        实测代价：全量 244KB / 8.3 万 token vs lite 33KB / 1.1 万。
+        实测代价（2026-11-25 重测）：全量 314KB / 约 10.2 万 token vs lite 44KB / 约 1.5 万。
         且 dsh **会话内不重新同步 tools/list**，所以「给多少」只能在连接时定，
         唯一表达位置就是这个请求头 —— 漏了它不会报错，只会默默地多花 7 万 token。
         """

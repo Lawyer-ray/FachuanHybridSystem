@@ -7,7 +7,7 @@
 
 | | HTTP（``opencode serve`` + ``/api/*``） | **ACP（``opencode acp``）** |
 |:-|:-|:-|
-| 430 个 MCP 工具进工具面 | ❌ 只有 12 个内置工具 | ✅ 实测 ``inputTokens=80810``，模型逐条报出 ``fachuan_*`` |
+| 全量 MCP 工具面（现 434 个）进工具面 | ❌ 只有 12 个内置工具 | ✅ 实测 ``inputTokens=80810``（430 工具时），模型逐条报出 ``fachuan_*`` |
 | 逐字流 | 正文还要另拉 ``/message`` | ✅ 一轮 630 个 ``agent_message_chunk`` |
 | 审批往返 | 未接通 | ✅ ``session/request_permission`` 阻塞往返 |
 | usage | 有 | ✅ ``prompt`` 的 result 直接带 token |
@@ -133,13 +133,13 @@ BUILTIN_TOOLS = frozenset(
 #: ``read`` / ``grep`` / ``task`` / ``webfetch`` …），实测全部会进模型工具面。
 #: 顶层 ``tools`` 字段对它**无效**（实测：写了也照样出现），必须写在 agent 上；
 #: 而且 agent 还得被 ``session/set_config_option(mode=...)`` 选中才生效。
-#: 实测结果：切到这个 agent 后工具面 = 430 个 ``fachuan_*``，内置工具 0 个。
+#: 实测结果：切到这个 agent 后工具面 = 全部 434 个 ``fachuan_*``，内置工具 0 个。
 FACHUAN_AGENT = SERVER_NAME
 
 #: 审批被拒时回给模型的话（与 antigravity 同一句，避免同一语义两种文案）。
 APPROVAL_REJECTED_MESSAGE = "该操作需要律师确认，已被拒绝；请换一种不需要写操作的方式继续。"
 
-#: ``session/new`` 之后等 MCP 工具发现的上限（秒）。430 工具实测 ~1s。
+#: ``session/new`` 之后等 MCP 工具发现的上限（秒）。434 工具实测 ~1s。
 MCP_DISCOVERY_TIMEOUT = 15.0
 
 #: 单条 JSON-RPC 请求（``session/new`` / ``session/prompt`` 之外）的超时。
