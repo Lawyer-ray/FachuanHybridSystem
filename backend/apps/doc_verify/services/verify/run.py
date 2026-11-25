@@ -45,7 +45,7 @@ from apps.doc_verify.domain.contracts import AssertionKind, Baseline, Finding, I
 from apps.doc_verify.domain.normalize import split_pages
 from apps.doc_verify.domain.states import derive_state
 from apps.doc_verify.models import VerificationRun, VerifyState
-from apps.doc_verify.services.verify import deps
+from apps.doc_verify.services.verify import deps, notify
 
 logger = logging.getLogger(__name__)
 from apps.doc_verify.services.verify.tier import TIER_OCR, resolve_tier
@@ -135,7 +135,7 @@ def verify_inbound(
     _record_ocr(report=report, fill=fill)
     state = derive_state(report)
     if existing is not None:
-        return _upgrade_run(
+        upgraded = _upgrade_run(
             existing=existing,
             inbound=inbound,
             report=report,
@@ -144,7 +144,11 @@ def verify_inbound(
             source_message_id=source_message_id,
             tier=actual_tier,
         )
-    return _create_run(
+        # 写库成功之后才通知：待办说的是「这一行结论」，不是「打算核」。
+        # 失败由 notify 内部吞掉（核对结论不能被待办搞挂）；这条路径手里没有操作人。
+        notify.notify_pending_decision(run=upgraded, actor=None)
+        return upgraded
+    created = _create_run(
         artifact=artifact,
         run_key=run_key,
         inbound=inbound,
@@ -154,6 +158,8 @@ def verify_inbound(
         source_message_id=source_message_id,
         tier=actual_tier,
     )
+    notify.notify_pending_decision(run=created, actor=None)
+    return created
 
 
 def verify_existing_bytes(*, artifact: Any, tier: int = 0) -> Any:
