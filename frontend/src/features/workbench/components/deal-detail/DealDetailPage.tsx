@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useParams } from 'react-router'
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
+import { CaseVerifyCard } from '@/features/material-prep'
 import { useMediaQuery } from '@/hooks/use-media'
 
 import { ambiguousStages, chainSteps, chainSummary } from './detail-domain'
@@ -249,6 +250,7 @@ export function DealDetailPage() {
                     onOpenFile={openCaseFile(c.id)}
                     selectedSubpath={picked?.kind === 'case' && picked.ownerId === c.id ? picked.subpath : null}
                   />
+                  <CaseVerifyCard caseId={c.id} />
                 </div>
               ))}
             </div>

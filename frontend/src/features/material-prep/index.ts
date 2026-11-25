@@ -31,6 +31,13 @@ export async function resetMaterialPrepState(): Promise<void> {
 }
 
 /**
+ * 某案件的核对历史卡（这案核过几次、结论怎么变）。workbench 的案件详情页挂在
+ * 每张案件卡下面消费它——跨 feature 只能走本出口：`eslint.config.js` 的
+ * `no-restricted-imports` 禁止引本域内部的深路径（只放行 `@/features/<name>`）。
+ */
+export { CaseVerifyCard } from './doc-verify/CaseVerifyCard'
+
+/**
  * 后端收件箱消息（/inbox）的行类型。home 的收件箱卡消费同一端点，
  * 经此出口复用（Pick 投影见 features/home/api/inbox.ts），避免两份手抄漂移。
  */
