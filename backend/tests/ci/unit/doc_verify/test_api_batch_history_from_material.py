@@ -263,6 +263,7 @@ class TestBatchDecisions:
         )
 
         assert response.status_code == 400
+        assert response.json()["success"] is False
 
     def test_invalid_action_is_400_and_writes_nothing(self, client: TestClient) -> None:
         run = _run(_artifact())
@@ -323,6 +324,7 @@ class TestRunHistory:
         response = client.get(f"/doc-verify/runs?case_id={case.id}&state=approved", auth=operator)
 
         assert response.status_code == 400
+        assert response.json()["success"] is False
 
     def test_foreign_case_is_403(self, client: TestClient) -> None:
         case = CaseFactory()
@@ -332,6 +334,7 @@ class TestRunHistory:
         response = client.get(f"/doc-verify/runs?case_id={case.id}", auth=LawyerFactory())
 
         assert response.status_code == 403
+        assert response.json()["success"] is False
 
 
 @pytest.mark.django_db
@@ -426,6 +429,7 @@ class TestRunFromMaterial:
         )
 
         assert response.status_code == 403
+        assert response.json()["success"] is False
 
 
 def test_new_routes_are_mounted() -> None:

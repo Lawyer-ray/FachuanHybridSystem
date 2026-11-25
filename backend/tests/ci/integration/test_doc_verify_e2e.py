@@ -284,3 +284,4 @@ class TestApi:
         )
 
         assert response.status_code == 400
+        assert response.json()["success"] is False

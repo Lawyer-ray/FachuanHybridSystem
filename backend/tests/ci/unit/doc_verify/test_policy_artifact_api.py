@@ -161,6 +161,7 @@ class TestArtifactApi:
         )
 
         assert response.status_code == 400
+        assert response.json()["success"] is False
 
 
 def _baseline(doc_type: str, data: bytes):
@@ -193,9 +194,11 @@ class TestPolicyApi:
     def test_unknown_case_is_404(self, client: TestClient) -> None:
         response = client.get("/doc-verify/policy?case_id=99999999", auth=LawyerFactory())
         assert response.status_code == 404
+        assert response.json()["success"] is False
 
     def test_anonymous_is_rejected(self, client: TestClient) -> None:
         """没有操作人就没有留痕，读策略也拒（403 由全局异常处理器给出）。"""
         case = CaseFactory()
         response = client.get(f"/doc-verify/policy?case_id={case.pk}")
         assert response.status_code == 403
+        assert response.json()["success"] is False

@@ -188,6 +188,7 @@ class TestCreateRunEndpoint:
         )
 
         assert response.status_code == 404
+        assert response.json()["success"] is False
 
     def test_tier_outside_the_contract_is_400(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
         artifact = _artifact()
@@ -217,7 +218,11 @@ class TestGetRunEndpoint:
         assert body["state"] == VerifyState.CHANGED
 
     def test_unknown_run_is_404(self, client: TestClient) -> None:
-        assert client.get("/doc-verify/runs/9999999", auth=LawyerFactory()).status_code == 404
+        response = client.get("/doc-verify/runs/9999999", auth=LawyerFactory())
+
+        assert response.status_code == 404
+        # 断言错误体而不只是状态码：前端靠这条 envelope 决定提示什么
+        assert response.json()["success"] is False
 
 
 @pytest.mark.django_db
@@ -281,6 +286,7 @@ class TestDecisionEndpoint:
         )
 
         assert response.status_code == 404
+        assert response.json()["success"] is False
 
 
 @pytest.mark.django_db
@@ -311,6 +317,7 @@ class TestUnverifiedEndpoint:
         response = client.get(f"/doc-verify/unverified?case_id={case_id}", auth=LawyerFactory())
 
         assert response.status_code == 400
+        assert response.json()["success"] is False
 
 
 def test_router_is_mounted_on_the_main_api() -> None:
