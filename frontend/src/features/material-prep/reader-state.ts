@@ -88,8 +88,6 @@ export interface ReaderState {
   setZoom: (z: number) => void
   /** 页旋转：叠加（delta 可为 90/-90/180）。refs 是页引用（mi + p），见 draft/page-rotation.ts */
   rotatePages: (refs: PageKey[], delta: number) => void
-  /** 页旋转：设为绝对角度（右键「旋转 180°」用，不叠加） */
-  setPagesRotation: (refs: PageKey[], deg: number) => void
   /** 页旋转：这些页回正 */
   resetPagesRotation: (refs: PageKey[]) => void
   /** 页旋转：全部回正 */

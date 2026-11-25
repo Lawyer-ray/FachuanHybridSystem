@@ -858,12 +858,12 @@ describe('页旋转动作', () => {
     useReader.setState({ draft: null })
   })
 
-  it('setPagesRotation 是设绝对值，resetAllRotation 清空全部', async () => {
+  it('rotatePages 叠加（180 是「再转半圈」），resetAllRotation 清空全部', async () => {
     const { useReader } = await import('./store')
     useReader.setState({
       draft: { mats: [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 3 }], segs: [], infos: [] } as never,
     })
-    useReader.getState().setPagesRotation([{ mi: 0, p: 1 }, { mi: 0, p: 2 }], 180)
+    useReader.getState().rotatePages([{ mi: 0, p: 1 }, { mi: 0, p: 2 }], 180)
     expect(useReader.getState().draft?.pageRot).toEqual({ '0:1': 180, '0:2': 180 })
 
     useReader.getState().resetAllRotation()

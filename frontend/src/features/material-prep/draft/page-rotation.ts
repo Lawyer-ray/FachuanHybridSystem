@@ -108,7 +108,7 @@ export function rotateRefs(map: PageRotMap | undefined, refs: readonly PageRefKe
   return next
 }
 
-/** 批量设为某个绝对角度（右键菜单的「旋转 180°」用这个，避免与当前角度叠加） */
+/** 批量设为某个绝对角度（工具函数；界面上的旋转按钮走 `rotateRefs` 的**增量**语义） */
 export function setRefsRotation(
   map: PageRotMap | undefined,
   refs: readonly PageRefKey[],

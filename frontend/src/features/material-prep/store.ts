@@ -18,7 +18,6 @@ import {
   resetRefsRotation,
   rotateRefs,
   rotatedRefsOf,
-  setRefsRotation,
   removeInfoField,
   removePages,
   renameMat,
@@ -192,11 +191,6 @@ export const useReader = create<ReaderState>((set, get) => ({
     const keys = pageRotRefsOf(get().draft, refs)
     if (!keys.length) return
     get().update((d) => ({ ...d, pageRot: rotateRefs(d.pageRot, keys, delta) }))
-  },
-  setPagesRotation: (refs, deg) => {
-    const keys = pageRotRefsOf(get().draft, refs)
-    if (!keys.length) return
-    get().update((d) => ({ ...d, pageRot: setRefsRotation(d.pageRot, keys, deg) }))
   },
   resetPagesRotation: (refs) => {
     const keys = pageRotRefsOf(get().draft, refs)

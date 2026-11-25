@@ -49,7 +49,6 @@ export function useReaderStoreFields() {
     applySel: useReader((s) => s.applySel),
     // 页旋转（人工转正）：选择条 / 右键菜单 / 单页悬停按钮共用
     rotatePages: useReader((s) => s.rotatePages),
-    setPagesRotation: useReader((s) => s.setPagesRotation),
     resetPagesRotation: useReader((s) => s.resetPagesRotation),
     resetAllRotation: useReader((s) => s.resetAllRotation),
     appendFiles: useReader((s) => s.appendFiles),
