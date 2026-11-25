@@ -43,6 +43,8 @@ class VerifyRunOut(Schema):
     id: int
     artifact_id: int
     case_id: int | None = None
+    #: 案名。跨案件清单必须带上，否则「起诉状」三字无法定位是哪一件
+    case_name: str = ""
     doc_type: str
     state: str
     #: 状态的中文标签（`VerifyState` 的 label）。前端直接显示，不要自己翻译状态机。

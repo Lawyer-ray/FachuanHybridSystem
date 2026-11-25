@@ -5,17 +5,25 @@ from __future__ import annotations
 from typing import Any
 
 from apps.cases.models import Case
-from apps.core.exceptions import NotFoundError
+from apps.cases.services.case.case_visibility import can_access_case
+from apps.core.exceptions import NotFoundError, PermissionDenied
 from apps.doc_verify.models import OutboundArtifact
 from apps.doc_verify.services.anchor.capture import capture_baseline
 from apps.doc_verify.services.anchor.persist import create_artifact
 from apps.doc_verify.services.policy_store import is_required
 
 
-def load_case(case_id: int) -> Case:
+def load_case(case_id: int, *, user: Any) -> Case:
+    """取案件并**校验可见性**：不存在 404，不可见 403。
+
+    为什么把两者分开报：把「无权」写成「不存在」会让律师在排查「材料怎么归档不上」
+    时走错方向；而把「不存在」写成「无权」又会泄露案件是否存在。
+    """
     case = Case.objects.filter(id=case_id).first()
     if case is None:
         raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
+    if not can_access_case(user, case_id):
+        raise PermissionDenied(message="无权访问该案件", code="CASE_FORBIDDEN", errors={"case_id": case_id})
     return case
 
 
@@ -32,7 +40,7 @@ def capture_outbound(
     note: str = "",
 ) -> OutboundArtifact:
     """冻结一份出站基线。`verify_required` 不传时按案件策略决定（默认值见 policy）。"""
-    case = load_case(case_id) if case_id is not None else None
+    case = load_case(case_id, user=captured_by) if case_id is not None else None
     required = is_required(case_id=case_id, doc_type=doc_type) if verify_required is None else verify_required
     baseline = capture_baseline(
         data=data,

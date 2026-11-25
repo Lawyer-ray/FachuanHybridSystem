@@ -14742,6 +14742,49 @@
         ]
       }
     },
+    "/api/v1/doc-verify/pending": {
+      "get": {
+        "operationId": "apps_doc_verify_api_verify_api_list_pending",
+        "summary": "List Pending",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VerifyRunOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        "description": "**跨案件**待裁决清单（按可见性收窄），材料准备页全局入口用。",
+        "tags": [
+          "回传件核对"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/doc-verify/artifacts": {
       "post": {
         "operationId": "apps_doc_verify_api_artifact_api_create_artifact",
@@ -44789,6 +44832,11 @@
               }
             ],
             "title": "Case Id"
+          },
+          "case_name": {
+            "default": "",
+            "title": "Case Name",
+            "type": "string"
           },
           "doc_type": {
             "title": "Doc Type",

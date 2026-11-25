@@ -120,6 +120,7 @@ class TestCreateRunEndpoint:
                 "file_name": "回传件.pdf",
                 "source_message_id": 7,
             },
+            auth=LawyerFactory(),
         )
 
         assert response.status_code == 200, response.content
@@ -144,6 +145,7 @@ class TestCreateRunEndpoint:
                 "artifact_id": artifact.id,
                 "file_base64": f"data:application/pdf;base64,{_b64(PDF_BYTES)}",
             },
+            auth=LawyerFactory(),
         )
 
         assert response.status_code == 200, response.content
@@ -154,8 +156,8 @@ class TestCreateRunEndpoint:
         _patch_deps(monkeypatch)
         payload = {"artifact_id": artifact.id, "file_base64": _b64(PDF_BYTES)}
 
-        first = client.post("/doc-verify/runs", json=payload).json()
-        second = client.post("/doc-verify/runs", json=payload).json()
+        first = client.post("/doc-verify/runs", json=payload, auth=LawyerFactory()).json()
+        second = client.post("/doc-verify/runs", json=payload, auth=LawyerFactory()).json()
 
         assert first["id"] == second["id"]
         assert VerificationRun.objects.filter(artifact=artifact).count() == 1
@@ -170,6 +172,7 @@ class TestCreateRunEndpoint:
         response = client.post(
             "/doc-verify/runs",
             json={"artifact_id": artifact.id, "file_base64": file_base64},
+            auth=LawyerFactory(),
         )
 
         assert response.status_code == 400
@@ -181,6 +184,7 @@ class TestCreateRunEndpoint:
         response = client.post(
             "/doc-verify/runs",
             json={"artifact_id": 10_000_000, "file_base64": _b64(PDF_BYTES)},
+            auth=LawyerFactory(),
         )
 
         assert response.status_code == 404
@@ -192,6 +196,7 @@ class TestCreateRunEndpoint:
         response = client.post(
             "/doc-verify/runs",
             json={"artifact_id": artifact.id, "file_base64": _b64(PDF_BYTES), "tier": 5},
+            auth=LawyerFactory(),
         )
 
         assert response.status_code == 400
@@ -203,7 +208,7 @@ class TestGetRunEndpoint:
     def test_returns_run_detail(self, client: TestClient) -> None:
         run = _run(_artifact())
 
-        response = client.get(f"/doc-verify/runs/{run.id}")
+        response = client.get(f"/doc-verify/runs/{run.id}", auth=LawyerFactory())
 
         assert response.status_code == 200
         body = response.json()
@@ -212,7 +217,7 @@ class TestGetRunEndpoint:
         assert body["state"] == VerifyState.CHANGED
 
     def test_unknown_run_is_404(self, client: TestClient) -> None:
-        assert client.get("/doc-verify/runs/9999999").status_code == 404
+        assert client.get("/doc-verify/runs/9999999", auth=LawyerFactory()).status_code == 404
 
 
 @pytest.mark.django_db
@@ -285,7 +290,7 @@ class TestUnverifiedEndpoint:
         artifact = _artifact(case=case, doc_type="授权委托书")
         pending = _run(artifact, state=VerifyState.UNVERIFIABLE)
 
-        response = client.get(f"/doc-verify/unverified?case_id={case.id}")
+        response = client.get(f"/doc-verify/unverified?case_id={case.id}", auth=LawyerFactory())
 
         assert response.status_code == 200
         body = response.json()
@@ -296,14 +301,14 @@ class TestUnverifiedEndpoint:
     def test_case_without_pending_runs_returns_empty_list(self, client: TestClient) -> None:
         case = CaseFactory()
 
-        response = client.get(f"/doc-verify/unverified?case_id={case.id}")
+        response = client.get(f"/doc-verify/unverified?case_id={case.id}", auth=LawyerFactory())
 
         assert response.status_code == 200
         assert response.json() == []
 
     @pytest.mark.parametrize("case_id", [0, -3])
     def test_non_positive_case_id_is_400(self, client: TestClient, case_id: int) -> None:
-        response = client.get(f"/doc-verify/unverified?case_id={case_id}")
+        response = client.get(f"/doc-verify/unverified?case_id={case_id}", auth=LawyerFactory())
 
         assert response.status_code == 400
 

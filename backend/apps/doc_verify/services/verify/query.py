@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from apps.cases.services.case.case_visibility import accessible_case_ids
 from apps.core.exceptions import NotFoundError
 from apps.doc_verify.models import OutboundArtifact, VerificationRun, VerifyState
 
@@ -33,7 +34,7 @@ def get_artifact(artifact_id: int) -> OutboundArtifact:
 
 def get_run(run_id: int) -> VerificationRun:
     """按 id 取核对运行；不存在时给 404。"""
-    run = VerificationRun.objects.select_related("artifact").filter(id=run_id).first()
+    run = VerificationRun.objects.select_related("artifact__case").filter(id=run_id).first()
     if run is None:
         raise NotFoundError(message=f"核对运行不存在：{run_id}", errors={"run_id": run_id})
     return run
@@ -42,10 +43,13 @@ def get_run(run_id: int) -> VerificationRun:
 def run_detail(run: VerificationRun) -> dict[str, Any]:
     """一次核对的对外形状（详情与清单共用同一份，避免两处字段漂移）。"""
     artifact = run.artifact
+    case = artifact.case
     return {
         "id": run.id,
         "artifact_id": run.artifact_id,
         "case_id": artifact.case_id,
+        # 跨案件清单里只有「起诉状」没有案名，律师没法判断是哪一件
+        "case_name": getattr(case, "name", "") or "",
         "doc_type": artifact.doc_type,
         "state": run.state,
         "state_label": run.get_state_display(),
@@ -69,7 +73,32 @@ def list_unverified(case_id: int) -> list[dict[str, Any]]:
             state__in=NEEDS_DECISION_STATES,
         )
         .exclude(decisions__action__in=DECIDED_ACTIONS)
-        .select_related("artifact")
+        .select_related("artifact__case")
         .order_by("-created_at", "-id")
     )
     return [run_detail(run) for run in runs]
+
+
+def list_pending(*, user: Any, limit: int = 100) -> list[dict[str, Any]]:
+    """**跨案件**待裁决清单（材料准备页的全局入口）。
+
+    筛选口径与 `list_unverified` 一字不差，只是不限案件；可见性用 `accessible_case_ids`
+    收窄（None = 管理员，不收窄）。`limit` 封顶而不是分页：这是「提醒还有多少事」的
+    入口，不是台账；真要全量请按案查。
+    """
+    queryset = (
+        VerificationRun.objects.filter(
+            artifact__verify_required=True,
+            state__in=NEEDS_DECISION_STATES,
+        )
+        .exclude(decisions__action__in=DECIDED_ACTIONS)
+        .select_related("artifact__case")
+        .order_by("-created_at", "-id")
+    )
+    visible = accessible_case_ids(user)
+    if visible is not None:
+        if not visible:
+            return []
+        queryset = queryset.filter(artifact__case_id__in=visible)
+    capped = max(1, min(int(limit or 100), 500))
+    return [run_detail(run) for run in queryset[:capped]]

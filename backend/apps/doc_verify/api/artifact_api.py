@@ -43,5 +43,6 @@ def create_artifact(request: Any, payload: ArtifactIn) -> dict[str, Any]:
 
 @router.get("/artifacts", response=list[ArtifactOut])
 def list_artifacts(request: Any, case_id: int) -> list[dict[str, Any]]:
-    require_operator(request, purpose="查看基线")
+    operator = require_operator(request, purpose="查看基线")
+    artifact_store.load_case(case_id, user=operator)
     return artifact_store.list_artifacts(case_id=case_id)

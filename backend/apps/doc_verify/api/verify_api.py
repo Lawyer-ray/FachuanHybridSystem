@@ -14,6 +14,7 @@ from typing import Any
 
 from ninja import Router
 
+from apps.cases.services.case.case_visibility import can_access_case
 from apps.core.exceptions import PermissionDenied, ValidationException
 from apps.doc_verify.schemas import DecisionIn, DecisionOut, VerifyRunIn, VerifyRunOut
 from apps.doc_verify.services.verify import decision as decision_service
@@ -21,6 +22,14 @@ from apps.doc_verify.services.verify import query as query_service
 from apps.doc_verify.services.verify import run as run_service
 
 router = Router(tags=["回传件核对"])
+
+
+def _assert_case_visible(operator: Any, case_id: int | None) -> None:
+    """案件级可见性：没绑案件的基线（合同/通用文书）不设案件限制。"""
+    if case_id is None:
+        return
+    if not can_access_case(operator, case_id):
+        raise PermissionDenied(message="无权访问该案件", code="CASE_FORBIDDEN", errors={"case_id": case_id})
 
 
 def _require_operator(request: Any) -> Any:
@@ -39,8 +48,10 @@ def _require_operator(request: Any) -> Any:
 @router.post("/runs", response=VerifyRunOut)
 def create_run(request: Any, payload: VerifyRunIn) -> dict[str, Any]:
     """提交一份回传件跑核对（幂等：同一基线 + 同字节重复提交返回同一行）。"""
+    operator = _require_operator(request)
     data = run_service.decode_inbound_payload(payload.file_base64)
     artifact = query_service.get_artifact(payload.artifact_id)
+    _assert_case_visible(operator, artifact.case_id)
     run = run_service.verify_inbound(
         artifact=artifact,
         data=data,
@@ -54,18 +65,23 @@ def create_run(request: Any, payload: VerifyRunIn) -> dict[str, Any]:
 @router.get("/runs/{run_id}", response=VerifyRunOut)
 def get_run(request: Any, run_id: int) -> dict[str, Any]:
     """单次核对详情（含发现项与覆盖度）。"""
-    return query_service.run_detail(query_service.get_run(run_id))
+    operator = _require_operator(request)
+    run = query_service.get_run(run_id)
+    _assert_case_visible(operator, run.artifact.case_id)
+    return query_service.run_detail(run)
 
 
 @router.post("/runs/{run_id}/decision", response=DecisionOut)
 def create_decision(request: Any, run_id: int, payload: DecisionIn) -> DecisionOut:
     """记录一条裁决（append-only，不改历史行）。"""
+    operator = _require_operator(request)
     run = query_service.get_run(run_id)
+    _assert_case_visible(operator, run.artifact.case_id)
     decided = decision_service.record_decision(
         verification=run,
         action=payload.action,
         reason=payload.reason,
-        decided_by=_require_operator(request),
+        decided_by=operator,
     )
     return DecisionOut(
         id=decided.id,
@@ -82,4 +98,12 @@ def list_unverified(request: Any, case_id: int) -> list[dict[str, Any]]:
     """该案待裁决清单（状态需裁决 + 要求核对 + 无 accept/reject 裁决）。"""
     if case_id <= 0:
         raise ValidationException(message="case_id 必须为正整数", errors={"case_id": case_id})
+    _assert_case_visible(_require_operator(request), case_id)
     return query_service.list_unverified(case_id)
+
+
+@router.get("/pending", response=list[VerifyRunOut])
+def list_pending(request: Any, limit: int = 50) -> list[dict[str, Any]]:
+    """**跨案件**待裁决清单（按可见性收窄），材料准备页全局入口用。"""
+    operator = _require_operator(request)
+    return query_service.list_pending(user=operator, limit=limit)

@@ -6235,6 +6235,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/doc-verify/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pending
+         * @description **跨案件**待裁决清单（按可见性收窄），材料准备页全局入口用。
+         */
+        get: operations["apps_doc_verify_api_verify_api_list_pending"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/doc-verify/artifacts": {
         parameters: {
             query?: never;
@@ -19664,6 +19684,11 @@ export interface components {
             artifact_id: number;
             /** Case Id */
             case_id?: number | null;
+            /**
+             * Case Name
+             * @default
+             */
+            case_name: string;
             /** Doc Type */
             doc_type: string;
             /** State */
@@ -35152,6 +35177,28 @@ export interface operations {
         parameters: {
             query: {
                 case_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyRunOut"][];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_verify_api_list_pending: {
+        parameters: {
+            query?: {
+                limit?: number;
             };
             header?: never;
             path?: never;

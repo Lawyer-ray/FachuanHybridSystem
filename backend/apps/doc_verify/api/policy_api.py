@@ -20,15 +20,15 @@ router = Router(tags=["回传件核对"])
 @router.get("/policy", response=PolicyOut)
 def get_policy(request: Any, case_id: int) -> dict[str, Any]:
     """该案每类高风险文书的实际策略（库里没有就取代码默认）。"""
-    require_operator(request, purpose="查看核对策略")
-    artifact_store.load_case(case_id)
+    operator = require_operator(request, purpose="查看核对策略")
+    artifact_store.load_case(case_id, user=operator)
     return {"case_id": case_id, "items": policy_store.effective_items(case_id)}
 
 
 @router.put("/policy", response=PolicyOut)
 def put_policy(request: Any, payload: PolicyIn) -> dict[str, Any]:
     """批量改策略（`doc_types` 留空 = 改全部高风险类），返回改后的全量。"""
-    require_operator(request, purpose="修改核对策略")
-    artifact_store.load_case(payload.case_id)
+    operator = require_operator(request, purpose="修改核对策略")
+    artifact_store.load_case(payload.case_id, user=operator)
     items = policy_store.set_policy(case_id=payload.case_id, doc_types=payload.doc_types, enabled=payload.enabled)
     return {"case_id": payload.case_id, "items": items}
