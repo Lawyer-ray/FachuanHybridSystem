@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { bankLitigation, projectDetail, projectReview } from '@/app/paths'
 import { archiveSplitToCaseFolder, assignPack, fetchAttachmentBytes } from '../../api'
 import type { ArchiveToCaseFolderSegment } from '../../api'
+import { putPolicy } from '../../doc-verify/api'
 import { errMessage } from '@/lib/errors'
 import type { AssignInfo, DraftState, Segment } from '../../types'
 
@@ -25,6 +26,48 @@ export function isArchiveToCaseFolderEnabled(): boolean {
 
 export function setArchiveToCaseFolderEnabled(enabled: boolean): void {
   archiveToCaseFolderOn = enabled
+}
+
+/**
+ * 「回传后核对内容」的勾选状态（默认勾选）。
+ *
+ * 与上面「同时归档到案件文件夹」同构、同理由：这是律师的**偏好**，关掉弹窗再打开
+ * 不该自己弹回来；而 `AssignInfo`（`types.ts`）不归这次改动，弹窗到 hook 的唯一通道
+ * `onConfirm` 在 `Reader.tsx` 里也被包成了单参箭头。所以状态留在本模块，
+ * `AssignModal` 通过下面两个函数读写，归案成功后按它把策略落库。
+ */
+let verifyAfterReturnOn = true
+
+export function isVerifyAfterReturnEnabled(): boolean {
+  return verifyAfterReturnOn
+}
+
+export function setVerifyAfterReturnEnabled(enabled: boolean): void {
+  verifyAfterReturnOn = enabled
+}
+
+/**
+ * 归案成功后把「回传后核对内容」的策略写到案件上（fire-and-forget）。
+ *
+ * 为什么是附加动作、失败只记日志不 toast：此刻归案已经写库成功，策略没存上只是
+ * 「客户回传时不会自动核对」，不能让律师以为归案失败（重试会建出第二个案子）。
+ * 也刻意不弹 warning —— 归档有可见产物（卷宗目录）所以值得提示，而策略是个静默的
+ * 开关，失败时再弹一条只会让人去追一个看不到结果的动作。
+ *
+ * 拿不到可用的 case id 就跳过：宁可这次没存上，也不能猜一个 id 把策略写到别人案子上。
+ */
+function saveVerifyPolicy(caseId: number): void {
+  if (!Number.isInteger(caseId) || caseId <= 0) {
+    console.warn('[doc-verify] 归案结果没有可用的 case id，跳过核对策略落库', caseId)
+    return
+  }
+  // `doc_types: []` = 按后端口径「改全部高风险类」（四类文书一起开/关），
+  // 与勾选框文案点名的四类一致。
+  void putPolicy({ case_id: caseId, enabled: isVerifyAfterReturnEnabled(), doc_types: [] }).catch(
+    (e: unknown) => {
+      console.warn('[doc-verify] 核对策略落库失败：', errMessage(e, '未知错误'))
+    },
+  )
 }
 
 /**
@@ -152,6 +195,10 @@ export function useAssignLaunch(params: {
           }
         }
       }
+
+      // 回传后核对内容的策略：勾了=客户回传时自动比正文，没勾=不核。
+      // 用归案**返回**的 case id（不是用户选的/猜的），新建案件时只有这里才拿得到。
+      saveVerifyPolicy(r.caseId)
 
       // 归案后跳到该项目，让用户看到结果（此前只弹 toast，用户以为没成）。
       //
