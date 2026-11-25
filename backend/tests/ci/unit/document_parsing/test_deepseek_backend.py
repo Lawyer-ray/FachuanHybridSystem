@@ -60,13 +60,8 @@ class _StubBackend(DeepSeekOCRBackend):
             raise AssertionError("补调用次数超出预期")
         return self._responses.pop(0)
 
-    @staticmethod
-    def _extract_single_page(path: Any, page_no: int) -> Any:  # type: ignore[override]
-        class _Temp:
-            def unlink(self, missing_ok: bool = True) -> None:
-                return None
-
-        return _Temp()
+    # 单页抽取走**真实实现**（真 pymupdf 抽页）：桩只替 HTTP，不替文件操作——
+    # 替掉它会让「抽页失败时怎么降级」永远测不到。
 
 
 def _make_pdf(tmp_path: Any) -> Any:

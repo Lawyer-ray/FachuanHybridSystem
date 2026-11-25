@@ -36,7 +36,7 @@ import base64
 import hashlib
 import logging
 from dataclasses import replace
-from typing import Any, get_args
+from typing import Any, cast, get_args
 
 from django.db import IntegrityError, transaction
 
@@ -298,7 +298,11 @@ def _report_for(*, artifact: Any, inbound: Any, tier: int) -> Report:
     `bytes_identical` 覆盖度，短路两次等于给同一个事实两处实现——其中一处迟早
     会少写一个 coverage 键，于是「原样回传」被报成「未发现差异」。
     """
-    return deps.compare_documents(_baseline_from_artifact(artifact), inbound, tier=tier)
+    # `deps.compare_documents` 的类型是 Any（那个模块是给单测 monkeypatch 的接缝，
+    # 签名故意留宽）；真实实现 `domain.compare.compare_documents` 返回 Report。
+    # 这里 cast 而不是改 deps 的签名：改宽那一处会让所有调用方失去类型，改窄则挡不住
+    # 单测替换。cast 在唯一出口上收口，是这两者之间最省的写法。
+    return cast(Report, deps.compare_documents(_baseline_from_artifact(artifact), inbound, tier=tier))
 
 
 def _upgradable(*, existing: Any, actual_tier: int) -> bool:

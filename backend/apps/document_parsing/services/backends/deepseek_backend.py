@@ -103,6 +103,29 @@ _MARKER_RE = re.compile(
 )
 
 
+def _extract_single_page(path: Path, page_no: int) -> Path:
+    """抽单页成临时 PDF。``page_no`` 是 1 起的页号。
+
+    放模块级而不是塞进类里：服务层禁用静态方法装饰器
+    （`tests/ci/structure/test_four_layer_architecture.py` 的结构棘轮按装饰器计数，
+    连注释里出现那个写法都会被计一次），而这个函数本来也不碰任何实例状态——
+    提出来比硬塞进类里更诚实。
+    """
+    import pymupdf as fitz
+
+    document = fitz.open(str(path))
+    single = fitz.open()
+    try:
+        single.insert_pdf(document, from_page=page_no - 1, to_page=page_no - 1)
+        with tempfile.NamedTemporaryFile(suffix=".pdf", prefix=f"ds_p{page_no}_", delete=False) as handle:
+            temp_name = handle.name
+        single.save(temp_name)
+        return Path(temp_name)
+    finally:
+        single.close()
+        document.close()
+
+
 class DeepSeekOCRBackend:
     """DeepSeek OCR 云端引擎（见模块头注释）。"""
 
@@ -316,7 +339,7 @@ class DeepSeekOCRBackend:
     def _retry_single_page(self, path: Path, page_no: int) -> str | None:
         """把第 ``page_no`` 页单独抽成 PDF 重试；仍退化返回 None。"""
         try:
-            mini = self._extract_single_page(path, page_no)
+            mini = _extract_single_page(path, page_no)
         except (OSError, RuntimeError, ValueError) as exc:  # pragma: no cover - 抽页失败极少见，但要留痕
             logger.warning("DeepSeek OCR 单页抽取失败 page=%s: %s", page_no, exc)
             return None
@@ -337,23 +360,6 @@ class DeepSeekOCRBackend:
             logger.info("DeepSeek OCR 单页重试仍退化 page=%s: %s", page_no, reason)
             return None
         return text
-
-    @staticmethod
-    def _extract_single_page(path: Path, page_no: int) -> Path:
-        """抽单页成临时 PDF。``page_no`` 是 1 起的页号。"""
-        import pymupdf as fitz
-
-        document = fitz.open(str(path))
-        single = fitz.open()
-        try:
-            single.insert_pdf(document, from_page=page_no - 1, to_page=page_no - 1)
-            with tempfile.NamedTemporaryFile(suffix=".pdf", prefix=f"ds_p{page_no}_", delete=False) as handle:
-                temp_name = handle.name
-            single.save(temp_name)
-            return Path(temp_name)
-        finally:
-            single.close()
-            document.close()
 
     # ---------- 版面 ----------
 
