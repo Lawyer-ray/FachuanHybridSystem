@@ -170,6 +170,13 @@ WRITE_PREFIXES: tuple[str, ...] = (
     # 名字里没有常规写前缀，不补就只能判 LOW（连留痕都没有）。
     # 落盘幂等且不覆盖既有文件，故与 ``generate_`` / ``export_`` / ``bind_`` 同档（MEDIUM）。
     "archive_",
+    # 回传件核对：``verify_returned_document`` 会落一条核对运行
+    # （POST /doc-verify/runs），名字里没有常规写前缀，不补就只能判 LOW（连留痕
+    # 都没有）。它不碰律师文件，且幂等（同一基线 + 同字节重复提交返回同一行），
+    # 故与 ``generate_`` / ``archive_`` 同档（MEDIUM）。
+    # 副作用：``verify_citations``（法条核查，只读）一并从 LOW 升到 MEDIUM——
+    # 中级是静默放行 + 审计留痕，无审批摩擦。
+    "verify_",
 )
 
 DEFAULT_TIMEOUT = 300.0

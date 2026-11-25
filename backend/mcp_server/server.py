@@ -244,6 +244,7 @@ from mcp_server.tools import (
     get_reminder_calendar,
     get_research_task,
     get_resource_usage,
+    get_returned_document_check,
     get_review_models,
     get_review_status,
     get_scan_status,
@@ -321,6 +322,7 @@ from mcp_server.tools import (
     list_teams,
     list_template_bindings,
     list_template_library_files,
+    list_unverified_returns,
     list_upcoming_deadlines,
     list_workflow_templates,
     list_workflows,
@@ -424,6 +426,7 @@ from mcp_server.tools import (
     validate_folder_structure,
     validate_id_card,
     verify_citations,
+    verify_returned_document,
     warm_up_cache,
     web_search,
 )
@@ -954,6 +957,11 @@ _t(cancel_pdf_split)
 _t(download_pdf_split_result)
 _t(get_pdf_split_page_preview)
 _t(download_pdf_split_raw)
+
+# 回传件核对（客户回传件是否被改动：查待核清单 / 看核对结论 / 提交一份跑核对）
+_t(list_unverified_returns)
+_t(get_returned_document_check)
+_t(verify_returned_document)
 
 # OA 导入
 _t(trigger_client_import)

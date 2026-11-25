@@ -260,6 +260,7 @@ from mcp_server.tools.doc_converter import (
     get_conversion_progress,
     save_to_directory,
 )
+from mcp_server.tools.doc_verify import get_returned_document_check, list_unverified_returns, verify_returned_document
 from mcp_server.tools.documents import (
     analyze_template,
     confirm_mappings,
@@ -810,6 +811,10 @@ __all__ = [
     "download_review_original",
     "normalize_contract_format",
     "download_normalized_result",
+    # 回传件核对
+    "list_unverified_returns",
+    "get_returned_document_check",
+    "verify_returned_document",
     # 文书生产
     "list_document_templates",
     "get_document_template",
