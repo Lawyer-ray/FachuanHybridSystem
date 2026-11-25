@@ -448,7 +448,9 @@ export interface paths {
          * Register View
          * @description 用户注册
          *
-         *     首位用户自动成为管理员并触发系统初始化，后续用户需要管理员审批。
+         *     系统尚无已激活账号时，首位注册者自动成为律所管理员并触发系统初始化；
+         *     此后注册的账号为待审批状态（is_active=False），需管理员审批后才能登录
+         *     （审批入口：``/api/v1/organization/lawyers/pending`` 与 ``.../lawyers/{id}/approve``）。
          */
         post: operations["apps_organization_api_auth_api_register_view"];
         delete?: never;
@@ -559,6 +561,66 @@ export interface paths {
         put?: never;
         /** Create Lawyer */
         post: operations["apps_organization_api_lawyer_api_create_lawyer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organization/lawyers/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pending Lawyers
+         * @description 待审批注册列表（仅管理员）。
+         */
+        get: operations["apps_organization_api_lawyer_api_list_pending_lawyers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organization/lawyers/{lawyer_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Lawyer
+         * @description 通过注册审批：激活账号，并归入审批人所在律所（仅管理员）。
+         */
+        post: operations["apps_organization_api_lawyer_api_approve_lawyer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organization/lawyers/{lawyer_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Lawyer
+         * @description 拒绝注册申请：删除待审批账号（仅管理员）。
+         */
+        post: operations["apps_organization_api_lawyer_api_reject_lawyer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13073,6 +13135,8 @@ export interface components {
             real_name?: string | null;
             /** Phone */
             phone?: string | null;
+            /** Bootstrap Token */
+            bootstrap_token?: string | null;
         };
         /**
          * PasswordResetOut
@@ -13168,6 +13232,34 @@ export interface components {
              * @default false
              */
             is_admin: boolean;
+            /** Lawyer Team Ids */
+            lawyer_team_ids?: number[] | null;
+            /** Biz Team Ids */
+            biz_team_ids?: number[] | null;
+        };
+        /**
+         * LawyerApproveOut
+         * @description 审批操作响应
+         */
+        LawyerApproveOut: {
+            /** Success */
+            success: boolean;
+            user?: components["schemas"]["LawyerOut"] | null;
+            /**
+             * Message
+             * @default
+             */
+            message: string;
+        };
+        /**
+         * LawyerApproveIn
+         * @description 审批通过待注册账号时的可选补充信息。
+         *
+         *     不传则一律继承审批人所在律所，具体团队可在审批后再补。
+         */
+        LawyerApproveIn: {
+            /** Law Firm Id */
+            law_firm_id?: number | null;
             /** Lawyer Team Ids */
             lawyer_team_ids?: number[] | null;
             /** Biz Team Ids */
@@ -27320,6 +27412,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LawyerOut"];
+                };
+            };
+        };
+    };
+    apps_organization_api_lawyer_api_list_pending_lawyers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LawyerOut"][];
+                };
+            };
+        };
+    };
+    apps_organization_api_lawyer_api_approve_lawyer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lawyer_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["LawyerApproveIn"] | null;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LawyerApproveOut"];
+                };
+            };
+        };
+    };
+    apps_organization_api_lawyer_api_reject_lawyer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lawyer_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LawyerApproveOut"];
                 };
             };
         };
