@@ -37,8 +37,20 @@ class VerifyRunIn(Schema):
     tier: int | None = None
 
 
+class RunFromMaterialIn(Schema):
+    """从收件箱附件直接跑核对：字节由服务端自己取，前端不再整本 base64 上传。"""
+
+    artifact_id: int
+    #: 收件箱消息 id（`InboxMessage` 主键，与归案溯源 `source_message_id` 同一口径）
+    message_id: int
+    #: `attachments_meta[].part_index`，从 0 起
+    part_index: int
+    #: 不传 = 自动（同 `/runs`：勾了核对 + 扫描件 → 升到 OCR 层）
+    tier: int | None = None
+
+
 class VerifyRunOut(Schema):
-    """一次核对（详情与待裁决清单共用）。"""
+    """一次核对（详情、待裁决清单与核对历史共用）。"""
 
     id: int
     artifact_id: int
@@ -59,6 +71,13 @@ class VerifyRunOut(Schema):
     created_at: datetime
 
 
+class RunPageOut(Schema):
+    """某案的全部核对历史（分页）。`total` 是**过滤后的总数**，不是本页条数。"""
+
+    total: int
+    items: list[VerifyRunOut]
+
+
 class DecisionIn(Schema):
     """律师裁决入参。"""
 
@@ -75,6 +94,26 @@ class DecisionOut(Schema):
     reason: str
     decided_by_id: int | None = None
     decided_at: datetime
+
+
+class DecisionBatchIn(Schema):
+    """批量裁决：一次提交多条待裁决的核对运行。"""
+
+    run_ids: list[int]
+    action: str
+    reason: str = ""
+
+
+class DecisionBatchOut(Schema):
+    """批量裁决结果。
+
+    逐条判：`items` 与入参 `run_ids` 等长，落库的带 `decision_id`，没落的带
+    `skipped_reason`——前端据此提示「哪几条为什么没处理」。
+    """
+
+    decided: int
+    skipped: int
+    items: list[dict[str, Any]]
 
 
 class ArtifactIn(Schema):

@@ -1,4 +1,4 @@
-"""读模型：单次核对详情与「待裁决清单」。
+"""读模型：单次核对详情、「待裁决清单」与本案件核对历史。
 
 ## 为什么「待裁决」的口径写在这一层
 
@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from apps.cases.services.case.case_visibility import accessible_case_ids
-from apps.core.exceptions import NotFoundError
+from apps.core.exceptions import NotFoundError, ValidationException
 from apps.doc_verify.models import OutboundArtifact, VerificationRun, VerifyState
 
 #: 需要律师裁决的状态。`no_difference_detected` 刻意不在其中：免费层没发现差异
@@ -22,6 +22,10 @@ NEEDS_DECISION_STATES: tuple[str, ...] = (VerifyState.CHANGED, VerifyState.UNVER
 #: 视为「已处置」的动作。`reissue` 不在其中：要求重出之后，客户会不会回传新版
 #: 还不知道，这一条还在进行中，只是记了一笔处置意见。
 DECIDED_ACTIONS: tuple[str, ...] = ("accept", "reject")
+
+#: 核对历史单页上限。一页 200 条已经够翻很久，再多只会把首屏拖慢；
+#: 要全量就分页拿，不要靠调大 limit。
+RUN_PAGE_MAX_LIMIT = 200
 
 
 def get_artifact(artifact_id: int) -> OutboundArtifact:
@@ -41,7 +45,7 @@ def get_run(run_id: int) -> VerificationRun:
 
 
 def run_detail(run: VerificationRun) -> dict[str, Any]:
-    """一次核对的对外形状（详情与清单共用同一份，避免两处字段漂移）。"""
+    """一次核对的对外形状（详情、清单、历史共用同一份，避免两处字段漂移）。"""
     artifact = run.artifact
     case = artifact.case
     return {
@@ -77,6 +81,35 @@ def list_unverified(case_id: int) -> list[dict[str, Any]]:
         .order_by("-created_at", "-id")
     )
     return [run_detail(run) for run in runs]
+
+
+def list_case_runs(
+    *,
+    case_id: int,
+    state: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """该案的**全量**核对历史（含已裁决的），分页返回 `{total, items}`。
+
+    与 `list_unverified` 的区别只有一个：这里不筛「待裁决」、不排除已裁决——案件详情页
+    要看的是「这案核过几次、结论怎么变」，只给待裁决清单等于把历史删掉一半。
+    `total` 是**过滤后**的总数，不是本页条数：前端靠它知道还有几页。
+    """
+    queryset = VerificationRun.objects.filter(artifact__case_id=case_id).select_related("artifact__case")
+    normalized_state = (state or "").strip()
+    if normalized_state:
+        if normalized_state not in set(VerifyState.values):
+            raise ValidationException(
+                message=f"核对状态不合法：{normalized_state!r}",
+                errors={"state": list(VerifyState.values)},
+            )
+        queryset = queryset.filter(state=normalized_state)
+    total = queryset.count()
+    capped = max(1, min(int(limit), RUN_PAGE_MAX_LIMIT))
+    start = max(0, int(offset))
+    rows = queryset.order_by("-created_at", "-id")[start : start + capped]
+    return {"total": total, "items": [run_detail(row) for row in rows]}
 
 
 def list_pending(*, user: Any, limit: int = 100) -> list[dict[str, Any]]:
