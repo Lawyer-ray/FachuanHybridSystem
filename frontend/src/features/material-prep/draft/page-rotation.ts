@@ -65,7 +65,7 @@ export function parsePageRotKey(key: string): PageRefKey | null {
 export function normalizeDeg(deg: number): RotDeg {
   if (!Number.isFinite(deg)) return 0
   const wrapped = ((Math.round(deg / 90) * 90) % 360 + 360) % 360
-  return (wrapped === 0 ? 0 : wrapped === 90 ? 90 : wrapped === 180 ? 180 : 270) as RotDeg
+  return wrapped === 0 ? 0 : wrapped === 90 ? 90 : wrapped === 180 ? 180 : 270
 }
 
 /** 某页当前的增量（缺省 0） */
