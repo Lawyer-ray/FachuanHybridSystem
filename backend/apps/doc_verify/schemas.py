@@ -72,3 +72,56 @@ class DecisionOut(Schema):
     reason: str
     decided_by_id: int | None = None
     decided_at: datetime
+
+
+class ArtifactIn(Schema):
+    """冻结一份出站基线（我们发出去的那一份）。
+
+    `verify_required` 留空 = 按案件策略决定（高风险四类默认要核）。显式传 True/False
+    可以覆盖策略——出站那一刻律师最清楚「这份要不要回签核对」。
+    """
+
+    doc_type: str
+    file_base64: str
+    file_name: str = ""
+    version: str = ""
+    case_id: int | None = None
+    verify_required: bool | None = None
+    capture_source: str = "manual"
+    note: str = ""
+
+
+class ArtifactOut(Schema):
+    """一份出站基线。"""
+
+    id: int
+    case_id: int | None = None
+    doc_type: str
+    version: str
+    file_name: str
+    file_sha256: str
+    page_count: int
+    capture_source: str
+    verify_required: bool
+    captured_at: datetime
+
+
+class PolicyItemOut(Schema):
+    """一类文书的策略：实际值 + 代码默认值（前端据此标「恢复默认」）。"""
+
+    doc_type: str
+    enabled: bool
+    default: bool
+
+
+class PolicyOut(Schema):
+    case_id: int
+    items: list[PolicyItemOut]
+
+
+class PolicyIn(Schema):
+    """批量改策略；`doc_types` 留空 = 改全部高风险类。"""
+
+    case_id: int
+    enabled: bool
+    doc_types: list[str] = []

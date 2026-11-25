@@ -6207,6 +6207,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/doc-verify/artifacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Artifacts */
+        get: operations["apps_doc_verify_api_artifact_api_list_artifacts"];
+        put?: never;
+        /**
+         * Create Artifact
+         * @description 冻结一份出站基线（幂等：同案+同文书+同版本+同字节只留一行）。
+         *
+         *     出站那一刻是**唯一**能确定「客户收到的是什么」的时点。事后拿最新定稿当基线
+         *     去比客户按旧版改的回传件，会全盘误报。
+         */
+        post: operations["apps_doc_verify_api_artifact_api_create_artifact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-verify/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Policy
+         * @description 该案每类高风险文书的实际策略（库里没有就取代码默认）。
+         */
+        get: operations["apps_doc_verify_api_policy_api_get_policy"];
+        /**
+         * Put Policy
+         * @description 批量改策略（`doc_types` 留空 = 改全部高风险类），返回改后的全量。
+         */
+        put: operations["apps_doc_verify_api_policy_api_put_policy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/batch-printing/capabilities": {
         parameters: {
             query?: never;
@@ -19526,6 +19574,11 @@ export interface components {
             doc_type: string;
             /** Material Type */
             material_type: string;
+            /**
+             * Rotations
+             * @default
+             */
+            rotations: string;
         };
         /** ArchiveToCaseFolderIn */
         ArchiveToCaseFolderIn: {
@@ -19666,6 +19719,106 @@ export interface components {
              * @default
              */
             reason: string;
+        };
+        /**
+         * ArtifactOut
+         * @description 一份出站基线。
+         */
+        ArtifactOut: {
+            /** Id */
+            id: number;
+            /** Case Id */
+            case_id?: number | null;
+            /** Doc Type */
+            doc_type: string;
+            /** Version */
+            version: string;
+            /** File Name */
+            file_name: string;
+            /** File Sha256 */
+            file_sha256: string;
+            /** Page Count */
+            page_count: number;
+            /** Capture Source */
+            capture_source: string;
+            /** Verify Required */
+            verify_required: boolean;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+        };
+        /**
+         * ArtifactIn
+         * @description 冻结一份出站基线（我们发出去的那一份）。
+         *
+         *     `verify_required` 留空 = 按案件策略决定（高风险四类默认要核）。显式传 True/False
+         *     可以覆盖策略——出站那一刻律师最清楚「这份要不要回签核对」。
+         */
+        ArtifactIn: {
+            /** Doc Type */
+            doc_type: string;
+            /** File Base64 */
+            file_base64: string;
+            /**
+             * File Name
+             * @default
+             */
+            file_name: string;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
+            /** Case Id */
+            case_id?: number | null;
+            /** Verify Required */
+            verify_required?: boolean | null;
+            /**
+             * Capture Source
+             * @default manual
+             */
+            capture_source: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /**
+         * PolicyItemOut
+         * @description 一类文书的策略：实际值 + 代码默认值（前端据此标「恢复默认」）。
+         */
+        PolicyItemOut: {
+            /** Doc Type */
+            doc_type: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Default */
+            default: boolean;
+        };
+        /** PolicyOut */
+        PolicyOut: {
+            /** Case Id */
+            case_id: number;
+            /** Items */
+            items: components["schemas"]["PolicyItemOut"][];
+        };
+        /**
+         * PolicyIn
+         * @description 批量改策略；`doc_types` 留空 = 改全部高风险类。
+         */
+        PolicyIn: {
+            /** Case Id */
+            case_id: number;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Doc Types
+             * @default []
+             */
+            doc_types: string[];
         };
         /** CapabilityOut */
         CapabilityOut: {
@@ -34527,6 +34680,11 @@ export interface operations {
                     page_start: number;
                     /** Page End */
                     page_end: number;
+                    /**
+                     * Rotations
+                     * @default
+                     */
+                    rotations?: string;
                 };
             };
         };
@@ -34764,7 +34922,9 @@ export interface operations {
     };
     apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_segment_pdf: {
         parameters: {
-            query?: never;
+            query?: {
+                rotations?: string;
+            };
             header?: never;
             path: {
                 job_id: string;
@@ -34808,6 +34968,7 @@ export interface operations {
         parameters: {
             query?: {
                 ids?: string;
+                rotations?: string;
             };
             header?: never;
             path: {
@@ -34960,6 +35121,98 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VerifyRunOut"][];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_artifact_api_list_artifacts: {
+        parameters: {
+            query: {
+                case_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactOut"][];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_artifact_api_create_artifact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArtifactIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_policy_api_get_policy: {
+        parameters: {
+            query: {
+                case_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyOut"];
+                };
+            };
+        };
+    };
+    apps_doc_verify_api_policy_api_put_policy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyOut"];
                 };
             };
         };

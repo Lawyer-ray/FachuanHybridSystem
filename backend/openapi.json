@@ -13852,6 +13852,11 @@
                   "page_end": {
                     "title": "Page End",
                     "type": "integer"
+                  },
+                  "rotations": {
+                    "default": "",
+                    "title": "Rotations",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -14324,6 +14329,16 @@
               "type": "integer"
             },
             "required": true
+          },
+          {
+            "in": "query",
+            "name": "rotations",
+            "schema": {
+              "default": "",
+              "title": "Rotations",
+              "type": "string"
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -14404,6 +14419,16 @@
             "schema": {
               "default": "",
               "title": "Ids",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "rotations",
+            "schema": {
+              "default": "",
+              "title": "Rotations",
               "type": "string"
             },
             "required": false
@@ -14678,6 +14703,157 @@
         "tags": [
           "回传件核对"
         ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-verify/artifacts": {
+      "post": {
+        "operationId": "apps_doc_verify_api_artifact_api_create_artifact",
+        "summary": "Create Artifact",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "冻结一份出站基线（幂等：同案+同文书+同版本+同字节只留一行）。\n\n出站那一刻是**唯一**能确定「客户收到的是什么」的时点。事后拿最新定稿当基线\n去比客户按旧版改的回传件，会全盘误报。",
+        "tags": [
+          "回传件核对"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtifactIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "apps_doc_verify_api_artifact_api_list_artifacts",
+        "summary": "List Artifacts",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ArtifactOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "回传件核对"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-verify/policy": {
+      "get": {
+        "operationId": "apps_doc_verify_api_policy_api_get_policy",
+        "summary": "Get Policy",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "该案每类高风险文书的实际策略（库里没有就取代码默认）。",
+        "tags": [
+          "回传件核对"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "apps_doc_verify_api_policy_api_put_policy",
+        "summary": "Put Policy",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "批量改策略（`doc_types` 留空 = 改全部高风险类），返回改后的全量。",
+        "tags": [
+          "回传件核对"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyIn"
+              }
+            }
+          },
+          "required": true
+        },
         "security": [
           {
             "JWTOrSessionAuth": []
@@ -44452,6 +44628,11 @@
           "material_type": {
             "title": "Material Type",
             "type": "string"
+          },
+          "rotations": {
+            "default": "",
+            "title": "Rotations",
+            "type": "string"
           }
         },
         "required": [
@@ -44754,6 +44935,205 @@
           "action"
         ],
         "title": "DecisionIn",
+        "type": "object"
+      },
+      "ArtifactOut": {
+        "description": "一份出站基线。",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "doc_type": {
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "file_sha256": {
+            "title": "File Sha256",
+            "type": "string"
+          },
+          "page_count": {
+            "title": "Page Count",
+            "type": "integer"
+          },
+          "capture_source": {
+            "title": "Capture Source",
+            "type": "string"
+          },
+          "verify_required": {
+            "title": "Verify Required",
+            "type": "boolean"
+          },
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "doc_type",
+          "version",
+          "file_name",
+          "file_sha256",
+          "page_count",
+          "capture_source",
+          "verify_required",
+          "captured_at"
+        ],
+        "title": "ArtifactOut",
+        "type": "object"
+      },
+      "ArtifactIn": {
+        "description": "冻结一份出站基线（我们发出去的那一份）。\n\n`verify_required` 留空 = 按案件策略决定（高风险四类默认要核）。显式传 True/False\n可以覆盖策略——出站那一刻律师最清楚「这份要不要回签核对」。",
+        "properties": {
+          "doc_type": {
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "file_base64": {
+            "title": "File Base64",
+            "type": "string"
+          },
+          "file_name": {
+            "default": "",
+            "title": "File Name",
+            "type": "string"
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
+            "type": "string"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "verify_required": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verify Required"
+          },
+          "capture_source": {
+            "default": "manual",
+            "title": "Capture Source",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "doc_type",
+          "file_base64"
+        ],
+        "title": "ArtifactIn",
+        "type": "object"
+      },
+      "PolicyItemOut": {
+        "description": "一类文书的策略：实际值 + 代码默认值（前端据此标「恢复默认」）。",
+        "properties": {
+          "doc_type": {
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "default": {
+            "type": "boolean",
+            "title": "Default"
+          }
+        },
+        "required": [
+          "doc_type",
+          "enabled",
+          "default"
+        ],
+        "title": "PolicyItemOut",
+        "type": "object"
+      },
+      "PolicyOut": {
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PolicyItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id",
+          "items"
+        ],
+        "title": "PolicyOut",
+        "type": "object"
+      },
+      "PolicyIn": {
+        "description": "批量改策略；`doc_types` 留空 = 改全部高风险类。",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "integer"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "doc_types": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Doc Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id",
+          "enabled"
+        ],
+        "title": "PolicyIn",
         "type": "object"
       },
       "CapabilityOut": {

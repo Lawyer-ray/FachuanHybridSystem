@@ -5,12 +5,14 @@
 """
 
 from .artifact import CaptureSource, OutboundArtifact
+from .policy import VerificationPolicy
 from .verification import VerificationDecision, VerificationRun, VerifyState
 
 __all__ = [
     "CaptureSource",
     "OutboundArtifact",
     "VerificationDecision",
+    "VerificationPolicy",
     "VerificationRun",
     "VerifyState",
 ]
