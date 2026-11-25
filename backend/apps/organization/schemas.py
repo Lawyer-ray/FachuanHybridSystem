@@ -128,6 +128,10 @@ class RegisterIn(Schema):
     password: str
     real_name: str | None = None
     phone: str | None = None
+    # 仅在部署方开启 ALLOW_FIRST_USER_SUPERUSER 且配置了 BOOTSTRAP_ADMIN_TOKEN 时需要：
+    # 首位用户想获得**平台超级管理员**时必须携带（安全审计 C-02）。
+    # 不传也不影响「首位用户成为律所管理员」——后者不需要令牌。
+    bootstrap_token: str | None = None
 
 
 class RegisterOut(Schema):
@@ -135,8 +139,30 @@ class RegisterOut(Schema):
 
     success: bool
     user: LawyerOut | None = None
+    # 语义：账号已创建但**未激活**，需管理员审批后才能登录。
+    # 取值必须等于 ``not user.is_active``，不要再用「是否首位用户」冒充。
     requires_approval: bool = True
+    # 语义：本次注册吃到了首位用户名额，系统初始化正在后台进行
     setup_in_progress: bool = False
+    message: str = ""
+
+
+class LawyerApproveIn(Schema):
+    """审批通过待注册账号时的可选补充信息。
+
+    不传则一律继承审批人所在律所，具体团队可在审批后再补。
+    """
+
+    law_firm_id: int | None = None
+    lawyer_team_ids: list[int] | None = None
+    biz_team_ids: list[int] | None = None
+
+
+class LawyerApproveOut(Schema):
+    """审批操作响应"""
+
+    success: bool
+    user: LawyerOut | None = None
     message: str = ""
 
 

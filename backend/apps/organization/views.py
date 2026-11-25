@@ -121,14 +121,16 @@ def _handle_form_register(request: HttpRequest, form: LawyerRegistrationForm) ->
         return redirect("admin_register")
 
     user = result.user
-    if user.is_admin:
+    # 2026-11-25：登录判据改为 is_active。原实现用 `user.is_admin`——而 Django 的
+    # login() 并不校验 is_active，于是「未激活又被当成管理员」的账号会被直接建会话。
+    if user.is_active:
         login(request, user)
         messages.success(
             request,
-            "注册成功！您是第一个用户，已自动获得管理员权限。系统正在初始化中... %(name)s"
+            "注册成功！您是第一位用户，已自动成为律所管理员。系统正在初始化中... %(name)s"
             % {"name": user.real_name or user.username},
         )
         return redirect("admin:index")
 
-    messages.info(request, "注册成功！请等待管理员开通权限后再登录。")
+    messages.info(request, "注册成功！请等待管理员审批开通后再登录。")
     return redirect("admin:login")

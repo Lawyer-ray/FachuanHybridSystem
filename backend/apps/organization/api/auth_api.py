@@ -12,6 +12,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import HttpRequest
 from ninja import Router
 
+from apps.core.exceptions import PermissionDenied
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.organization.models import Lawyer
@@ -80,7 +81,9 @@ async def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOu
     """
     用户注册
 
-    首位用户自动成为管理员并触发系统初始化，后续用户需要管理员审批。
+    系统尚无已激活账号时，首位注册者自动成为律所管理员并触发系统初始化；
+    此后注册的账号为待审批状态（is_active=False），需管理员审批后才能登录
+    （审批入口：``/api/v1/organization/lawyers/pending`` 与 ``.../lawyers/{id}/approve``）。
     """
     # 参数验证
     if not payload.username or len(payload.username) < 3:
@@ -94,26 +97,32 @@ async def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOu
     if await sync_to_async(_auth_service.username_exists)(payload.username):
         return RegisterOut(success=False, message="注册信息无效或用户名已存在")
 
+    def _do() -> Any:
+        result = _auth_service.register(
+            username=payload.username,
+            password=payload.password,
+            real_name=payload.real_name,
+            phone=payload.phone,
+            bootstrap_token=payload.bootstrap_token,
+        )
+        user = result.user
+        return RegisterOut(
+            success=True,
+            user=LawyerOut.from_orm(user),
+            # 语义修正：requires_approval = 「账号未被激活」。
+            # 原实现写的是 `not user.is_active` 的计算结果却取名为 is_first，
+            # 且 setup_in_progress 也跟着错，前端无法区分「等审批」与「系统初始化中」。
+            requires_approval=not user.is_active,
+            setup_in_progress=result.granted_admin,
+            message=("注册成功，系统正在初始化..." if result.granted_admin else "注册成功，请等待管理员审批后登录"),
+        ).model_dump()
+
     try:
-
-        def _do() -> Any:
-            result = _auth_service.register(
-                username=payload.username,
-                password=payload.password,
-                real_name=payload.real_name,
-                phone=payload.phone,
-            )
-            user = result.user
-            is_first = user.is_active  # 首位用户自动激活
-            return RegisterOut(
-                success=True,
-                user=LawyerOut.from_orm(user),
-                requires_approval=not is_first,
-                setup_in_progress=is_first,
-                message="注册成功，系统正在初始化..." if is_first else "注册成功，请等待管理员审批",
-            ).model_dump()
-
         return cast(RegisterOut, await sync_to_async(_do)())
+    except PermissionDenied as exc:
+        # 业务拒绝（如首位超管缺引导令牌）必须原样告知，不能压成「稍后重试」
+        logger.warning("注册被拒绝 username=%s code=%s", payload.username, exc.code)
+        return RegisterOut(success=False, message=str(exc.message))
     except Exception:
         # 安全审计：内部异常不回显 str(e)，固定文案 + 完整堆栈进日志
         logger.exception("注册处理失败 username=%s", payload.username)

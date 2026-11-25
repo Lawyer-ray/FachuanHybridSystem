@@ -4,7 +4,7 @@ import zipfile
 from typing import Any, ClassVar
 
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
 
@@ -84,7 +84,10 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):  # pragma: no cover
 
     def clean(self) -> dict[str, Any]:  # pragma: no cover
         cleaned: dict[str, Any] = super().clean() or {}
-        if not cleaned.get("lawyer_team"):
+        # 2026-11-25：团队必填仅在**已激活**律师上强制。待审批账号（is_active=False）
+        # 还没有团队，若在这里拦，超管连「点开待审批用户 → 勾 is_active → 保存」都做不到，
+        # 除非先手工建律所 + 建团队——而那正是系统初始化没跑时的处境。
+        if cleaned.get("is_active") and not cleaned.get("lawyer_team"):
             raise ValidationError({"lawyer_team": "律师必须至少关联一个律师团队"})
         # 安全审计（密码策略统一）：管理员建号/改号的后台表单同样走
         # AUTH_PASSWORD_VALIDATORS，与 LawyerMutationService 口径一致
@@ -194,7 +197,7 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin):  # pragma: no cover
     list_filter = ("is_admin", "is_active", SocialLoginFilter)
     inlines: ClassVar[list[type[admin.TabularInline]]] = [AccountCredentialInline, SocialAccountInline]  # type: ignore[assignment]
     export_model_name = "lawyer"
-    actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]  # type: ignore[misc]
+    actions: ClassVar = ["approve_selected_lawyers", "export_selected_as_json", "export_all_as_json"]  # type: ignore[misc]
     # 安全审计（提权）：提权字段仅 superuser 可见可改，防止非 superuser staff 勾选自我提权
     privileged_fields: ClassVar[tuple[str, ...]] = ("is_admin", "is_staff", "is_superuser")
     fieldsets: ClassVar = (
@@ -240,6 +243,34 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin):  # pragma: no cover
     def get_queryset(self, request: Any) -> Any:
         # 列表页要显示 social_bindings 一列，预先取回绑定关系避免 N+1
         return super().get_queryset(request).prefetch_related("social_accounts")
+
+    @admin.action(description="通过注册审批（启用所选律师）")
+    def approve_selected_lawyers(self, request: Any, queryset: Any) -> None:  # pragma: no cover
+        """批量启用待审批账号。
+
+        2026-11-25：注册接口会把首位之后的用户写成 ``is_active=False`` 等着管理员
+        审批，而此前后台只能逐条点开改（且会被表单的团队必填拦住）。这里提供一条
+        与 API ``POST /lawyers/{id}/approve`` 等价的批量通道：只改 ``is_active``，
+        并给尚未归属律所的账号补上操作者所在律所。
+        """
+        pending = queryset.filter(is_active=False)
+        to_activate = list(pending)
+        if not to_activate:
+            self.message_user(request, "所选律师均已激活，无需审批", level=messages.WARNING)
+            return
+
+        firm_id = getattr(request.user, "law_firm_id", None)
+        activated = 0
+        for lawyer in to_activate:
+            lawyer.is_active = True
+            fields = ["is_active"]
+            if lawyer.law_firm_id is None and firm_id is not None:
+                lawyer.law_firm_id = firm_id
+                fields.append("law_firm_id")
+            lawyer.save(update_fields=fields)
+            activated += 1
+
+        self.message_user(request, f"已通过 {activated} 个注册申请的审批", level=messages.SUCCESS)
 
     @admin.display(description="扫码登录绑定")
     def social_bindings(self, obj: Lawyer) -> str:
