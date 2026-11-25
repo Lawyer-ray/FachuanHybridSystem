@@ -141,8 +141,8 @@ class TestRevealStoredValue:
         assert excinfo.value.reason == "bad_cipher"
 
 
-class TestStoredValueAdminPage:
-    """Admin 查看页：GET 无明文、POST 才出明文、不缓存、有权限门禁。"""
+class TestChangeFormStoredValue:
+    """编辑页直接显示明文（只读块），没有额外页面、没有二次确认按钮。"""
 
     @pytest.fixture()
     def config(self, encryption_settings: Any) -> Any:
@@ -156,91 +156,85 @@ class TestStoredValueAdminPage:
             is_active=True,
         )
 
-    def _url(self, config: Any) -> str:
-        return f"/admin/core/systemconfig/{config.pk}/stored-value/"
+    def _change_url(self, config: Any) -> str:
+        return f"/admin/core/systemconfig/{config.pk}/change/"
 
-    def test_change_form_shows_mask_only(self, client: Any, admin_user: Any, config: Any) -> None:
+    def test_change_form_shows_plaintext_directly(self, client: Any, admin_user: Any, config: Any) -> None:
+        """核心诉求：打开编辑页就能看到结果，不需要点任何按钮。"""
         client.force_login(admin_user)
-        response = client.get(f"/admin/core/systemconfig/{config.pk}/change/")
-
-        assert response.status_code == 200
-        body = response.content.decode()
-        assert "已存值" in body
-        assert "共 3 个值" in body
-        for plain in (LEASE_PLAIN, SECOND_PLAIN, THIRD_PLAIN):
-            assert plain not in body
-        assert config.value not in body
-
-    @pytest.mark.parametrize("url_suffix", ["stored-value/"])
-    def test_get_page_has_no_plaintext(
-        self, client: Any, admin_user: Any, config: Any, url_suffix: str
-    ) -> None:
-        client.force_login(admin_user)
-        response = client.get(self._url(config))
-
-        assert response.status_code == 200
-        body = response.content.decode()
-        assert "显示明文" in body
-        for plain in (LEASE_PLAIN, SECOND_PLAIN, THIRD_PLAIN):
-            assert plain not in body
-        assert response["Cache-Control"].startswith("no-store")
-
-    def test_post_reveals_plaintext_once(self, client: Any, admin_user: Any, config: Any) -> None:
-        client.force_login(admin_user)
-        response = client.post(self._url(config), data={"action": "reveal"})
+        response = client.get(self._change_url(config))
 
         assert response.status_code == 200
         body = response.content.decode()
         for plain in (LEASE_PLAIN, SECOND_PLAIN, THIRD_PLAIN):
             assert plain in body
-        assert response["Cache-Control"].startswith("no-store")
+        assert "当前值（明文）" in body
+        assert "共 3 个值" in body
 
-    def test_post_logs_audit_without_plaintext(
-        self, client: Any, admin_user: Any, config: Any, caplog: Any
-    ) -> None:
+    def test_no_extra_page_or_reveal_button(self, client: Any, admin_user: Any, config: Any) -> None:
+        """不该再有「查看已存值」二级页与二次确认按钮。"""
         client.force_login(admin_user)
+        body = client.get(self._change_url(config)).content.decode()
 
-        with caplog.at_level(logging.INFO, logger="apps.core.admin.system_config_admin"):
-            client.post(self._url(config), data={"action": "reveal"})
+        assert "stored-value" not in body
+        assert "查看已存值" not in body
+        assert "显示明文" not in body
 
-        records = [r for r in caplog.records if "stored_value_revealed" in r.getMessage()]
-        assert records, "查看明文必须留审计日志"
-        message = records[0].getMessage()
-        assert config.key in message
-        assert str(admin_user.get_username()) in message
-        for plain in (LEASE_PLAIN, SECOND_PLAIN, THIRD_PLAIN):
-            assert plain not in message
+    def test_editable_value_field_stays_empty(self, client: Any, admin_user: Any, config: Any) -> None:
+        """输入框仍留空（留空=不修改），明文只在只读块里，不会被误提交回去。"""
+        from apps.core.models import SystemConfig
 
-    def test_other_post_action_does_not_reveal(self, client: Any, admin_user: Any, config: Any) -> None:
         client.force_login(admin_user)
-        response = client.post(self._url(config), data={"action": "noop"}, follow=True)
+        response = client.post(
+            self._change_url(config),
+            data={
+                "key": config.key,
+                "value": "",
+                "category": config.category,
+                "description": "",
+                "is_secret": "on",  # pragma: allowlist secret
+                "is_active": "on",
+            },
+            follow=True,
+        )
 
         assert response.status_code == 200
-        assert LEASE_PLAIN not in response.content.decode()
+        config.refresh_from_db()
+        from apps.core.security.secret_display import reveal_stored_value
 
-    def test_staff_without_permission_is_forbidden(self, client: Any, config: Any) -> None:
-        from apps.organization.models import Lawyer
+        lines = reveal_stored_value(config.value).splitlines()
+        assert lines == [LEASE_PLAIN, SECOND_PLAIN, THIRD_PLAIN]
+        assert SystemConfig.objects.get(pk=config.pk).value.startswith("enc:v1:")
 
-        staff = Lawyer.objects.create_user(
-            username="stored_value_staff_no_perm",
-            password="testpass1234!",  # pragma: allowlist secret
-            is_staff=True,
+    def test_non_secret_config_has_no_extra_block(self, client: Any, admin_user: Any, encryption_settings: Any) -> None:
+        from apps.core.models import SystemConfig
+
+        plain_config = SystemConfig.objects.create(
+            key="TEST_OCR_PROVIDER", value="paddleocr_api", category="ocr", is_secret=False, is_active=True
         )
-        client.force_login(staff)
-        response = client.get(self._url(config))
+        client.force_login(admin_user)
+        body = client.get(self._change_url(plain_config)).content.decode()
 
-        assert response.status_code == 403
+        assert "paddleocr_api" in body
+        assert "当前值（明文）" not in body
 
-    def test_decrypt_failure_is_reported_not_crashed(
+    def test_add_page_has_no_block(self, client: Any, admin_user: Any) -> None:
+        client.force_login(admin_user)
+        response = client.get("/admin/core/systemconfig/add/")
+
+        assert response.status_code == 200
+        assert "当前值（明文）" not in response.content.decode()
+
+    def test_decrypt_failure_is_reported_inline(
         self, client: Any, admin_user: Any, config: Any, encryption_settings: Any
     ) -> None:
         client.force_login(admin_user)
         encryption_settings.CREDENTIAL_ENCRYPTION_KEY = Fernet.generate_key().decode()
 
-        page = client.get(self._url(config))
-        assert page.status_code == 200
-        assert "无法解密" in page.content.decode()
+        response = client.get(self._change_url(config))
 
-        posted = client.post(self._url(config), data={"action": "reveal"})
-        assert posted.status_code == 200
-        assert "主密钥" in posted.content.decode()
+        assert response.status_code == 200
+        body = response.content.decode()
+        assert "无法解密" in body or "主密钥" in body
+        for plain in (LEASE_PLAIN, SECOND_PLAIN, THIRD_PLAIN):
+            assert plain not in body

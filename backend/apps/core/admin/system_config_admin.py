@@ -3,38 +3,20 @@
 提供 Django Admin 界面来管理系统配置项，包括飞书、钉钉等第三方服务配置。
 """
 
-import logging
 from typing import Any, ClassVar, cast
 
 from django.contrib import admin, messages
 from django.core.cache import cache
-from django.core.exceptions import PermissionDenied
-from django.http import Http404, HttpRequest, HttpResponseRedirect
-from django.template.response import TemplateResponse
+from django.http import HttpRequest, HttpResponseRedirect
 from django.urls import path, reverse
-from django.utils.html import format_html, format_html_join
+from django.utils.html import format_html
 
 from apps.core.models import SystemConfig
 from apps.core.security.secret_codec import SecretCodec
-from apps.core.security.secret_display import (
-    SecretValueUndecryptable,
-    describe_stored_value,
-    mask_summary,
-    reveal_stored_value,
-)
+from apps.core.security.secret_display import describe_stored_value, mask_summary, reveal_stored_value
 
 from ._system_config_data import get_default_configs
 from .forms import SystemConfigAdminForm
-
-logger = logging.getLogger(__name__)
-
-
-def _client_ip(request: HttpRequest) -> str:
-    """取审计日志用的来源 IP（反代场景优先取 X-Forwarded-For 第一段）。"""
-    forwarded = str(request.META.get("HTTP_X_FORWARDED_FOR") or "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return str(request.META.get("REMOTE_ADDR") or "")
 
 
 @admin.register(SystemConfig)
@@ -63,38 +45,50 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
 
     readonly_fields: ClassVar[list[str]] = ["stored_value_preview", "created_at", "updated_at"]
 
-    def stored_value_preview(self, obj: Any) -> Any:  # pragma: no cover
-        """编辑页常驻的「已存值」概览：敏感项只给掩码 + 计数，明文走另一个页面的显式动作。
+    def get_fieldsets(self, request: Any, obj: Any = None) -> Any:  # pragma: no cover
+        """非敏感项的明文本来就在 value 输入框里，不再多挂一个只读块。"""
+        fieldsets = super().get_fieldsets(request, obj)
+        if obj is not None and obj.pk and obj.is_secret:
+            return fieldsets
+        return tuple(
+            (
+                title,
+                {
+                    **options,
+                    "fields": tuple(f for f in options.get("fields", ()) if f != "stored_value_preview"),
+                },
+            )
+            for title, options in fieldsets
+        )
 
-        为什么不做成回填到输入框：回填明文等于把审计结论推翻（明文进 HTML / 进浏览器
-        缓存）；回填掩码又会让人一提交就把掩码写进库。只读块两者都避开。
+    def stored_value_preview(self, obj: Any) -> Any:  # pragma: no cover
+        """编辑页直接显示当前已存值（敏感项显示解密后的明文，只读）。
+
+        为什么是只读块而不是回填输入框：输入框留着「留空=不修改」的语义，
+        回填明文会让用户一提交就把同一份明文再加密一遍（并刷新审计时间），
+        回填掩码更糟——掩码会被当成新值写进库。只读块两者都避开，
+        同时不需要再点任何按钮、不额外开页面。
         """
         if obj is None or not obj.pk:
-            return format_html('<span style="color:#999">{}</span>', "保存后这里显示已存值概览（敏感项只显示掩码）。")
-
-        if not obj.is_secret:
-            return format_html('<span style="color:#999">{}</span>', "非敏感项：明文就在上面的输入框里，无需另开页面。")
+            return ""
 
         desc = describe_stored_value(obj.value, is_secret=True)
         if desc.decrypt_failed:
-            status = format_html('<span style="color:#b45309;font-weight:600">{}</span>', desc.failure_message)
-        elif not desc.segment_count:
-            status = format_html('<span style="color:#999">{}</span>', "未设置")
-        else:
-            status = format_html('<span style="color:#666">{}</span>', desc.summary)
+            return format_html('<div style="color:#b45309;font-weight:600">{}</div>', desc.failure_message)
+        if not desc.segment_count:
+            return format_html('<span style="color:#999">{}</span>', "未设置")
 
-        rows = format_html_join(
-            "",
-            '<div style="font-family:monospace;line-height:1.6">{}</div>',
-            ((segment,) for segment in desc.segments),
+        plain = reveal_stored_value(obj.value)
+        summary = format_html('<div style="color:#666;margin-bottom:4px">{}</div>', desc.summary)
+        box = format_html(
+            '<textarea readonly rows="{}" style="width:100%;font-family:ui-monospace,monospace;'
+            'background:#f8f8f8;padding:8px;border:1px solid #dcdcdc;border-radius:4px">{}</textarea>',
+            min(max(len(plain.splitlines()) + 1, 2), 12),
+            plain,
         )
-        link = format_html(
-            '<div style="margin-top:8px"><a class="button" href="{}">查看已存值（需二次确认）</a></div>',
-            reverse("admin:core_systemconfig_stored_value", args=[obj.pk]),
-        )
-        return format_html('<div>{}<div style="margin-top:6px">{}</div>{}</div>', status, rows, link)
+        return format_html("<div>{}{}</div>", summary, box)
 
-    stored_value_preview.short_description = "已存值"  # type: ignore[attr-defined]
+    stored_value_preview.short_description = "当前值（明文）"  # type: ignore[attr-defined]
 
     def category_display(self, obj: Any) -> Any:  # pragma: no cover
         """显示分类标签"""
@@ -157,11 +151,6 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
                 "trigger-update/",
                 self.admin_site.admin_view(self.trigger_update_view),
                 name="core_systemconfig_trigger_update",
-            ),
-            path(
-                "<path:object_id>/stored-value/",
-                self.admin_site.admin_view(self.stored_value_view),
-                name="core_systemconfig_stored_value",
             ),
         ]
         return custom_urls + urls
@@ -278,54 +267,6 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
     def _mask_secret_value(self, value: str) -> str:  # pragma: no cover
         """changelist 「配置值」列：委托给 security 层的统一掩码口径。"""
         return mask_summary(value)
-
-    def stored_value_view(self, request: HttpRequest, object_id: str) -> Any:  # pragma: no cover
-        """「已存值」页：默认只显示掩码；点「显示明文」才解密，且不缓存、记审计。
-
-        - GET：掩码明细 + 二次确认按钮（页面上没有任何明文）
-        - POST action=reveal：本次响应里带明文，响应头 no-store，刷新即消失
-        - 权限：与编辑页同口径（has_change_permission），不另设门槛
-
-        明文不入 session / 不入 messages（那会把密码写进缓存库）。
-        """
-        obj = self.get_object(request, object_id)
-        if obj is None:
-            raise Http404(f"SystemConfig {object_id} 不存在")
-        if not self.has_change_permission(request, obj):
-            raise PermissionDenied
-
-        revealed = ""
-        reveal_error = ""
-        if request.method == "POST":
-            if request.POST.get("action") != "reveal":
-                return HttpResponseRedirect(request.get_full_path())
-            try:
-                revealed = reveal_stored_value(obj.value)
-            except SecretValueUndecryptable as exc:
-                reveal_error = str(exc)
-            else:
-                # 只记「谁在什么时候看了哪个配置」，绝不记明文
-                logger.info(
-                    "system_config.stored_value_revealed key=%s operator=%s client_ip=%s",
-                    obj.key,
-                    str(request.user.get_username()),
-                    _client_ip(request),
-                )
-
-        context = {
-            **self.admin_site.each_context(request),
-            "title": f"已存值：{obj.key}",
-            "opts": self.model._meta,
-            "original": obj,
-            "description": describe_stored_value(obj.value, is_secret=bool(obj.is_secret)),
-            "revealed": revealed,
-            "reveal_error": reveal_error,
-            "change_url": reverse("admin:core_systemconfig_change", args=[obj.pk]),
-        }
-        response = TemplateResponse(request, "admin/core/systemconfig/stored_value.html", context)
-        response["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
-        response["Pragma"] = "no-cache"
-        return response
 
     @staticmethod
     def _clear_config_cache(key: str, *, previous_key: str = "") -> None:  # pragma: no cover
