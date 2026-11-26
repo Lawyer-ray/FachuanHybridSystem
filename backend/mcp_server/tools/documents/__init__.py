@@ -18,7 +18,7 @@ from mcp_server.tools.documents.documents import (
     preview_contract_context,
     preview_placeholders,
 )
-from mcp_server.tools.documents.draft import draft_document
+from mcp_server.tools.documents.draft import assess_draft_readiness, draft_document
 from mcp_server.tools.documents.evidence import reorder_evidence_items
 from mcp_server.tools.documents.external_templates import (
     analyze_template,
@@ -147,6 +147,7 @@ __all__ = [
     "update_mapping",
     "delete_mapping",
     # 一句话起草（类型 → 骨架 → 填槽 → 落位 → 落盘）
+    "assess_draft_readiness",
     "draft_document",
     # 证据管理
     "reorder_evidence_items",

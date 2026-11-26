@@ -25,6 +25,7 @@ from mcp_server.tools import (
     approve_workflow_step,
     archive_pdf_split_to_case_folder,
     ask_user,
+    assess_draft_readiness,
     assign_lawyer,
     assign_sms_case,
     auto_namer_process_by_path,
@@ -1330,6 +1331,7 @@ _t(apply_document_revisions)
 _t(add_document_comments)
 _t(create_folder_file)
 # 一句话起草：律师报一个文书类型，系统出成品并落进文件夹对应位置（会落盘 → 需留痕）
+_t(assess_draft_readiness)
 _t(draft_document)
 
 # 期限聚合：跨案件/合同/日志汇总到期事项

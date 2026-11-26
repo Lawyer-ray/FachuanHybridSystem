@@ -8096,6 +8096,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/doc-workspace/draft/assess": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 立案前判断：材料够不够出这份文书，缺什么
+         * @description 律师问「这个案子还缺什么」时走这里：**不生成任何文件**。
+         *
+         *     要件来自后端数据（`element_profiles`），模型只判断「这一条在本案满不满足」——
+         *     所以同一份材料跑两次不会给出两套法律要件。`verdict=blocked` 时起草会被闸门挡住。
+         */
+        post: operations["apps_doc_workspace_api_write_api_assess_draft_readiness"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/doc-workspace/draft-by-type": {
         parameters: {
             query?: never;
@@ -22371,9 +22394,80 @@ export interface components {
              */
             contract_type: string;
         };
+        /** DocDraftAssessOut */
+        DocDraftAssessOut: {
+            /**
+             * Verdict
+             * @default unknown
+             */
+            verdict: string;
+            /**
+             * Profile Key
+             * @default
+             */
+            profile_key: string;
+            /**
+             * Matrix
+             * @default []
+             */
+            matrix: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Missing Materials
+             * @default []
+             */
+            missing_materials: {
+                [key: string]: string;
+            }[];
+            /**
+             * Questions
+             * @default []
+             */
+            questions: {
+                [key: string]: string;
+            }[];
+            /**
+             * Blocking
+             * @default []
+             */
+            blocking: string[];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+        };
+        /**
+         * DocDraftAssessIn
+         * @description 立案前判断：只读、不渲染、不落盘。
+         */
+        DocDraftAssessIn: {
+            /** Case Id */
+            case_id?: number | null;
+            /** Contract Id */
+            contract_id?: number | null;
+            /**
+             * Cause Of Action
+             * @default
+             */
+            cause_of_action: string;
+            /**
+             * Facts
+             * @default {}
+             */
+            facts: {
+                [key: string]: string;
+            };
+            /**
+             * Instruction
+             * @default
+             */
+            instruction: string;
+        };
         /**
          * DocDraftByTypeOut
-         * @description `DocDraftOut` 形状 + 文书类型 + 可念给律师听的 warnings。
+         * @description `DocDraftOut` 形状 + 文书类型 + 可念给律师听的 warnings + 立案前判断。
          */
         DocDraftByTypeOut: {
             /** Created */
@@ -22427,6 +22521,13 @@ export interface components {
              * @default []
              */
             warnings: string[];
+            /**
+             * Readiness
+             * @default {}
+             */
+            readiness: {
+                [key: string]: unknown;
+            };
         };
         /**
          * DocDraftByTypeIn
@@ -22461,6 +22562,16 @@ export interface components {
              * @default
              */
             comment_author: string;
+            /**
+             * Assess First
+             * @default true
+             */
+            assess_first: boolean;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
         };
         /** DocSnapshotListOut */
         DocSnapshotListOut: {
@@ -39226,6 +39337,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocDraftOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_write_api_assess_draft_readiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocDraftAssessIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocDraftAssessOut"];
                 };
             };
         };

@@ -269,6 +269,7 @@ from mcp_server.tools.doc_converter import (
 from mcp_server.tools.doc_verify import get_returned_document_check, list_unverified_returns, verify_returned_document
 from mcp_server.tools.documents import (
     analyze_template,
+    assess_draft_readiness,
     confirm_mappings,
     create_document_template,
     create_folder_template,
@@ -864,6 +865,7 @@ __all__ = [
     "delete_archive_overrides",
     "download_supplementary_agreement",
     # 一句话起草（类型 → 骨架 → 填槽 → 落位 → 落盘）
+    "assess_draft_readiness",
     "draft_document",
     # 诉讼文书生成
     "generate_complaint",

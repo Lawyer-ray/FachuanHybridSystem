@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Callable, Iterable
 from typing import Any
@@ -27,6 +28,7 @@ from apps.documents.models import DocumentSpec
 from apps.documents.models.document_spec import SlotSource
 from apps.documents.services.document_template.placeholder_extractor import extract_placeholders
 from apps.documents.services.draft.facts_builder import MATERIAL_FACTS_KEY, build_facts
+from apps.documents.services.placeholders.body_hygiene import sanitize_llm_body
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +77,13 @@ def resolve_slot_values(
     contract: Any = None,
     facts: dict[str, str] | None = None,
     llm_caller: LLMCaller | None = None,
+    warnings: list[str] | None = None,
 ) -> tuple[dict[str, str], list[str]]:
     """把规格 + 事实解析成骨架的渲染上下文。
+
+    Args:
+        warnings: 可选的收集列表：模型正文被洁净度闸拦下、或数值核对发现异常时追加说明。
+            默认 None 表示调用方不收集，返回类型与旧版完全一致（不改元组形状）。
 
     Returns:
         `(context, pending_keys)`。context 的键全是骨架里真实存在的占位符；
@@ -104,8 +111,12 @@ def resolve_slot_values(
 
     claim_target = _section_target(spec, "claim", available)
     facts_target = _section_target(spec, "facts", available)
-    claim_value = _section_value(spec, "claim", facts=fact_values, material=material, llm_caller=llm_caller)
-    facts_value = _section_value(spec, "facts", facts=fact_values, material=material, llm_caller=llm_caller)
+    claim_value = _section_value(
+        spec, "claim", facts=fact_values, material=material, llm_caller=llm_caller, warnings=warnings
+    )
+    facts_value = _section_value(
+        spec, "facts", facts=fact_values, material=material, llm_caller=llm_caller, warnings=warnings
+    )
 
     _place_sections(
         spec,
@@ -221,6 +232,7 @@ def _section_value(
     facts: dict[str, str],
     material: dict[str, str],
     llm_caller: LLMCaller | None,
+    warnings: list[str] | None = None,
 ) -> str:
     source = _answer(getattr(spec, f"{section}_source", "")) or str(SlotSource.LLM.value)
     if source == SlotSource.SLOT:
@@ -235,7 +247,7 @@ def _section_value(
     if source == SlotSource.LLM:
         if llm_caller is None:
             return ""
-        return _llm_write(spec, section, material=material, llm_caller=llm_caller)
+        return _llm_write(spec, section, material=material, llm_caller=llm_caller, warnings=warnings)
     logger.warning("未知的槽位来源: doc_type=%s section=%s source=%s", spec.doc_type, section, source)
     return ""
 
@@ -246,9 +258,10 @@ def _llm_write(
     *,
     material: dict[str, str],
     llm_caller: LLMCaller,
+    warnings: list[str] | None = None,
 ) -> str:
     try:
-        raw = llm_caller(_build_messages(spec, section, material=material))
+        raw = _answer(llm_caller(_build_messages(spec, section, material=material)))
     except (LLMError, TimeoutError, StructuredValidationError, ValueError, RuntimeError):
         # 模型超时/报错/输出不合 schema 不让整份起草失败：这一段转未决项，其余槽照常填。
         # 收窄到「模型侧故障」：LLMError/超时/schema 校验失败/ValueError，以及
@@ -257,7 +270,37 @@ def _llm_write(
         # 伪装成「模型没写出来」，成稿里只剩一串 <待填写>。
         logger.warning("模型撰写失败，该段转未决: doc_type=%s section=%s", spec.doc_type, section, exc_info=True)
         return ""
-    return _answer(raw)
+    if not raw:
+        return ""
+    body, body_warnings = sanitize_llm_body(_json_body(raw) or raw, material=_material_text(material))
+    if warnings is not None:
+        label = _SECTION_LABELS.get(section, section)
+        warnings.extend(f"{label}：{warning}" for warning in body_warnings)
+    if body:
+        return body
+    # 模型把思考过程当正文交回来（真机 2026-11-26）：整段丢弃，与「模型没写出来」同路转未决。
+    # 半截推演比空槽更糟——空槽律师会补，推演混进正文会被当成已经写好的事实。
+    logger.warning("模型正文疑似思维链/元话语，该段转未决: doc_type=%s section=%s", spec.doc_type, section)
+    if warnings is not None:
+        warnings.append(f"{_SECTION_LABELS.get(section, section)}：模型输出疑似思维链，已丢弃，该段转未决")
+    return ""
+
+
+def _json_body(raw: str) -> str:
+    """从 `{"body": "..."}` 里取正文；不是这个形状就返回空串（由调用方回落到纯文本）。"""
+    from apps.core.llm.structured_output import extract_json_text
+
+    snippet = extract_json_text(raw)
+    if not snippet:
+        return ""
+    try:
+        payload = json.loads(snippet)
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    body = payload.get("body")
+    return body.strip() if isinstance(body, str) else ""
 
 
 def _build_messages(spec: DocumentSpec, section: str, *, material: dict[str, str]) -> list[dict[str, str]]:
@@ -270,6 +313,10 @@ def _build_messages(spec: DocumentSpec, section: str, *, material: dict[str, str
     if brief:
         system.append(f"写作要点：{brief}")
     system.append("规则：只能使用给定事实里能推出的信息，不许编造金额、日期、主体名称；推不出来的内容宁可不写。")
+    # 结构化外壳：真机里模型会把「我们需要…给定事实…」整段推演当正文交回来（3 次里 2 次）。
+    # 要求它把结果装进 {"body": ...}，推演通常留在 JSON 之外被丢掉；解析失败仍回落到
+    # `sanitize_llm_body`，两层都不依赖模型自觉。
+    system.append('输出格式：只输出一个 JSON 对象，形如 {"body": "本节正文"}；body 里不要出现任何对本任务的说明。')
 
     facts_lines = [
         f"- {key}: {value}" for key, value in material.items() if key != MATERIAL_FACTS_KEY and _answer(value)
@@ -285,6 +332,11 @@ def _build_messages(spec: DocumentSpec, section: str, *, material: dict[str, str
         {"role": "system", "content": "\n".join(system)},
         {"role": "user", "content": "\n".join(parts)},
     ]
+
+
+def _material_text(material: dict[str, str]) -> str:
+    """材料原文拼成一段文本：伪条目要判断「这行是否本来就出自材料」，需要原文而不是键值对。"""
+    return "\n".join(value for value in material.values() if value)
 
 
 def _resolve_extra_slots(
