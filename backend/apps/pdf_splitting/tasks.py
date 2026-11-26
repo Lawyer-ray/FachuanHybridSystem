@@ -94,6 +94,9 @@ def run_cross_check_stage(job_id: str) -> None:  # pragma: no cover
                     # 转正页回填的记账也要跟着落盘：summary 到分段阶段才写进 DB，
                     # 不落盘的话「哪几页被 VL 换过正文」就只剩 rotated_backfill.json 一处。
                     "rotated_backfill": dict(summary.get("rotated_backfill") or {}),
+                    # 分歧裁定的总账（开关状态 + 采信/留人工计数 + 原因分布）。
+                    # 不落盘的话分段阶段展开不出这个键，前端就永远看不到「本次自动裁定几条」。
+                    "engine_disagreements_judge": dict(summary.get("engine_disagreements_judge") or {}),
                 },
             )
         except Exception:

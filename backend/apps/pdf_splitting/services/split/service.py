@@ -68,6 +68,11 @@ def _dual_engine_summary(payload: dict[str, Any]) -> dict[str, Any]:
         # 转正页回填的记账（cross_check 阶段写好并落盘）：哪几页被 VL 换过、每页跳过原因。
         # 空 dict = 这次没开双引擎 / 没被转正页命中——不能省这个键，否则前端要写分支。
         "rotated_backfill": dict(payload.get("rotated_backfill") or {}),
+        # 分歧裁定的总账。形状固定（没跑过也是这套零值）：前端要显示
+        # 「332 条分歧里自动裁定 12 条」，缺键就得写 `?? 0`，而 `?? 0` 会把
+        # 「功能关着」与「跑了但一条都没判成」显示成同一个样子。
+        "engine_disagreements_judge": dict(payload.get("engine_disagreements_judge") or {})
+        or {"enabled": False, "annotated": 0, "accepted": 0, "human": 0, "reasons": {}},
     }
 
 

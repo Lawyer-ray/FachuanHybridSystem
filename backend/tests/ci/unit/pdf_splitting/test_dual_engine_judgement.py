@@ -571,3 +571,19 @@ class TestSkipGuards:
         one_line = _block([0.1, 0.100, 0.4, 0.108], engine="local_ppocr")
         two_lines = _block([0.1, 0.100, 0.4, 0.140], engine="mineru")
         assert judgement._build_crop([one_line, two_lines], {}, 1) is None
+
+
+def test_dual_engine_summary_展开判定总账() -> None:
+    """分段阶段展开 summary 时，判定总账必须跟着出来且形状固定。
+
+    这条链路过两个**白名单**（tasks 落盘 + `_dual_engine_summary` 展开），
+    漏一个就会出现「后端算了、前端什么都看不到」——正是前端最常报的那类
+    「明明跑了却没有」。所以这里直接锁展开结果。
+    """
+    from apps.pdf_splitting.services.split.service import _dual_engine_summary
+
+    empty = _dual_engine_summary({})["engine_disagreements_judge"]
+    assert empty == {"enabled": False, "annotated": 0, "accepted": 0, "human": 0, "reasons": {}}
+
+    payload = {"engine_disagreements_judge": {"enabled": True, "annotated": 3, "accepted": 1, "human": 2, "reasons": {}}}
+    assert _dual_engine_summary(payload)["engine_disagreements_judge"]["accepted"] == 1
