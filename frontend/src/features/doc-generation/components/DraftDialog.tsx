@@ -34,6 +34,9 @@ import { PendingList } from './PendingList'
  * **为什么未决项放进 toast 的 description**：成功即关弹窗（律师下一步要看的
  * 是文档，不是表单），未决槽名只能在关窗后的提示里继续可读、可复制。
  */
+/** 批注署名的默认值。**不放系统配置**：署名是「这份文书上写什么名字」，随本次起草走。 */
+export const DEFAULT_COMMENT_AUTHOR = 'Lawyer'
+
 export function DraftDialog({
   open,
   onOpenChange,
@@ -49,6 +52,8 @@ export function DraftDialog({
 }) {
   const [docType, setDocType] = useState('')
   const [instruction, setInstruction] = useState('')
+  /** 批注署名：律师在 Word/OnlyOffice 审阅面板里看到的「人」。默认 Lawyer。 */
+  const [commentAuthor, setCommentAuthor] = useState(DEFAULT_COMMENT_AUTHOR)
   /** 失败原因原文（null = 没有失败） */
   const [failure, setFailure] = useState<string | null>(null)
 
@@ -71,6 +76,7 @@ export function DraftDialog({
         // 只在 api 层透传，不在 UI 暴露开关：律师此刻要的是「生成」，不是调参。
         auto_review: true,
         instruction: instruction.trim(),
+        comment_author: commentAuthor.trim(),
       })
       // 业务失败是 HTTP 200 + created=false：不在这里抛，弹窗就只剩空白
       if (!res.created) throw new Error(res.reason || '生成失败（后端未给出原因）')
@@ -136,6 +142,21 @@ export function DraftDialog({
               文书类型没拉到：{errMessage(types.error, '接口异常，请稍后重试')}
             </p>
           )}
+
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[12px] font-medium">批注署名</span>
+            <input
+              data-testid="draft-comment-author"
+              value={commentAuthor}
+              disabled={pending}
+              onChange={(e) => setCommentAuthor(e.target.value)}
+              placeholder={DEFAULT_COMMENT_AUTHOR}
+              className="h-9 w-full rounded-md border border-border bg-background px-2.5 text-[13px] text-foreground outline-none focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-60"
+            />
+            <span className="text-[11.5px] leading-[1.6] text-muted-foreground">
+              生成后，正文里没填上的位置会挂批注；这里填的名字就是律师在「审阅」面板里看到的人。
+            </span>
+          </label>
 
           <label className="flex flex-col gap-1.5">
             <span className="text-[12px] font-medium">补充说明（可选）</span>

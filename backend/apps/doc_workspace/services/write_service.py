@@ -37,7 +37,7 @@ from apps.core.filesystem.bound_folder_browse import BoundFolderBrowseService
 
 from .docx.comments import add_comment
 from .docx.locate import LocateFailure, locate
-from .docx.revision import apply_revision, enable_track_changes, resolve_ai_author
+from .docx.revision import DEFAULT_AUTHOR, apply_revision, enable_track_changes
 
 logger = logging.getLogger(__name__)
 
@@ -218,6 +218,7 @@ def apply_span(
     base_mtime: float | None = None,
     user: Any = None,
     org_access: Any = None,
+    author: str = "",
 ) -> dict[str, Any]:
     """把 `selection` 换成 `suggested`，以 Word 修订痕迹写回**原文件**。
 
@@ -240,7 +241,7 @@ def apply_span(
         return {"applied": False, "reason": hit.reason, "candidates": hit.candidates}
 
     enable_track_changes(doc)
-    result = apply_revision(hit.paragraph, selection, suggested, author=resolve_ai_author())
+    result = apply_revision(hit.paragraph, selection, suggested, author=author or DEFAULT_AUTHOR)
     if not result.ok:
         return {"applied": False, "reason": result.reason}
 
@@ -290,7 +291,7 @@ def apply_span(
         "subpath": subpath,
         "how": result.how,
         "mode": "disk",
-        "author": resolve_ai_author(),
+        "author": author or DEFAULT_AUTHOR,
         "rev_ids": list(result.rev_ids),
         "file_url": editor_source_path(kind, owner_id, subpath),
         # 画布开着时前端要把这条修订重放进当前画布（免整页重载）。
@@ -308,6 +309,7 @@ def apply_batch(
     base_mtime: float | None = None,
     user: Any = None,
     org_access: Any = None,
+    author: str = "",
 ) -> dict[str, Any]:
     """一次落多条修订，**全或无**。
 
@@ -368,7 +370,7 @@ def apply_batch(
                 "reason": f"第 {index + 1} 条：{hit.reason}",
                 "failed_index": index,
             }
-        result = apply_revision(hit.paragraph, selection, suggested, author=resolve_ai_author())
+        result = apply_revision(hit.paragraph, selection, suggested, author=author or DEFAULT_AUTHOR)
         if not result.ok:
             return {
                 "applied": False,
@@ -407,7 +409,7 @@ def apply_batch(
         "applied": True,
         "mode": "disk",
         "count": len(patches),
-        "author": resolve_ai_author(),
+        "author": author or DEFAULT_AUTHOR,
         "rev_ids": rev_ids,
         "file_url": editor_source_path(kind, owner_id, subpath),
         "mirror_to_canvas": write_target(kind=kind, owner_id=owner_id, subpath=subpath, user=user) == TARGET_CANVAS,
@@ -423,6 +425,7 @@ def apply_comments(
     base_mtime: float | None = None,
     user: Any = None,
     org_access: Any = None,
+    author: str = "",
 ) -> dict[str, Any]:
     """给若干段挂批注（不改正文）。
 
@@ -454,7 +457,7 @@ def apply_comments(
             continue
         # `quote` 可由调用方覆盖：占位符批注的锚点本身就是占位文字，再回显一遍是噪声。
         quote = str(item.get("quote", selection))
-        outcome = add_comment(hit.paragraph, text=text, quote=quote, author=resolve_ai_author())
+        outcome = add_comment(hit.paragraph, text=text, quote=quote, author=author or DEFAULT_AUTHOR)
         if outcome.ok:
             landed.append(outcome.comment_id)
         else:

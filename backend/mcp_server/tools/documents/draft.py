@@ -50,6 +50,15 @@ def draft_document(
         ),
     ] = None,
     instruction: Annotated[str, Field(description="律师那句话里除文书类型外的补充要求（可选）")] = "",
+    comment_author: Annotated[
+        str,
+        Field(
+            description=(
+                "未决项批注的署名（Word/OnlyOffice 审阅面板里显示的\"人\"）。"
+                "缺省 Lawyer；按这一份文书的要求填，不要写死"
+            )
+        ),
+    ] = "",
 ) -> dict[str, Any]:
     """按文书类型起草一份文书，**直接落进项目文件夹的指定位置**。
 
@@ -70,6 +79,7 @@ def draft_document(
         case_id / contract_id: 二选一，决定落到哪个项目文件夹。
         facts: 律师显式给出的事实（可选，优先级最高）。
         instruction: 律师的补充要求（可选）。
+        comment_author: 未决项批注的署名（可选，缺省 Lawyer）。
 
     Returns:
         `{created, doc_type, name, subpath, file_url, filled, pending, slot_fill_rate,
@@ -88,6 +98,7 @@ def draft_document(
             "contract_id": contract_id,
             "facts": facts or {},
             "instruction": instruction,
+            "comment_author": comment_author,
         },
     )
     return result

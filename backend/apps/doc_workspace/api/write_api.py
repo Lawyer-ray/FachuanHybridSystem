@@ -342,6 +342,13 @@ class DocDraftByTypeIn(Schema):
     instruction: str = ""
     """律师那句话里除文书类型外的补充，作为额外要求交给填槽的模型。"""
 
+    comment_author: str = ""
+    """未决项批注的署名（Word/OnlyOffice 审阅面板里显示的"人"）。
+
+    前端在起草弹窗里填，缺省 `Lawyer`。**不做系统配置**：同一个所里不同案子、不同客户
+    对署名的要求都可能不同，放系统配置等于让一个人替全所决定。
+    """
+
 
 class DocDraftByTypeOut(DocDraftOut):
     """`DocDraftOut` 形状 + 文书类型 + 可念给律师听的 warnings。"""
@@ -367,6 +374,7 @@ def draft_document_by_type(request: HttpRequest, payload: DocDraftByTypeIn) -> A
         contract_id=payload.contract_id,
         facts=payload.facts,
         instruction=payload.instruction,
+        comment_author=payload.comment_author,
         auto_review=payload.auto_review,
         user=user,
         org_access=getattr(user, "org_access", None),

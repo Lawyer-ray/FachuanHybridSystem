@@ -41,7 +41,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
 
-from .revision import _document_root, resolve_ai_author
+from .revision import DEFAULT_AUTHOR, _document_root
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +195,7 @@ def add_comment(
     part = _comments_part(doc)
     comment_id = _next_comment_id(part.element)
 
-    resolved_author = (author or "").strip() or resolve_ai_author()
+    resolved_author = (author or "").strip() or DEFAULT_AUTHOR
     # 缩写取署名首两字：空 initials 在 Word 里会画成一个空白头像块
     resolved_initials = (initials or "").strip() or resolved_author[:2]
 

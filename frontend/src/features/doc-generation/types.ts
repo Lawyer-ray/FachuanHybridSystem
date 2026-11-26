@@ -25,6 +25,13 @@ export interface DraftRequest {
   facts: Record<string, string>
   auto_review: boolean
   instruction: string
+  /**
+   * 未决项批注的署名（Word/OnlyOffice 审阅面板里显示的「人」）。
+   *
+   * 随**本次起草**走，不进系统配置：同一个所里不同案子、不同客户对署名的要求都可能不同。
+   * 留空由后端回落 `Lawyer`。
+   */
+  comment_author: string
 }
 
 /**

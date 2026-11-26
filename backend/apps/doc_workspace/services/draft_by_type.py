@@ -85,6 +85,7 @@ def draft_document(
     contract_id: int | None = None,
     facts: dict[str, str] | None = None,
     instruction: str = "",
+    comment_author: str = "",
     auto_review: bool = True,
     user: Any = None,
     org_access: Any = None,
@@ -99,6 +100,8 @@ def draft_document(
         case_id / contract_id: 二选一，决定落到哪个项目文件夹。
         facts: 律师显式给出的事实，优先级最高（金额/日期这类不交模型）。
         instruction: 律师那句话里除文书类型外的补充，会作为额外要求交给填槽的模型。
+        comment_author: 未决项批注的署名。**由前端在起草时填**，默认 `Lawyer`——
+            署名不是部署级开关：同一个所里不同案子、不同客户对署名的要求都可能不同。
         auto_review: 起草完是否顺手排一轮初审（沿用 `review_pipeline` 的轮次）。
     """
     doc_type = (doc_type or "").strip()
@@ -168,6 +171,7 @@ def draft_document(
             owner_id=owner.owner_id,
             subpath=created["subpath"],
             pending=pending,
+            author=comment_author,
             user=user,
             org_access=org_access,
         )
@@ -557,7 +561,14 @@ def _pending_comment(slot: str) -> str:
 
 
 def _comment_pending(
-    *, kind: str, owner_id: int, subpath: str, pending: list[str], user: Any, org_access: Any
+    *,
+    kind: str,
+    owner_id: int,
+    subpath: str,
+    pending: list[str],
+    author: str = "",
+    user: Any = None,
+    org_access: Any = None,
 ) -> list[str]:
     """未决项挂成 Word 批注（**沿用 `draft_service` 的做法**：正文占位 + 批注解释为什么空着）。"""
     if not pending:
@@ -575,6 +586,7 @@ def _comment_pending(
             }
             for slot in pending
         ],
+        author=author,
         user=user,
         org_access=org_access,
     )

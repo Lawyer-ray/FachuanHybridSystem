@@ -90,6 +90,7 @@ describe('doc-generation api 前缀与端点', () => {
       facts: {},
       auto_review: true,
       instruction: '管辖条款约定不明',
+      comment_author: 'Lawyer',
     })
     const [path, opts] = lastPost()
     expect(path).toBe('draft-by-type')
@@ -99,6 +100,7 @@ describe('doc-generation api 前缀与端点', () => {
       facts: {},
       auto_review: true,
       instruction: '管辖条款约定不明',
+      comment_author: 'Lawyer',
     })
     expect(opts.timeout).toBe(api.DRAFT_TIMEOUT_MS)
     expect(api.DRAFT_TIMEOUT_MS).toBeGreaterThan(10_000)

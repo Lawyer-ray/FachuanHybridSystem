@@ -74,7 +74,7 @@ def _wire(
     spec: SimpleNamespace | None = None,
 ) -> dict[str, Any]:
     """接好六个外部件（规格、事实、模板文件、文件夹树、写盘、初审），回传捕获到的调用。"""
-    captured: dict[str, Any] = {"comments": [], "create_file": None}
+    captured: dict[str, Any] = {"comments": [], "create_file": None, "comment_author": None}
     skeleton = _skeleton(tmp_path)
 
     monkeypatch.setattr(spec_service, "get_spec", lambda _doc_type: spec or _spec())
@@ -108,6 +108,7 @@ def _wire(
 
     def _apply_comments(**kwargs: Any) -> dict[str, Any]:
         captured["comments"].extend(kwargs["comments"])
+        captured["comment_author"] = kwargs.get("author")
         return {"applied": True}
 
     monkeypatch.setattr(write_service, "create_file", _create_file)
@@ -250,6 +251,24 @@ def test_slot_text_is_not_refolded_before_render(monkeypatch: pytest.MonkeyPatch
     assert draft_by_type._to_docx_text(value) == value
     # 加粗仍要被换成哨兵（样式归本函数管）
     assert "\ue000" in draft_by_type._to_docx_text("**加粗**")
+
+
+def test_comment_author_comes_from_the_request_not_from_config(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    """批注署名**随本次起草请求**走：前端填什么就是什么，缺省 `Lawyer`。
+
+    **为什么不能做成系统配置**：署名是「这一份文书上写什么名字」——同一个所里不同案子、
+    不同客户的要求都可能不同。放系统配置等于让一个人替全所决定，而且改一次就悄悄改变
+    所有人的历史习惯。这里守两条：传了就用传的；没传就是 `Lawyer`。
+    """
+    captured = _wire(monkeypatch, tmp_path, kinds=(DOC_TYPE,), pending=["法院名称"])
+    draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, comment_author="李助理", auto_review=False)
+    assert captured["comment_author"] == "李助理"
+
+    captured_default = _wire(monkeypatch, tmp_path, kinds=(DOC_TYPE,), pending=["法院名称"])
+    draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, auto_review=False)
+    assert captured_default["comment_author"] == ""
 
 
 def test_contract_owner_writes_into_the_contract_folder(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:

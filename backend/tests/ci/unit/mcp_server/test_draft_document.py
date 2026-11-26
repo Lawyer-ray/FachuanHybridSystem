@@ -61,6 +61,8 @@ def test_posts_the_documented_payload(monkeypatch: pytest.MonkeyPatch) -> None:
         "contract_id": None,
         "facts": {"异议人": "甲公司"},
         "instruction": "只写管辖问题",
+        # 批注署名随请求走（缺省空串，后端回落 Lawyer）；不做系统配置
+        "comment_author": "",
     }
 
 

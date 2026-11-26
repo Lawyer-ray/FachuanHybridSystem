@@ -199,18 +199,4 @@ def get_ocr_configs() -> list[dict[str, Any]]:
             "value": "",
             "is_secret": True,
         },
-        # ── 文档工作面：AI 批注/修订的署名 ─────────────────────────────────────
-        # 律师在 Word「审阅」面板里看到的是**人**名。硬编码成「法穿AI」在有的所里不合规
-        # （要写成助理、内勤或某个中性名），所以做成配置；缺省值保持原行为不变。
-        # 只影响署名，不影响审批与留痕——审计认的是 EditorSession 里的用户身份。
-        {
-            "key": "DOC_COMMENT_AUTHOR",
-            "category": "ai",
-            "description": (
-                "AI 落批注/修订时显示的作者名（Word 审阅面板、OnlyOffice 修订栏可见）。"
-                "留空则用默认「法穿AI」。改这个不会改变审计归属，只改署名。"
-            ),
-            "value": "法穿AI",
-            "is_secret": False,
-        },
     ]
