@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react'
-import { useIsMutating, useQueryClient, type QueryClient, type MutationKey } from '@tanstack/react-query'
+import { useEffect, useMemo, useReducer, useRef } from 'react'
+import { useQueryClient, type QueryClient, type MutationKey } from '@tanstack/react-query'
 
 import { errMessage } from '@/lib/errors'
 import { uploadContract, type UploadedTask } from '../api'
@@ -57,7 +57,20 @@ export function useLaunchUpload(params: {
   }, [loadFile])
 
   const mutationKey = useMemo<MutationKey>(() => (input ? [input] : []), [input])
-  const uploading = useIsMutating({ mutationKey, exact: true }) > 0
+
+  /**
+   * 订阅 mutation cache，让「落定」能触发重渲染。
+   *
+   * **为什么不用 `useIsMutating`**：它的返回只是「有几条在跑」，本身就是个派生量；
+   * react-query 5.104.5 重写了 `useMutationState`（`useIsMutating` 就是它的包装）的
+   * 快照/订阅实现后，这里靠它当**唯一**订阅点就在落定后不再重渲染——实测症状是
+   * 上传接口成功返回、当事人名却永远不出现（`ReviewLaunchDrawer.dom.test.tsx` 17/19 红）。
+   * 直接订阅 `MutationCache` 是文档化的 API，不依赖任何内部快照机制：任何记录变化
+   * 都让本 hook 重算一次，阶段仍由 `uploadStateOf` 从 cache 派生（单一事实来源不变）。
+   */
+  const mutationCache = queryClient.getMutationCache()
+  const [, bumpMutationVersion] = useReducer((n: number) => n + 1, 0)
+  useEffect(() => mutationCache.subscribe(() => bumpMutationVersion()), [mutationCache])
 
   /**
    * 触发上传（调用方在 effect 里调，见 ReviewLaunchDrawer）。
@@ -104,7 +117,7 @@ export function useLaunchUpload(params: {
   }
 
   const result = input
-    ? uploadStateOf(queryClient, mutationKey, uploading)
+    ? uploadStateOf(queryClient, mutationKey)
     : { phase: 'idle' as LaunchPhase, data: null, error: null }
 
   return {
@@ -146,9 +159,7 @@ function toRecognized(task: UploadedTask, clientName?: string): LaunchRecognized
 function uploadStateOf(
   queryClient: QueryClient,
   mutationKey: MutationKey,
-  uploading: boolean,
 ): { phase: LaunchPhase; data: LaunchRecognized | null; error: string | null } {
-  if (uploading) return { phase: 'uploading', data: null, error: null }
   const mutation = queryClient
     .getMutationCache()
     .find({ mutationKey, exact: true, predicate: (m) => m.options.scope === UPLOAD_SCOPE })
