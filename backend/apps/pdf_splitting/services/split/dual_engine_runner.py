@@ -17,6 +17,12 @@
 「这次要不要双跑」是**单次任务的输入**，不是部署级配置。放配置里要么全员被
 同一档价格绑死，要么得先改配置再跑任务——两种都不是用户要的东西。
 
+判定的开关同理，但是**两级**的：``judge_enabled``（``PdfSplitJob.ocr_judge_enabled``）
+说「用户在**这一份**卷宗上要不要判」，而 SystemConfig 的 ``OCR_JUDGE_ENABLED`` 与
+``OCR_JUDGE_API_KEY`` 只是**部署级能力总闸**（没配 key 时谁都不能判）。两者都过才
+真判，且 ``summary["engine_disagreements_judge"]`` 同时给 ``enabled``（有效值）与
+``requested``（用户要求值），前端才能说清「你开了但没生效（缺 key）」。
+
 双引擎意味着**同一份 PDF 被两个云端平台各识别一遍**：耗时翻倍（164 页卷宗
 实测单引擎就要几分钟到十几分钟）、费用翻倍，而收益是「找出两引擎不一致的
 地方」。这份收益只在关键页上值得付全价，所以调用方没给引擎时（``engine_factories``
@@ -78,8 +84,9 @@ _JUDGE_ERRORS = (OSError, ValueError, RuntimeError, KeyError, TypeError)
 
 #: summary 里挂分歧数据的键名（前端 draft.ts 按这个读）。
 SUMMARY_ENGINE_DISAGREEMENTS = "engine_disagreements"
-#: 分歧裁定的汇总（开关状态 + 命中/采信/留人工计数 + 各原因分布）。
-#: 与分歧数据分开：前端据此说「本次 332 条分歧里自动裁定 12 条」而不是去数每条的 judge 键。
+#: 分歧裁定的汇总（``enabled`` 有效开关 + ``requested`` 用户要求 + 命中/采信/留人工
+#: 计数 + 各原因分布）。与分歧数据分开：前端据此说「本次 332 条分歧里自动裁定 12 条」
+#: 而不是去数每条的 judge 键；``enabled``/``requested`` 不同时则是「开了但没生效」。
 SUMMARY_ENGINE_DISAGREE_JUDGE = "engine_disagreements_judge"
 SUMMARY_ENGINE_DISAGREE_SUMMARY = "engine_disagree_summary"
 
@@ -165,12 +172,13 @@ def run_dual_engine(
     engine_factories: Mapping[str, Any] | None = None,
     max_workers: int = 2,
     min_severity: str | None = None,
+    judge_enabled: bool | None = None,
 ) -> DualEngineOutcome:
     """并行跑各引擎并比对，返回分歧（**不做任何持久化**）。
 
     引擎集合完全由调用方决定：``engine_factories`` 里放几个就跑几个（放 1 个也能
-    跑，只是 ``compare_pages`` 会因为「可比引擎不足 2 个」返回空分歧）。本函数
-    **不读任何配置**——「这次要不要双跑」是任务输入，不是部署配置。
+    跑，只是 ``compare_pages`` 会因为「可比引擎不足 2 个」返回空分歧）。「这次要不要
+    双跑」是任务输入，不是部署配置。
 
     Args:
         pdf_path: 源 PDF。``page_numbers`` 非空时只把这几页切出来上传——
@@ -181,6 +189,9 @@ def run_dual_engine(
             调用**，所以后端实例不跨线程共享。
         max_workers: 线程数。几个引擎就几个，再多也不会更快（云端排队才是瓶颈）。
         min_severity: 透传给 ``compare_pages``；None 表示全返回。
+        judge_enabled: **任务级**判定开关（``PdfSplitJob.ocr_judge_enabled``）。
+            ``False`` 一定不判；``True`` / None 还要部署侧可用（开关 + key）才判，
+            见下方「两级门禁」。
 
     Returns:
         ``DualEngineOutcome``。某一引擎失败时它在 ``engine_pages`` 里是空 dict，
@@ -243,19 +254,30 @@ def run_dual_engine(
         if blocks:
             annotations[disagreement_key(item)] = blocks
 
-    # 分歧裁定：只有开关打开时才真跑（关着时 judge_disagreements 直接返回空 dict，
-    # 一页都不渲染）。异常在这里兜住——判定是「多一票参考」，不许把双引擎任务拖挂。
+    # 分歧裁定：**两级门禁**，两个都过才真跑。
+    #
+    # · ``requested`` —— 任务级开关（用户在这一份卷宗上勾了什么）。None 视为「不反对」：
+    #   任务字段默认 True，没有表态的调用方不应该比显式关掉的人得到更少的功能。
+    # · ``enabled``  —— **有效值** = requested 且部署侧可用（``is_enabled()``：总开关
+    #   打开且配了 key）。缺 key / 总闸关着时这里就短路，连一页都不渲染——
+    #   ``judge_disagreements`` 自己也判一次，但那是它被当库函数直接调用时的自保。
+    #
+    # 两者都写进 summary：只回显全局开关的话，前端无法区分「用户没要」与
+    # 「用户要了但没生效（缺 key）」，用户会以为判定坏了。
+    # 异常在这里兜住——判定是「多一票参考」，不许把双引擎任务拖挂。
+    judge_requested = judge_enabled is not False
+    judge_effective = judge_requested and is_judge_enabled()
     judgements: dict[tuple[int, str, str], dict[str, Any]] = {}
-    try:
-        judgements = judge_disagreements(
-            pdf_path=source,
-            disagreements=disagreements,
-            blocks_by_disagreement=annotations,
-            page_angles=engine_page_angles,
-        )
-    except _JUDGE_ERRORS:
-        logger.exception("pdf_split_judge_failed", extra={"pdf_path": Path(source).as_posix()})
-
+    if judge_effective:
+        try:
+            judgements = judge_disagreements(
+                pdf_path=source,
+                disagreements=disagreements,
+                blocks_by_disagreement=annotations,
+                page_angles=engine_page_angles,
+            )
+        except _JUDGE_ERRORS:
+            logger.exception("pdf_split_judge_failed", extra={"pdf_path": Path(source).as_posix()})
     return DualEngineOutcome(
         engine_pages=engine_pages,
         blocks_by_engine=blocks_by_engine,
@@ -269,7 +291,9 @@ def run_dual_engine(
             ),
             SUMMARY_ENGINE_DISAGREE_SUMMARY: summarize_severities(disagreements),
             SUMMARY_ENGINE_DISAGREE_JUDGE: {
-                "enabled": is_judge_enabled(),
+                # enabled＝真正跑没跑，requested＝用户是否要求开。
+                "enabled": judge_effective,
+                "requested": judge_requested,
                 **judge_summary(judgements),
             },
             # 编排层自身的可观测字段：哪个引擎没跑起来、跑了多少页。

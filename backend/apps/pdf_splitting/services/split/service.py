@@ -71,8 +71,10 @@ def _dual_engine_summary(payload: dict[str, Any]) -> dict[str, Any]:
         # 分歧裁定的总账。形状固定（没跑过也是这套零值）：前端要显示
         # 「332 条分歧里自动裁定 12 条」，缺键就得写 `?? 0`，而 `?? 0` 会把
         # 「功能关着」与「跑了但一条都没判成」显示成同一个样子。
+        # 零值里必须带上 ``requested``：前端拿它与 ``enabled`` 对比才能说
+        # 「你开了但没生效」，缺键就会被当成 false 而误报。
         "engine_disagreements_judge": dict(payload.get("engine_disagreements_judge") or {})
-        or {"enabled": False, "annotated": 0, "accepted": 0, "human": 0, "reasons": {}},
+        or {"enabled": False, "requested": False, "annotated": 0, "accepted": 0, "human": 0, "reasons": {}},
     }
 
 
@@ -312,7 +314,14 @@ class PdfSplitService:
                 # 心跳线程覆盖整个阻塞段。它不能阻止 worker 超时（那要杀进程），
                 # 但能让看门狗分清楚「还活着」与「真死了」，避免误重排。
                 with periodic_heartbeat(job.id):
-                    outcome = run_dual_engine(pdf_path, engine_factories=factories)
+                    # 判定开不开是**任务级**选择（用户在前端勾/不勾）：传下去，
+                    # 由 run_dual_engine 与部署级能力总闸合成有效值。
+                    # 缺属性时 None = 未表态 → 跟随部署侧（与旧行为一致）。
+                    outcome = run_dual_engine(
+                        pdf_path,
+                        engine_factories=factories,
+                        judge_enabled=getattr(job, "ocr_judge_enabled", None),
+                    )
             except Exception:
                 logger.exception("pdf_split_dual_engine_failed", extra={"pdf_path": pdf_path.as_posix()})
                 return {}
@@ -356,9 +365,10 @@ class PdfSplitService:
                 # 批级成果落在 job 目录里：worker 被杀后重跑接着已完成的批跑，
                 # 不再为同一批 LLM 付第二次钱。
                 checkpoint_path=storage.analysis_dir / "segment_checkpoint.json",
-                # 策略取 SystemConfig（PDF_SPLIT_SEGMENT_STRATEGY），默认 batch。
+                # 策略以**任务级选择**为准（job.segment_strategy）；只有它为空时才回落到
+                # SystemConfig 的 PDF_SPLIT_SEGMENT_STRATEGY，最后才是 batch。
                 # 整本路径失败会自动降级回分批，所以这里不必先探测可用性。
-                strategy=resolve_segment_strategy(),
+                strategy=resolve_segment_strategy(getattr(job, "segment_strategy", "")),
             )
 
         # 跨页一致性校对与段级质量标记：与 analyze_pdf 走同一条路径（同一份判据、

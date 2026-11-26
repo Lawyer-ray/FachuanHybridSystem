@@ -120,6 +120,32 @@ class PdfSplitLayoutMode(models.TextChoices):
     LAYOUT = "layout", "补版面（电子页也上云端拿坐标/表格）"
 
 
+class PdfSplitSegmentStrategy(models.TextChoices):
+    """分段策略：**任务级**选择（`PdfSplitJob.segment_strategy`），不是部署配置。
+
+    「要不要一口气看完整本」是律师对**这一份卷宗**的取舍（值不值得多等几分钟、
+    要不要两种切法对照），不是全所统一的部署口径。取值逐字对应
+    `services/split/pipeline.SEGMENT_STRATEGIES`（那边是执行侧常量，这里是落库枚举，
+    两处必须同名，改一个就要改另一个）。
+
+    三者是「稳 / 准 / 对照」的取舍：
+
+    · ``batch`` —— 逐批摘要后拼接。每批只看几千字，稳定、内存与单次请求都小，
+      164 页实测不会撞超时；代价是批间看不到上下文，边界可能切窄。**默认值。**
+    · ``wholebook`` —— 整本一次看完再切。看得全，跨批的边界（一份材料被拆到两批）
+      能看住，实测同一份正文能多切出 2 段；代价是一次请求要吞掉整本正文，
+      大卷宗（数百页）可能撞 LLM 超时/输出上限，**失败会自动退回 ``batch``**
+      （降级原因写进 summary 的 ``segment_llm_fallback_reason``），不会整个任务失败。
+    · ``wholebook_cross`` —— 两条都跑，逐段比对边界，不一致的段标
+      `PdfSplitReviewFlag.BOUNDARY_DISAGREEMENT` 交人工裁定。最准也最贵（两次 LLM），
+      用在「切错了要重来一遍」的关键卷宗上。
+    """
+
+    BATCH = "batch", "分批摘要（稳）"
+    WHOLEBOOK = "wholebook", "整本一次（更准）"
+    WHOLEBOOK_CROSS = "wholebook_cross", "两种都跑（分歧交人工）"
+
+
 class PdfSplitSegmentType(models.TextChoices):
     COMPLAINT = "complaint", "起诉状"
     EVIDENCE_LIST = "evidence_list", "证据清单及明细"
@@ -239,6 +265,16 @@ class PdfSplitJob(models.Model):
         default="",
         verbose_name="交叉比对引擎",
     )
+    # ↓↓ 分歧自动裁定：**任务级**开关（用户在每个任务上选），默认开。
+    #
+    # 为什么默认 True 而不是 False：判定只写在「两引擎分歧」这一层，两引擎一致时
+    # 一条都不判，成本自然为零；而分歧交人工处理一次要律师逐页核对。默认关等于让
+    # 绝大多数用户永远用不到这个能力。
+    #
+    # 它与 SystemConfig 的 ``OCR_JUDGE_ENABLED`` 是**两级**语义：这里说「这次任务
+    # 要不要判」，``OCR_JUDGE_ENABLED``/``OCR_JUDGE_API_KEY`` 是部署级能力总闸。
+    # 有效值 = 本字段非 False **且** 部署侧可用（见 `dual_engine_runner.run_dual_engine`）。
+    ocr_judge_enabled = models.BooleanField(default=True, verbose_name="分歧自动裁定")
     layout_mode = models.CharField(
         max_length=16,
         choices=PdfSplitLayoutMode.choices,
@@ -246,6 +282,15 @@ class PdfSplitJob(models.Model):
         # （计费 + 数十秒）不该是默认行为。需要坐标对照时显式开。
         default=PdfSplitLayoutMode.FAST_TEXT,
         verbose_name="版面策略",
+    )
+    # ↓↓ 分段策略：同样**任务级**。SystemConfig 的 ``PDF_SPLIT_SEGMENT_STRATEGY``
+    # 退化成「部署默认值」——本字段有值时永远以本字段为准（任务级选择 >
+    # SystemConfig 默认 > batch，见 `pipeline.resolve_segment_strategy`）。
+    segment_strategy = models.CharField(
+        max_length=32,
+        choices=PdfSplitSegmentStrategy.choices,
+        default=PdfSplitSegmentStrategy.BATCH,
+        verbose_name="分段策略",
     )
     status = models.CharField(
         max_length=32,

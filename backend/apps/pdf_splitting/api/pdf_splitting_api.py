@@ -338,6 +338,12 @@ def create_pdf_split_job(  # pragma: no cover
     layout_mode: str = Form("fast_text"),
     cloud_backend: str = Form("auto"),
     dual_engines: str = Form(""),
+    # 这两个是**用户语义**的任务级选项（默认判定开、默认分批摘要）。全局配置
+    # （OCR_JUDGE_ENABLED / PDF_SPLIT_SEGMENT_STRATEGY）降为部署级默认值 / 能力总闸。
+    # 取值校验在 service 层（`_normalize_ocr_judge_enabled` / `_normalize_segment_strategy`）：
+    # 非法值抛 ValidationException（400），不在这里静默兼容。
+    ocr_judge_enabled: str = Form("1"),
+    segment_strategy: str = Form("batch"),
 ) -> PdfSplitJobSubmitOut:
     # 安全审计第4轮：source_path 直读服务器本地文件系统，仅管理员可提交；
     # 文件上传（file）仍对登录用户开放。
@@ -352,6 +358,8 @@ def create_pdf_split_job(  # pragma: no cover
         layout_mode=layout_mode,
         cloud_backend=cloud_backend,
         dual_engines=dual_engines,
+        ocr_judge_enabled=ocr_judge_enabled,
+        segment_strategy=segment_strategy,
         created_by=getattr(request, "user", None),
     )
     return PdfSplitJobSubmitOut(job_id=str(job.id), status=job.status)

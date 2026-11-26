@@ -334,6 +334,9 @@ def _inconsistency_summary(inconsistencies: list[Any]) -> dict[str, Any]:
 
 #: 分段策略。``batch`` = 逐批摘要（现状，稳）；``wholebook`` = 整本一次（看得全）；
 #: ``wholebook_cross`` = 两条都跑，边界不一致的段标成「待裁定」。
+#:
+#: 取值必须与落库枚举 ``models.PdfSplitSegmentStrategy`` 逐字一致（那边是用户选的
+#: 枚举，这里是执行侧常量）。
 SEGMENT_STRATEGY_BATCH = "batch"
 SEGMENT_STRATEGY_WHOLEBOOK = "wholebook"
 SEGMENT_STRATEGY_WHOLEBOOK_CROSS = "wholebook_cross"
@@ -345,11 +348,17 @@ SEGMENT_STRATEGIES: tuple[str, ...] = (
 
 
 def resolve_segment_strategy(explicit: str | None = None) -> str:
-    """分段策略的取值来源：显式参数 > SystemConfig > batch。
+    """分段策略的取值来源：**任务级选择 > SystemConfig 默认 > batch**。
 
-    为什么默认仍是 batch：整本一次要一口气看完一本书，大卷宗会撞 LLM 超时；
+    ``explicit`` 是**用户在这个任务上选的**（``PdfSplitJob.segment_strategy``）：
+    有值就永远以它为准，部署级配置不得覆盖单次任务的选择。
+
+    ``explicit`` 为空时才读 SystemConfig 的 ``PDF_SPLIT_SEGMENT_STRATEGY``——它现在
+    只是「部署级默认值」，不再是唯一入口（历史任务与未传该字段的调用方走这条）。
+
+    为什么最后一道默认仍是 batch：整本一次要一口气看完一本书，大卷宗会撞 LLM 超时；
     分批是踩过「164 页整本一次跑到 499s 被 worker 杀掉」之后才改成默认的。
-    想用整本路径就显式开——不存在「悄悄换成另一种切法」。
+    想用整本路径就显式选——不存在「悄悄换成另一种切法」。
     """
     want = str(explicit or "").strip().lower()
     if not want:

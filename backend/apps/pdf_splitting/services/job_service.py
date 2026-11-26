@@ -26,6 +26,7 @@ from apps.pdf_splitting.models import (
     PdfSplitOcrProfile,
     PdfSplitReviewFlag,
     PdfSplitSegment,
+    PdfSplitSegmentStrategy,
     PdfSplitSegmentType,
     PdfSplitSourceType,
     PdfSplitStage,
@@ -39,6 +40,11 @@ from .template_registry import get_default_filename, get_segment_label, get_temp
 logger = logging.getLogger("apps.pdf_splitting")
 
 _WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:[\\/]")
+
+#: 任务级判定开关的合法取值（表单文本，大小写不敏感）。
+#: 前端传字符串（HTML 表单只有文本），直接调用的脚本 / MCP 通常传 bool，两路都收。
+_JUDGE_ENABLED_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+_JUDGE_ENABLED_FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 
 
 def _stale_seconds_for(job: PdfSplitJob) -> int | None:
@@ -124,6 +130,8 @@ class PdfSplitJobService:
         layout_mode: str = PdfSplitLayoutMode.FAST_TEXT,
         cloud_backend: str = PdfSplitCloudBackend.AUTO,
         dual_engines: str = "",
+        ocr_judge_enabled: bool | str = True,
+        segment_strategy: str = PdfSplitSegmentStrategy.BATCH,
         created_by: Any | None = None,
     ) -> PdfSplitJob:
         has_file = file is not None
@@ -137,6 +145,8 @@ class PdfSplitJobService:
         layout_key = self._normalize_layout_mode(layout_mode)
         cloud_key = self._normalize_cloud_backend(cloud_backend)
         dual_engines_key = self._normalize_dual_engines(dual_engines)
+        judge_key = self._normalize_ocr_judge_enabled(ocr_judge_enabled)
+        strategy_key = self._normalize_segment_strategy(segment_strategy)
         job_id = uuid.uuid4()
         storage = PdfSplitStorage(job_id)
         storage.ensure_dirs()
@@ -174,6 +184,8 @@ class PdfSplitJobService:
                 layout_mode=layout_key,
                 cloud_backend=cloud_key,
                 dual_engines=dual_engines_key,
+                ocr_judge_enabled=judge_key,
+                segment_strategy=strategy_key,
                 status=PdfSplitJobStatus.PENDING,
                 total_pages=total_pages,
                 created_by=created_by if getattr(created_by, "is_authenticated", False) else None,
@@ -184,6 +196,11 @@ class PdfSplitJobService:
                     "layout_mode": layout_key,
                     "cloud_backend": cloud_key,
                     "dual_engines": dual_engines_key,
+                    # 这两个是**任务级**选择（用户在前端选），同步一份到 summary：
+                    # 前端读 summary 就能回显「这一份卷宗当时是怎么跑的」，不用另加
+                    # 接口字段（历史任务没有这两个键，读的时候按缺省处理）。
+                    "ocr_judge_enabled": judge_key,
+                    "segment_strategy": strategy_key,
                 },
             )
 
@@ -208,6 +225,18 @@ class PdfSplitJobService:
                 )
             PdfSplitJob.objects.filter(id=job.id).update(task_id=str(task_id), started_at=timezone.now())
             job.refresh_from_db()
+            # 任务级选项落日志：这两个决定「花不花钱 / 切得准不准」，事后查「为什么这次
+            # 没自动裁定 / 为什么切得粗」时，日志是唯一能在跑之前就看到的证据。
+            logger.info(
+                "pdf_split_job_created",
+                extra={
+                    "job_id": str(job.id),
+                    "split_mode": mode_key,
+                    "segment_strategy": strategy_key,
+                    "ocr_judge_enabled": judge_key,
+                    "dual_engines": dual_engines_key,
+                },
+            )
             return job
         except Exception:
             if job is not None:
@@ -750,6 +779,49 @@ class PdfSplitJobService:
         if mode in valid_modes:
             return mode
         return PdfSplitLayoutMode.FAST_TEXT
+
+    def _normalize_ocr_judge_enabled(self, value: bool | str | None) -> bool:
+        """任务级判定开关归一化：接受 bool 与表单字符串（大小写不敏感）。
+
+        为什么**非法值要报错**而不能静默当 False：这个开关决定「引擎分歧有人管
+        还是没人管」。契约写错（如 ``on_`` / ``maybe``）时静默关掉，律师会以为
+        自动裁定坏了，而不是自己传错了值。
+
+        空值（None / 空串）按**默认开**：与 `PdfSplitJob.ocr_judge_enabled` 的
+        默认值一致，未表态不应该得到比显式关掉更少的功能。
+        """
+        if isinstance(value, bool):
+            return value
+        raw = str(value or "").strip().lower()
+        if not raw:
+            return True
+        if raw in _JUDGE_ENABLED_TRUE_VALUES:
+            return True
+        if raw in _JUDGE_ENABLED_FALSE_VALUES:
+            return False
+        raise ValidationException(
+            message="ocr_judge_enabled 取值非法",
+            errors={"ocr_judge_enabled": "合法取值：1/0/true/false/yes/no/on/off"},
+        )
+
+    def _normalize_segment_strategy(self, value: str | None) -> str:
+        """任务级分段策略归一化：必须在 choices 里，否则报错并列出合法取值。
+
+        与 `_normalize_cloud_backend` / `_normalize_layout_mode` 的「非法回落默认」
+        不同：那两项的默认是**安全侧**（不调云端 / 可容灾），回落后行为可预期；
+        而分段策略回落到 batch 会让用户以为「整本一次」真的跑了，实际切得更粗，
+        却没有任何提示。所以这里宁可报错。
+        """
+        strategy = str(value or "").strip().lower()
+        valid = [choice for choice, _label in PdfSplitSegmentStrategy.choices]
+        if not strategy:
+            return PdfSplitSegmentStrategy.BATCH
+        if strategy in valid:
+            return strategy
+        raise ValidationException(
+            message="segment_strategy 取值非法",
+            errors={"segment_strategy": f"合法取值：{'/'.join(valid)}"},
+        )
 
     def _normalize_split_mode(self, value: str | None) -> str:
         mode = str(value or "").strip().lower()

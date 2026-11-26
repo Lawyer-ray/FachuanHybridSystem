@@ -583,7 +583,16 @@ def test_dual_engine_summary_展开判定总账() -> None:
     from apps.pdf_splitting.services.split.service import _dual_engine_summary
 
     empty = _dual_engine_summary({})["engine_disagreements_judge"]
-    assert empty == {"enabled": False, "annotated": 0, "accepted": 0, "human": 0, "reasons": {}}
+    # ``requested``（任务级开关要求值）必须与 ``enabled``（有效值）成对出现：
+    # 缺键时前端只能当 false，就会把「你开了但没生效」融成「你没开」。
+    assert empty == {
+        "enabled": False,
+        "requested": False,
+        "annotated": 0,
+        "accepted": 0,
+        "human": 0,
+        "reasons": {},
+    }
 
     payload = {"engine_disagreements_judge": {"enabled": True, "annotated": 3, "accepted": 1, "human": 2, "reasons": {}}}
     assert _dual_engine_summary(payload)["engine_disagreements_judge"]["accepted"] == 1
