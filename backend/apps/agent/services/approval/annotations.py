@@ -75,6 +75,21 @@ def _reset_annotation_cache() -> None:
     _ANNOTATION_TABLE = None
 
 
+def _sync_tool_snapshot(mcp: Any) -> list[Any]:
+    """同步读 ToolManager 里已注册的工具（注解表的**第二来源**）。
+
+    ``mcp.list_tools()`` 在某些上下文里会给空（启动早期注册未完成、或事件循环
+    状态异常），此时注解表会变成空表——而空表意味着 ``classify_risk`` 只剩名字
+    黑名单，插件自报的 ``MCP_TOOL_RISK`` 被彻底无视。ToolManager 是进程内活的
+    注册表，同步读它没有上下文依赖。
+    """
+    manager = getattr(mcp, "_tool_manager", None)
+    tools = getattr(manager, "_tools", None)
+    if not isinstance(tools, dict):
+        return []
+    return list(tools.values())
+
+
 def _annotation_table() -> dict[str, dict[str, Any] | None]:
     """工具短名 → MCP 注解字典（进程内懒加载一次，失败时返回空表）。
 
@@ -92,6 +107,9 @@ def _annotation_table() -> dict[str, dict[str, Any] | None]:
         from mcp_server.server import mcp
 
         tools = _list_mcp_tools(mcp)
+        if not tools:
+            # 见 `_sync_tool_snapshot` 的说明：list_tools 给空时退回注册表。
+            tools = _sync_tool_snapshot(mcp)
     except Exception as exc:
         logger.warning("读取 MCP 工具注解失败，审批退回纯名字判定: %s", exc)
         _ANNOTATION_TABLE = {}
@@ -107,6 +125,13 @@ def _annotation_table() -> dict[str, dict[str, Any] | None]:
             "destructive_hint": getattr(hints, "destructive_hint", None),
             "open_world_hint": getattr(hints, "open_world_hint", None),
         }
+    if not table:
+        # **空表绝不落缓存**：这与本模块不用 ``lru_cache`` 是同一条理由——
+        # 启动早期 ``list_tools`` 与注册表都还可能是空的，一旦把空表记下来，
+        # 整个进程生命周期内审批分级都只剩名字黑名单，插件的风险声明被静默丢弃。
+        # 真实症状：`weike_advanced_search` 自报 write，却一直判 LOW（无审批、无留痕）。
+        logger.warning("MCP 注解表为空，本次不缓存（下次调用重试）；审批暂时退回纯名字判定")
+        return table
     _ANNOTATION_TABLE = table
     return table
 
@@ -124,10 +149,37 @@ def prime_annotation_cache(table: dict[str, dict[str, Any] | None]) -> int:
     return len(_ANNOTATION_TABLE)
 
 
+def _registered_now(short_name: str) -> bool:
+    """该工具此刻是否真的在 MCP 注册表里（用于判断缓存是否陈旧）。"""
+    try:
+        from mcp_server.server import mcp
+    except ImportError:
+        # 只接「导入期失败」：`mcp_server` 未安装/被裁剪的环境里本模块仍需可用。
+        # 其余异常照常抛——吞掉 AttributeError 会把「注册表结构变了」伪装成「工具不在」，
+        # 而那个方向只会让审批更松。
+        return False
+    return any(getattr(tool, "name", None) == short_name for tool in _sync_tool_snapshot(mcp))
+
+
 def load_tool_annotations(tool_name: str) -> dict[str, Any] | None:
-    """按工具全名/短名取 MCP 注解（取不到返回 ``None``）。"""
+    """按工具全名/短名取 MCP 注解（取不到返回 ``None``）。
+
+    **命中不了就重建一次**：注解表可能在内置工具注册完、**插件工具还没注册**的那一刻
+    就被建好并缓存；之后插件再注册（``MCP_TOOL_RISK`` 声明随之带注解进来），缓存却不会
+    自愈——查不到就退回名字判定，插件自报的风险等级被静默丢弃（真实症状：
+    ``weike_advanced_search`` 声明 write 却被判 LOW，无审批也无留痕）。
+
+    只在「缓存里没有 **且** 注册表里确实有」时重建，所以正常路径只多一次 dict 查找；
+    重建是进程内的，不碰网络。
+    """
+    short_name = tool_name[len(MCP_TOOL_PREFIX) :] if tool_name.startswith(MCP_TOOL_PREFIX) else tool_name
     table = _annotation_table()
     if not table:
         return None
-    short_name = tool_name[len(MCP_TOOL_PREFIX) :] if tool_name.startswith(MCP_TOOL_PREFIX) else tool_name
-    return table.get(short_name)
+    entry = table.get(short_name)
+    if entry is not None:
+        return entry
+    if not _registered_now(short_name):
+        return None
+    _reset_annotation_cache()
+    return _annotation_table().get(short_name)
