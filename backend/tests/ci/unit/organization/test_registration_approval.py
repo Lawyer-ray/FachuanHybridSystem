@@ -27,7 +27,7 @@ PASSWORD = "Zz!8kQm2pLx7"  # pragma: allowlist secret
 
 
 @pytest.fixture(autouse=True)
-def _no_active_account() -> Iterator[None]:
+def _no_active_account(db: None) -> Iterator[None]:
     """每个用例开始前，把系统置于「尚无可登录账号」——首位用户语义的前置条件。
 
     ``AuthService.is_first_user()``（``apps/organization/services/auth/auth_service.py:66``）
@@ -50,6 +50,14 @@ def _no_active_account() -> Iterator[None]:
     待测前提删掉了。
     """
     Lawyer.objects.filter(is_active=True).update(is_active=False)
+    # **显式断言前置条件**：不声明 ``db`` 时这个 fixture 的执行时机不确定（可能落在
+    # 用例自己的事务之外），于是「降级了没有」全靠运气——那正是这 4 个用例
+    # 「单独跑绿、全量顺序红」的成因。加上 ``db`` 并在这里断言，顺序依赖会立刻
+    # 以一行可读的消息暴露，而不是变成 ``is_first_user is False`` 这种间接失败。
+    assert not Lawyer.objects.filter(is_active=True).exists(), (
+        "前置条件不成立：库里仍有 is_active=True 的账号。"
+        "这不是本用例的问题，是别的用例泄漏了已提交的行——请修泄漏源，不要放宽断言。"
+    )
     yield
 
 
