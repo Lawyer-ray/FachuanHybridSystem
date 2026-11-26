@@ -171,6 +171,28 @@ class TestSegmentStrategyOption:
         assert PdfSplitJob.objects.count() == 0
 
 
+# ── 材料包归属：任务必须记得自己是哪个包提交的 ───────────────────
+#
+# 不落库的后果不是报错，而是**张冠李戴**：接管在飞任务 / 复用已算好的任务
+# 只按「文件名 + 页数」匹配，两个包里各有一份「材料.pdf / 37 页」就互相串，
+# 律师看到的是另一个包的进度条，或者更糟——另一个包的识别正文被当成本包的。
+
+
+class TestPackMessageIdOption:
+    def test_传了材料包主键就落库(self, tmp_path: Path) -> None:
+        job = _create(_make_pdf(tmp_path / "带包.pdf"), pack_message_id=617)
+        job.refresh_from_db()
+
+        assert job.pack_message_id == 617
+
+    def test_不传时为空(self, tmp_path: Path) -> None:
+        """脚本 / 后台直提的任务没有所属包，必须允许为空（不能因此报错）。"""
+        job = _create(_make_pdf(tmp_path / "无包.pdf"))
+        job.refresh_from_db()
+
+        assert job.pack_message_id is None
+
+
 # ── 部署默认值：任务字段优先，SystemConfig 只作兜底 ──────────────────
 
 

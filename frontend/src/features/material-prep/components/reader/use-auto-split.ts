@@ -7,7 +7,14 @@ import { usePollSession } from '@/hooks/use-poll-session'
 import { applyAutoSplitResults, summarizeAutoSplitResults, type RerunChoice } from './auto-split-apply'
 import { runOfficeTrack, runPdfTrack, runPhotoTrack } from './auto-split-tracks'
 import { autoSplitTargetsOf } from './auto-split-targets'
-import { beginOwnedAutoSplit, clearAutoSplitTask, reportAutoSplitProgress } from './use-auto-split-task'
+import {
+  beginOwnedAutoSplit,
+  clearAutoSplitTask,
+  isAutoSplitStopping,
+  registerAutoSplitStopper,
+  releaseAutoSplitStopper,
+  reportAutoSplitProgress,
+} from './use-auto-split-task'
 import { resolveBackendRequest } from './platform-selection'
 
 /**
@@ -79,8 +86,17 @@ export function useAutoSplit() {
     // 先开新会话再置 running：同帧重入的第二个 run 从这里开始，第一个循环立刻过期
     const lease = pollSession.begin()
     setRunning(true)
-    // 进度面板同步亮起：提交 164 页 PDF 本身就要几十秒，这段时间面板上不能是空白
-    beginOwnedAutoSplit()
+    // 进度面板同步亮起：提交 164 页 PDF 本身就要几十秒，这段时间面板上不能是空白。
+    // 带 openId：面板是按**材料包**归属的，没有它就分不清这个任务该显示在哪个包上。
+    beginOwnedAutoSplit(openId)
+    // 浮条上的「停止识别」要能停掉**这条**循环：lease 与 running 都只活在本 hook 里，
+    // 所以把「就地停机」注册进去。少了这一步，停止后工具条会永远停在「识别中」（租约一失效，
+    // 下面的 finally 就不再复位 running 了）。
+    const stopperToken = registerAutoSplitStopper(openId, () => {
+      pollSession.invalidate()
+      setRunning(false)
+      setProgress('')
+    })
     if (targets.pdf.length > 0) setProgress(`正在提交 ${targets.pdf.length} 个 PDF`)
     try {
       // 版面策略与引擎勾选**按包持久化**（draft.recognition），ReaderState 上是当前值。
@@ -100,7 +116,8 @@ export function useAutoSplit() {
         targets: targets.pdf,
         lease,
         setProgress,
-        reportProgress: reportAutoSplitProgress,
+        // 回报时带上包号：切包之后迟到的快照一律丢弃（见 reportAutoSplitProgress）
+        reportProgress: (snapshot) => reportAutoSplitProgress(openId, snapshot),
         layoutMode,
         cloudBackend,
         dualEngines: dualEngines ? dualEngines.join(',') : null,
@@ -144,17 +161,20 @@ export function useAutoSplit() {
       if (warned) toast.warning(message)
       else toast.success(message)
     } catch (error) {
-      // 组件已卸载（关掉阅读器）或这次 run 已被新 run 取代：静默返回，不弹错误
-      if (lease.isStale()) return
+      // 组件已卸载（关掉阅读器）或这次 run 已被新 run 取代：静默返回，不弹错误。
+      // 律师亲手按了「停止识别」也一样：服务端回 cancelled 是**他要的结果**，
+      // 摆成红色「识别失败」等于把正确操作报成故障。
+      if (lease.isStale() || isAutoSplitStopping(openId)) return
       toast.error(error instanceof Error ? error.message : '云端材料识别失败')
     } finally {
+      releaseAutoSplitStopper(stopperToken)
       // 过期会话不得复位：新会话正在跑，复位会让按钮可点、进度条消失
       if (!lease.isStale()) {
         setRunning(false)
         setProgress('')
-        // 面板同样只在「本会话仍是当前会话」时收起。接管的那个任务用的 lease 已经过期，
-        // 这里绝不会误收别人的面板。
-        clearAutoSplitTask()
+        // 面板同样只在「本会话仍是当前会话」时收起，而且要**只收本包的**：
+        // 切包后 B 包可能已经接管了自己那份任务，清空会把 B 的面板一起抹掉。
+        clearAutoSplitTask(openId)
       }
     }
   }

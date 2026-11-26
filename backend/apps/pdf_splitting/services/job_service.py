@@ -132,8 +132,17 @@ class PdfSplitJobService:
         dual_engines: str = "",
         ocr_judge_enabled: bool | str = True,
         segment_strategy: str = PdfSplitSegmentStrategy.BATCH,
+        pack_message_id: int | None = None,
         created_by: Any | None = None,
     ) -> PdfSplitJob:
+        """提交一个拆分任务。
+
+        Args:
+            pack_message_id: 提交这份 PDF 的材料包（`InboxMessage` 主键）。
+                落库后，「接管在飞任务」与「复用已算好的任务」才能按包收敛——
+                只按文件名 + 页数匹配时，两个包里同名同页数的文件会互相串
+                （进度条显示的是另一个包的任务）。老调用方不传时为 None。
+        """
         has_file = file is not None
         has_path = bool((source_path or "").strip())
         if has_file == has_path:
@@ -177,6 +186,7 @@ class PdfSplitJobService:
                 source_abs_path=original_abs_path,
                 source_relpath=rel_path,
                 source_original_name=original_name,
+                pack_message_id=pack_message_id,
                 split_mode=mode_key,
                 template_key=template.key,
                 template_version=template.version,
@@ -250,6 +260,7 @@ class PdfSplitJobService:
         source_name: str,
         total_pages: int | None = None,
         user: Any = None,
+        pack_message_id: int | None = None,
     ) -> PdfSplitJob | None:
         """找一份**已经算好、可直接复用**的拆分任务。
 
@@ -260,21 +271,29 @@ class PdfSplitJobService:
         「自动识别」按钮、或换了浏览器），阅读器就拿不到结果 —— 再点一次
         就从零重跑，前面的钱和时间全白花。
 
-        ## 匹配口径（三重，宁可找不到也不误用）
+        ## 匹配口径（宁可找不到也不误用）
 
-        1. `source_original_name` 完全相同（文件名是律师自己的命名习惯，区分度高）；
-        2. `total_pages` 相同（防同名不同件）；
-        3. `status` 属于**已产出结果**的状态（待复核 / 已完成）。
+        1. `pack_message_id` 相同（传了才校验）：材料包是「同一份文件」的权威判据；
+        2. `source_original_name` 完全相同（文件名是律师自己的命名习惯，区分度高）；
+        3. `total_pages` 相同（防同名不同件）；
+        4. `status` 属于**已产出结果**的状态（待复核 / 已完成）。
 
         刻意**不用**文件 hash：拆分任务的 source 是任务目录下的副本，拿它算
         hash 与材料包附件对不上，还得先下载整份（68MB）才能比——代价比收益大。
-        三重条件已足够保守：同名 + 同页数 + 已出结果。
+        同名 + 同页数 + 已出结果已足够保守，但**不唯一**：两个包里各有一份
+        「证据材料.pdf」且都是 37 页时，旧口径会把 A 包的识别结果交给 B 包。
+        包维度是 2026-11-26 补上的那一维。
 
         Args:
             source_name: 原始文件名（`attachments_meta[].original_filename`）。
             total_pages: 页数；传 None 则不校验页数（仅在调用方拿不到页数时）。
             user: 传入时只看自己创建的任务（与 get_job 口径一致）。
+            pack_message_id: 材料包主键；传入时只认**这个包**提交的任务。
+                不传（老调用方 / 脚本）时退回「文件名 + 页数」两重匹配。
         """
+        # 包过滤必须放在最前：它才是「同一份文件」的权威判据。
+        # 存量任务（本列为 NULL）在传了包过滤时**一律不命中**——宁可不复用，
+        # 也不能把另一个包的识别结果当成这一包的（那是会写进错误案的正文）。
         if not source_name:
             return None
 
@@ -282,6 +301,8 @@ class PdfSplitJobService:
             source_original_name__in=_source_name_variants(source_name),
             status__in=(PdfSplitJobStatus.REVIEW_REQUIRED, PdfSplitJobStatus.COMPLETED),
         )
+        if pack_message_id is not None:
+            queryset = queryset.filter(pack_message_id=pack_message_id)
         if total_pages is not None:
             queryset = queryset.filter(total_pages=total_pages)
 
@@ -295,8 +316,10 @@ class PdfSplitJobService:
         # 现在的口径（不改变前端契约，miss 就是 null → 前端照常新建任务）：
         #   - 本人创建的任务 → 直接复用（保住了「同一个人刷新后不重跑」的主要收益）；
         #   - 他人创建的任务 → 仅管理员可复用，其他人一律 miss（宁可不复用，不越权）。
-        # 代价：「助理先跑、主办再用」不再命中复用，会重跑一次；彻底解法是端点增加
-        # `message_id` 并校验材料包归属（需前端配合，记入 TECH-DEBT）。
+        # 代价：「助理先跑、主办再用」不再命中复用，会重跑一次。
+        # 材料包归属已于 2026-11-26 补齐：端点收 `pack_message_id`，任务落库时记下
+        # 自己是哪个包提交的（`PdfSplitJob.pack_message_id`），同包才允许复用。
+        # 属主收敛仍然保留——它管的是「跨账号」，包过滤管的是「跨材料包」，两件事。
         latest = queryset.order_by("-created_at").first()
         if latest is None or user is None:
             return None
@@ -315,7 +338,12 @@ class PdfSplitJobService:
         return None
 
     def find_inflight_job(
-        self, *, source_name: str, total_pages: int | None = None, user: Any = None
+        self,
+        *,
+        source_name: str,
+        total_pages: int | None = None,
+        user: Any = None,
+        pack_message_id: int | None = None,
     ) -> PdfSplitJob | None:
         """找一份**正在进行中**的拆分任务，供前端接管轮询。
 
@@ -328,11 +356,19 @@ class PdfSplitJobService:
 
         ## 匹配口径（与 `find_reusable_job` 对称，只是状态取反）
 
-        1. `source_original_name` 相同；
-        2. `status` 在 pending / processing（还没出结果的那些）；
-        3. 未发起取消（已按取消的马上就会变成 cancelled，接管它只会白转圈）；
-        4. 传了 `total_pages` 才校验页数（同 `find_reusable_job`）；
-        5. 传入 `user` 时只看自己的任务（管理员全量）。
+        1. `pack_message_id` 相同（传了才校验：材料包是「同一份文件」的权威判据）；
+        2. `source_original_name` 相同；
+        3. `status` 在 pending / processing（还没出结果的那些）；
+        4. 未发起取消（已按取消的马上就会变成 cancelled，接管它只会白转圈）；
+        5. 传了 `total_pages` 才校验页数（同 `find_reusable_job`）；
+        6. 传入 `user` 时只看自己的任务（管理员全量）。
+
+        ⚠️ **为什么必须有第 1 条**（2026-11-26 实测缺陷）：只按文件名 + 页数匹配时，
+        两个材料包里各有一份「材料.pdf / 37 页」就会互相串——律师打开 A 包，底部
+        进度条显示的却是 B 包那份任务的进度，而它跟眼前这份材料毫无关系。
+        旧口径背后的「同名同页数就是同一份文件」这个假设在真实卷宗里不成立。
+        传了包过滤时，存量任务（`pack_message_id` 为 NULL）**一律不命中**：
+        宁可少接管一次（律师自己再点一次按钮即可），也不能拿别人的任务冒充这个包的。
 
         ## 属主收敛（S31-02，2026-11-23 二轮审计）
 
@@ -358,6 +394,8 @@ class PdfSplitJobService:
             status__in=(PdfSplitJobStatus.PENDING, PdfSplitJobStatus.PROCESSING),
             cancel_requested=False,
         )
+        if pack_message_id is not None:
+            queryset = queryset.filter(pack_message_id=pack_message_id)
         if total_pages is not None:
             queryset = queryset.filter(total_pages=total_pages)
         if user is not None:

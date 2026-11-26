@@ -121,7 +121,13 @@ export async function runPdfTrack(args: {
   const isStale = () => lease.isStale()
   const jobs = await Promise.all(
     targets.map(async ({ mat, mi }) => {
-      const reusable = await findReusablePdfSplitJob(mat.n, mat.pages)
+      // 带上材料包主键：同名同页数的两份文件分属两个包时，只按这两维匹配会把
+      // **另一个包**的识别结果拿进来——那份正文会被写进这个包的草稿里。
+      const reusable = await findReusablePdfSplitJob({
+        packMessageId: openId,
+        sourceName: mat.n,
+        totalPages: mat.pages,
+      })
       if (reusable?.segments?.length) {
         setProgress(`${mat.n}：复用已有识别结果`)
         return { mi, jobId: reusable.job_id, prefetched: reusable }
@@ -136,6 +142,7 @@ export async function runPdfTrack(args: {
       return {
         mi,
         jobId: await createPdfSplitJob(file, {
+          packMessageId: openId,
           layoutMode,
           cloudBackend,
           dualEngines,

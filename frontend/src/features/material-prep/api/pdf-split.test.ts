@@ -30,6 +30,7 @@ vi.mock('@/lib/api', () => ({
 }))
 
 import {
+  cancelPdfSplitJob,
   createPdfSplitJob,
   findInflightPdfSplitJob,
   findReusablePdfSplitJob,
@@ -65,17 +66,19 @@ describe('findReusablePdfSplitJob：复用已算好的任务', () => {
   it('命中时返回任务载荷（调用方据此跳过重跑，省一次云端费用）', async () => {
     const payload = { job_id: 'job-7', status: 'completed', segments: [{ id: 's1' }] }
     splittingClient().get.mockReturnValue(respond(payload))
-    await expect(findReusablePdfSplitJob('证据材料.pdf', 164)).resolves.toEqual(payload)
+    await expect(
+      findReusablePdfSplitJob({ packMessageId: 617, sourceName: '证据材料.pdf', totalPages: 164 }),
+    ).resolves.toEqual(payload)
     expect(splittingClient().get).toHaveBeenCalledWith('reusable-job', {
-      searchParams: { source_name: '证据材料.pdf', total_pages: 164 },
+      searchParams: { pack_message_id: 617, source_name: '证据材料.pdf', total_pages: 164 },
     })
   })
 
-  it('页数为正才带 total_pages（三重匹配靠它排掉同名短文档）', async () => {
+  it('包主键必发：少了它后端只能按「同名 + 同页数」匹配，而那两维不唯一', async () => {
     splittingClient().get.mockReturnValue(respond(null))
-    await findReusablePdfSplitJob('a.pdf', 1)
+    await findReusablePdfSplitJob({ packMessageId: 601, sourceName: 'a.pdf', totalPages: 1 })
     expect(splittingClient().get).toHaveBeenCalledWith('reusable-job', {
-      searchParams: { source_name: 'a.pdf', total_pages: 1 },
+      searchParams: { pack_message_id: 601, source_name: 'a.pdf', total_pages: 1 },
     })
   })
 
@@ -85,20 +88,24 @@ describe('findReusablePdfSplitJob：复用已算好的任务', () => {
     ['负数', -3],
   ])('页数%s时不带 total_pages（猜出来的页数只会查出空集）', async (_label, pages) => {
     splittingClient().get.mockReturnValue(respond(null))
-    await findReusablePdfSplitJob('a.pdf', pages)
+    await findReusablePdfSplitJob({ packMessageId: 601, sourceName: 'a.pdf', totalPages: pages })
     expect(splittingClient().get).toHaveBeenCalledWith('reusable-job', {
-      searchParams: { source_name: 'a.pdf' },
+      searchParams: { pack_message_id: 601, source_name: 'a.pdf' },
     })
   })
 
   it('没有可复用任务时返回 null（调用方照常新建）', async () => {
     splittingClient().get.mockReturnValue(respond(null))
-    await expect(findReusablePdfSplitJob('a.pdf', 3)).resolves.toBeNull()
+    await expect(
+      findReusablePdfSplitJob({ packMessageId: 601, sourceName: 'a.pdf', totalPages: 3 }),
+    ).resolves.toBeNull()
   })
 
   it('查询失败返回 null 而不是抛错：查复用只是优化，失败不该阻断识别主流程', async () => {
     splittingClient().get.mockReturnValue(fail(new Error('503 Service Unavailable')))
-    await expect(findReusablePdfSplitJob('a.pdf', 3)).resolves.toBeNull()
+    await expect(
+      findReusablePdfSplitJob({ packMessageId: 601, sourceName: 'a.pdf', totalPages: 3 }),
+    ).resolves.toBeNull()
   })
 })
 
@@ -147,23 +154,60 @@ describe('findInflightPdfSplitJob：查在飞任务（幽灵任务）', () => {
   it('命中时返回任务载荷，参数口径与复用查询一致', async () => {
     const payload = { job_id: 'job-8', status: 'processing' }
     splittingClient().get.mockReturnValue(respond(payload))
-    await expect(findInflightPdfSplitJob('卷宗.pdf', 164)).resolves.toEqual(payload)
+    await expect(
+      findInflightPdfSplitJob({ packMessageId: 617, sourceName: '卷宗.pdf', totalPages: 164 }),
+    ).resolves.toEqual(payload)
     expect(splittingClient().get).toHaveBeenCalledWith('inflight-job', {
-      searchParams: { source_name: '卷宗.pdf', total_pages: 164 },
+      searchParams: { pack_message_id: 617, source_name: '卷宗.pdf', total_pages: 164 },
     })
   })
 
-  it('页数缺省时不带 total_pages', async () => {
+  it('包主键必发：只按「同名 + 同页数」查会把别的包的任务认成这个包的', async () => {
     splittingClient().get.mockReturnValue(respond(null))
-    await findInflightPdfSplitJob('卷宗.pdf')
+    await findInflightPdfSplitJob({ packMessageId: 601, sourceName: '卷宗.pdf' })
     expect(splittingClient().get).toHaveBeenCalledWith('inflight-job', {
-      searchParams: { source_name: '卷宗.pdf' },
+      searchParams: { pack_message_id: 601, source_name: '卷宗.pdf' },
+    })
+  })
+
+  it('页数未知时不带 total_pages（猜出来的页数只会查出空集）', async () => {
+    splittingClient().get.mockReturnValue(respond(null))
+    await findInflightPdfSplitJob({ packMessageId: 601, sourceName: '卷宗.pdf', totalPages: 0 })
+    expect(splittingClient().get).toHaveBeenCalledWith('inflight-job', {
+      searchParams: { pack_message_id: 601, source_name: '卷宗.pdf' },
     })
   })
 
   it('查询失败返回 null 而不是抛错（网络抖动不该在阅读器里留下未捕获拒绝）', async () => {
     splittingClient().get.mockReturnValue(fail(new Error('Network request failed')))
-    await expect(findInflightPdfSplitJob('卷宗.pdf', 164)).resolves.toBeNull()
+    await expect(
+      findInflightPdfSplitJob({ packMessageId: 617, sourceName: '卷宗.pdf', totalPages: 164 }),
+    ).resolves.toBeNull()
+  })
+})
+
+// ── 彻底停止：取消云端任务 ────────────────────────────────────
+//
+// 「不再显示」只收起浮条，任务照旧在云端跑（继续计费）。这是用户唯一能让
+// 那个**跑错了的任务**真停下来的入口，所以请求形状必须钉住：打错路由的后端
+// 会回 404，而界面那时已经把浮条藏了——用户以为停了，其实还在扣钱。
+
+describe('cancelPdfSplitJob：彻底停止', () => {
+  it('按任务主键取消（POST jobs/{id}/cancel）', async () => {
+    splittingClient().post.mockReturnValue(respond({ job_id: 'job-9', status: 'cancelled' }))
+    await expect(cancelPdfSplitJob('job-9')).resolves.toEqual({ job_id: 'job-9', status: 'cancelled' })
+    expect(splittingClient().post).toHaveBeenCalledWith('jobs/job-9/cancel')
+  })
+
+  it('主键做 URL 编码：主键里出现特殊字符时也不能拼出一条错路径', async () => {
+    splittingClient().post.mockReturnValue(respond({ job_id: 'a b', status: 'cancelled' }))
+    await cancelPdfSplitJob('a b')
+    expect(splittingClient().post).toHaveBeenCalledWith('jobs/a%20b/cancel')
+  })
+
+  it('失败直接抛：调用方必须能把「没停成」说出来（静默吞掉 = 谎报已停）', async () => {
+    splittingClient().post.mockReturnValue(fail(new Error('500 Internal Server Error')))
+    await expect(cancelPdfSplitJob('job-9')).rejects.toThrow('500')
   })
 })
 

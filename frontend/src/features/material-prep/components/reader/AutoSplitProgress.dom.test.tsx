@@ -9,8 +9,13 @@
  * - 已耗时要说人话（「3 分 12 秒」而不是「192s」）
  * - 心跳停了只警示、不替用户放弃
  */
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+
+// 面板默认的「停止」实现会去打后端取消接口（见 use-auto-split-task），
+// 这里替换成桩：本文件只测「点了之后控件怎么动」，接口形状由 pdf-split.test.ts 守。
+const stopDefaultMock = vi.hoisted(() => vi.fn())
+vi.mock('./use-auto-split-task', () => ({ stopCurrentAutoSplitTask: stopDefaultMock }))
 
 import { AutoSplitProgress } from './AutoSplitProgress'
 import type { JobProgressSnapshot } from './auto-split-helpers'
@@ -206,6 +211,72 @@ describe('AutoSplitProgress：来源与隐藏', () => {
     const { container } = render(<AutoSplitProgress snapshot={snapshot()} onDismiss={onDismiss} />)
     fireEvent.click(screen.getByRole('button', { name: '不再显示' }))
     expect(onDismiss).toHaveBeenCalled()
+    container.remove()
+  })
+})
+
+/** 确认框里的「停止识别」（与浮条上那个同名，按挂载顺序取第二个） */
+function confirmButtonOf(): HTMLElement {
+  const [, confirm] = screen.getAllByRole('button', { name: '停止识别' })
+  if (!confirm) throw new Error('确认框里的确认键没有渲染出来')
+  return confirm
+}
+
+/**
+ * 「停止识别」：用户唯一能**真停下**这次云端识别的入口。
+ *
+ * 之前只有「不再显示」——律师点掉浮条后任务照旧在云端跑（继续计费），
+ * 而他没有任何办法让那个跑错了的任务停下来。这个按钮必须二次确认
+ * （已识别部分会作废），并且把「停没停成」如实反馈。
+ */
+describe('AutoSplitProgress：彻底停止', () => {
+  it('不传 onStop 时走默认实现（面板自己去找会话态里的任务，不必层层传 prop）', async () => {
+    stopDefaultMock.mockResolvedValue(undefined)
+    const { container } = render(<AutoSplitProgress snapshot={snapshot()} onDismiss={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: '停止识别' }))
+    fireEvent.click(confirmButtonOf())
+    await waitFor(() => expect(stopDefaultMock).toHaveBeenCalledTimes(1))
+    container.remove()
+  })
+
+  it('点「停止识别」先弹二次确认，不直接开火', () => {
+    const onStop = vi.fn()
+    const { container } = render(<AutoSplitProgress snapshot={snapshot()} onDismiss={vi.fn()} onStop={onStop} />)
+    fireEvent.click(screen.getByRole('button', { name: '停止识别' }))
+    expect(onStop).not.toHaveBeenCalled()
+    // 确认框必须写清后果：已识别的部分不会写进草稿
+    expect(screen.getByText('停止这次识别？')).toBeTruthy()
+    expect(screen.getByText(/已识别的部分不会写进草稿/)).toBeTruthy()
+    container.remove()
+  })
+
+  it('在确认框里确认后才真正停止', async () => {
+    const onStop = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(<AutoSplitProgress snapshot={snapshot()} onDismiss={vi.fn()} onStop={onStop} />)
+    fireEvent.click(screen.getByRole('button', { name: '停止识别' }))
+    // 确认框里的确认键与浮条上的同名：取第二个（对话框后挂载）
+    fireEvent.click(confirmButtonOf())
+    await Promise.resolve()
+    expect(onStop).toHaveBeenCalledTimes(1)
+    container.remove()
+  })
+
+  it('取消确认则什么都不做（误触不能把一次十几分钟的识别作废）', () => {
+    const onStop = vi.fn()
+    const { container } = render(<AutoSplitProgress snapshot={snapshot()} onDismiss={vi.fn()} onStop={onStop} />)
+    fireEvent.click(screen.getByRole('button', { name: '停止识别' }))
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(onStop).not.toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('取消失败（onStop 抛错）也不把面板卡死：确认框关掉，用户可以再按一次', async () => {
+    const onStop = vi.fn().mockRejectedValue(new Error('503'))
+    const { container } = render(<AutoSplitProgress snapshot={snapshot()} onDismiss={vi.fn()} onStop={onStop} />)
+    fireEvent.click(screen.getByRole('button', { name: '停止识别' }))
+    fireEvent.click(confirmButtonOf())
+    await waitFor(() => expect(onStop).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.queryByText('停止这次识别？')).toBeNull())
     container.remove()
   })
 })
