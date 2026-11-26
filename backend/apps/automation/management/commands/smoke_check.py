@@ -78,6 +78,7 @@ class Command(BaseCommand):
         parser.add_argument("--skip-upload", action="store_true", default=False)
         parser.add_argument("--skip-websocket", action="store_true", default=False)
         parser.add_argument("--skip-q", action="store_true", default=False)
+        parser.add_argument("--skip-capabilities", action="store_true", default=False)
         parser.add_argument("--skip-disk", action="store_true", default=False)
         parser.add_argument("--disk-warning-pct", type=float, default=85.0)
         parser.add_argument("--disk-critical-pct", type=float, default=95.0)
@@ -102,6 +103,8 @@ class Command(BaseCommand):
                 self._check_websocket(client, user)
             if not options.get("skip_q"):
                 self._check_django_q()
+            if not options.get("skip_capabilities"):
+                self._check_deployment_capabilities()
             if not options.get("skip_disk"):
                 self._check_disk_space(
                     warning_pct=options.get("disk_warning_pct", 85.0),
@@ -280,6 +283,27 @@ class Command(BaseCommand):
             logger.exception("操作失败")
             proc.kill()
         raise CommandError("django-q 冒烟失败:任务未在超时时间内完成")
+
+    def _check_deployment_capabilities(self) -> None:
+        """报告这台部署到底能用哪些能力（云端取字 / 分歧裁定），不能用的说清该改哪一项。
+
+        判据：**缺 key / 没开开关是配置选择，不是冒烟未通过**——所以本检查只 WARNING、
+        永不 raise、永不影响退出码（与 :meth:`_check_disk_space` 的 warning 分支同口径；
+        那一处只有 critical 才抛，这里是「本来就可能没配」的东西，连 critical 都没有）。
+        让 ``smoke_check`` 的退出码去反映「这台机器没配 DeepSeek」，结果是所有人都得加
+        ``--skip-*`` 才能绿，真出问题时反而没人看输出。
+
+        整段可以用 ``--skip-capabilities`` 跳过（只要连通性、不关心能力清单时用）。
+        """
+        from apps.pdf_splitting.services.capabilities import deployment_capabilities
+
+        capabilities = deployment_capabilities()
+        notes: list[str] = capabilities.get("notes") or []
+        if not notes:
+            self.stdout.write(self.style.SUCCESS("✅ 部署能力：云端取字 / 分歧裁定均可用"))
+            return
+        for note in notes:
+            self.stdout.write(self.style.WARNING(f"⚠️ {note}"))
 
     def _check_disk_space(self, warning_pct: float, critical_pct: float) -> None:
         from apps.core.tasking.cleanup_tasks import check_disk_space

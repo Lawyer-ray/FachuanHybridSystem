@@ -71,7 +71,7 @@ export interface ReaderState {
    * 为什么在 store 而不在草稿：草稿记的是「律师怎么分」，这是「机器读到什么」，
    * 而且同样不落盘。`useAutoSplit` 把 summary 消费掉之后，ReaderBody 还要用它
    * 渲染全局清单，所以留一个会话级的落点。页级质量（page_quality）则落在
-   * `draft.pageQuality` 上——它要给左栏/右栏按段算页覆盖关系，跟草稿同生命周期更自然。
+   * `draft.pageQualityByMi` 上——它要给左栏/右栏按段算页覆盖关系，跟草稿同生命周期更自然。
    */
   inconsistencies: Inconsistency[]
 

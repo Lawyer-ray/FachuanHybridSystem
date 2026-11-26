@@ -181,8 +181,8 @@
                         {% if row.config.is_secret %}<span class="secret-badge">敏感</span>{% endif %}
                         {% if not row.config.is_active %}<span class="inactive-badge">已禁用</span>{% endif %}
                     </div>
-                    {% if row.config.description %}
-                    <div class="item-desc">{{ row.config.description }}</div>
+                    {% if row.effective_description %}
+                    <div class="item-desc">{{ row.effective_description }}</div>
                     {% endif %}
                 </div>
                 <div class="item-value"{% if row.value_title %} title="{{ row.value_title }}"{% endif %}>

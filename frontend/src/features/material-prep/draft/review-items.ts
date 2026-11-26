@@ -10,9 +10,11 @@ import type {
   EngineDisagreement,
   Inconsistency,
   PageQuality,
+  PageQualityByMi,
   Segment,
 } from '../types'
 import { docTypeLabel, qualityFlagLabel } from './quality'
+import { qualityOf } from './page-quality'
 import { reviewItemId } from './review-ids'
 import type { ReviewItem } from './review-ids'
 
@@ -46,6 +48,27 @@ function pagesOfSegment(seg: Pick<Segment, 'refs'>): Set<number> {
   const out = new Set<number>()
   for (const ref of seg.refs) {
     if (isPage(ref.p)) out.add(ref.p)
+  }
+  return out
+}
+
+/**
+ * 段内每个页号对应的**源**质量：逐条按 `ref.mi` 查槽。
+ *
+ * 跨源合并段不能取第一个 ref 的 mi，也不能拿页号去全局比：页号各自从 1 开始，
+ * A 份的 P5 信号会贴到 B 份的 P5 上。条目的唯一键仍是页号（`ReviewItem.page`），
+ * 所以同一页号来自两个源时后到的源覆盖前者——与「同一页不列两条一样的项」同口径。
+ */
+function qualityByPageOf(
+  seg: Pick<Segment, 'refs'>,
+  byMi: PageQualityByMi | undefined,
+): Map<number, PageQuality> {
+  const out = new Map<number, PageQuality>()
+  if (!byMi) return out
+  for (const ref of seg.refs) {
+    if (!isPage(ref.p)) continue
+    const quality = qualityOf(byMi, ref.mi)
+    if (quality) out.set(ref.p, quality)
   }
   return out
 }
@@ -128,16 +151,12 @@ function disagreementItems(
 }
 
 /** 证件页缺字段：`doc_missing` 的键即页号；`missing: []` 也是信号（字段都在但整页可疑） */
-function docMissingItems(
-  quality: PageQuality | undefined,
-  pages: Set<number>,
-): ReviewItem[] {
+function docMissingItems(byPage: Map<number, PageQuality>): ReviewItem[] {
   const out: ReviewItem[] = []
-  const hints = quality?.doc_hints ?? {}
-  for (const [key, entry] of Object.entries(quality?.doc_missing ?? {})) {
-    const page = Number(key)
-    if (!isPage(page) || !pages.has(page)) continue
-    const doc = entry.doc || hints[key] || ''
+  for (const [page, quality] of byPage) {
+    const entry = quality.doc_missing?.[String(page)]
+    if (!entry) continue
+    const doc = entry.doc || quality.doc_hints?.[String(page)] || ''
     const label = doc ? docTypeLabel(doc) : ''
     const missing = (entry.missing ?? []).filter((m) => !!m)
     // 空 missing 不能当成「没问题」：后端用它表示「类型认出来了、字段也在，但整页内容
@@ -157,24 +176,18 @@ function docMissingItems(
   return out
 }
 
-/** 图形页 / 稀疏页：数组元素就是页号，按段范围过滤 */
-function pageListItems(
-  kind: 'graphic' | 'sparse',
-  list: number[] | undefined,
-  pages: Set<number>,
-  quality: PageQuality | undefined,
-): ReviewItem[] {
+/** 图形页 / 稀疏页：按段内页号逐页查**那一页所属源**的列表 */
+function pageListItems(kind: 'graphic' | 'sparse', byPage: Map<number, PageQuality>): ReviewItem[] {
   const out: ReviewItem[] = []
   const isGraphic = kind === 'graphic'
-  // 同一页可能在 graphic_pages 里出现两次（跨源合并段的脏数据），按页去重，
-  // 避免同一页列两条一模一样的项——页头徽标会因此多算一项
-  const seen = new Set<number>()
-  for (const page of list ?? []) {
-    if (!isPage(page) || !pages.has(page) || seen.has(page)) continue
-    seen.add(page)
+  // 同一页可能在 graphic_pages 里出现两次（跨源合并段的脏数据），而 byPage 本身
+  // 按页号去重，不会把同一页列成两条——页头徽标会因此多算一项
+  for (const [page, quality] of byPage) {
+    const list = isGraphic ? quality.graphic_pages : quality.sparse_pages
+    if (!list?.includes(page)) continue
     // 后端常给逐页说明（"疑似图形页（图纸/印章/照片），请核对原图"），有就用作标题，
     // 它比前端硬编码的文案更具体（可能指出是哪类图）
-    const hint = quality?.details?.[String(page)]
+    const hint = quality.details?.[String(page)]
     out.push(
       makeItem({
         kind,
@@ -264,17 +277,18 @@ function qualityFlagItems(seg: Segment): ReviewItem[] {
  */
 export function reviewItemsOf(
   seg: Segment,
-  pageQuality?: PageQuality,
+  pageQualityByMi?: PageQualityByMi,
   engineDisagreements?: EngineDisagreement[],
   inconsistencies?: Inconsistency[],
 ): ReviewItem[] {
   const pages = pagesOfSegment(seg)
   if (pages.size === 0) return []
+  const qualityByPage = qualityByPageOf(seg, pageQualityByMi)
   return [
     ...disagreementItems(engineDisagreements ?? [], pages),
-    ...docMissingItems(pageQuality, pages),
-    ...pageListItems('graphic', pageQuality?.graphic_pages, pages, pageQuality),
-    ...pageListItems('sparse', pageQuality?.sparse_pages, pages, pageQuality),
+    ...docMissingItems(qualityByPage),
+    ...pageListItems('graphic', qualityByPage),
+    ...pageListItems('sparse', qualityByPage),
     ...inconsistencyItems(inconsistencies ?? [], pages),
     ...qualityFlagItems(seg),
   ]

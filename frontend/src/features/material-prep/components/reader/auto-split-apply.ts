@@ -62,7 +62,7 @@ export async function applyAutoSplitResults(params: {
       withPageAnomaly(
         withJudgeState(
           withEngineDisagreements(
-            withPageQuality(applyFor(value, result.mi, result.segments, result.jobId), result.pageQuality),
+            withPageQuality(applyFor(value, result.mi, result.segments, result.jobId), result.mi, result.pageQuality),
             result.engineDisagreements,
           ),
           judgeState,

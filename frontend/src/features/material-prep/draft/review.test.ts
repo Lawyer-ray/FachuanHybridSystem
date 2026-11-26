@@ -15,6 +15,7 @@ import type {
   EngineDisagreement,
   Inconsistency,
   PageQuality,
+  PageQualityByMi,
   Segment,
 } from '../types'
 import {
@@ -35,6 +36,11 @@ function seg(pageNos: number[], over: Partial<Segment> = {}): Segment {
     manual: false,
     ...over,
   }
+}
+
+/** 一份识别结果按源装槽：下面这些夹具的段都只引用 mi=0 */
+function byMi0(quality: PageQuality): PageQualityByMi {
+  return { '0': quality }
 }
 
 function disagreement(over: Partial<EngineDisagreement> = {}): EngineDisagreement {
@@ -115,12 +121,12 @@ describe('reviewItemsOf：各信号源转换', () => {
     expect(items[0]!.rect).toBeUndefined()
   })
 
-  it('pageQuality.doc_missing → kind=doc_missing / high，缺字段名进标题', () => {
+  it('pageQualityByMi 里的 doc_missing → kind=doc_missing / high，缺字段名进标题', () => {
     const quality: PageQuality = {
       doc_hints: { '23': 'id_card' },
       doc_missing: { '23': { doc: 'id_card', missing: ['姓名', '身份证号'] } },
     }
-    const items = reviewItemsOf(seg([23]), quality)
+    const items = reviewItemsOf(seg([23]), byMi0(quality))
     expect(items).toHaveLength(1)
     expect(items[0]).toMatchObject({
       kind: 'doc_missing',
@@ -135,7 +141,7 @@ describe('reviewItemsOf：各信号源转换', () => {
       doc_hints: { '42': 'household' },
       doc_missing: { '42': { doc: 'household', missing: [] } },
     }
-    const items = reviewItemsOf(seg([42]), quality)
+    const items = reviewItemsOf(seg([42]), byMi0(quality))
     expect(items).toHaveLength(1)
     expect(items[0]!.severity).toBe('high')
     expect(items[0]!.title).toContain('整页内容可疑')
@@ -143,7 +149,7 @@ describe('reviewItemsOf：各信号源转换', () => {
 
   it('graphic_pages → graphic / medium，sparse_pages → sparse / low', () => {
     const quality: PageQuality = { graphic_pages: [147], sparse_pages: [149] }
-    const items = reviewItemsOf(seg([147, 149]), quality)
+    const items = reviewItemsOf(seg([147, 149]), byMi0(quality))
     expect(items.map((i) => [i.kind, i.severity, i.page])).toEqual([
       ['graphic', 'medium', 147],
       ['sparse', 'low', 149],
@@ -155,7 +161,7 @@ describe('reviewItemsOf：各信号源转换', () => {
       graphic_pages: [147],
       details: { '147': '疑似图形页（宗地图），请核对原图' },
     }
-    const items = reviewItemsOf(seg([147]), quality)
+    const items = reviewItemsOf(seg([147]), byMi0(quality))
     expect(items[0]!.title).toBe('疑似图形页（宗地图），请核对原图')
   })
 
@@ -192,7 +198,7 @@ describe('reviewItemsOf：各信号源转换', () => {
     }
     const items = reviewItemsOf(
       seg([23, 31, 147, 149], { qualityFlags: ['graphic'] }),
-      quality,
+      byMi0(quality),
       [disagreement()],
       [inconsistency()],
     )
@@ -221,7 +227,7 @@ describe('reviewItemsOf：只返回本段页范围内的项', () => {
     }
     const items = reviewItemsOf(
       seg([23, 24]),
-      quality,
+      byMi0(quality),
       [disagreement({ page_no: 31 })],
       [inconsistency({ pages: [23, 31] })],
     )
@@ -230,7 +236,7 @@ describe('reviewItemsOf：只返回本段页范围内的项', () => {
   })
 
   it('refs 为空时返回空清单（删空页的段不能让下游炸）', () => {
-    expect(reviewItemsOf(seg([]), { graphic_pages: [1] }, [disagreement({ page_no: 1 })])).toEqual(
+    expect(reviewItemsOf(seg([]), byMi0({ graphic_pages: [1] }), [disagreement({ page_no: 1 })])).toEqual(
       [],
     )
   })
@@ -247,8 +253,11 @@ describe('reviewItemsOf：只返回本段页范围内的项', () => {
       ],
       manual: true,
     }
-    const items = reviewItemsOf(merged, { graphic_pages: [147] })
+    // A 份的 P147 是图形页、B 份的 P147 正常：只出 A 那一条（不按页号跨源乱配）
+    const items = reviewItemsOf(merged, byMi0({ graphic_pages: [147] }))
     expect(items).toHaveLength(1)
+    // 两个源都是图形页时仍只有一条：条目的唯一键是页号（页头徽标不能重复计数）
+    expect(reviewItemsOf(merged, { '0': { graphic_pages: [147] }, '1': { graphic_pages: [147] } })).toHaveLength(1)
   })
 })
 
@@ -297,7 +306,7 @@ describe('reviewItemId：稳定性', () => {
   it('id 形如 <短码>:<页号>:<内容>，不用数组下标', () => {
     const items = reviewItemsOf(
       seg([147]),
-      { graphic_pages: [147] },
+      byMi0({ graphic_pages: [147] }),
       [disagreement({ page_no: 147 })],
     )
     const graphic = items.find((i) => i.kind === 'graphic')!
@@ -311,10 +320,13 @@ describe('reviewItemId：稳定性', () => {
   })
 
   it('直接调用 reviewItemId 与 reviewItemsOf 产出的 id 一致', () => {
-    const item = reviewItemsOf(seg([23]), {
-      doc_hints: { '23': 'id_card' },
-      doc_missing: { '23': { doc: 'id_card', missing: ['姓名'] } },
-    })[0]!
+    const item = reviewItemsOf(
+      seg([23]),
+      byMi0({
+        doc_hints: { '23': 'id_card' },
+        doc_missing: { '23': { doc: 'id_card', missing: ['姓名'] } },
+      }),
+    )[0]!
     const { id, ...rest } = item
     expect(reviewItemId(rest)).toBe(id)
   })
@@ -323,12 +335,12 @@ describe('reviewItemId：稳定性', () => {
 describe('sortReviewItems / groupByPage', () => {
   const items = reviewItemsOf(
     seg([23, 31, 147, 149, 12], { qualityFlags: ['graphic'] }),
-    {
+    byMi0({
       graphic_pages: [147],
       sparse_pages: [149],
       doc_hints: { '23': 'id_card' },
       doc_missing: { '23': { doc: 'id_card', missing: ['姓名'] } },
-    },
+    }),
     [disagreement({ page_no: 31 })],
     [inconsistency({ pages: [12, 31] })],
   )
@@ -381,9 +393,9 @@ describe('缺信号不崩（旧任务 / 人工拆分）', () => {
     expect(reviewItemsOf(seg([1]), undefined, [], [])).toEqual([])
   })
 
-  it('pageQuality 只有空数组 / 空字典 → 空清单', () => {
+  it('页级质量只有空数组 / 空字典 → 空清单', () => {
     expect(
-      reviewItemsOf(seg([1]), { graphic_pages: [], sparse_pages: [], box_missing: [] } as PageQuality),
+      reviewItemsOf(seg([1]), byMi0({ graphic_pages: [], sparse_pages: [], box_missing: [] } as PageQuality)),
     ).toEqual([])
   })
 
@@ -396,7 +408,7 @@ describe('缺信号不崩（旧任务 / 人工拆分）', () => {
       },
     }
     // seg([0]) 会被夹具改成 p=1，所以这里第 0 页本就不在段内；换用 1 号页验证坏键不污染
-    const items = reviewItemsOf(seg([1, 23]), quality)
+    const items = reviewItemsOf(seg([1, 23]), byMi0(quality))
     expect(items.map((i) => i.page)).toEqual([23])
   })
 

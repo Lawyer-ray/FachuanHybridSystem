@@ -13,7 +13,7 @@
 import { fireEvent, render, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import type { PageQuality } from '../../types'
+import type { PageQuality, PageQualityByMi } from '../../types'
 import { DocTodoDrawer } from './DocTodoDrawer'
 
 const quality: PageQuality = {
@@ -30,8 +30,13 @@ const quality: PageQuality = {
   },
 }
 
+/** 单份材料的质量按源装槽（`mi` = 0），抽屉只关心页号与缺什么 */
+function byMi(quality: PageQuality): PageQualityByMi {
+  return { '0': quality }
+}
+
 function renderDrawer(over: Partial<Parameters<typeof DocTodoDrawer>[0]> = {}) {
-  return render(<DocTodoDrawer open onOpenChange={vi.fn()} pageQuality={quality} {...over} />)
+  return render(<DocTodoDrawer open onOpenChange={vi.fn()} pageQualityByMi={byMi(quality)} {...over} />)
 }
 
 describe('DocTodoDrawer', () => {
@@ -90,17 +95,38 @@ describe('DocTodoDrawer', () => {
 
   it('旧任务没有 doc_hints / doc_missing 时给出解释，而不是空白', () => {
     const { baseElement } = renderDrawer({
-      pageQuality: { graphic_pages: [147], sparse_pages: [], blank_pages: [], details: {} },
+      pageQualityByMi: byMi({ graphic_pages: [147], sparse_pages: [], blank_pages: [], details: {} }),
     })
     expect(baseElement.textContent).toContain('没有发现需要补录的证件页')
     expect(baseElement.textContent).toContain('旧任务的识别结果里没有这项统计')
     expect(baseElement.querySelectorAll('[data-doc-todo]')).toHaveLength(0)
   })
 
-  it('pageQuality 为 null 时不崩，给出空态', () => {
-    const { baseElement } = renderDrawer({ pageQuality: null })
+  it('旧草稿（没有 pageQualityByMi）时不崩，给出空态', () => {
+    const { baseElement } = renderDrawer({ pageQualityByMi: null })
     expect(baseElement.textContent).toContain('没有发现需要补录的证件页')
     expect(baseElement.querySelectorAll('[data-doc-todo]')).toHaveLength(0)
+  })
+
+  /**
+   * 多份 PDF 的页号各自从 1 开始：两份都有 P5 时必须列两条（去重键是 `${mi}:${p}`），
+   * 且要能看出是哪一份（否则两行「P5 身份证」完全一样，律师不知道翻哪个文件）。
+   */
+  it('多份材料同号页各自成条，并标出是哪一份', () => {
+    const { baseElement } = renderDrawer({
+      pageQualityByMi: {
+        '0': { doc_hints: { '5': 'id_card' }, doc_missing: { '5': { doc: 'id_card', missing: ['姓名'] } } },
+        '1': { doc_hints: { '5': 'license' }, doc_missing: { '5': { doc: 'license', missing: ['统一社会信用代码'] } } },
+      },
+    })
+    const rows = Array.from(baseElement.querySelectorAll('[data-doc-todo]')).map((li) => li.textContent ?? '')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toContain('材料 1')
+    expect(rows[0]).toContain('身份证')
+    expect(rows[1]).toContain('材料 2')
+    expect(rows[1]).toContain('营业执照')
+    // 跳转仍按页号（签名不变）：两行都跳 P5，选哪一份是调用方的事
+    expect(baseElement.textContent).toContain('全卷 2 页证件材料有字段没读出来')
   })
 
   /**
@@ -121,7 +147,7 @@ describe('DocTodoDrawer', () => {
         '30': { doc: 'marriage', missing: [] },
       },
     }
-    const { baseElement } = renderDrawer({ pageQuality: realPayload })
+    const { baseElement } = renderDrawer({ pageQualityByMi: byMi(realPayload) })
     const rows = Array.from(baseElement.querySelectorAll('[data-doc-todo]')).map((li) => li.textContent ?? '')
     expect(rows[0]).toContain('P23')
     expect(rows[0]).toContain('身份证')

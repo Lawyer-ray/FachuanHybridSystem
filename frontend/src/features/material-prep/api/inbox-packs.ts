@@ -82,9 +82,9 @@ export type PackStatusPatch = Pick<DraftState, 'status' | 'assign'>
 
 /** 保存拆分草稿（整份 DraftState，或 setPackStatusRemote 的最小打标载荷） */
 export async function saveDraft(id: number, draft: DraftState | PackStatusPatch): Promise<void> {
-  // 整份草稿（含 pageQuality）原样回写；最小打标载荷只有 status/assign，本就没有该字段。
+  // 整份草稿（含 pageQualityByMi）原样回写；最小打标载荷只有 status/assign，本就没有该字段。
   // 两者都能满足 DraftStateToSave —— 后者已改为完整 DraftState 形状（见 types.ts 注释：
-  // pageQuality 现在要持久化，否则刷新一次提示就没了）。
+  // pageQualityByMi 现在要持久化，否则刷新一次提示就没了）。
   await inboxApi.put(`messages/${id}/draft`, { json: { draft: draft } }).json()
 }
 

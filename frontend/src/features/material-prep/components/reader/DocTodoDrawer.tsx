@@ -1,7 +1,7 @@
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 import { docTodosOf, type DocTodo } from '../../draft'
-import type { PageQuality } from '../../types'
+import type { PageQualityByMi } from '../../types'
 
 /**
  * 全卷「证件页待补录」清单（右侧抽屉）。
@@ -39,17 +39,19 @@ import type { PageQuality } from '../../types'
 export function DocTodoDrawer({
   open,
   onOpenChange,
-  pageQuality,
+  pageQualityByMi,
   onGotoPage,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** 页级质量统计（`summary.page_quality`，旧任务为 null） */
-  pageQuality: PageQuality | null
-  /** 点「查看原页」跳过去；不传则只展示不可点 */
+  /** 按源（mi）存的页级质量统计（`summary.page_quality`，旧任务为 null） */
+  pageQualityByMi: PageQualityByMi | null
+  /** 点「查看原页」跳过去；不传则只展示不可点。**只传页号**：跨源同名页的定位由调用方处理 */
   onGotoPage?: (p: number) => void
 }) {
-  const todos = docTodosOf(pageQuality)
+  const todos = docTodosOf(pageQualityByMi)
+  // 多份 PDF 的页号各自从 1 开始：清单跨源时 P23 会出现两次，不标源就看不出是哪一份
+  const multiSource = new Set(todos.map((t) => t.mi)).size > 1
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent data-doc-todo-drawer aria-describedby={undefined}>
@@ -69,7 +71,7 @@ export function DocTodoDrawer({
           ) : (
             <ul className="flex flex-col gap-2 py-2">
               {todos.map((t) => (
-                <DocTodoRow key={t.page} item={t} onGotoPage={onGotoPage} />
+                <DocTodoRow key={`${t.mi}:${t.page}`} item={t} onGotoPage={onGotoPage} showSource={multiSource} />
               ))}
             </ul>
           )}
@@ -79,8 +81,17 @@ export function DocTodoDrawer({
   )
 }
 
-/** 一条待补录：页号 + 证件类型 + 缺什么 + 查看原页 */
-function DocTodoRow({ item, onGotoPage }: { item: DocTodo; onGotoPage?: (p: number) => void }) {
+/** 一条待补录：源（仅跨源时）+ 页号 + 证件类型 + 缺什么 + 查看原页 */
+function DocTodoRow({
+  item,
+  onGotoPage,
+  showSource,
+}: {
+  item: DocTodo
+  onGotoPage?: (p: number) => void
+  /** 清单跨源时才能靠源把同名页分开（单源下不显示，界面与引入前逐字一致） */
+  showSource?: boolean
+}) {
   // 字段名用顿号分隔（「缺：姓名、身份证号、住址」），这里不是提示条那句式，
   // 不与字段名内部的「/」混用。
   // 没有字段列表不代表可以放过这一页（后端用它表示「字段都在但整页可疑」），
@@ -90,6 +101,9 @@ function DocTodoRow({ item, onGotoPage }: { item: DocTodo; onGotoPage?: (p: numb
   return (
     <li data-doc-todo className="rounded-lg border border-zinc-200 bg-card px-2.5 py-2">
       <div className="flex items-baseline gap-1.5 text-[12.5px] leading-relaxed">
+        {showSource && (
+          <span className="flex-none text-[11px] tabular-nums text-muted-foreground">材料 {item.mi + 1}</span>
+        )}
         <span className="flex-none font-medium tabular-nums text-foreground">P{item.page}</span>
         <span className="flex-none text-muted-foreground">{item.label}</span>
         <span className="min-w-0 flex-1 text-muted-foreground">{detail}</span>

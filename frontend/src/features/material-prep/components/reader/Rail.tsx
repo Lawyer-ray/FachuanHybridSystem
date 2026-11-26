@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, FileText, IdCard, Image, Layers, PencilLine, ScanSearch, ScanText } from 'lucide-react'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
-import type { BundleMat, DraftState, Inconsistency, PageQuality } from '../../types'
+import type { BundleMat, DraftState, Inconsistency, PageQualityByMi } from '../../types'
 import {
   columnAnomalyPagesOf,
   degeneratePagesOf,
@@ -34,7 +34,7 @@ import { useRailWidth } from './use-rail-width'
  */
 export function Rail({
   draft,
-  pageQuality = null,
+  pageQualityByMi = null,
   inconsistencies = [],
   onOpenInconsistencies,
   onOpenDocTodos,
@@ -49,8 +49,8 @@ export function Rail({
   wide = false,
 }: {
   draft: DraftState
-  /** 页级质量统计（旧任务没有）：只用来给段行挂「含图纸」标记 */
-  pageQuality?: PageQuality | null
+  /** 按源（mi）存的页级质量统计（旧任务没有）：只用来给段行挂质量标记（图纸 / 取字失败 / 证件） */
+  pageQualityByMi?: PageQualityByMi | null
   /** 跨页不一致（旧任务为空）：只用来数徽标数字 */
   inconsistencies?: Inconsistency[]
   /** 点「不一致」入口打开全本清单；不传则不渲染该入口 */
@@ -88,7 +88,7 @@ export function Rail({
   })
   const dl = useSegmentDownloads(downloadables, draft.pageRot, { mats, segs: draft.segs })
   // 全卷证件待补录页数：入口只在真有这数据时出现（旧任务没有 doc_hints，不渲染假入口）
-  const docTodoCount = docTodosOf(pageQuality).length
+  const docTodoCount = docTodosOf(pageQualityByMi).length
   // 全卷「识别风险页」：退化页与列数突变页取**并集**（同一页两类都命中只算一页，
   // 否则数字大于待核对的页数，律师翻完还差一页）。键是 `${mi}:${p}`——多份 PDF 的
   // 页号各自从 1 开始，只数页号会把「A 的 P3」和「B 的 P3」合并成一页。
@@ -133,9 +133,9 @@ export function Rail({
   const rowProps = (si: number) => ({
     seg: draft.segs[si]!,
     si,
-    graphicPages: graphicPagesOf(draft.segs[si], pageQuality),
-    docHintPages: docHintPagesOf(draft.segs[si], pageQuality),
-    ocrFailedPages: ocrFailedPagesOf(draft.segs[si], pageQuality),
+    graphicPages: graphicPagesOf(draft.segs[si], pageQualityByMi),
+    docHintPages: docHintPagesOf(draft.segs[si], pageQualityByMi),
+    ocrFailedPages: ocrFailedPagesOf(draft.segs[si], pageQualityByMi),
     degeneratePages: degeneratePagesOf(draft.segs[si], anomalyByMi),
     columnAnomalyPages: columnAnomalyPagesOf(draft.segs[si], anomalyByMi),
     whole: isWholeMat(draft, si),
@@ -169,7 +169,7 @@ export function Rail({
       if (dragSi === si) return
       // dragover 在拖动期间连续触发（约每 50–100ms），落点没变时必须返回原引用：
       // 旧写法每次都 setDrop({…}) 新建对象，useState 判定为变化 → 整个 Rail
-      // 连同 40 行 rowProps（含两次 O(pageQuality) 扫描）全量重渲。
+      // 连同 40 行 rowProps（含两次 O(pageQualityByMi) 扫描）全量重渲。
       setDrop((cur) => (cur && cur.si === si && cur.pos === pos ? cur : { si, pos }))
     },
     // dragSi / drop 读的是最新渲染的闭包（rowProps 每次 render 重建），dragOver 期间

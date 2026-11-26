@@ -1,4 +1,4 @@
-import type { Inconsistency, PageKey, PageQuality } from '../../types'
+import type { Inconsistency, PageKey, PageQualityByMi } from '../../types'
 import { DocTodoDrawer } from './DocTodoDrawer'
 import { InconsistencyDrawer } from './InconsistencyDrawer'
 import { AutoSplitProgress } from './AutoSplitProgress'
@@ -26,7 +26,7 @@ export function ReaderOverlays({
   inconsistencies,
   docTodoOpen,
   onDocTodoOpenChange,
-  pageQuality,
+  pageQualityByMi,
   onGotoAnyPage,
   autoSplitTask,
   onHideAutoSplit,
@@ -41,7 +41,7 @@ export function ReaderOverlays({
   inconsistencies: Inconsistency[]
   docTodoOpen: boolean
   onDocTodoOpenChange: (open: boolean) => void
-  pageQuality: PageQuality | null
+  pageQualityByMi: PageQualityByMi | null
   onGotoAnyPage: (p: number) => void
   autoSplitTask: AutoSplitTaskView | null
   onHideAutoSplit?: () => void
@@ -65,7 +65,7 @@ export function ReaderOverlays({
       <DocTodoDrawer
         open={docTodoOpen}
         onOpenChange={onDocTodoOpenChange}
-        pageQuality={pageQuality}
+        pageQualityByMi={pageQualityByMi}
         onGotoPage={onGotoAnyPage}
       />
 
