@@ -61,7 +61,7 @@ import re
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from itertools import product
+from itertools import pairwise, product
 from typing import Any, Protocol
 
 from .md_table import grid_col_count as _grid_col_count
@@ -518,6 +518,66 @@ def _drop_duplicate_positions(
     if dropped:
         logger.warning("表格几何: %d 个格子与别的格子同格位，已丢弃（宁少画不错画）", dropped)
     return tuple(kept)
+
+
+#: 参与「列数一致性」比对的最小行数。低于它的表多半是表单/审批表（三五行的空网格），
+#: 列数本来就可以各不相同（「审批意见」一块、「签字」一块），拿来比对只会天天误报。
+DENSE_TABLE_MIN_ROWS = 10
+
+
+def column_count_anomalies(
+    samples: Sequence[tuple[int, int, int]],
+) -> list[dict[str, object]]:
+    """相邻两页都是**密表**、列数却不一致 → 各记一条。
+
+    ## 为什么需要这条判据（2026-11-26 由 OXR 对照实验逼出来）
+
+    我们原来判断「表格结构好不好」只看**单元格总数**。拿 OXR 对照时发现这个口径是错的：
+    同一批银行流水，OXR 在 p57 给出 51 行 × 4 列 = 204 格，MinerU 给出 0 格（整页糊成
+    三行）；可在 p66 MinerU 给出 54 行 × 7 列 = 378 格、OXR 只有 4 列 —— 按"格子多"算
+    MinerU 赢，但**真实流水是 5 列以上，4 列意味着它把列并了**。并列的直接后果是数字挂到
+    错误表头下（余额被当成发生额），而单元格总数对此完全免疫。
+
+    **已知边界**：只比相邻页。实测那两页（p57 4 列 / p59 3 列）中间隔着 p58，所以本判据
+    只有在 58 页也被量到表时才响；中间夹了别的材料就会漏报 —— 这是刻意选的保守边界
+    （跨断层比较会把「换了文档」当成「引擎并列」，天天误报）。
+
+    所以真正该看的是「**列数是否与邻页一致**」：同一份流水的连续页，列结构理应相同。
+    列数突变只有两种可能，两种都该进人工：① 这页确实换了表格模板；② 引擎把列并了/拆了。
+    光看单元格数区分不出这两种。
+
+    ## 为什么只比"相邻页"而不是全卷众数
+
+    一份卷宗里合同、流水、审批表混排，全局众数毫无意义（会天天误报）。相邻页才能保证
+    「说的多半是同一张表」。
+
+    Args:
+        samples: 每页一条 ``(page_no, rows, cols)``，只放**该页的主表**（行数最多的那张）。
+
+    Returns:
+        每条 ``{"page_no", "prev_page_no", "cols", "prev_cols"}``；按页号升序。
+    """
+    ordered = sorted(samples, key=lambda item: item[0])
+    out: list[dict[str, object]] = []
+    for prev, current in pairwise(ordered):
+        prev_page, prev_rows, prev_cols = prev
+        page_no, rows, cols = current
+        # 只比相邻页：跨页断层（p10 → p14）之间的差异可能只是中间夹了别的材料
+        if page_no != prev_page + 1:
+            continue
+        if min(rows, prev_rows) < DENSE_TABLE_MIN_ROWS:
+            continue
+        if cols == prev_cols:
+            continue
+        out.append(
+            {
+                "page_no": page_no,
+                "prev_page_no": prev_page,
+                "cols": cols,
+                "prev_cols": prev_cols,
+            }
+        )
+    return out
 
 
 def grid_shape(cells: Sequence[TableCellBox]) -> tuple[int, int]:
