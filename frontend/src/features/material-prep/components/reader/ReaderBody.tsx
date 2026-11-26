@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useState } from 'react'
 
 import type { DraftState, Inconsistency, OcrPending, PageKey, PageQuality } from '../../types'
-import { groupBySeverity, uniqueDisagreementKeys } from '../../draft'
+import { groupBySeverity, judgeGateNotice, uniqueDisagreementKeys } from '../../draft'
 import { useEngineAdopt } from './use-engine-adopt'
 import type { useReaderOcr } from './use-ocr'
 import { HintBar } from './HintBar'
+import { JudgeGateHint } from './JudgeGateHint'
 import { ReaderColumns } from './ReaderColumns'
 import { ReaderOverlays, type AutoSplitTaskView } from './ReaderOverlays'
 import type { buildFlowOps, buildMetaOps } from './reader-ops'
@@ -211,6 +212,11 @@ export function ReaderBody({
       {(pickInfo >= 0 || selMode) && (
         <HintBar mode={pickInfo >= 0 ? 'pick' : 'sel'} field={pickField} onExit={onExitHint} />
       )}
+
+      {/* 分歧自动裁定未生效（缺 Key / 总闸没开）：卷级事实，必须跨段常驻。
+          没有这一条时，律师只会看到「开关勾着、分歧全进人工」，而界面不解释原因。
+          出不出文案全在 `judgeGateNotice` 里：只有「用户要求了但没生效」才出。 */}
+      <JudgeGateHint notice={judgeGateNotice(draft.judgeState)} />
 
       <ReaderColumns
         narrow={narrow}

@@ -1,6 +1,13 @@
 import { createPdfSplitJob, fetchAttachmentBytes, findReusablePdfSplitJob, ocrImage, parseOfficeFile } from '../../api'
-import { readEngineDisagreements, readInconsistencies, readPageQuality } from '../../draft'
-import type { BundleMat, EngineDisagreement, Inconsistency, PageQuality, PdfSplitSegmentSuggestion } from '../../types'
+import { readEngineDisagreements, readInconsistencies, readJudgeState, readPageQuality } from '../../draft'
+import type {
+  BundleMat,
+  EngineDisagreement,
+  Inconsistency,
+  JudgeState,
+  PageQuality,
+  PdfSplitSegmentSuggestion,
+} from '../../types'
 import type { CloudBackend } from '../../api'
 import type { PollLease } from '@/hooks/use-poll-session'
 import { blocksToMarkdown, guessImageType, pollJob, segmentBackendOf, type JobProgressSnapshot } from './auto-split-helpers'
@@ -19,13 +26,17 @@ import type { MatTarget } from './auto-split-targets'
 
 /**
  * 单个 PDF 的云端拆分结果：mi 定位材料，segmentBackend 用于提示分段质量来源。
- * 另带三类「机器读到什么」的统计（都可能缺，旧任务 / 后端未算时为空）：
+ * 另带四类「机器读到什么」的统计（都可能缺，旧任务 / 后端未算时为空）：
  *   · page_quality —— 哪几页是图纸/照片、哪几页几乎没字（→ 段行标记 + 正文提示条）
  *   · inconsistencies —— 同一枚章 / 同一个字段被识别成两种写法（→ 全局清单）
  *   · engineDisagreements —— 两个 OCR 引擎在同一处读得不一样（→ 引擎分歧清单 + 双框）
+ *   · judgeState —— 这些分歧到底有没有被自动裁定，没裁是因为什么（→ 顶部提示条 + 收尾提示）
  *
  * 没跑交叉比对时（存量包默认 / 律师一键关闭）`engine_disagreements` 整个键都不存在，
  * 收窄后为空数组。新建包默认开双引擎，见 constants.defaultRecognition。
+ *
+ * `judgeState` 与前三类的区别：它不描述「读到了什么」，而描述「那一步**跑没跑**」。
+ * 这正是以前缺的那一环——后端从 v27.25.4 就在 summary 里给了这个键，前端一个都没读。
  */
 export interface AutoSplitResult {
   mi: number
@@ -36,6 +47,8 @@ export interface AutoSplitResult {
   pageQuality: PageQuality | null
   inconsistencies: Inconsistency[]
   engineDisagreements: EngineDisagreement[]
+  /** 分歧裁定的门禁结果；旧任务为 null（那时没有这个键） */
+  judgeState: JudgeState | null
 }
 
 /** 一条旁路轨道的产物：哪份素材 + 取到的正文（空正文不入列） */
@@ -151,6 +164,7 @@ export async function runPdfTrack(args: {
           pageQuality: readPageQuality(result.summary.page_quality),
           inconsistencies: readInconsistencies(result.summary.inconsistencies),
           engineDisagreements: readEngineDisagreements(result.summary.engine_disagreements),
+          judgeState: readJudgeState(result.summary.engine_disagreements_judge),
         },
       })
     } catch (error) {

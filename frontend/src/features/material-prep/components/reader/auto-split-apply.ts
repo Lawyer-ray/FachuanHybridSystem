@@ -3,8 +3,11 @@ import {
   applyAutoSplitPreservingEdits,
   applyDetectedParties,
   fillSegmentText,
+  judgeOutcomeNote,
+  mergeJudgeStates,
   resolveParties,
   withEngineDisagreements,
+  withJudgeState,
   withPageQuality,
 } from '../../draft'
 import { useReader } from '../../store'
@@ -42,13 +45,23 @@ export async function applyAutoSplitResults(params: {
   // 用户在前面的弹窗里选了「保留我的修改」就走保留版：人工正文搬回新分段；
   // 选「用识别结果覆盖」（或本来就没冲突）就走原版，行为与重跑前完全一致。
   const applyFor = choice === 'keep' ? applyAutoSplitPreservingEdits : applyAutoSplit
+  // 裁定门禁是**卷级**事实（部署总闸 + 每任务开关），整批只算一次：同一批任务由同一个门禁
+  // 决定，真不一致时 mergeJudgeStates 优先保留「要求了没生效」那一条。
+  // 折进**已有的**逐份回写里，而不是单独再 update 一次：多一次 update 会改变既有
+  // 回写顺序（图片 / Office 两条轨道的用例都取 `update.mock.calls[0]` 断言正文回填）。
+  const judgeState = mergeJudgeStates(results.map((item) => item.judgeState))
   for (const result of results) {
     // 页级质量跟着同一次识别结果一起落到草稿上。
-    // 引擎分歧同路：它也是「这次识别产出了什么」，且要随草稿持久化（抽屉与双框都要读它）
+    // 引擎分歧同路：它也是「这次识别产出了什么」，且要随草稿持久化（抽屉与双框都要读它）。
+    // 裁定总账落在这里是为了**刷新后仍能解释「为什么全是人工」**——律师问这个问题
+    // 的时机往往是第二天重开这个包，那时本次 summary 早就不在内存里了。
     current.update((value) =>
-      withEngineDisagreements(
-        withPageQuality(applyFor(value, result.mi, result.segments, result.jobId), result.pageQuality),
-        result.engineDisagreements,
+      withJudgeState(
+        withEngineDisagreements(
+          withPageQuality(applyFor(value, result.mi, result.segments, result.jobId), result.pageQuality),
+          result.engineDisagreements,
+        ),
+        judgeState,
       ),
     )
   }
@@ -132,5 +145,9 @@ export function summarizeAutoSplitResults(params: {
   // 生效刑事判决编号）就是这样静默消失的。
   const lostPages = results.reduce((sum, item) => sum + (item.pageQuality?.ocr_failed_pages?.length ?? 0), 0)
   const lost = lostPages > 0 ? `；${lostPages} 页未取到任何文字，正文里没有这几页，请核对原图补录` : ''
-  return { message: `${parts.join('，')}${filled}${tail}${lost}`, warned: failedTotal > 0 || lostPages > 0 }
+  // 分歧裁定：生效时报「裁了几条」，没生效时说清为什么（缺 Key / 总闸没开）。
+  // **不升级 warned**：这不是失败，把它染成黄色会让上面那条真警告（页级取字失败）贬值。
+  const judgeNote = judgeOutcomeNote(mergeJudgeStates(results.map((item) => item.judgeState)))
+  const judged = judgeNote ? `；${judgeNote}` : ''
+  return { message: `${parts.join('，')}${filled}${tail}${lost}${judged}`, warned: failedTotal > 0 || lostPages > 0 }
 }

@@ -116,8 +116,7 @@ def _factories(mineru: object, vl: object) -> dict[str, object]:
     return {runner.ENGINE_MINERU: lambda: mineru, runner.ENGINE_PADDLEOCR_VL: lambda: vl}
 
 
-def test_runs_both_engines_in_parallel_not_serially(
-    monkeypatch: pytest.MonkeyPatch,tmp_path: Path) -> None:
+def test_runs_both_engines_in_parallel_not_serially(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """两引擎并行：各睡 0.4s 时总耗时明显低于串行的 0.8s。
 
     用「远小于串行总时长」做判据而不是精确秒数：线程池调度抖动很大，
@@ -373,9 +372,7 @@ def test_paddleocr_slot_is_locked_to_vl_model(monkeypatch: pytest.MonkeyPatch) -
     assert seen == ["paddleocr_vl_1_6"]
 
 
-def test_disagreements_carry_block_rects_for_double_box(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_disagreements_carry_block_rects_for_double_box(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """每条分歧挂上两引擎各自的块矩形——前端「双框对照」读的就是 ``blocks``。
 
     坐标口径必须与 ``PositionedBlockOut.rect`` 一致（归一化 0-1），否则两个框
@@ -689,3 +686,68 @@ class TestPersistedVariantCarriesReplayableText:
         two_stage.save_engine_disagreements(storage, payload)
 
         assert two_stage.load_engine_disagreements(storage) == payload
+
+
+# ── 判定总账：为什么一条都没判 ─────────────────────────────────────────────
+def test_judge_reason_distinguishes_not_requested_gate_off_and_enabled(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """``summary["engine_disagreements_judge"]["reason"]`` 必须能分辨三种「没判」。
+
+    这三个状态让运维/律师去做的事完全不同：
+
+    · ``not_requested`` → 这一份卷宗没勾「分歧自动裁定」，环境没问题；
+    · ``gate_off``      → 去系统配置开 ``OCR_JUDGE_ENABLED``；
+    · ``missing_key``   → 去系统配置填 ``OCR_JUDGE_API_KEY``。
+
+    压成一个 ``enabled=False`` 的后果是界面只能说「未生效」，让律师去猜该改哪一项。
+    顺带锁住两条行为：没要求判时**不去问门禁**（``gate_state()`` 在缺 key 时会打 warning，
+    用户本来就没开就不该报），以及门禁没过时**一条都不判**（连函数都不进）。
+    """
+    pdf = _make_pdf(tmp_path / "one.pdf", 1)
+    factories = _factories(_FakeMineru(), _FakeVL())
+    calls: list[str] = []
+
+    def _gate(state: tuple[bool, str]) -> None:
+        def _impl() -> tuple[bool, str]:
+            calls.append(state[1])
+            return state
+
+        monkeypatch.setattr(runner, "gate_state", _impl)
+
+    judged: list[int] = []
+
+    def _judge(**_kwargs: object) -> dict[str, object]:
+        judged.append(1)
+        return {}
+
+    monkeypatch.setattr(runner, "judge_disagreements", _judge)
+
+    def judge_block(outcome: runner.DualEngineOutcome) -> dict[str, object]:
+        return outcome.summary[runner.SUMMARY_ENGINE_DISAGREE_JUDGE]
+
+    # ① 用户没要求：不问门禁、不算「未生效」
+    _gate((True, "enabled"))
+    outcome = runner.run_dual_engine(pdf, engine_factories=factories, judge_enabled=False)
+    assert judge_block(outcome)["reason"] == "not_requested"
+    assert judge_block(outcome)["requested"] is False
+    assert calls == [], f"judge_enabled=False 不该调 gate_state，实际调了：{calls}"
+
+    # ② 用户要求了，但部署侧总闸关着
+    _gate((False, "gate_off"))
+    outcome = runner.run_dual_engine(pdf, engine_factories=factories, judge_enabled=True)
+    assert judge_block(outcome)["reason"] == "gate_off"
+    assert (judge_block(outcome)["requested"], judge_block(outcome)["enabled"]) == (True, False)
+    assert judged == [], "门禁没过却进了判定入口"
+
+    # ③ 缺 key：与 ② 是两个不同的配置项，原因码必须不同
+    _gate((False, "missing_key"))
+    outcome = runner.run_dual_engine(pdf, engine_factories=factories, judge_enabled=True)
+    assert judge_block(outcome)["reason"] == "missing_key"
+
+    # ④ 门禁全过：写回 enabled，且真的进了判定入口
+    _gate((True, "enabled"))
+    outcome = runner.run_dual_engine(pdf, engine_factories=factories, judge_enabled=True)
+    assert judge_block(outcome)["reason"] == "enabled"
+    assert judge_block(outcome)["enabled"] is True
+    assert judged == [1], "门禁全过却没进判定入口"

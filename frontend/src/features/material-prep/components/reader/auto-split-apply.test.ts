@@ -22,6 +22,8 @@ function result(overrides: Partial<AutoSplitResult> = {}): AutoSplitResult {
     pageQuality: null,
     inconsistencies: [],
     engineDisagreements: [],
+    // 旧任务没有裁定总账：null = 整条提示不渲染（与引入前逐位一致）
+    judgeState: null,
     ...overrides,
   }
 }
@@ -70,5 +72,74 @@ describe('summarizeAutoSplitResults：页级取字失败要升级成 warning', (
     })
     expect(out.warned).toBe(false)
     expect(out.message).not.toContain('未取到任何文字')
+  })
+})
+
+describe('summarizeAutoSplitResults：分歧裁定的门禁结果必须说出来', () => {
+  /**
+   * 这条链以前断在最后一环：后端 v27.25.4 就把 `enabled` / `requested` /
+   * `reason` 写进了 summary，前端一个都没读 → 律师看到「开关勾着、分歧全进人工」，
+   * 界面不解释原因，只能归因成「坏了」。这里锁住三件事。
+   */
+
+  it('没生效 → 收尾提示说清是哪一项配置没配', () => {
+    const out = summarizeAutoSplitResults({
+      ...base,
+      results: [
+        result({
+          judgeState: { requested: true, enabled: false, reason: 'missing_key', annotated: 0, accepted: 0, human: 0 },
+        }),
+      ],
+    })
+    expect(out.message).toContain('分歧自动裁定未生效')
+    expect(out.message).toContain('OCR_JUDGE_API_KEY')
+  })
+
+  it('没生效**不升级**成 warning（不是失败；染黄会让页级取字失败那条真警告贬值）', () => {
+    const out = summarizeAutoSplitResults({
+      ...base,
+      results: [
+        result({
+          judgeState: { requested: true, enabled: false, reason: 'gate_off', annotated: 0, accepted: 0, human: 0 },
+        }),
+      ],
+    })
+    expect(out.warned).toBe(false)
+  })
+
+  it('生效且裁过 → 报条数', () => {
+    const out = summarizeAutoSplitResults({
+      ...base,
+      results: [
+        result({
+          judgeState: { requested: true, enabled: true, reason: 'enabled', annotated: 5, accepted: 2, human: 3 },
+        }),
+      ],
+    })
+    expect(out.message).toContain('已自动裁定 2 条分歧')
+  })
+
+  it('旧任务（judgeState 为 null）→ 一个字都不加（与引入前逐位一致）', () => {
+    const out = summarizeAutoSplitResults({ ...base, results: [result()] })
+    expect(out.message).not.toContain('裁定')
+  })
+
+  it('用户自己关的 → 不提示也不报「未生效」', () => {
+    const out = summarizeAutoSplitResults({
+      ...base,
+      results: [
+        result({
+          judgeState: {
+            requested: false,
+            enabled: false,
+            reason: 'not_requested',
+            annotated: 0,
+            accepted: 0,
+            human: 0,
+          },
+        }),
+      ],
+    })
+    expect(out.message).not.toContain('裁定')
   })
 })

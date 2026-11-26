@@ -155,12 +155,43 @@ def test_enabled_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert judge.is_enabled() is False
     assert any(event == "ocr_judge_enabled_without_key" for event, _extra in logger.records)
+    # 原因码必须能区分「总闸没开」与「缺 key」：两者让运维去改的是两个不同配置项。
+    assert judge.gate_state() == (False, judge.GATE_MISSING_KEY)
 
 
 def test_enabled_true_when_key_present(monkeypatch: pytest.MonkeyPatch) -> None:
     stored = {judge.OCR_JUDGE_ENABLED_KEY: "1", judge.OCR_JUDGE_API_KEY_KEY: "k"}
     monkeypatch.setattr(judge.SystemConfigService, "get_value", lambda self, key, default="": stored.get(key, default))
     assert judge.is_enabled() is True
+    assert judge.gate_state() == (True, judge.GATE_ENABLED)
+
+
+def test_gate_state_reports_gate_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """总闸关着（默认）→ ``gate_off``，且**不**去打缺 key 的 warning。
+
+    这条 warning 只在「开了却忘了填 key」时才有意义：总闸关着时它每跑一次任务就喊一次，
+    运维会把它当背景噪声，真出事那次也就看不见了。
+    """
+    monkeypatch.setattr(judge.SystemConfigService, "get_value", lambda self, key, default="": default)
+    logger = _RecordingLogger()
+    monkeypatch.setattr(judge, "logger", logger)
+
+    assert judge.gate_state() == (False, judge.GATE_OFF)
+    assert logger.records == []
+
+
+def test_is_enabled_is_gate_state_first_item(monkeypatch: pytest.MonkeyPatch) -> None:
+    """两道口子不许分叉：``is_enabled()`` 必须**就是** ``gate_state()[0]``。
+
+    上一版两件事各写一遍分支，改一处忘一处时症状是「界面说未启用、日志说过关」，
+    比直接报错难查得多。
+    """
+    for enabled, key in (("0", ""), ("0", "k"), ("1", ""), ("1", "k")):
+        stored = {judge.OCR_JUDGE_ENABLED_KEY: enabled, judge.OCR_JUDGE_API_KEY_KEY: key}
+        monkeypatch.setattr(
+            judge.SystemConfigService, "get_value", lambda self, k, default="", _s=stored: _s.get(k, default)
+        )
+        assert judge.is_enabled() is judge.gate_state()[0]
 
 
 def test_only_two_keys_live_in_system_config() -> None:

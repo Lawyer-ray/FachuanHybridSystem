@@ -122,6 +122,22 @@ REASON_POLICY_REJECTED = "policy_rejected"
 REASON_CALL_FAILED = "call_failed"
 REASON_DISABLED = "disabled"
 
+# ── 门禁原因码（进了 ``summary``，前端据此说清「为什么一条都没判」）──────────────
+#
+# 三种「关」对应三种**不同的运维动作**，压成一个 bool 就说不清该改哪一项：
+#   · ``gate_off``      → 去系统配置把 OCR_JUDGE_ENABLED 改成 1
+#   · ``missing_key``   → 去系统配置填 OCR_JUDGE_API_KEY
+#   · ``not_requested`` → 这一份卷宗没要求判（任务级开关关着），环境没问题
+#
+# 刻意**不设** ``config_unreadable``：``_config_value`` 已把读库异常降级成该键的默认值
+# 并打一条 ``ocr_judge_config_unreadable`` warning，此时再报一个独立原因码，会与「键不存在
+# （默认 0）」混成同一句话，等于用更确定的口吻说更不确定的事。配置读不出来时按默认值
+# 处理，运维从 warning 里认领。
+GATE_ENABLED = "enabled"
+GATE_OFF = "gate_off"
+GATE_MISSING_KEY = "missing_key"
+GATE_NOT_REQUESTED = "not_requested"
+
 # ── 传输参数（每条都有实测来源，别凭感觉调）───────────────────────────────────
 #: 实测并发 > 2 立刻 429；配置项只能在这个硬上限以内往下调。
 _HARD_CONCURRENCY_CAP = 2
@@ -662,24 +678,41 @@ def _sleep_before_retry(*, attempt: int, slept_seconds: float) -> float:
     return slept_seconds + delay
 
 
-def is_enabled() -> bool:
-    """是否已启用：开关打开**且**配了 key。
+def gate_state() -> tuple[bool, str]:
+    """部署级门禁：是否可用，**以及不可用的原因码**。
 
     调用方据此在**渲染页面/裁块之前**就短路——判定关着时不该为它付一次 PDF 渲染。
 
     ``ENABLED=1`` 但 key 为空是**配置错误**，不是「想开」：那种状态下去请求只会拿到
     401 白白等超时，还可能把并发位占满拖慢其它判定。所以这里一并要求 key 非空，
     并在缺 key 时 warning 一次（运维看到就知道是漏填而不是功能坏了）。
+
+    与 :func:`is_enabled` 的分工：``is_enabled`` 回答「能不能跑」（并发上限、短路用）；
+    本函数额外回答「**为什么不能跑**」，供上层写进 ``summary``，让界面能区分「总闸没开」
+    与「缺 key」——这两个状态让运维去改的是**两个不同的配置项**。
+
+    Returns:
+        ``(是否可用, 原因码)``。原因码见 :data:`GATE_ENABLED` 等四个常量；
+        可用时恒为 ``GATE_ENABLED``。
     """
     if not _parse_bool(OCR_JUDGE_ENABLED_KEY, _config_value(OCR_JUDGE_ENABLED_KEY, label="enabled"), default=False):
-        return False
+        return False, GATE_OFF
     if not _config_value(OCR_JUDGE_API_KEY_KEY, label="api_key"):
         logger.warning(
             "ocr_judge_enabled_without_key",
             extra={"hint": "OCR_JUDGE_ENABLED=1 但 OCR_JUDGE_API_KEY 为空，判定按未启用处理"},
         )
-        return False
-    return True
+        return False, GATE_MISSING_KEY
+    return True, GATE_ENABLED
+
+
+def is_enabled() -> bool:
+    """是否已启用：开关打开**且**配了 key（= ``gate_state()`` 的第一项）。
+
+    凡是只需要「能不能跑」的调用方都用这个；需要把原因写进 summary 的用
+    :func:`gate_state`（否则界面只能显示「没生效」，说不出该去改哪一项）。
+    """
+    return gate_state()[0]
 
 
 def _load_settings() -> _Settings:

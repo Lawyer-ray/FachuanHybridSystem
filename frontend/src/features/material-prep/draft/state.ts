@@ -1,4 +1,4 @@
-import type { DraftState, EngineDisagreement, PageQuality } from '../types'
+import type { DraftState, EngineDisagreement, JudgeState, PageQuality } from '../types'
 
 /**
  * draft_state 的「空占位」判别（store.open 与 api.setPackStatusRemote 共用）。
@@ -48,6 +48,25 @@ export function withEngineDisagreements(
     return rest
   }
   return { ...d, engineDisagreements: disagreements, engineChecked: [] }
+}
+
+/**
+ * 把「分歧裁定这次判了没有」落到草稿上。
+ *
+ * 与 `engineDisagreements` 同级同生命周期：它们本是同一份识别的两面（一边是分歧条目，
+ * 一边是「这些条目到底有没有被自动判过」）。**必须持久化**：律师问「为什么全是人工」
+ * 的时机往往是第二天重新打开这个包，那时 summary 早就不在内存里了。
+ *
+ * `null`（旧任务）不写入，且**清掉旧值**：重跑一次没带这个键时，留着上一次的
+ * 「未生效」提示会变成假信息——它描述的是上一次识别。
+ */
+export function withJudgeState(d: DraftState, state: JudgeState | null): DraftState {
+  if (!state) {
+    if (d.judgeState === undefined) return d
+    const { judgeState: _drop, ...rest } = d
+    return rest
+  }
+  return { ...d, judgeState: state }
 }
 
 /**
