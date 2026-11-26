@@ -35,6 +35,26 @@ METADATA_MARKERS: tuple[str, ...] = (
     "注意：",
     "下面我",
     "规则：",
+    # 第二轮真机（同一案卷，换结构化输出前）泄漏换了一身皮：模型用「需要按时间顺序：」
+    # 「所以管辖？可以提」「需要不重复小标题」这类**规划句**，而不是第一轮的「我们需要」。
+    # 只按第一轮的表收特征，第二轮的成稿就一路绿灯——这也是为什么还要有下面的密度口径。
+    "需要",
+    "需要按",
+    "需要不",
+    "需要先",
+    "需要把",
+    "可以写",
+    "可以提",
+    "通常包括",
+    "本节",
+    "小标题",
+    "不能编造",
+    "推断不出",
+    "所以",
+    "let's",
+    "we need",
+    "i need",
+    "parse",
 )
 
 #: 命中的**不同**特征数达到这个值才判成推演：单个「注意：」在正文里是正常措辞。
@@ -55,6 +75,17 @@ _SENTENCE_BREAKS = "。；;！!？?\n"
 _DAILY_PERCENT_LIMIT = Decimal("0.5")
 
 
+#: 元话语密度上限（每 100 字命中次数）。法律正文里「本节」「注意」偶发一次就到顶，
+#: 而模型自述会成片出现；阈值取 1.2 是拿第一轮（27k 字泄漏）与干净成稿（1.5k 字）实测
+#: 两侧都留了余量后的取值。
+_METADATA_DENSITY_LIMIT = 1.2
+#: 密度口径只对足够长的文本生效（短句里一个「注意」就能把密度顶到 7）。
+_DENSITY_MIN_CHARS = 200
+#: 夹花回收的最低占比：干净句要占到全文 35% 以上才值得回收，否则整段转未决。
+_SALVAGE_RATIO = 0.35
+_ENGLISH_SENTENCE_RE = re.compile(r"[A-Za-z]{2,}\s+[A-Za-z]{2,}\s+[A-Za-z]{2,}")
+
+
 def looks_like_reasoning(text: str, *, material: str = "") -> bool:
     """这段模型输出是不是自我推演（应当整段丢弃），而不是可交付的正文。
 
@@ -66,7 +97,15 @@ def looks_like_reasoning(text: str, *, material: str = "") -> bool:
     body = (text or "").strip()
     if not body:
         return False
-    if len(_metadata_features(body)) >= _MIN_FEATURES:
+    features = _metadata_features(body)
+    if len(features) >= _MIN_FEATURES:
+        return True
+    # 密度口径：单一特征反复出现（「需要按…需要把…需要先…」）也算推演
+    hits = sum(body.count(marker) for marker in METADATA_MARKERS)
+    # 短句不适用密度口径：一句「注意：……」在 14 个字里密度天然很高，但它是正常正文。
+    if len(body) >= _DENSITY_MIN_CHARS and hits and hits * 100 / len(body) >= _METADATA_DENSITY_LIMIT:
+        return True
+    if _ENGLISH_SENTENCE_RE.search(body):
         return True
     pseudo_entries = sum(1 for line in body.splitlines() if _is_pseudo_entry(line, material))
     return pseudo_entries >= _MIN_PSEUDO_ENTRIES
@@ -84,13 +123,35 @@ def strip_reasoning(text: str, *, material: str = "") -> str:
         return ""
     if not looks_like_reasoning(body, material=material):
         return body
-    for block in _blocks(body):
-        if len(block) < _MIN_BODY_BLOCK_CHARS:
-            continue
-        if _has_metadata(block, material):
-            continue
-        return block
-    return ""
+    # 逐句剔除，而不是「只取第一段干净块」：真机的泄漏是**夹花**的——干净的法律陈述
+    # 与规划句交替出现（「需要按时间顺序：1. 2026 年 5 月 8 日签订…所以管辖？可以提」）。
+    # 只取第一块会把后面所有可用的正文一起丢掉，律师仍然拿不到成稿。
+    kept = [
+        sentence.strip()
+        for sentence in _sentences(body)
+        if sentence.strip()
+        and not _has_metadata(sentence, material)
+        and "？" not in sentence
+        and "?" not in sentence
+        and not _ENGLISH_SENTENCE_RE.search(sentence)
+    ]
+    cleaned = "\n".join(kept)
+    minimum = max(_MIN_BODY_BLOCK_CHARS, int(len(body) * _SALVAGE_RATIO))
+    return cleaned if len(cleaned) >= minimum else ""
+
+
+def _sentences(text: str) -> list[str]:
+    """按中文句读切句，**保留分隔符**：剔除单句时不能把下一句的句号一起吃掉。"""
+    parts: list[str] = []
+    buffer = ""
+    for char in text:
+        buffer += char
+        if char in "。；！？\n":
+            parts.append(buffer)
+            buffer = ""
+    if buffer.strip():
+        parts.append(buffer)
+    return parts
 
 
 def check_numeric_sanity(text: str) -> list[str]:

@@ -89,10 +89,29 @@ class TestStripReasoning:
         assert strip_reasoning(REAL_LEAK_SAMPLE) == ""
         assert strip_reasoning(REAL_LEAK_SAMPLE + "\n" + REAL_LEAK_OCR_ECHO) == ""
 
-    def test_clean_block_after_reasoning_is_returned(self) -> None:
-        recovered = "被告未按约支付承包金，原告委托律师发出律师函催告，被告至今未履行付款义务。"
-        text = f"{REAL_LEAK_SAMPLE}\n\n{recovered}"
-        assert strip_reasoning(text) == recovered
+    def test_clean_sentences_are_salvaged_when_they_dominate(self) -> None:
+        """夹花回收的判据是**占比**：干净正文够多才回收，否则整段转未决。
+
+        真机第二轮（run1）就是夹花形态：合同条款陈述与「需要按时间顺序：」交替出现。
+        整段丢弃太浪费，逐句全收又会让规划句漏进成稿，所以按 35% 占比取中间那一档。
+        """
+        recovered = (
+            "原告与被告于2026年5月8日签订《土地分包合同书》，约定被告分包绿茵路42号地块。"
+            "合同约定首个承包年度承包金384277元，应于2026年5月8日前缴交。"
+            "被告未按约支付，原告委托律师发出律师函催告，被告至今未履行付款义务。"
+        )
+        text = f"{recovered}\n{REAL_LEAK_SAMPLE}"
+        cleaned = strip_reasoning(text)
+        # 保干净正文、且**不留元话语**是硬约束；回收结果允许带上样本里那两句
+        # 「涉案金额 440000 与 404221 差多少」式的材料陈述（它们本身不是元话语）。
+        assert cleaned.replace("\n", "").startswith(recovered)
+        assert "需要" not in cleaned
+        assert "给定事实" not in cleaned
+
+    def test_short_clean_fragment_below_ratio_is_dropped(self) -> None:
+        """只捞回一句半成品不算成果：整段转未决，让上游重试或标 `<待填写>`。"""
+        text = f"{REAL_LEAK_SAMPLE}\n\n被告未按约支付承包金。"
+        assert strip_reasoning(text) == ""
 
     def test_normal_body_is_returned_unchanged(self) -> None:
         assert strip_reasoning(NORMAL_COMPLAINT_BODY) == NORMAL_COMPLAINT_BODY
