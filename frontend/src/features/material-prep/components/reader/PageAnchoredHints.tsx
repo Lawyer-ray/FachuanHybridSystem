@@ -1,10 +1,10 @@
-import type { Inconsistency, Segment } from '../../types'
+import type { ColumnAnomaly, Inconsistency, Segment } from '../../types'
 import { EngineDisagreementsInline } from './EngineDisagreementsInline'
 import { SegmentPageHint, type DocHintPage } from './SegmentQualityHint'
 import type { DisagreementBucket } from './segment-markdown-page-groups'
 
 /**
- * 挂在正文某一页第一行之前的提示：该页的引擎分歧 + 证件页/图纸页提示。
+ * 挂在正文某一页第一行之前的提示：该页的引擎分歧 + 证件页/图纸页/退化页/列数突变提示。
  *
  * 两件事落点相同（「读到这一页就先知道这一页有什么问题」），所以合成一个组件，
  * 渲染顺序固定为「页提示 → 分歧」——一个负责「这页看不清」，一个负责「这页两个
@@ -18,6 +18,8 @@ export function PageAnchoredHints({
   bucket,
   docByPage,
   graphicPages,
+  degeneratePages,
+  columnAnomalyByPage,
   onGotoPage,
   seg,
   engineChecked,
@@ -32,6 +34,10 @@ export function PageAnchoredHints({
   bucket?: DisagreementBucket
   docByPage: Map<number, DocHintPage>
   graphicPages: Set<number>
+  /** 本段里云端取字判为退化的页（正文已改由本地 OCR 兜底） */
+  degeneratePages: Set<number>
+  /** 本段里的表格列数突变页 → 该页「几列 vs 上一页几列」的详情 */
+  columnAnomalyByPage: Map<number, ColumnAnomaly>
   onGotoPage?: (page: number) => void
   seg: Segment
   engineChecked: string[]
@@ -43,10 +49,19 @@ export function PageAnchoredHints({
 }) {
   const doc = docByPage.get(page)
   const graphic = graphicPages.has(page)
+  const degenerate = degeneratePages.has(page)
+  const columnAnomaly = columnAnomalyByPage.get(page) ?? null
   return (
     <>
-      {(doc || graphic) && (
-        <SegmentPageHint page={page} doc={doc} graphic={graphic} onGotoPage={onGotoPage} />
+      {(doc || graphic || degenerate || columnAnomaly) && (
+        <SegmentPageHint
+          page={page}
+          doc={doc}
+          graphic={graphic}
+          degenerate={degenerate}
+          columnAnomaly={columnAnomaly}
+          onGotoPage={onGotoPage}
+        />
       )}
       {bucket && (
         <EngineDisagreementsInline

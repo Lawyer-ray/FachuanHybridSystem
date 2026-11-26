@@ -738,3 +738,73 @@ describe('正文视图切换', () => {
     expect(container.querySelector('table')).toBeTruthy()
   })
 })
+
+/**
+ * 页级识别风险（退化页 / 列数突变页）。
+ *
+ * 两条都是「任务成功、正文也生成了，但机器读出来的东西本身可疑」：
+ * - 退化页：云端把该页读成复读循环、正文被清空，已换识别路径重取；
+ * - 列数突变页：该页表格列数与上一页不同，数字可能挂到错的表头下。
+ * 落点与证件 / 图纸同一套（该页正文第一行之前）；退化页常常整页没有正文，
+ * 这时必须补在正文之后，否则等于没提示。
+ */
+describe('质量提示条（页级识别风险）', () => {
+  it('退化页：文案逐字，且挂在该页正文第一行之前', () => {
+    const { container, getByText } = render(<SegmentMarkdown {...base({ degeneratePages: [1] })} />)
+    const hint = container.querySelector('[data-degenerate-hint]') as HTMLElement
+    expect(hint.textContent).toBe('P1 云端取字判为退化，已换识别路径重取 · 建议核对原页')
+    const firstRow = getByText('原告提交了转账凭证。')
+    expect(hint.compareDocumentPosition(firstRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('列数突变页：写明本页几列 vs 上一页几列，页号沿用 P 写法', () => {
+    const { container } = render(
+      <SegmentMarkdown
+        {...base({ columnAnomalies: [{ page_no: 1, prev_page_no: 8, cols: 5, prev_cols: 4 }] })}
+      />,
+    )
+    const hint = container.querySelector('[data-column-anomaly-hint]') as HTMLElement
+    expect(hint.textContent).toBe('P1 表格 5 列，上一页 P8 为 4 列 · 列可能被并/拆或换了模板，请核对数字表头')
+  })
+
+  /**
+   * 没有定位块（后端是本地 OCR 时 positioned 为空）的段会被归一成「渲染视图」，
+   * 那时**所有**提示页都进 orphan。渲染门若只认 `tab === 'blocks'`，这条路径
+   * 一条提示都没有——而本地兜底恰恰是退化页最常落到的场景。
+   */
+  it('没有定位块的段（本地 OCR）里，退化页提示仍然出现', () => {
+    const { container } = render(
+      <SegmentMarkdown {...base({ seg: seg({ md: '# 证据目录\n\n原告提交了转账凭证。' }), degeneratePages: [1] })} />,
+    )
+    const hint = container.querySelector('[data-degenerate-hint]') as HTMLElement
+    expect(hint).toBeTruthy()
+    expect(hint.textContent).toContain('已换识别路径重取')
+  })
+
+  /** 关键回归：退化页往往整页没有正文（云端正文被清空），不纳入 orphan 就永远看不到提示 */
+  it('退化页整页没有正文时，提示仍然出现（补在正文之后）', () => {
+    const { container, getByText } = render(<SegmentMarkdown {...base({ degeneratePages: [147] })} />)
+    const hint = container.querySelector('[data-degenerate-hint]') as HTMLElement
+    expect(hint).toBeTruthy()
+    const lastRow = getByText('被告对此不予认可。')
+    expect(lastRow.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('点退化页提示条跳到那一页；退化排在图纸之前（正文不可信 > 内容不完整）', () => {
+    const onGotoPage = vi.fn()
+    const { container } = render(<SegmentMarkdown {...base({ degeneratePages: [1], graphicPages: [1], onGotoPage })} />)
+    const degenerate = container.querySelector('[data-degenerate-hint]') as HTMLElement
+    const graphic = container.querySelector('[data-quality-hint]') as HTMLElement
+    expect(degenerate.compareDocumentPosition(graphic) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    fireEvent.click(degenerate)
+    expect(onGotoPage).toHaveBeenCalledWith(1)
+  })
+
+  it('旧任务的草稿没有 pageAnomaly：不多一条提示（与引入前逐字一致）', () => {
+    const { container } = render(<SegmentMarkdown {...base()} />)
+    expect(container.querySelector('[data-degenerate-hint]')).toBeNull()
+    expect(container.querySelector('[data-column-anomaly-hint]')).toBeNull()
+    expect(container.querySelectorAll('[data-quality-hint]')).toHaveLength(0)
+    expect(container.querySelectorAll('[data-doc-hint]')).toHaveLength(0)
+  })
+})

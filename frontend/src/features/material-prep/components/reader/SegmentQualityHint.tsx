@@ -1,6 +1,7 @@
 import { AlertTriangle } from 'lucide-react'
 
 import { docTypeLabel, qualityFlagLabel, type SegmentReviewHint } from '../../draft'
+import type { ColumnAnomaly } from '../../types'
 
 /** 提示条的统一外壳：淡灰底 + 灰图标。复核用的是琥珀壳（它要的是动作，不是陈述） */
 const HINT_CLS =
@@ -40,8 +41,8 @@ export interface DocHintPage {
  *
  * ## 配色
  *
- * 图纸 / 证件页不上彩色语义：这不是错误，只是「你看到的正文不等于原件全部内容」
- * 的事实陈述。复核用琥珀色，因为它要的是**动作**（去核对）。
+ * 图纸 / 证件页 / 退化页 / 列数突变页都不上彩色语义：这不是错误，只是「你看到的
+ * 正文不等于原件全部内容」的事实陈述。复核用琥珀色，因为它要的是**动作**（去核对）。
  */
 export function SegmentQualityHint({
   review = null,
@@ -91,6 +92,19 @@ function ReviewRow({ review }: { review: SegmentReviewHint }) {
 }
 
 /**
+ * 退化页那行：**带页号**，因为这类提示最常出现在 orphan 位置（正文之后补一行，
+ * 该页整页没有正文），而那时行里只有「本页」两个字，律师不知道是哪一页。
+ *
+ * 措辞只说「已换识别路径重取」，不说「已改用本地识别」——后端只承诺
+ * 「判为退化 → 清空 → 扔回 pending 走兜底链」，最终可能是下一个云端候选接手、
+ * 也可能是 PDF 文本层补齐，甚至本地兜底也会失败（此时该页同时进 ocr_failed）。
+ * 说成「本地识别兜底」会在这些情形下变成一句假话。
+ */
+function degenerateTextOf(page: number): string {
+  return `P${page} 云端取字判为退化，已换识别路径重取 · 建议核对原页`
+}
+
+/**
  * **一页**的「需要核对」提示，挂在 Markdown 里这一页正文的第一行之前。
  *
  * 与双引擎分歧同一落点（`SegmentMarkdown` 按 `isFirstOfPage` 插入）：律师读到那一页
@@ -98,12 +112,18 @@ function ReviewRow({ review }: { review: SegmentReviewHint }) {
  *
  * 「这页是图纸」与「这页是身份证但姓名没读出」必须两句话：前者本来就没字，看一眼
  * 原图即可；后者有字但没读出来，而姓名 / 身份证号 / 住址是必须抄进卷宗的字段。
- * 混成一句会让人以为证件页也跟图纸一样不用管。
+ * 混成一句会让人以为证件页也跟图纸一样不用管。退化页 / 列数突变页同理——一个说
+ * 「这页的字换了识别路径」，一个说「这页的数字可能挂在错的表头下」，都单独成行。
+ *
+ * 行序按严重度：正文根本不可信（退化）> 数字可能挂错表头（列数突变）> 字段没读出
+ * （证件）> 内容不完整（图纸）。与左栏段行标记的优先级阶梯同一口径。
  */
 export function SegmentPageHint({
   page,
   doc,
   graphic = false,
+  degenerate = false,
+  columnAnomaly = null,
   onGotoPage,
 }: {
   page: number
@@ -111,12 +131,27 @@ export function SegmentPageHint({
   doc?: DocHintPage
   /** 这一页疑似图纸 / 照片（`page_quality.graphic_pages`） */
   graphic?: boolean
+  /** 这一页云端取字判为退化、正文已改由本地 OCR 兜底（`summary.degenerate_pages`） */
+  degenerate?: boolean
+  /** 这一页表格列数与上一页不同（`summary.table_geometry.column_anomalies`） */
+  columnAnomaly?: ColumnAnomaly | null
   /** 点提示跳原页；不传则只陈述、不可点 */
   onGotoPage?: (page: number) => void
 }) {
-  if (!doc && !graphic) return null
+  if (!doc && !graphic && !degenerate && !columnAnomaly) return null
   return (
     <>
+      {degenerate && (
+        <PageRow page={page} text={degenerateTextOf(page)} onGotoPage={onGotoPage} mark="degenerate" />
+      )}
+      {columnAnomaly && (
+        <PageRow
+          page={page}
+          text={columnAnomalyTextOf(columnAnomaly)}
+          onGotoPage={onGotoPage}
+          mark="column"
+        />
+      )}
       {doc && <PageRow page={page} text={docTextOf(doc)} onGotoPage={onGotoPage} mark="doc" />}
       {graphic && (
         <PageRow
@@ -130,6 +165,18 @@ export function SegmentPageHint({
   )
 }
 
+/**
+ * 列数突变那行：必须把「本页几列 vs 上一页几列」并排放出来。
+ *
+ * 只说「列数异常」律师无法判断该不该信这页的表格；给了两组数字，他翻原页时
+ * 一眼就能对上。页号沿用本文件既有的 `P{页号}` 写法（与证件 / 图纸行一致）。
+ */
+function columnAnomalyTextOf(a: ColumnAnomaly): string {
+  // 「列被并/拆」是后端判据的原话（并/拆列会让数字挂到错误表头下）；
+  // 「并列」是内部口语，律师读不出含义。同时保留「换了表格模板」这一种可能。
+  return `P${a.page_no} 表格 ${a.cols} 列，上一页 P${a.prev_page_no} 为 ${a.prev_cols} 列 · 列可能被并/拆或换了模板，请核对数字表头`
+}
+
 /** 证件页那一行说清三件事：第几页 / 是什么证件 / 缺了哪些字段 */
 function docTextOf(doc: DocHintPage): string {
   const label = docTypeLabel(doc.doc)
@@ -138,6 +185,14 @@ function docTextOf(doc: DocHintPage): string {
   const missing = doc.missing && doc.missing.length > 0 ? `，缺：${doc.missing.join(' / ')}` : '，关键字段可能未读出'
   return `P${doc.page} ${label}${missing} · 建议核对原页`
 }
+
+/** 提示行的种类 → `<div>`/`<button>` 上的 data 属性（测试与样式靠它区分是哪一类） */
+const HINT_ATTR = {
+  doc: { 'data-doc-hint': '' },
+  graphic: { 'data-quality-hint': '' },
+  degenerate: { 'data-degenerate-hint': '' },
+  column: { 'data-column-anomaly-hint': '' },
+} as const
 
 /** 单行提示：可点时整行是按钮（提示要能一步回到原件，否则律师还得自己翻） */
 function PageRow({
@@ -149,7 +204,7 @@ function PageRow({
   page: number
   text: string
   onGotoPage?: (page: number) => void
-  mark: 'doc' | 'graphic'
+  mark: keyof typeof HINT_ATTR
 }) {
   const body = (
     <>
@@ -157,7 +212,7 @@ function PageRow({
       <span>{text}</span>
     </>
   )
-  const dataAttr = mark === 'doc' ? { 'data-doc-hint': '' } : { 'data-quality-hint': '' }
+  const dataAttr = HINT_ATTR[mark]
   if (!onGotoPage) {
     return (
       <div {...dataAttr} className={PAGE_CLS}>

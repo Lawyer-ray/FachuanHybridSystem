@@ -403,6 +403,10 @@ class PdfSplitService:
             ),
             qualities_by_page(pages),
         )
+        # 取字阶段的「废页」名单（复读循环/空返回/缓存垃圾）只落在 extract_summary.json：
+        # 不搬进 summary_payload，前端就永远读不到（它不读磁盘侧车）。旧任务没有这份
+        # 产物时 load_extract_summary 回空表，键缺省为空列表，天然兼容。
+        extract_summary = two_stage.load_extract_summary(storage)
         outcome = PdfAnalysisOutcome(
             pages=pages,
             drafts=drafts,
@@ -420,6 +424,13 @@ class PdfSplitService:
                 # 顶层，而前端读的是 `summary.page_quality.graphic_pages` —— 结果就是
                 # 「后端算出来了、页面上什么也没有」。这个坑真踩过（v27.16.8 首跑）。
                 "page_quality": two_stage.load_page_quality(storage),
+                # 只收 int：侧车被写成字符串时不能变成字符列表（前端会全部当脏数据丢掉，
+                # 但排查时会误导成「信号丢了」）。bool 是 int 的子类，单独排掉。
+                "degenerate_pages": [
+                    int(n)
+                    for n in (extract_summary.get("degenerate_pages") or [])
+                    if isinstance(n, int) and not isinstance(n, bool)
+                ],
                 "inconsistencies": pick_top_inconsistencies(inconsistencies),
                 "inconsistency_total": len(inconsistencies),
                 # 双引擎分歧（取字阶段算好并落盘）。键名固定为 engine_disagreements /

@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
-import { FileText, IdCard, Image, Layers, PencilLine, ScanSearch, ScanText } from 'lucide-react'
+import { AlertTriangle, FileText, IdCard, Image, Layers, PencilLine, ScanSearch, ScanText } from 'lucide-react'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
 import type { BundleMat, DraftState, Inconsistency, PageQuality } from '../../types'
 import {
+  columnAnomalyPagesOf,
+  degeneratePagesOf,
+  riskPageKeysOf,
   docHintPagesOf,
   docTodosOf,
   graphicPagesOf,
@@ -86,6 +89,19 @@ export function Rail({
   const dl = useSegmentDownloads(downloadables, draft.pageRot, { mats, segs: draft.segs })
   // 全卷证件待补录页数：入口只在真有这数据时出现（旧任务没有 doc_hints，不渲染假入口）
   const docTodoCount = docTodosOf(pageQuality).length
+  // 全卷「识别风险页」：退化页与列数突变页取**并集**（同一页两类都命中只算一页，
+  // 否则数字大于待核对的页数，律师翻完还差一页）。键是 `${mi}:${p}`——多份 PDF 的
+  // 页号各自从 1 开始，只数页号会把「A 的 P3」和「B 的 P3」合并成一页。
+  // 只数**当前草稿里还引用着的页**（删掉页后不残留）。旧任务无该键 → 0 → 不渲染。
+  const anomalyByMi = draft.pageAnomalyByMi ?? null
+  const degenerateAll = new Set<string>()
+  const columnAll = new Set<string>()
+  for (const seg of draft.segs) {
+    const keys = riskPageKeysOf(seg, anomalyByMi)
+    for (const key of keys.degenerate) degenerateAll.add(key)
+    for (const key of keys.column) columnAll.add(key)
+  }
+  const riskPageCount = new Set([...degenerateAll, ...columnAll]).size
 
   // 每个素材下挂它的段；跨源段归到「跨源合并」一组
   const groups: { mi: number; segs: number[] }[] = []
@@ -120,6 +136,8 @@ export function Rail({
     graphicPages: graphicPagesOf(draft.segs[si], pageQuality),
     docHintPages: docHintPagesOf(draft.segs[si], pageQuality),
     ocrFailedPages: ocrFailedPagesOf(draft.segs[si], pageQuality),
+    degeneratePages: degeneratePagesOf(draft.segs[si], anomalyByMi),
+    columnAnomalyPages: columnAnomalyPagesOf(draft.segs[si], anomalyByMi),
     whole: isWholeMat(draft, si),
     auto: isAutoSegName(draft, draft.segs[si]!),
     classified: !isAutoSegName(draft, draft.segs[si]!),
@@ -203,7 +221,7 @@ export function Rail({
         <h4 className="px-1 text-sm font-medium">
           材料 <span className="text-xs font-normal text-muted-foreground">{draft.segs.length} 份</span>
         </h4>
-        {/* 两个全局入口并排：都是「逐页读发现不了、但打开就知道去哪翻」的清单。
+        {/* 卷级入口 / 计数并排：入口都是「逐页读发现不了、但打开就知道去哪翻」的清单。
             徽标用灰底（不上彩色语义），数字为 0 时整个入口不渲染（不给假入口）。 */}
         <div className="ml-auto flex flex-none items-center gap-0.5">
           {onOpenInconsistencies && inconsistencies.length > 0 && (
@@ -244,6 +262,20 @@ export function Rail({
               <ScanSearch className="h-3.5 w-3.5" aria-hidden />
               <span className="rounded-full bg-secondary px-1 tabular-nums">{engineUnchecked}</span>
             </button>
+          )}
+          {/* 识别风险页：退化页 / 列数突变页的全卷去重计数，只有数字、没有清单可开
+              （不做抽屉：两类页不多，逐页提示 + 这个数字已够）。所以用 <span> 而不是
+              按钮——看着能点、点了没反应比不给入口更糟。0 时整块不渲染。 */}
+          {riskPageCount > 0 && (
+            <span
+              data-page-anomaly-entry
+              title={`全卷 ${riskPageCount} 页识别风险待核对（同页只计一次；退化 ${degenerateAll.size} 页 / 列数异常 ${columnAll.size} 页）`}
+              aria-label={`全卷 ${riskPageCount} 页识别风险待核对，其中退化 ${degenerateAll.size} 页、表格列数异常 ${columnAll.size} 页`}
+              className="flex flex-none cursor-default items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground"
+            >
+              <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+              <span className="rounded-full bg-secondary px-1 tabular-nums">{riskPageCount}</span>
+            </span>
           )}
         </div>
       </div>

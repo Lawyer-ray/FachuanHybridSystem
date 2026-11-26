@@ -1,4 +1,4 @@
-import type { DraftState, EngineDisagreement, JudgeState, PageQuality } from '../types'
+import type { DraftState, EngineDisagreement, JudgeState, PageAnomaly, PageQuality } from '../types'
 
 /**
  * draft_state 的「空占位」判别（store.open 与 api.setPackStatusRemote 共用）。
@@ -67,6 +67,30 @@ export function withJudgeState(d: DraftState, state: JudgeState | null): DraftSt
     return rest
   }
   return { ...d, judgeState: state }
+}
+
+/**
+ * 把某一**份** PDF 的页级风险落进草稿（按 `mi` 分槽，见 `PageAnomalyByMi`）。
+ *
+ * 按源存而不是整份覆盖：一个包可以有多份 PDF，页号各自从 1 开始。整份覆盖会
+ * ① 只留下最后一份（丢页）② 让「A 份的 P5 退化」显示到 B 份的 P5 段上（给错页）。
+ *
+ * `null` = 这一份本次没有信号（旧任务 / 没跑到表格几何）：**删掉该源那一槽**，
+ * 留上一次的结果是假信息；所有槽都空了就把整个键去掉，回到「与引入前逐位一致」。
+ */
+export function withPageAnomaly(d: DraftState, mi: number, anomaly: PageAnomaly | null): DraftState {
+  const key = String(mi)
+  const current = d.pageAnomalyByMi
+  if (!anomaly) {
+    if (!current || !(key in current)) return d
+    const { [key]: _drop, ...rest } = current
+    if (Object.keys(rest).length === 0) {
+      const { pageAnomalyByMi: _dropAll, ...without } = d
+      return without
+    }
+    return { ...d, pageAnomalyByMi: rest }
+  }
+  return { ...d, pageAnomalyByMi: { ...(current ?? {}), [key]: anomaly } }
 }
 
 /**

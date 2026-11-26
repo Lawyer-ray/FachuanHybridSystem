@@ -1,4 +1,4 @@
-import type { EngineDisagreement } from '../../types'
+import type { ColumnAnomaly, EngineDisagreement } from '../../types'
 import type { DocHintPage } from './SegmentQualityHint'
 
 /** 某一页上的引擎分歧（`items` 与 `keys` 一一对应） */
@@ -37,17 +37,23 @@ export function groupDisagreementsByPage(params: {
 }
 
 /**
- * 逐页的「需要核对」提示：证件页缺字段 / 疑似图纸页。
+ * 逐页的「需要核对」提示：证件页缺字段 / 疑似图纸页 / 云端取字退化页 / 表格列数突变页。
  *
  * 与引擎分歧同一落点（该页正文第一行之前）——律师读到哪一页就看到那一页的问题，
  * 不用回栏顶比页号再找位置。
  *
- * 落不到任何一行的页（图纸页往往一个字都没取出来）单独补在正文之后：那一页本来
- * 就「没东西可读」，提示只能自己成一行，否则就等于没提示。
+ * 落不到任何一行的页单独补在正文之后：那一页本来就「没东西可读」，提示只能自己成
+ * 一行，否则就等于没提示。退化页**尤其**会走到这条路上——云端把整页读成复读循环时
+ * 正文被清空、改由本地 OCR 兜底，这一页往往一行云端正文都没有；不纳入 orphan 就等于
+ * 这条信号只在左栏有个数字，律师永远看不到它指的是哪一页。
  */
 export function groupDocHintsByPage(params: {
   docPages: DocHintPage[]
   graphicPages: number[]
+  /** 本段里云端取字判为退化的页（`summary.degenerate_pages`） */
+  degeneratePages: number[]
+  /** 本段里的表格列数突变页（`summary.table_geometry.column_anomalies`） */
+  columnAnomalies: ColumnAnomaly[]
   /** 正文行（只用它的 page 字段） */
   blocks: { page: number }[]
 }): {
@@ -55,22 +61,36 @@ export function groupDocHintsByPage(params: {
   docByPage: Map<number, DocHintPage>
   /** 疑似图纸/照片页 */
   graphicPages: Set<number>
-  /** 该页有提示（证件页 或 图纸页）才渲染提示条 */
+  /** 云端取字退化的页 */
+  degeneratePages: Set<number>
+  /** 页号 → 该页的列数突变详情（同页只取第一条） */
+  columnAnomalyByPage: Map<number, ColumnAnomaly>
+  /** 该页有提示（四类任一）才渲染提示条 */
   hintedPages: number[]
   /** 有提示、但该页一行正文都没有的页号（按页号升序） */
   orphanHintPages: number[]
 } {
-  const { docPages, graphicPages, blocks } = params
+  const { docPages, graphicPages, degeneratePages, columnAnomalies, blocks } = params
   const docByPage = new Map<number, DocHintPage>()
   for (const d of docPages) {
     if (!docByPage.has(d.page)) docByPage.set(d.page, d)
   }
   const graphicSet = new Set(graphicPages)
-  const hintedPages = [...new Set([...docByPage.keys(), ...graphicSet])].sort((a, b) => a - b)
+  const degenerateSet = new Set(degeneratePages)
+  const columnByPage = new Map<number, ColumnAnomaly>()
+  for (const a of columnAnomalies) {
+    // 一页一条：两句话叠在一起律师读不懂哪句对应哪种列数
+    if (!columnByPage.has(a.page_no)) columnByPage.set(a.page_no, a)
+  }
+  const hintedPages = [
+    ...new Set([...docByPage.keys(), ...graphicSet, ...degenerateSet, ...columnByPage.keys()]),
+  ].sort((a, b) => a - b)
   const pagesWithRows = new Set(blocks.map((b) => b.page))
   return {
     docByPage,
     graphicPages: graphicSet,
+    degeneratePages: degenerateSet,
+    columnAnomalyByPage: columnByPage,
     hintedPages,
     orphanHintPages: hintedPages.filter((p) => !pagesWithRows.has(p)),
   }

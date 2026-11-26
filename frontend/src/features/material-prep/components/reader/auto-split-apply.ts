@@ -8,6 +8,7 @@ import {
   resolveParties,
   withEngineDisagreements,
   withJudgeState,
+  withPageAnomaly,
   withPageQuality,
 } from '../../draft'
 import { useReader } from '../../store'
@@ -55,13 +56,19 @@ export async function applyAutoSplitResults(params: {
     // 引擎分歧同路：它也是「这次识别产出了什么」，且要随草稿持久化（抽屉与双框都要读它）。
     // 裁定总账落在这里是为了**刷新后仍能解释「为什么全是人工」**——律师问这个问题
     // 的时机往往是第二天重开这个包，那时本次 summary 早就不在内存里了。
+    // 退化页 / 列数突变页同路（最外层：它们是「这次识别读成什么样」的另一面）。
+    // 按 `result.mi` 分槽：一个包多份 PDF 各有自己的页号，整份覆盖会丢页并串源。
     current.update((value) =>
-      withJudgeState(
-        withEngineDisagreements(
-          withPageQuality(applyFor(value, result.mi, result.segments, result.jobId), result.pageQuality),
-          result.engineDisagreements,
+      withPageAnomaly(
+        withJudgeState(
+          withEngineDisagreements(
+            withPageQuality(applyFor(value, result.mi, result.segments, result.jobId), result.pageQuality),
+            result.engineDisagreements,
+          ),
+          judgeState,
         ),
-        judgeState,
+        result.mi,
+        result.pageAnomaly,
       ),
     )
   }
@@ -149,5 +156,19 @@ export function summarizeAutoSplitResults(params: {
   // **不升级 warned**：这不是失败，把它染成黄色会让上面那条真警告（页级取字失败）贬值。
   const judgeNote = judgeOutcomeNote(mergeJudgeStates(results.map((item) => item.judgeState)))
   const judged = judgeNote ? `；${judgeNote}` : ''
-  return { message: `${parts.join('，')}${filled}${tail}${lost}${judged}`, warned: failedTotal > 0 || lostPages > 0 }
+  // 退化页与列数突变页：正文有了、任务也成功了，但机器读出来的东西本身可疑（见
+  // draft/page-anomaly.ts）。**不升级 warned**：这不是失败，染黄会稀释上面那条真警告
+  // （页级取字失败）。顺序固定「先退化后列数」，两者都空时一个字都不加（旧任务兼容）。
+  const degeneratePages = results.reduce((sum, item) => sum + (item.pageAnomaly?.degenerate_pages?.length ?? 0), 0)
+  const degenerateNote =
+    degeneratePages > 0 ? `；${degeneratePages} 页云端取字判为退化，已换识别路径重取，请核对原页` : ''
+  const columnAnomalyPages = results.reduce(
+    (sum, item) => sum + (item.pageAnomaly?.column_anomalies?.length ?? 0),
+    0,
+  )
+  const columnNote = columnAnomalyPages > 0 ? `；${columnAnomalyPages} 页表格列数与邻页不同，数字表头请核对` : ''
+  return {
+    message: `${parts.join('，')}${filled}${tail}${lost}${judged}${degenerateNote}${columnNote}`,
+    warned: failedTotal > 0 || lostPages > 0,
+  }
 }

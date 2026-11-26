@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, FileCode2 } from 'lucide-react'
 
 import { blockKeyOf, reviewHintOf } from '../../draft'
-import type { EngineDisagreement, Inconsistency, Segment } from '../../types'
+import type { ColumnAnomaly, EngineDisagreement, Inconsistency, Segment } from '../../types'
 import { rectPrecisionOf } from '../../types'
 import { SegmentQualityHint, type DocHintPage } from './SegmentQualityHint'
 import { SegmentMarkdownView, type MarkdownViewMode } from './SegmentMarkdownView'
@@ -48,6 +48,9 @@ import { groupDisagreementsByPage, groupDocHintsByPage } from './segment-markdow
  *
  * 可疑点是「这几个字可能认错了」，质量提示是「这一段根本看不出内容」——两件事。
  * 所以提示条放在标题下方（进面板第一眼就看到），而不是混进正文后的可疑点清单。
+ *
+ * 页级识别风险（退化页 / 列数突变页）与证件 / 图纸同一套落点：挂在该页正文第一行
+ * 之前；整页没有正文时补在正文之后（orphan），否则那类页等于没有提示。
  */
 export function SegmentMarkdown({
   seg,
@@ -63,6 +66,8 @@ export function SegmentMarkdown({
   onRemoveBlock,
   graphicPages = [],
   docPages = [],
+  degeneratePages = [],
+  columnAnomalies = [],
   onGotoPage,
   engineItems = [],
   engineKeys = [],
@@ -99,6 +104,10 @@ export function SegmentMarkdown({
   graphicPages?: number[]
   /** 本段覆盖的证件页与各自未读出的字段（`page_quality.doc_hints`，旧任务为空） */
   docPages?: DocHintPage[]
+  /** 本段覆盖的退化页（`summary.degenerate_pages`，旧任务为空） */
+  degeneratePages?: number[]
+  /** 本段覆盖的列数突变页（含邻页列数详情，旧任务为空） */
+  columnAnomalies?: ColumnAnomaly[]
   /** 点提示条跳原页；不传则提示条不可点（只陈述事实） */
   onGotoPage?: (page: number) => void
   /** 全卷引擎分歧（会先按本段页范围过滤，再按页号挂到该页第一行之前） */
@@ -168,17 +177,20 @@ export function SegmentMarkdown({
 
   const blocks = seg.blocks ?? []
 
-  // 按页分组（分歧 / 证件页提示 / 图纸页）是纯函数，见 segment-markdown-page-groups.ts
+  // 按页分组（分歧 / 证件页 / 图纸页 / 退化页 / 列数突变页）是纯函数，
+  // 见 segment-markdown-page-groups.ts
   const byPage = groupDisagreementsByPage({
     engineItems,
     engineKeys,
     pageNos: seg.refs.map((r) => r.p),
   })
-  const { docByPage, graphicPages: graphicSet, orphanHintPages } = groupDocHintsByPage({
-    docPages,
-    graphicPages,
-    blocks,
-  })
+  const {
+    docByPage,
+    graphicPages: graphicSet,
+    degeneratePages: degenerateSet,
+    columnAnomalyByPage,
+    orphanHintPages,
+  } = groupDocHintsByPage({ docPages, graphicPages, degeneratePages, columnAnomalies, blocks })
   /**
    * 没有定位块（本地 OCR / 旧任务）时没有「分块」这一档，落到渲染视图。
    * 归一在这里做而不是 useState 初值：hooks 必须跑在 `seg` 早返回之前，那时还拿不到 blocks。
@@ -253,6 +265,8 @@ export function SegmentMarkdown({
                       bucket={pageBucket}
                       docByPage={docByPage}
                       graphicPages={graphicSet}
+                      degeneratePages={degenerateSet}
+                      columnAnomalyByPage={columnAnomalyByPage}
                       onGotoPage={onGotoPage}
                       seg={seg}
                       engineChecked={engineChecked}
@@ -307,8 +321,12 @@ export function SegmentMarkdown({
             />
           )}
 
-          {/* 落不到正文行的提示页（图纸页多半一个字都没取出来）：只能自己成行 */}
-          {tab === 'blocks' && orphanHintPages.length > 0 && (
+          {/* 落不到正文行的提示页（图纸页多半一个字都没取出来）：只能自己成行。
+              条件不能只要 `tab === 'blocks'`：没有定位块的段（本地 OCR 后端给空
+              positioned）会被归一成「渲染视图」，那时**所有**提示页都进 orphan，
+              再被这个门挡掉就一条提示都没有——而「本地 OCR 兜底」正是退化页最常
+              落到的场景。所以渲染视图里也渲染 orphan。 */}
+          {(tab === 'blocks' || blocks.length === 0) && orphanHintPages.length > 0 && (
             <div className="flex flex-col gap-1">
               {orphanHintPages.map((page) => (
                 <PageAnchoredHints
@@ -316,6 +334,8 @@ export function SegmentMarkdown({
                   page={page}
                   docByPage={docByPage}
                   graphicPages={graphicSet}
+                  degeneratePages={degenerateSet}
+                  columnAnomalyByPage={columnAnomalyByPage}
                   onGotoPage={onGotoPage}
                   seg={seg}
                   engineChecked={engineChecked}

@@ -9,9 +9,10 @@
 
 import type { components } from '@/types/api-schema'
 import type { EngineDisagreement, EngineName } from './engine-types'
-import type { Inconsistency, JudgeState, PageQuality } from './quality-types'
+import type { Inconsistency, JudgeState, PageAnomalyByMi, PageQuality } from './quality-types'
 
 export type { JudgeGateReason, JudgeState } from './quality-types'
+export type { ColumnAnomaly, PageAnomaly, PageAnomalyByMi } from './quality-types'
 
 export type MaterialKind = 'pdf' | 'photo' | 'office'
 
@@ -237,6 +238,7 @@ export interface DraftState {
    * 不存在错位；不落盘反而会让刷新一次提示就没了。口径见 `DraftStateToSave`。
    */
   pageQuality?: PageQuality
+  pageAnomalyByMi?: PageAnomalyByMi
   /**
    * 双引擎分歧清单（`summary.engine_disagreements`，默认关闭双引擎时为空/缺省）。
    *

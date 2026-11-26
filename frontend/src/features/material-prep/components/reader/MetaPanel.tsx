@@ -3,8 +3,20 @@ import { Plus, Trash2, Link2, Sparkles, LoaderCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { FIELD_LIB } from '../../constants'
-import { docHintPagesOf, docTodosOf, graphicPagesOf } from '../../draft'
-import type { DraftState, EngineDisagreement, Inconsistency, InfoField, PageQuality } from '../../types'
+import {
+  columnAnomaliesOf,
+  degeneratePagesOf,
+  docHintPagesOf,
+  docTodosOf,
+  graphicPagesOf,
+} from '../../draft'
+import type {
+  DraftState,
+  EngineDisagreement,
+  Inconsistency,
+  InfoField,
+  PageQuality,
+} from '../../types'
 import type { MetaOps } from './reader-ops'
 import { cn } from '@/lib/utils'
 import { PartyPicker } from './PartyPicker'
@@ -107,6 +119,12 @@ export function MetaPanel({
     doc,
     missing: todosByPage.get(page)?.missing,
   }))
+  // 页级识别风险（退化页 / 列数突变页）：与上面 docPages 同口径，按 `seg.refs` 实时求交集。
+  // 旧任务的草稿没有 pageAnomalyByMi（undefined），派生函数都给空 → 正文里一条提示都不多。
+  // 按 `ref.mi` 查对应源的信号：一次索引构建 + 一次 refs 遍历，不按页号跨源乱配。
+  const anomalyByMi = draft.pageAnomalyByMi ?? null
+  const degeneratePages = degeneratePagesOf(draft.segs[si], anomalyByMi)
+  const columnAnomalies = columnAnomaliesOf(draft.segs[si], anomalyByMi)
 
   return (
     <aside
@@ -159,6 +177,8 @@ export function MetaPanel({
         onRemoveBlock={(key) => ops.removeBlock(si, key)}
         graphicPages={graphicPagesOf(draft.segs[si], pageQuality)}
         docPages={docPages}
+        degeneratePages={degeneratePages}
+        columnAnomalies={columnAnomalies}
         onGotoPage={onGotoPage ? (p) => onGotoPage(si, p) : undefined}
       />
 

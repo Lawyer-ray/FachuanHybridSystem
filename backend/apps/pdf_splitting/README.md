@@ -76,7 +76,11 @@ pdf_splitting/
 入口在 `services/split/pipeline.py`：
 
 ```python
-from apps.pdf_splitting.services.split.pipeline import analyze_pdf, PipelineCancelled
+from apps.pdf_splitting.services.split.pipeline import (
+    analyze_pdf,
+    LockedCloudBackendUnavailable,
+    PipelineCancelled,
+)
 
 outcome = analyze_pdf(
     pdf_path,
@@ -85,6 +89,8 @@ outcome = analyze_pdf(
     on_progress=lambda done, total: ...,  # 可选进度回调
     is_cancelled=lambda: False,           # 可选取消查询；True 时抛 PipelineCancelled
 )
+# 锁定了 cloud_backend 但它当前不可用（未启用 / 缺 Key）→ 抛 LockedCloudBackendUnavailable，
+# 不会静默回落本地 OCR，也不会采信只存着本地结果的页缓存。捕获后提示用户修配置。
 outcome.pages        # list[PageDescriptor]：逐页文本 / 版面块 / 标题
 outcome.drafts       # list[SegmentDraft]：分段（起止页 / 类型 / 命名 / 置信度 / llm|rule 来源）
 outcome.segments_md  # list[dict]：每段 Markdown
