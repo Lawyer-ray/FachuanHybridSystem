@@ -63,6 +63,9 @@ def test_posts_the_documented_payload(monkeypatch: pytest.MonkeyPatch) -> None:
         "instruction": "只写管辖问题",
         # 批注署名随请求走（缺省空串，后端回落 Lawyer）；不做系统配置
         "comment_author": "",
+        # 起草前先判材料够不够（默认开）；材料是 blocking 时要想出草稿得显式 force
+        "assess_first": True,
+        "force": False,
     }
 
 
