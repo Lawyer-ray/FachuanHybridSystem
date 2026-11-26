@@ -32,6 +32,84 @@ export interface DraftRequest {
    * 留空由后端回落 `Lawyer`。
    */
   comment_author: string
+  /**
+   * 材料缺口已到 blocking 时仍要出草稿。
+   *
+   * 只在律师点了「仍然生成草稿（留空处会挂批注）」时为 true：缺口会写成
+   * `<待填写：x>` 并挂批注，视图上不能伪装成材料齐全。
+   */
+  force?: boolean
+}
+
+/** 立案前判断的结论档（后端 `verdict`）。 */
+export type ReadinessVerdict = 'ready' | 'draftable_with_gaps' | 'blocked' | 'unknown'
+
+/** 缺口的严重度：不补无法立案 / 影响金额认定 / 影响抗辩。 */
+export type MissingSeverity = 'blocking' | 'amount' | 'defense'
+
+/** 要件事实矩阵的一行（后端 `matrix[i]`）：这条要件在本案对应什么事实、出处在哪。 */
+export interface ReadinessRequirement {
+  /** 要件稳定键（档案里的一行）；只用于排查，不展示给律师 */
+  requirement_key?: string
+  /** 要件名（「付款义务与到期日」）。后端按档案数据给，前端不再翻译 */
+  requirement: string
+  /** 为什么这条要件必须满足 */
+  why?: string
+  /** 本案对应的事实原文（材料里没有就是空串） */
+  fact?: string
+  /** 出处（「合同 三、2」） */
+  source?: string
+  /** met / partial / missing */
+  status: string
+}
+
+/** 补充材料清单的一条（后端 `missing_materials[i]`）。 */
+export interface ReadinessMissingItem {
+  /** 要补什么，如「被告身份证复印件或户籍信息」 */
+  item: string
+  /** 为什么必须补 */
+  why: string
+  /** 向谁要（「委托人 / 律师调查」） */
+  from_whom: string
+  /** 要什么形式（「复印件 / 公安查询单」） */
+  form: string
+  severity: MissingSeverity
+}
+
+/** 需要核实的问题（后端 `questions[i]`）：材料回答不了、得去问人的那些。 */
+export interface ReadinessQuestion {
+  /** 问谁（「委托人经办人」） */
+  to: string
+  question: string
+  why: string
+}
+
+/**
+ * `POST draft/assess` 出参：结论 + 要件矩阵 + 补充材料清单 + 问题清单。
+ *
+ * 只读判断，不渲染、不落盘。字段名沿用后端 snake_case（与 `DraftResult` 同口径）。
+ */
+export interface DraftAssessResult {
+  verdict: ReadinessVerdict
+  /** 命中的要件档案（lease_arrears / contract_payment）；只用于排查，不展示给律师 */
+  profile_key: string
+  matrix: ReadinessRequirement[]
+  missing_materials: ReadinessMissingItem[]
+  questions: ReadinessQuestion[]
+  /** 挡住起草的那几项缺口名（= severity=blocking 的 item） */
+  blocking: string[]
+  warnings: string[]
+}
+
+/** `POST draft/assess` 入参：项目坐标二选一 + 可选的案由 / 事实 / 补充说明。 */
+export interface DraftAssessRequest {
+  case_id?: number
+  contract_id?: number
+  /** 案由：留空由后端取案件上的字段，它决定命中哪份要件档案 */
+  cause_of_action?: string
+  /** 律师显式给出的事实，会直接改变缺口清单 */
+  facts?: Record<string, string>
+  instruction?: string
 }
 
 /**
