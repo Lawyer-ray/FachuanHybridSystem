@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Callable, Iterable
 from typing import Any
@@ -271,7 +272,7 @@ def _llm_write(
         return ""
     if not raw:
         return ""
-    body, body_warnings = sanitize_llm_body(raw, material=_material_text(material))
+    body, body_warnings = sanitize_llm_body(_json_body(raw) or raw, material=_material_text(material))
     if warnings is not None:
         label = _SECTION_LABELS.get(section, section)
         warnings.extend(f"{label}：{warning}" for warning in body_warnings)
@@ -285,6 +286,23 @@ def _llm_write(
     return ""
 
 
+def _json_body(raw: str) -> str:
+    """从 `{"body": "..."}` 里取正文；不是这个形状就返回空串（由调用方回落到纯文本）。"""
+    from apps.core.llm.structured_output import extract_json_text
+
+    snippet = extract_json_text(raw)
+    if not snippet:
+        return ""
+    try:
+        payload = json.loads(snippet)
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    body = payload.get("body")
+    return body.strip() if isinstance(body, str) else ""
+
+
 def _build_messages(spec: DocumentSpec, section: str, *, material: dict[str, str]) -> list[dict[str, str]]:
     heading = _answer(getattr(spec, f"{section}_heading", "")) or _SECTION_LABELS.get(section, "")
     system = [
@@ -295,6 +313,10 @@ def _build_messages(spec: DocumentSpec, section: str, *, material: dict[str, str
     if brief:
         system.append(f"写作要点：{brief}")
     system.append("规则：只能使用给定事实里能推出的信息，不许编造金额、日期、主体名称；推不出来的内容宁可不写。")
+    # 结构化外壳：真机里模型会把「我们需要…给定事实…」整段推演当正文交回来（3 次里 2 次）。
+    # 要求它把结果装进 {"body": ...}，推演通常留在 JSON 之外被丢掉；解析失败仍回落到
+    # `sanitize_llm_body`，两层都不依赖模型自觉。
+    system.append('输出格式：只输出一个 JSON 对象，形如 {"body": "本节正文"}；body 里不要出现任何对本任务的说明。')
 
     facts_lines = [
         f"- {key}: {value}" for key, value in material.items() if key != MATERIAL_FACTS_KEY and _answer(value)
