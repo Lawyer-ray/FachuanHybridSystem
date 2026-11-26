@@ -194,6 +194,10 @@ WRITE_PREFIXES: tuple[str, ...] = (
     # 审查轮次并消耗额度（``test_approval_alignment`` 的 LOW+写方法判据会红）。
     # 与 ``generate_`` / ``verify_`` 同档（MEDIUM）。
     "review_",
+    # 立案前判断：``assess_draft_readiness`` POST /doc-workspace/draft/assess，**不落盘**
+    # 但会调一次模型（要约 20~40 秒与额度）。按「LOW 就无留痕」的口径它会静默烧额度，
+    # 与 ``review_`` 同档（MEDIUM：静默放行 + 审计留痕）。
+    "assess_",
 )
 
 DEFAULT_TIMEOUT = 300.0
