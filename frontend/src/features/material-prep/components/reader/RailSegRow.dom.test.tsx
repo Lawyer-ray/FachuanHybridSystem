@@ -451,3 +451,94 @@ describe('RailSegRow：右键菜单', () => {
     unmount()
   })
 })
+
+/**
+ * 徽标**互斥单选**：232px 的栏里放不下 4 个图标（段名会先被挤死），所以只渲染一个，
+ * 按严重度排：ocrFailed > degenerate > columnAnomaly > doc > graphic。
+ *
+ * 理由：正文整页没有 > 正文不可信（云端退化、换本地 OCR）> 数字可能挂错表头 >
+ * 字段没读出 > 内容不完整。这里把整条阶梯逐级钉住，改顺序必须同时改这组用例。
+ */
+describe('RailSegRow：质量标记的优先级阶梯', () => {
+  const docHints = [{ page: 23, doc: 'id_card', missing: ['姓名'] }]
+
+  function marks(container: HTMLElement) {
+    return {
+      ocr: container.querySelector('[data-ocr-failed-mark]'),
+      degenerate: container.querySelector('[data-degenerate-mark]'),
+      column: container.querySelector('[data-column-anomaly-mark]'),
+      doc: container.querySelector('[data-doc-mark]'),
+      graphic: container.querySelector('[data-graphic-mark]'),
+    }
+  }
+
+  it('取字失败与退化同时存在 → 显示取字失败（正文整页没有，比换了识别路径更严重）', () => {
+    const { container, unmount } = renderRow({ ocrFailedPages: [3], degeneratePages: [12] })
+    const m = marks(container)
+    expect(m.ocr).toBeTruthy()
+    expect(m.degenerate).toBeNull()
+    unmount()
+  })
+
+  it('退化优先于列数突变、证件、图纸', () => {
+    const { container, unmount } = renderRow({
+      degeneratePages: [12],
+      columnAnomalyPages: [7],
+      docHintPages: docHints,
+      graphicPages: [147],
+    })
+    const m = marks(container)
+    expect(m.degenerate).toBeTruthy()
+    expect(m.column).toBeNull()
+    expect(m.doc).toBeNull()
+    expect(m.graphic).toBeNull()
+    unmount()
+  })
+
+  it('列数突变优先于证件、图纸', () => {
+    const { container, unmount } = renderRow({
+      columnAnomalyPages: [7],
+      docHintPages: docHints,
+      graphicPages: [147],
+    })
+    const m = marks(container)
+    expect(m.column).toBeTruthy()
+    expect(m.doc).toBeNull()
+    expect(m.graphic).toBeNull()
+    unmount()
+  })
+
+  it('退化 / 列数突变都用灰图标（事实陈述，不上琥珀），tooltip 给出页号与后果', () => {
+    const first = renderRow({ degeneratePages: [12, 34] })
+    const degenerate = first.container.querySelector('[data-degenerate-mark]') as HTMLElement
+    expect(degenerate.className).toContain('text-zinc-400')
+    expect(degenerate.className).not.toContain('amber')
+    expect(degenerate.getAttribute('title')).toBe(
+      '含 2 页云端取字判为退化（P12、P34），已改用本地识别兜底 · 建议核对原页',
+    )
+    first.unmount()
+
+    const second = renderRow({ columnAnomalyPages: [7] })
+    const column = second.container.querySelector('[data-column-anomaly-mark]') as HTMLElement
+    expect(column.className).toContain('text-zinc-400')
+    expect(column.className).not.toContain('amber')
+    expect(column.getAttribute('title')).toBe(
+      '含 1 页表格列数与上一页不同（P7），数字可能挂错表头 · 请核对数字表头',
+    )
+    second.unmount()
+  })
+
+  it('旧任务（两个新信号都缺省）不出现任何新标记', () => {
+    const { container, unmount } = renderRow()
+    expect(container.querySelector('[data-degenerate-mark]')).toBeNull()
+    expect(container.querySelector('[data-column-anomaly-mark]')).toBeNull()
+    unmount()
+  })
+
+  it('改名字时也不出新标记（不让图标挤在输入框旁）', () => {
+    const { container, unmount } = renderRow({ degeneratePages: [12], columnAnomalyPages: [7], editing: true })
+    expect(container.querySelector('[data-degenerate-mark]')).toBeNull()
+    expect(container.querySelector('[data-column-anomaly-mark]')).toBeNull()
+    unmount()
+  })
+})

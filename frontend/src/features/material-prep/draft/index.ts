@@ -29,7 +29,14 @@ export {
 } from './page-rotation'
 export type { PageRefKey } from './page-rotation'
 export { nextSegId, ensureSegIds } from './seg-id'
-export { isEmptyDraft, withPageQuality, withEngineDisagreements, withJudgeState, setEngineChecked } from './state'
+export {
+  isEmptyDraft,
+  withPageQuality,
+  withEngineDisagreements,
+  withJudgeState,
+  withPageAnomaly,
+  setEngineChecked,
+} from './state'
 export {
   readJudgeState,
   mergeJudgeStates,
@@ -99,6 +106,12 @@ export {
   qualityFlagLabel,
   pagesText,
   reviewHintOf,
+  readPageAnomaly,
+  degeneratePagesOf,
+  columnAnomalyPagesOf,
+  columnAnomaliesOf,
+  columnAnomalyOf,
+  riskPageKeysOf,
 } from './quality'
 export type { DocTodo, SegmentReviewHint } from './quality'
 export {

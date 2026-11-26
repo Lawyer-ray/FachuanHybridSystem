@@ -20,6 +20,8 @@ function result(overrides: Partial<AutoSplitResult> = {}): AutoSplitResult {
     segments: [],
     segmentBackend: 'llm',
     pageQuality: null,
+    // 退化页 / 列数突变页：旧任务同样没有这两个键（null = 整块不渲染、收尾提示不加字）
+    pageAnomaly: null,
     inconsistencies: [],
     engineDisagreements: [],
     // 旧任务没有裁定总账：null = 整条提示不渲染（与引入前逐位一致）
@@ -141,5 +143,66 @@ describe('summarizeAutoSplitResults：分歧裁定的门禁结果必须说出来
       ],
     })
     expect(out.message).not.toContain('裁定')
+  })
+})
+
+describe('summarizeAutoSplitResults：退化页 / 列数突变页要说出来但**不升级**警告', () => {
+  /**
+   * 这两类都是「任务成功、正文也有，但机器读出来的那一页本身可疑」：
+   * 退化页已由本地 OCR 兜底，列数突变只影响数字表头的对位——都不是失败。
+   * 染黄会稀释「页级未取到任何文字」那条真警告，所以 warned 必须保持 false。
+   */
+
+  it('有退化页 → 点名页数且说清已换识别路径，不升级 warned', () => {
+    const out = summarizeAutoSplitResults({
+      ...base,
+      results: [result({ pageAnomaly: { degenerate_pages: [12, 34] } })],
+    })
+    expect(out.message).toContain('2 页云端取字判为退化，已换识别路径重取，请核对原页')
+    expect(out.warned).toBe(false)
+  })
+
+  it('有列数突变 → 点名页数并指向数字表头，不升级 warned', () => {
+    const out = summarizeAutoSplitResults({
+      ...base,
+      results: [
+        result({
+          pageAnomaly: { column_anomalies: [{ page_no: 7, prev_page_no: 6, cols: 5, prev_cols: 4 }] },
+        }),
+      ],
+    })
+    expect(out.message).toContain('1 页表格列数与邻页不同，数字表头请核对')
+    expect(out.warned).toBe(false)
+  })
+
+  it('两类都有：先退化后列数，且多份材料跨任务累加', () => {
+    const out = summarizeAutoSplitResults({
+      ...base,
+      results: [
+        result({
+          pageAnomaly: {
+            degenerate_pages: [12],
+            column_anomalies: [{ page_no: 7, prev_page_no: 6, cols: 5, prev_cols: 4 }],
+          },
+        }),
+        result({
+          mi: 1,
+          jobId: 'job-2',
+          pageAnomaly: {
+            degenerate_pages: [3, 4],
+            column_anomalies: [{ page_no: 20, prev_page_no: 19, cols: 3, prev_cols: 4 }],
+          },
+        }),
+      ],
+    })
+    expect(out.message).toContain('3 页云端取字判为退化')
+    expect(out.message).toContain('2 页表格列数与邻页不同')
+    expect(out.message.indexOf('退化')).toBeLessThan(out.message.indexOf('表格列数'))
+  })
+
+  it('旧任务（pageAnomaly 为 null）→ 一个字都不加（与引入前逐位一致）', () => {
+    const out = summarizeAutoSplitResults({ ...base, results: [result()] })
+    expect(out.message).not.toContain('退化')
+    expect(out.message).not.toContain('列数')
   })
 })

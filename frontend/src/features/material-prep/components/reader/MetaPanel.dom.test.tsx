@@ -310,3 +310,71 @@ describe('MetaPanel：重新识别当事人', () => {
     container.remove()
   })
 })
+
+/**
+ * 右栏是「页级识别风险」到达律师眼前的最后一公里：草稿里的 `pageAnomalyByMi` 必须被
+ * 算成本段覆盖的页（`degeneratePagesOf` / `columnAnomalyPagesOf` + `columnAnomalyOf`
+ * 取详情）再交给正文面板。这里锁的就是这段接线——纯函数本身在 draft 层已单独测过。
+ */
+describe('MetaPanel：页级识别风险接到正文面板', () => {
+  const segWithBody = {
+    id: 's1',
+    t: '证据',
+    fn: '证据一',
+    refs: [{ mi: 0, p: 3 }],
+    manual: false,
+    md: '# 证据目录\n\n原告提交了转账凭证。',
+    blocks: [
+      {
+        page: 3,
+        type: 'paragraph',
+        text: '原告提交了转账凭证。',
+        rect: { x: 0.1, y: 0.2, w: 0.5, h: 0.05, approx: false, precision: 'exact' },
+      },
+    ],
+  }
+
+  function renderWithDraft(pageAnomaly: Record<string, unknown> | undefined) {
+    return render(
+      wrap(
+        <MetaPanel
+          draft={{ mats: [], segs: [segWithBody], infos: [], ...(pageAnomaly ? { pageAnomalyByMi: { '0': pageAnomaly } } : {}) } as never}
+          pickInfo={-1}
+          onSetPickInfo={vi.fn()}
+          ops={ops() as never}
+          focusedSeg={0}
+          mdOpen
+          onToggleMdOpen={() => {}}
+          focusedBlockKey={null}
+          onLocateBlock={() => {}}
+        />,
+      ),
+    )
+  }
+
+  it('退化页落成本段页提示（按 seg.refs 求交集，不是全卷照搬）', () => {
+    const { container } = renderWithDraft({ degenerate_pages: [3, 12] })
+    const hint = container.querySelector('[data-degenerate-hint]') as HTMLElement
+    expect(hint).toBeTruthy()
+    expect(hint.textContent).toContain('已换识别路径重取')
+    // P12 不在本段 refs 里 → 不在这里出提示
+    expect(container.querySelectorAll('[data-degenerate-hint]')).toHaveLength(1)
+    container.remove()
+  })
+
+  it('列数突变页带出「本页几列 vs 上一页几列」的详情', () => {
+    const { container } = renderWithDraft({
+      column_anomalies: [{ page_no: 3, prev_page_no: 2, cols: 5, prev_cols: 4 }],
+    })
+    const hint = container.querySelector('[data-column-anomaly-hint]') as HTMLElement
+    expect(hint.textContent).toBe('P3 表格 5 列，上一页 P2 为 4 列 · 列可能被并/拆或换了模板，请核对数字表头')
+    container.remove()
+  })
+
+  it('旧任务草稿没有 pageAnomaly 时正文里不多一条提示（与改动前逐字一致）', () => {
+    const { container } = renderWithDraft(undefined)
+    expect(container.querySelector('[data-degenerate-hint]')).toBeNull()
+    expect(container.querySelector('[data-column-anomaly-hint]')).toBeNull()
+    container.remove()
+  })
+})

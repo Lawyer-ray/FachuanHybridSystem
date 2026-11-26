@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, FileImage, IdCard } from 'lucide-react'
+import { AlertTriangle, FileImage, IdCard, Repeat, Table } from 'lucide-react'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -39,6 +39,8 @@ export function RailSegRow({
   graphicPages = [],
   docHintPages = [],
   ocrFailedPages = [],
+  degeneratePages = [],
+  columnAnomalyPages = [],
   editing,
   download,
   onStartEdit,
@@ -67,6 +69,10 @@ export function RailSegRow({
   /** 本段里**一个字都没读到**的页号（`summary.page_quality.ocr_failed_pages`）。
    *  这些页在正文里完全不存在，所以必须靠徽标告警，而不是正文内提示 */
   ocrFailedPages?: number[]
+  /** 本段里云端取字判为退化的页（`summary.degenerate_pages`，正文已改由本地 OCR 兜底） */
+  degeneratePages?: number[]
+  /** 本段里表格列数与上一页不同的页（`summary.table_geometry.column_anomalies`） */
+  columnAnomalyPages?: number[]
   /** 行内改名由父层持有（右键「重命名」也要打开它） */
   editing: boolean
   /** 勾选 + 单个下载的视图模型；undefined = 本段没有后端产物（人工拆的段 / 旧草稿），
@@ -200,6 +206,8 @@ export function RailSegRow({
               docHintPages={docHintPages}
               graphicPages={graphicPages}
               ocrFailedPages={ocrFailedPages}
+              degeneratePages={degeneratePages}
+              columnAnomalyPages={columnAnomalyPages}
             />
           )}
         </div>
@@ -290,18 +298,25 @@ function SegmentMarks({
   docHintPages,
   graphicPages,
   ocrFailedPages,
+  degeneratePages,
+  columnAnomalyPages,
 }: {
   seg: Segment
   docHintPages: { page: number; doc: string; missing: string[] }[]
   graphicPages: number[]
   ocrFailedPages: number[]
+  degeneratePages: number[]
+  columnAnomalyPages: number[]
 }) {
   const reviewHint = reviewHintOf(seg)
   return (
     <span className="flex flex-none items-center gap-0.5">
-      {/* 取字失败优先于一切其它徽标：它比「图纸/证件缺字段」严重一档（
-          那两类至少还有字可读），且正文里根本没有这几页。用琥珀色与「建议复核」
-          同一套语义色，因为它要的也是动作（去翻原图补录）。 */}
+      {/* 徽标是**互斥单选**（232px 的栏里放不下 4 个，段名会先被挤死），按严重度排：
+          ocrFailed > degenerate > columnAnomaly > doc > graphic。
+          理由：正文根本不可信（整页没字）> 正文不可信（云端退化、换本地 OCR）>
+          数字可能挂错表头 > 字段没读出 > 内容不完整。
+          取字失败用琥珀色（要动作）；退化 / 列数突变是灰的（与右栏页提示同一色的
+          事实陈述），只有 tooltip 里那句「建议核对」「请核对」是行动指引。 */}
       {ocrFailedPages.length > 0 ? (
         <span
           data-ocr-failed-mark
@@ -309,6 +324,22 @@ function SegmentMarks({
           title={`含 ${ocrFailedPages.length} 页未取到任何文字（P${ocrFailedPages.join('、P')}），正文里没有这几页 · 请核对原图补录`}
         >
           <AlertTriangle className="h-3 w-3" aria-hidden />
+        </span>
+      ) : degeneratePages.length > 0 ? (
+        <span
+          data-degenerate-mark
+          className="flex-none text-zinc-400"
+          title={`含 ${degeneratePages.length} 页云端取字判为退化（P${degeneratePages.join('、P')}），已改用本地识别兜底 · 建议核对原页`}
+        >
+          <Repeat className="h-3 w-3" aria-hidden />
+        </span>
+      ) : columnAnomalyPages.length > 0 ? (
+        <span
+          data-column-anomaly-mark
+          className="flex-none text-zinc-400"
+          title={`含 ${columnAnomalyPages.length} 页表格列数与上一页不同（P${columnAnomalyPages.join('、P')}），数字可能挂错表头 · 请核对数字表头`}
+        >
+          <Table className="h-3 w-3" aria-hidden />
         </span>
       ) : docHintPages.length > 0 ? (
         <span data-doc-mark className="flex-none text-zinc-400" title={docHintTooltip(docHintPages)}>

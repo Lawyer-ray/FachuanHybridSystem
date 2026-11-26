@@ -1,10 +1,17 @@
 import { createPdfSplitJob, fetchAttachmentBytes, findReusablePdfSplitJob, ocrImage, parseOfficeFile } from '../../api'
-import { readEngineDisagreements, readInconsistencies, readJudgeState, readPageQuality } from '../../draft'
+import {
+  readEngineDisagreements,
+  readInconsistencies,
+  readJudgeState,
+  readPageAnomaly,
+  readPageQuality,
+} from '../../draft'
 import type {
   BundleMat,
   EngineDisagreement,
   Inconsistency,
   JudgeState,
+  PageAnomaly,
   PageQuality,
   PdfSplitSegmentSuggestion,
 } from '../../types'
@@ -26,8 +33,10 @@ import type { MatTarget } from './auto-split-targets'
 
 /**
  * 单个 PDF 的云端拆分结果：mi 定位材料，segmentBackend 用于提示分段质量来源。
- * 另带四类「机器读到什么」的统计（都可能缺，旧任务 / 后端未算时为空）：
+ * 另带五类「机器读到什么」的统计（都可能缺，旧任务 / 后端未算时为空）：
  *   · page_quality —— 哪几页是图纸/照片、哪几页几乎没字（→ 段行标记 + 正文提示条）
+ *   · pageAnomaly —— 哪几页云端取字判为退化、哪几页表格列数与邻页不同
+ *     （→ 页级风险提示，派生见 `draft/page-anomaly.ts`）
  *   · inconsistencies —— 同一枚章 / 同一个字段被识别成两种写法（→ 全局清单）
  *   · engineDisagreements —— 两个 OCR 引擎在同一处读得不一样（→ 引擎分歧清单 + 双框）
  *   · judgeState —— 这些分歧到底有没有被自动裁定，没裁是因为什么（→ 顶部提示条 + 收尾提示）
@@ -45,6 +54,7 @@ export interface AutoSplitResult {
   segments: PdfSplitSegmentSuggestion[]
   segmentBackend: string
   pageQuality: PageQuality | null
+  pageAnomaly: PageAnomaly | null
   inconsistencies: Inconsistency[]
   engineDisagreements: EngineDisagreement[]
   /** 分歧裁定的门禁结果；旧任务为 null（那时没有这个键） */
@@ -165,6 +175,7 @@ export async function runPdfTrack(args: {
           inconsistencies: readInconsistencies(result.summary.inconsistencies),
           engineDisagreements: readEngineDisagreements(result.summary.engine_disagreements),
           judgeState: readJudgeState(result.summary.engine_disagreements_judge),
+          pageAnomaly: readPageAnomaly(result.summary),
         },
       })
     } catch (error) {

@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
@@ -193,3 +194,33 @@ class TestCloudBackendUntouched:
     def test_多值塞进cloud_backend仍落回auto(self) -> None:
         # 防回流：前端若把多值错传到 cloud_backend，行为必须回到「容灾」，不能半懂不懂
         assert PdfSplitJobService()._normalize_cloud_backend("mineru,paddleocr_vl") == "auto"
+
+
+class TestLockedBackendUnavailableMessage:
+    """锁定平台不可用时的失败文案：修复路径猜错，律师照着提示操作也没用。"""
+
+    @staticmethod
+    def _message(backend: str) -> str:
+        from apps.pdf_splitting.services.split.pipeline import LockedCloudBackendUnavailable, PageTextExtractor
+
+        stats: dict[str, Any] = {
+            "cloud_candidates": [],
+            "cloud_backend_requested": backend,
+            "pending_page_numbers": [1],
+        }
+        with pytest.raises(LockedCloudBackendUnavailable) as excinfo:
+            PageTextExtractor(ocr_handler=SimpleNamespace())._parse_cloud(Path("/tmp/fake.pdf"), stats)
+        return str(excinfo.value)
+
+    def test_deepseek锁定的修复路径是系统配置里的Key(self) -> None:
+        # deepseek 的凭证不在「解析平台」管理页（没有 provider 行），提示必须指向 SystemConfig
+        message = self._message("deepseek")
+        assert "deepseek" in message
+        assert "DEEPSEEK_OCR_API_KEY" in message
+        assert "未降级" in message
+
+    def test_mineru锁定的修复路径是解析平台管理页(self) -> None:
+        message = self._message("mineru")
+        assert "mineru" in message
+        assert "「解析平台」管理页" in message
+        assert "未降级" in message

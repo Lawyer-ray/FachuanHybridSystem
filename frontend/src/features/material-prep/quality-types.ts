@@ -124,3 +124,35 @@ export interface JudgeState {
   /** 留在人工清单里的条数 */
   human: number
 }
+
+/** 一页的表格列数与邻页不同（`summary.table_geometry.column_anomalies` 的条目） */
+export interface ColumnAnomaly {
+  page_no: number
+  prev_page_no: number
+  cols: number
+  prev_cols: number
+}
+
+/**
+ * 页级「识别风险」信号（收窄后，`draft/page-anomaly.ts` 的 `readPageAnomaly` 产出）。
+ *
+ * 两件事的共同点：任务状态是成功的、正文也生成了，但机器读出来的东西**本身可疑**。
+ * - `degenerate_pages`：云端把该页读成复读循环、正文被清空，改由本地 OCR 兜底；
+ * - `column_anomalies`：该页表格列数与邻页不同（列数突变通常是表头被并/拆列）。
+ *
+ * 全部字段按可选读取：旧任务的 summary 里两个键都没有，缺了不能崩。
+ */
+export interface PageAnomaly {
+  degenerate_pages?: number[]
+  column_anomalies?: ColumnAnomaly[]
+}
+
+/**
+ * 按**源**（`PageKey.mi`）存的页级风险。
+ *
+ * 为什么必须按源：一个材料包可以有多份 PDF，各有自己的识别任务，页号从 1 重新开始。
+ * 存成 `PageAnomaly` 单值的话，后一份的结果会整键覆盖前一份（丢页），而且「某份的 P5
+ * 退化」会显示到**任何**源的 P5 段上（给错页提示）——比不提示更糟。
+ * 键是 `String(mi)`：JSON 对象的键只能是字符串，草稿要落库，所以这里直接按字符串定形。
+ */
+export type PageAnomalyByMi = Record<string, PageAnomaly>

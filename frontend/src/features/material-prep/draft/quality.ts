@@ -11,8 +11,9 @@
  * 所以这里只做一件事：把不可信的 `unknown` 收窄成**明确的可选结构**，再给几组
  * 派生量（某段覆盖了哪些图形页、提示文案怎么写）。组件只读收窄后的结果。
  *
- * ## 拆成三块（互不相关的领域）
+ * ## 拆成四块（互不相关的领域）
  * - `page-quality.ts`：页级质量收窄 + 段-页覆盖派生 + 证件待补录；
+ * - `page-anomaly.ts`：页级识别风险（退化页 / 表格列数突变）收窄 + 段-页覆盖派生；
  * - `pairs.ts`：跨页不一致的收窄、判据种类与排序；
  * - `review-hint.ts`：段级复核信号 → 人话。
  *
@@ -30,6 +31,14 @@ export {
   pagesText,
 } from './page-quality'
 export type { DocTodo } from './page-quality'
+export {
+  readPageAnomaly,
+  degeneratePagesOf,
+  columnAnomalyPagesOf,
+  columnAnomaliesOf,
+  columnAnomalyOf,
+  riskPageKeysOf,
+} from './page-anomaly'
 export { readInconsistencies, inconsistencyKindOf, sortInconsistencies } from './pairs'
 export type { InconsistencyKind } from './pairs'
 export { reviewHintOf } from './review-hint'

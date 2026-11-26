@@ -525,3 +525,88 @@ describe('Rail：证件待补录入口与段行证件标记', () => {
     container.remove()
   })
 })
+
+/**
+ * 卷级「识别风险页」徽标：退化页（云端取字判为退化）与列数突变页取并集去重计数。
+ *
+ * 它**没有对应清单**（不做抽屉：两类页不多，逐页提示 + 这个数字已够），所以是
+ * 说明性的 `<span>`，不是「看着能点、点了没反应」的按钮。数字为 0 时整块不渲染
+ * （沿用「不给假入口」纪律；旧任务没有 pageAnomalyByMi → 0）。
+ */
+describe('Rail：识别风险页徽标', () => {
+  /**
+   * `pages` 是这一段引用了哪几页：徽标只数**草稿里还引用着的页**（删掉的页不催），
+   * 所以夹具必须把信号页真放进段里，否则测的是「没引用就不算」而不是计数本身。
+   */
+  function draftWithAnomaly(anomaly: Record<string, unknown> | undefined, pages = [1]) {
+    return {
+      mats: [mat('a.pdf')],
+      segs: [seg('s1', 'A', pages.map((p) => ({ mi: 0, p })))],
+      infos: [],
+      ...(anomaly ? { pageAnomalyByMi: { '0': anomaly } } : {}),
+    } as never
+  }
+
+  const columnAnomaly = { page_no: 7, prev_page_no: 6, cols: 5, prev_cols: 4 }
+
+  it('两类页各一页时徽标数字是并集（2），title 拆出退化 / 列数各几页', () => {
+    const { container } = renderRail({ draft: draftWithAnomaly({ degenerate_pages: [12], column_anomalies: [columnAnomaly] }, [12, 7]) })
+    const entry = container.querySelector('[data-page-anomaly-entry]') as HTMLElement
+    expect(entry).toBeTruthy()
+    expect(entry.textContent).toBe('2')
+    expect(entry.getAttribute('title')).toBe('全卷 2 页识别风险待核对（同页只计一次；退化 1 页 / 列数异常 1 页）')
+    container.remove()
+  })
+
+  it('同一页既退化又列数突变只算一页（数字大于待核对页数就是在催假账）', () => {
+    const { container } = renderRail({
+      draft: draftWithAnomaly(
+        {
+          degenerate_pages: [7],
+          column_anomalies: [{ ...columnAnomaly, page_no: 7 }],
+        },
+        [7],
+      ),
+    })
+    const entry = container.querySelector('[data-page-anomaly-entry]') as HTMLElement
+    expect(entry.textContent).toBe('1')
+    expect(entry.getAttribute('title')).toBe('全卷 1 页识别风险待核对（同页只计一次；退化 1 页 / 列数异常 1 页）')
+    container.remove()
+  })
+
+  it('徽标是说明性元素，不是按钮（没有清单可开）', () => {
+    const { container } = renderRail({ draft: draftWithAnomaly({ degenerate_pages: [12] }, [12]) })
+    const entry = container.querySelector('[data-page-anomaly-entry]') as HTMLElement
+    expect(entry.tagName).not.toBe('BUTTON')
+    expect(entry.className).toContain('cursor-default')
+    container.remove()
+  })
+
+  it('旧任务没有 pageAnomalyByMi 时不渲染徽标（与改动前逐字一致）', () => {
+    const { container } = renderRail()
+    expect(container.querySelector('[data-page-anomaly-entry]')).toBeNull()
+    container.remove()
+  })
+
+  it('数字为 0（空数组）时也不渲染', () => {
+    const { container } = renderRail({ draft: draftWithAnomaly({ degenerate_pages: [], column_anomalies: [] }) })
+    expect(container.querySelector('[data-page-anomaly-entry]')).toBeNull()
+    container.remove()
+  })
+
+  it('段行拿到的是它自己覆盖到的退化页 / 列数突变页', () => {
+    const { container } = renderRail({
+      draft: {
+        mats: [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 20 }],
+        segs: [seg('s1', 'A', [{ mi: 0, p: 1 }]), seg('s2', 'B', [{ mi: 0, p: 12 }])],
+        infos: [],
+        pageAnomalyByMi: { '0': { degenerate_pages: [12], column_anomalies: [columnAnomaly] } },
+      } as never,
+    })
+    expect(rowProps[0]!.degeneratePages).toEqual([])
+    expect(rowProps[0]!.columnAnomalyPages).toEqual([])
+    expect(rowProps[1]!.degeneratePages).toEqual([12])
+    expect(rowProps[1]!.columnAnomalyPages).toEqual([])
+    container.remove()
+  })
+})

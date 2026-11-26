@@ -32,6 +32,9 @@ const draftMock = vi.hoisted(() => ({
   readPageQuality: vi.fn((raw: unknown) => (raw && typeof raw === 'object' ? raw : null)),
   readInconsistencies: vi.fn((raw: unknown) => (Array.isArray(raw) ? raw : [])),
   withPageQuality: vi.fn((v: unknown) => v),
+  // 退化页 / 列数突变页：收窄穿过去、落草稿穿过去（真实实现是纯函数）
+  readPageAnomaly: vi.fn((raw: unknown) => (raw && typeof raw === 'object' ? raw : null)),
+  withPageAnomaly: vi.fn((v: unknown) => v),
   // 双引擎分歧同样只是纯函数：收窄穿过去、落草稿穿过去
   readEngineDisagreements: vi.fn((raw: unknown) => (Array.isArray(raw) ? raw : [])),
   withEngineDisagreements: vi.fn((v: unknown) => v),

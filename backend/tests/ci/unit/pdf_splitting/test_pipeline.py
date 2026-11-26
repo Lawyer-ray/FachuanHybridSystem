@@ -10,6 +10,7 @@ import pymupdf as fitz
 import pytest
 
 from apps.pdf_splitting.services.split.pipeline import (
+    LockedCloudBackendUnavailable,
     PageTextExtractor,
     PipelineCancelled,
     analyze_pdf,
@@ -485,18 +486,77 @@ class TestCloudFailover:
         reason = summary["layout_unavailable_reason"]
         assert "mineru" in reason and "textin" in reason
 
-    def test_无可用平台时不尝试云端(self, tmp_path: Path) -> None:
+    def test_auto_无可用平台时静默回落本地(self, tmp_path: Path) -> None:
+        """auto（含 None / 脏值）没有可用平台：行为不变——不碰云端，直接本地兜底。"""
         pdf = tmp_path / "d.pdf"
         _make_pdf(pdf, [self.TEXT])
         handler = _StubOCRHandler(backend=None)
         handler.resolve_cloud_backends = lambda pref=None: []  # type: ignore[method-assign]
 
         _pages, summary = PageTextExtractor(ocr_handler=handler).extract(
-            pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY, layout_mode="layout", cloud_backend="mineru"
+            pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY, layout_mode="layout", cloud_backend="auto"
         )
 
         assert handler.cloud_calls == []
         assert summary["ocr_provider"] == "local"
+
+    def test_显式锁定不可用平台时明确失败不降级本地(self, tmp_path: Path) -> None:
+        """锁定的平台未启用：必须失败并说清「未降级」，不许拿文本层/本地 OCR 顶替。"""
+        pdf = tmp_path / "d.pdf"
+        _make_pdf(pdf, [self.TEXT])  # 有文本层也不许悄悄顶替
+        handler = _StubOCRHandler(backend=None)
+        handler.resolve_cloud_backends = lambda pref=None: []  # type: ignore[method-assign]
+
+        with pytest.raises(LockedCloudBackendUnavailable) as excinfo:
+            PageTextExtractor(ocr_handler=handler).extract(
+                pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY, layout_mode="layout", cloud_backend="mineru"
+            )
+
+        message = str(excinfo.value)
+        assert "mineru" in message
+        assert "未降级" in message
+        assert handler.cloud_calls == []
+        assert handler.local_calls == []
+
+    def test_锁定不可用时不采信页缓存(self, tmp_path: Path) -> None:
+        """页缓存命中也不能绕过「锁定不可用即失败」。
+
+        真实复现路径：同一份 PDF 先跑过一次（云端失败 → 本地兜底），本地 OCR 的结果
+        被写进「无平台」那份档案；之后用户改成「仅 MinerU」重跑，无候选 →
+        档案名退化成 profile 名 → 命中同一批缓存 → pending 被清空 →
+        `_parse_cloud` 的守卫根本不会执行 → 又一次静默降级（正文来自本地 OCR）。
+        所以锁定不可用时必须**跳过页缓存**，把页留在 pending 让守卫按设计抛错。
+        """
+        pdf = tmp_path / "d.pdf"
+        _make_pdf(pdf, [self.TEXT])
+        handler = _StubOCRHandler(backend=None)
+        handler.resolve_cloud_backends = lambda pref=None: []  # type: ignore[method-assign]
+        # 缓存里躺着的是本地 OCR 的结果（正是上一次兜底写进去的那份）
+        handler.read_ocr_cache = lambda **kwargs: OCRPageResult(  # type: ignore[method-assign]
+            page_no=int(kwargs["page_no"]), text=self.TEXT, source_method="local_ocr"
+        )
+
+        with pytest.raises(LockedCloudBackendUnavailable) as excinfo:
+            PageTextExtractor(ocr_handler=handler).extract(
+                pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY, layout_mode="layout", cloud_backend="mineru"
+            )
+
+        assert "mineru" in str(excinfo.value)
+        assert handler.local_calls == [], "缓存被采信 → 页面不会进本地 OCR，说明守卫被绕过了"
+
+    def test_纯电子件显式锁定不可用也不失败(self, tmp_path: Path) -> None:
+        """fast_text 下文本层自己就够：压根走不到云端，锁定平台未启用也不能误伤。"""
+        pdf = tmp_path / "d.pdf"
+        _make_pdf(pdf, [self.TEXT])
+        handler = _StubOCRHandler(backend=None)
+        handler.resolve_cloud_backends = lambda pref=None: []  # type: ignore[method-assign]
+
+        pages, _summary = PageTextExtractor(ocr_handler=handler).extract(
+            pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY, layout_mode="fast_text", cloud_backend="mineru"
+        )
+
+        assert [page.source_method for page in pages] == ["text"]
+        assert handler.cloud_calls == []
 
 
 class TestUnstructuredNoiseCleaning:
@@ -761,7 +821,9 @@ class TestDegeneratePageRouting:
         _make_pdf(pdf, [None])
         handler = _StubOCRHandler(
             cloud={1: OCRPageResult(page_no=1, text=self._LOOPED, source_method="mineru_ocr", ocr_failed=False)},
-            local={1: OCRPageResult(page_no=1, text="本地 OCR 读回来的正常正文", source_method="ocr", ocr_failed=False)},
+            local={
+                1: OCRPageResult(page_no=1, text="本地 OCR 读回来的正常正文", source_method="ocr", ocr_failed=False)
+            },
         )
 
         pages, summary = PageTextExtractor(ocr_handler=handler).extract(

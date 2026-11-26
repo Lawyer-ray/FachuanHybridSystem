@@ -107,6 +107,29 @@ class PipelineCancelled(RuntimeError):
     """调用方经 is_cancelled 回调请求取消。"""
 
 
+class LockedCloudBackendUnavailable(RuntimeError):
+    """用户显式锁定的云端解析平台不可用：本次取字**明确失败**，不降级到本地识别。
+
+    为什么必须失败而不是静默回落本地 OCR：锁定语义是「只用这一个」。偷偷换成本地
+    识别时律师拿到的不是他选的平台的结果，比对/复核失去意义，计费也落在他没选的
+    路径上，而界面看不出任何异常。只在**候选为空**（平台未启用）时抛；平台已启用
+    但调用失败仍走既有容灾/回落（见 ``_parse_cloud``）。
+    """
+
+
+def locked_cloud_backend_message(backend: str) -> str:
+    """锁定平台不可用时的失败文案：点名平台、明说未降级、给两条修复路径。"""
+    if backend == "deepseek":
+        # deepseek 的凭证不在「解析平台」管理页，而在 SystemConfig，提示必须指向那里
+        fix = "它的 Key 在系统配置里：请到系统配置填写 DEEPSEEK_OCR_API_KEY"
+    else:
+        fix = "请到「解析平台」管理页启用该平台"
+    return (
+        f"锁定了解析平台「{backend}」，但它当前不可用：本次取字失败，未降级到本地识别。"
+        f"{fix}；或把解析平台改为「自动」再重跑。"
+    )
+
+
 @dataclass
 class PdfAnalysisOutcome:
     """一次内容分析的完整产物。summary 携带取字与分段的可观测字段，可直接并入任务摘要。"""
@@ -212,11 +235,19 @@ def analyze_pdf(
         template_key: 分段模板（建议标签集；默认立案材料 15 类）。
         ocr_profile: OCR 档位 fast / balanced / accurate。
         cloud_backend: 云端平台偏好。``auto``（默认）按优先级并在失败时切下一个
-            （容灾）；``mineru`` / ``textin`` 锁定单一平台、失败即失败（不降级）。
+            （容灾）；``mineru`` / ``textin`` / ``deepseek`` 锁定单一平台、失败即失败
+            （不降级）。**锁定平台当前不可用**（一个候选都解析不出来，典型原因：平台未
+            启用 / ``DEEPSEEK_OCR_API_KEY`` 未配）时，只要真的走到云端取字就会抛
+            :class:`LockedCloudBackendUnavailable`——不静默回落本地 OCR，也不采信页缓存
+            （那份档案里只可能是本地兜底的结果）。锁定不可用时**不会**被当成 auto：
+            ``None`` / ``auto`` / 脏值才走 auto。
         layout_mode: 版面策略。``fast_text``（默认）电子页只抽文本层、不调云端；
             ``layout`` 让电子页也上云端拿版面块与坐标（"原文坐标索引对照"需要），
-            代价是这些页也要计费且更慢。云端不可用时自动回落文本层并在
+            代价是这些页也要计费且更慢。容量不足/调用失败时回落文本层并在
             summary.layout_unavailable_reason 说明。
+            注意：``layout`` **故意不**把「整本文本层都可用」当成完事（那会连坐标都没
+            有可用），所以「锁定平台不可用 + 纯电子件 + layout」会失败而不是回落文本层。
+            这是刻意取舍：锁定了就不许换路，否则用户以为拿到的是他选的平台的坐标。
         on_progress: 进度回调 (已解析页数, 总页数)，每解析一页触发一次（节流由调用方决定）。
         is_cancelled: 取消查询回调；返回 True 时抛 PipelineCancelled。
         ocr_handler / llm_segment_detector: 依赖注入口（测试桩）；缺省用真实实现。
@@ -718,6 +749,13 @@ class PageTextExtractor:
         cloud_backend: str | None = None,
     ) -> tuple[list[PageDescriptor], dict[str, Any]]:
         runtime_profile = self._ocr_handler.resolve_runtime_profile(ocr_profile)
+        # 请求值必须在下一行覆盖之前保存：覆盖后 cloud_backend 是「首选候选」，
+        # 之后就分不清「用户锁定了 mineru」与「auto 恰好排到 mineru」。
+        # 归一化只为判定「是否显式锁定」：None / '' / 'auto' / 脏值都不算锁定。
+        cloud_backend_requested = str(cloud_backend or "").strip().lower()
+        # 延迟 import：pipeline 刻意不在加载期依赖 apps.core（parser_factory 会拉进来）。
+        from apps.document_parsing.services.parser_factory import CLOUD_BACKEND_CHOICES
+
         # 候选顺序：auto → 全部平台（可容灾）；锁定 → 只有那一个（不允许降级）
         cloud_candidates = self._ocr_handler.resolve_cloud_backends(cloud_backend)
         cloud_backend = cloud_candidates[0] if cloud_candidates else None
@@ -736,6 +774,8 @@ class PageTextExtractor:
             "pdf_hash": pdf_hash,
             "cloud_backend": cloud_backend,
             "cloud_candidates": cloud_candidates,
+            # 用户请求的原始意图（归一化后）：只有显式锁定平台且候选为空时才失败
+            "cloud_backend_requested": cloud_backend_requested,
             "cloud_cache_profile": cloud_cache_profile,
             "cache_hit_count": 0,
             "cloud_cache_hit_count": 0,
@@ -816,6 +856,13 @@ class PageTextExtractor:
         descriptors: list[PageDescriptor | None] = [None] * total_pages
         resolved_pages = 0
         cloud_backend = stats["cloud_backend"]
+        # 锁定平台不可用时全程不采信页缓存（理由见下面 locked_unavailable 那段），
+        # 在循环外算一次：每页都算一遍既浪费，也容易改漏一处。
+        from apps.document_parsing.services.parser_factory import CLOUD_BACKEND_CHOICES
+
+        locked_unavailable = (
+            str(stats.get("cloud_backend_requested") or "") in CLOUD_BACKEND_CHOICES and not stats["cloud_candidates"]
+        )
         for page_index in range(total_pages):
             self._raise_if_cancelled(page_index)
             page_no = page_index + 1
@@ -837,11 +884,21 @@ class PageTextExtractor:
                 self._report_progress(resolved_pages, total_pages)
                 continue
 
-            cached = self._ocr_handler.read_ocr_cache(
-                pdf_hash=pdf_hash, profile_key=cloud_cache_profile, page_no=page_no
+            # 锁定平台不可用时**不采信页缓存**：无候选时 cloud_cache_profile 退化成
+            # runtime_profile.key，而这个目录里存的只可能是**本地 OCR** 的结果
+            # （本地兜底就是写在这份档案下）。若采信它，pending 会被清空 →
+            # _parse_cloud 的「锁定不可用」守卫根本不会被执行 → 又一次静默降级，
+            # 正是本守卫要消灭的那类路径（同一份 PDF 先跑过一次就必中）。
+            # 跳过不丢任何合法缓存：锁定不可用时本就没有云端缓存可读。
+            cached = (
+                None
+                if locked_unavailable
+                else self._ocr_handler.read_ocr_cache(
+                    pdf_hash=pdf_hash, profile_key=cloud_cache_profile, page_no=page_no
+                )
             )
             cached_from_cloud = cached is not None and cloud_backend is not None
-            if cached is None and cloud_backend is None:
+            if cached is None and cloud_backend is None and not locked_unavailable:
                 cached = self._ocr_handler.read_ocr_cache(
                     pdf_hash=pdf_hash, profile_key=runtime_profile_key, page_no=page_no
                 )
@@ -1261,6 +1318,17 @@ class PageTextExtractor:
         """
         candidates: list[str] = stats.get("cloud_candidates") or []
         if not candidates:
+            # 显式锁定了平台、且确实走到要云端取字，但候选为空（平台未启用）→ 明确失败。
+            # 不能静默回落本地 OCR：用户以为锁定生效，实际拿到的是另一个来源的正文。
+            # auto / None / 脏值（不在 CLOUD_BACKEND_CHOICES 里）空表时行为不变：静默回落。
+            #
+            # 常量延迟 import：pipeline 刻意不依赖 apps.core（parser_factory 会拉进来），
+            # 而模块顶部 import 就变成加载期依赖。ocr_handler 同款处理。
+            from apps.document_parsing.services.parser_factory import CLOUD_BACKEND_CHOICES as _CHOICES
+
+            requested = str(stats.get("cloud_backend_requested") or "")
+            if requested in _CHOICES:
+                raise LockedCloudBackendUnavailable(locked_cloud_backend_message(requested))
             return {}
 
         page_numbers: list[int] = sorted(stats.get("pending_page_numbers") or [])
