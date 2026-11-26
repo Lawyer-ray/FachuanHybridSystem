@@ -8042,6 +8042,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/doc-workspace/doc-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 可起草的文书类型（律师嘴里的那个词）
+         * @description 列出所有启用的文书规格。
+         *
+         *     前端「生成文书」弹窗的唯一下拉数据源。**只列已登记的 `DocumentSpec`**——列表里有，
+         *     就说明「这个文书有骨架、有落位槽位、能一句话出」；不在列表里的一律不出现，
+         *     免得律师选了之后才被告知「还没有骨架」。
+         */
+        get: operations["apps_doc_workspace_api_write_api_list_doc_types"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/doc-workspace/draft": {
         parameters: {
             query?: never;
@@ -22244,6 +22268,20 @@ export interface components {
              */
             markdown: string;
         };
+        /** DocTypeOut */
+        DocTypeOut: {
+            /** Doc Type */
+            doc_type: string;
+            /** Display Name */
+            display_name: string;
+            /** Family */
+            family: string;
+        };
+        /** DocTypesOut */
+        DocTypesOut: {
+            /** Items */
+            items: components["schemas"]["DocTypeOut"][];
+        };
         /** DocDraftOut */
         DocDraftOut: {
             /** Created */
@@ -22567,6 +22605,36 @@ export interface components {
             clause_type: string;
             /** Rule Key */
             rule_key: string;
+            /**
+             * Rule Class
+             * @default
+             */
+            rule_class: string;
+            /**
+             * Stage
+             * @default
+             */
+            stage: string;
+            /**
+             * Risk Source
+             * @default
+             */
+            risk_source: string;
+            /**
+             * Source Weight
+             * @default
+             */
+            source_weight: string;
+            /**
+             * Consequence
+             * @default
+             */
+            consequence: string;
+            /**
+             * Case Ref
+             * @default
+             */
+            case_ref: string;
             /** Legal Basis */
             legal_basis: string;
             /** Quote */
@@ -39098,6 +39166,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocCreateFileOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_write_api_list_doc_types: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocTypesOut"];
                 };
             };
         };

@@ -38,8 +38,10 @@ Key 试一下」污染生产池。
 
 1. **fail-open**：cache 读写失败一律降级为进程内账本，绝不打断解析主流程；只捕获
    ``CACHE_ERRORS``（Django cache / Redis 相关异常 + ``ValueError``），不用宽捕获。
-2. **凭证明文不进缓存键与日志**：键里只有 ``sha256(credential)`` 的截短摘要；日志里
-   最多尾 4 位（``****abcd``），4 位及以内的凭证整体打码。
+2. **凭证不派生出任何可回读片段**：缓存键里只有 PBKDF2 派生摘要（见 ``_credential_digest``）；
+   日志里只出现槽位序号（``槽#2``），**连尾 4 位都不打**——尾 4 位同样是凭证的一部分，
+   落进日志系统就等于泄漏（CodeQL ``py/clear-text-logging-sensitive-data`` 报的就是
+   「脱敏后仍源自凭证」这种写法）。
 3. **时间口径**：冷却用墙钟 ``time.time()``（``time.monotonic()`` 无法跨进程比较），
    配额日期用 ``settings.TIME_ZONE`` 的本地日期。
 """
@@ -56,6 +58,7 @@ import time
 from datetime import datetime
 from datetime import time as dt_time
 from datetime import timedelta
+from functools import lru_cache
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -210,20 +213,40 @@ def _provider_segment(provider_key: str) -> str:
     return f"{_CACHE_KEY_UNSAFE.sub('_', raw)[:40]}-{digest}"
 
 
+#: 摘要派生的固定盐与迭代数。**只**用于把凭证变成稳定的缓存键片段，不参与口令校验。
+_DIGEST_SALT = b"fachuan.credential-pool.v1"
+_DIGEST_ITERATIONS = 100_000
+
+
+@lru_cache(maxsize=512)
 def _credential_digest(credential: str) -> str:
-    """凭证的缓存键片段：``sha256(credential)`` 截短到 16 位十六进制。
+    """凭证的缓存键片段：PBKDF2-HMAC-SHA256 派生后截短到 16 位十六进制。
 
     缓存键会被 ``KEYS`` 打印、被慢查询日志记录、被运维看到，所以**禁止**出现凭证明文。
     64 bit 的摘要足以区分同一平台下的多把 Key；碰撞的最坏后果只是两把 Key 共用一份
     冷却/配额账本，不会串到别的平台（键里还有 provider 段）。
+
+    为什么不用 ``sha256``：它是快速哈希，CodeQL 的 ``py/weak-sensitive-data-hashing``
+    会把「对敏感值用快速哈希」直接判成 high（PR #697 就是这么红的）。PBKDF2 是 KDF，
+    不在该规则的黑名单里；代价也可控——摘要只在建池时按凭证各算一次，且带 ``lru_cache``
+    兜住「同一条凭证反复建池」，不进 acquire/release 热路径。
     """
-    return hashlib.sha256((credential or "").encode("utf-8")).hexdigest()[:16]
+    return hashlib.pbkdf2_hmac(
+        "sha256",
+        (credential or "").encode("utf-8"),
+        _DIGEST_SALT,
+        _DIGEST_ITERATIONS,
+    ).hex()[:16]
 
 
-def _mask_credential(credential: str) -> str:
-    """日志用脱敏：**最多**保留尾 4 位；4 位及以内的凭证整体打码。"""
-    text = credential or ""
-    return f"****{text[-4:]}" if len(text) > 4 else "****"
+def _slot_label(idx: int) -> str:
+    """日志用槽位标签（``槽#1`` 起，1-based）：日志里不出现凭证的任何片段。
+
+    以前打的是 ``****abcd``（尾 4 位），但尾 4 位仍是凭证的一部分，进了日志系统就等于
+    泄漏；而且 CodeQL 无法把自定义脱敏函数当成净化器，照样报 clear-text logging。
+    要人工对应「是哪把 Key」，按凭证池配置里的顺序数槽位即可。
+    """
+    return f"槽#{idx + 1}"
 
 
 # ── 时间口径 ────────────────────────────────────────────────────────────────
@@ -382,7 +405,7 @@ class CredentialPool:
         self._cooldown_until = [0.0] * count
         self._used_pages = [0] * count
         self._quota_date = [""] * count
-        # 摘要与键前缀只派生一次：每次 acquire 都要用，不能每次重算 sha256。
+        # 摘要与键前缀只派生一次：每次 acquire 都要用，不能每次重算（KDF 远贵于 sha256）。
         # 注意 ``credentials`` 构造后不得原地修改（改配置请让 get_credential_pool 重建池），
         # 否则摘要会与凭证错位，配额/冷却会记到别人头上。
         self._digests = [_credential_digest(credential) for credential in self.credentials]
@@ -464,10 +487,10 @@ class CredentialPool:
             if exhausted:
                 # 这条 warning 是「这批为什么慢/为什么拿不到凭证」的唯一归因线索，不能降级成 debug
                 logger.warning(
-                    "凭证池跳过额度耗尽凭证: provider=%s limit=%d keys=%s",
+                    "凭证池跳过额度耗尽凭证: provider=%s limit=%d slots=%s",
                     self.provider_key or "default",
                     daily_limit,
-                    ", ".join(f"{_mask_credential(self.credentials[i])}={used_pages[i]}页" for i in exhausted),
+                    ", ".join(f"{_slot_label(i)}={used_pages[i]}页" for i in exhausted),
                 )
             for _ in range(count):
                 idx = self._cursor % count
@@ -485,9 +508,9 @@ class CredentialPool:
                 self._active[idx] += 1
                 return idx
             logger.warning(
-                "凭证池无可用凭证（全部冷却或额度耗尽）: provider=%s keys=%s 冷却中=%d 额度耗尽=%d",
+                "凭证池无可用凭证（全部冷却或额度耗尽）: provider=%s slots=%s 冷却中=%d 额度耗尽=%d",
                 self.provider_key or "default",
-                ", ".join(_mask_credential(credential) for credential in self.credentials),
+                ", ".join(_slot_label(i) for i in range(count)),
                 len(cooling),
                 len(exhausted),
             )
@@ -533,9 +556,9 @@ class CredentialPool:
                 _cache_set(key, self._cooldown_until[idx], max(1, int(self._cooldown_until[idx] - now) + 1))
             log = logger.warning if normalized in (REASON_AUTH, REASON_QUOTA) else logger.info
             log(
-                "凭证进入冷却: provider=%s key=%s reason=%s 冷却=%.0fs",
+                "凭证进入冷却: provider=%s slot=%s reason=%s 冷却=%.0fs",
                 self.provider_key or "default",
-                _mask_credential(self.credentials[idx]),
+                _slot_label(idx),
                 normalized,
                 seconds,
             )

@@ -284,6 +284,13 @@ class Finding(models.Model):
     consequence: Any = models.CharField(
         "违反后果档位", max_length=16, choices=Consequence.choices, default=Consequence.BREACH
     )
+    case_ref: Any = models.CharField(
+        "类案案号（risk_source=case 时必须能回指）",
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="没有案号却声称『据类案』的结论会被降为辅助来源——编案号比不提类案严重得多",
+    )
     legal_basis: Any = models.CharField("法律依据", max_length=255, blank=True, default="")
 
     quote: Any = models.TextField("被审原文", blank=True, default="")

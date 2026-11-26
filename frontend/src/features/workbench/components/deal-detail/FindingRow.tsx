@@ -80,6 +80,14 @@ export function FindingRow({
           {finding.reason || finding.suggestion_note}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-1">
+          {finding.case_ref && (
+            <span
+              className="rounded-[5px] bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground"
+              title={`类案：${finding.case_ref}`}
+            >
+              案号 {finding.case_ref}
+            </span>
+          )}
           {finding.rule_class === 'mandatory' && (
             <span className="rounded-[5px] border border-status-red/25 bg-status-red/10 px-1.5 py-0.5 text-[10px] font-semibold text-status-red">
               {RULE_CLASS_LABEL.mandatory}

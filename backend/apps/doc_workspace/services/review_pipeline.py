@@ -238,6 +238,7 @@ def build_prompt(
     stance: str,
     contract_type: str,
     feedback: str = "",
+    case_evidence: str = "",
 ) -> list[dict[str, str]]:
     """把标准库渲染成提示词。
 
@@ -273,7 +274,7 @@ def build_prompt(
         '  "relations": [{"relation":"关系方","why":"为什么必须扫","risk":"不扫会漏掉什么"}],\n'
         '  "findings": [{\n'
         '    "rule_key":"...","verdict":"deviation","severity":"high",\n'
-        '    "risk_source":"statute|case|scenario|subject",\n'
+        '    "risk_source":"statute|case|scenario|subject","case_ref":"案号（仅 when risk_source=case）",\n'
         '    "source_weight":"core|supporting",\n'
         '    "quote":"合同原文片段（缺失时留空）","title":"一句话结论",\n'
         '    "reason":"为什么","impact":"不改会损失什么（带数字）",\n'
@@ -323,6 +324,7 @@ def build_prompt(
         "- `contractual`（契约性）：可以谈，属于商业判断。\n\n"
         + fmt
         + ("\n" + feedback if feedback else "")
+        + ("\n" + case_evidence if case_evidence else "")
         + "## 审查标准库\n"
         + "\n".join(rule_lines)
     )
@@ -458,8 +460,15 @@ def _normalize_item(
     if source_weight not in SourceWeight.values:
         source_weight = SourceWeight.CORE
 
+    case_ref = str(item.get("case_ref") or "").strip()[:255]
+    if risk_source == RiskSource.CASE and not case_ref:
+        # 声称「据类案」却给不出案号 = 无法回指。降为辅助来源：可以留作线索，
+        # 但不能当决定性依据（编案号比不提类案严重得多）。
+        source_weight = SourceWeight.SUPPORTING
+
     return {
         "rule_key": rule_key,
+        "case_ref": case_ref,
         "clause_type": str(rule.get("clause_type") or ""),
         "rule_class": rule_class,
         "stage": str(rule.get("stage") or Stage.GENERAL),
@@ -560,12 +569,31 @@ def execute_run(run: ReviewRun, *, caller: LLMCaller | None = None, text: str | 
         from . import playbook_feedback
 
         feedback = playbook_feedback.collect(kind=run.owner_kind, owner_id=run.owner_id)
+
+        # 类案检索：第三维风险来源。查的是「这个标的/这类条款在法院实际怎么判」。
+        # 查询词只用规则与（再审查时）上一轮的标的画像——首轮还没跑模型，拿不到
+        # 画像，硬要拿就得多一次模型调用，不值得。
+        from . import case_evidence
+
+        prev_profile = list((run.parent_run.summary or {}).get("subject_profile") or []) if run.parent_run else []
+        queries = case_evidence.build_queries(
+            subject_profile=prev_profile,
+            relations=list((run.parent_run.summary or {}).get("relations") or []) if run.parent_run else [],
+            rules=rules,
+        )
+        evidence = case_evidence.gather(
+            queries=queries,
+            facts=text[:4000],
+            searcher=case_evidence.default_searcher(),
+        )
+
         messages = build_prompt(
             rules=rules,
             contract_text=text,
             stance=str(run.stance),
             contract_type=str(run.contract_type),
             feedback=feedback.describe(),
+            case_evidence=evidence.to_prompt_block(),
         )
         raw = (caller or _default_llm_call)(messages)
         produced = parse_review_output(raw)
@@ -593,6 +621,7 @@ def execute_run(run: ReviewRun, *, caller: LLMCaller | None = None, text: str | 
                 risk_source=item["risk_source"],
                 source_weight=item["source_weight"],
                 consequence=item["consequence"],
+                case_ref=item["case_ref"],
                 legal_basis=item["legal_basis"],
                 quote=item["quote"],
                 title=item["title"],
@@ -610,6 +639,7 @@ def execute_run(run: ReviewRun, *, caller: LLMCaller | None = None, text: str | 
             "subject_profile": produced.subject_profile,
             "relations": produced.relations,
             "stages": review_model.stage_rollup(items=kept),
+            "case_evidence": evidence.to_summary(),
         }
         run.save(update_fields=["summary"])
         review_model.finish_run(run, status=RunStatus.DONE)

@@ -60,6 +60,7 @@ export interface FindingItem {
   risk_source?: RiskSource
   source_weight?: SourceWeight
   consequence?: Consequence
+  case_ref?: string
 }
 
 export interface ReviewRunPayload {

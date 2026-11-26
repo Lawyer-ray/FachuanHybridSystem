@@ -243,6 +243,29 @@ def create_file(request: HttpRequest, payload: DocCreateFileIn) -> Any:
     return DocCreateFileOut(**result)
 
 
+class DocTypeOut(Schema):
+    doc_type: str
+    display_name: str
+    family: str
+
+
+class DocTypesOut(Schema):
+    items: list[DocTypeOut]
+
+
+@router.get("/doc-types", response=DocTypesOut, summary="可起草的文书类型（律师嘴里的那个词）")
+def list_doc_types(request: HttpRequest) -> Any:
+    """列出所有启用的文书规格。
+
+    前端「生成文书」弹窗的唯一下拉数据源。**只列已登记的 `DocumentSpec`**——列表里有，
+    就说明「这个文书有骨架、有落位槽位、能一句话出」；不在列表里的一律不出现，
+    免得律师选了之后才被告知「还没有骨架」。
+    """
+    from ..services import draft_by_type
+
+    return DocTypesOut(items=[DocTypeOut(**item) for item in draft_by_type.list_doc_types()])
+
+
 class DocDraftIn(Schema):
     kind: str
     owner_id: int

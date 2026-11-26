@@ -19549,6 +19549,34 @@
         ]
       }
     },
+    "/api/v1/doc-workspace/doc-types": {
+      "get": {
+        "operationId": "apps_doc_workspace_api_write_api_list_doc_types",
+        "summary": "可起草的文书类型（律师嘴里的那个词）",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocTypesOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "列出所有启用的文书规格。\n\n前端「生成文书」弹窗的唯一下拉数据源。**只列已登记的 `DocumentSpec`**——列表里有，\n就说明「这个文书有骨架、有落位槽位、能一句话出」；不在列表里的一律不出现，\n免得律师选了之后才被告知「还没有骨架」。",
+        "tags": [
+          "文档工作面"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/doc-workspace/draft": {
       "post": {
         "operationId": "apps_doc_workspace_api_write_api_draft_document",
@@ -50608,6 +50636,45 @@
         "title": "DocCreateFileIn",
         "type": "object"
       },
+      "DocTypeOut": {
+        "properties": {
+          "doc_type": {
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          }
+        },
+        "required": [
+          "doc_type",
+          "display_name",
+          "family"
+        ],
+        "title": "DocTypeOut",
+        "type": "object"
+      },
+      "DocTypesOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DocTypeOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "DocTypesOut",
+        "type": "object"
+      },
       "DocDraftOut": {
         "properties": {
           "created": {
@@ -51163,6 +51230,11 @@
           "consequence": {
             "default": "",
             "title": "Consequence",
+            "type": "string"
+          },
+          "case_ref": {
+            "default": "",
+            "title": "Case Ref",
             "type": "string"
           },
           "legal_basis": {

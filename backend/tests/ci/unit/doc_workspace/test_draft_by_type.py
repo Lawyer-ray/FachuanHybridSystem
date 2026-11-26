@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import io
 from types import SimpleNamespace
 from typing import Any
 
@@ -209,18 +210,44 @@ def test_pending_slots_are_annotated_with_the_shared_placeholder(
 
 
 def test_multi_line_slot_value_becomes_docx_paragraphs(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
-    """模型爱回多段正文（`\\n` 分段）；docxtpl 只认 `\\a`，直接落盘会把几段挤成一行。"""
-    _wire(
+    """模型爱回多段正文（`\n` 分段）；**成稿里必须是真的多段**，不能挤成一行。
+
+    ## 这条用例曾经把 bug 当成预期行为（真机联调才发现）
+
+    旧断言只看中间产物：`result["filled"]["法院名称"] == "第一段\a第二段"`——它验证的是
+    「`_to_docx_text` 折了段落」，而 `\n → \a` 的归一化本该只在 `draft_service.render()`
+    做一次。`to_body_text()` **不幂等**（它把输入自带的 `\a` 当 C0 剥掉），于是
+    `_to_docx_text` 折一次、`render` 再折一次，第二次把刚插入的 `\a` 全吃掉——
+    实测 5 段压成 1 行。旧断言正好在压塌之前的那一步，所以一路绿灯。
+
+    **教训**：中间产物的形状不是用户看到的东西。这里改成解析成稿 docx 数段落。
+    """
+    captured = _wire(
         monkeypatch,
         tmp_path,
         kinds=(DOC_TYPE,),
         context={"异议人": "甲公司", "法院名称": "第一段\n第二段"},
     )
 
-    result = draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, auto_review=False)
+    draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, auto_review=False)
 
-    assert "\n" not in result["filled"]["法院名称"]
-    assert result["filled"]["法院名称"] == "第一段\a第二段"
+    rendered = captured["create_file"]["raw_docx"]
+    paragraphs = [p.text.strip() for p in Document(io.BytesIO(rendered)).paragraphs if p.text.strip()]
+    assert "第一段" in paragraphs, paragraphs
+    assert "第二段" in paragraphs, paragraphs
+    assert "第一段第二段" not in paragraphs
+
+
+def test_slot_text_is_not_refolded_before_render(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+    """归一化只有一处：`_to_docx_text` 不许折段落（折两次会把段落全压成一行）。
+
+    这是上一条的根因锁：`to_body_text()` 不幂等，任何在 `render()` 之前再折一次的地方
+    都会静默把多段正文压成一段。
+    """
+    value = "第一段\n第二段\n\n第四段"
+    assert draft_by_type._to_docx_text(value) == value
+    # 加粗仍要被换成哨兵（样式归本函数管）
+    assert "\ue000" in draft_by_type._to_docx_text("**加粗**")
 
 
 def test_contract_owner_writes_into_the_contract_folder(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:

@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import threading
 from datetime import datetime
@@ -313,7 +312,7 @@ class TestCacheDegraded:
     """B4：cache 不可用时降级为进程内，且不得打断主流程。"""
 
     def test_cache_outage_degrades_to_process_local(self, monkeypatch: pytest.MonkeyPatch, clock: list[float]) -> None:
-        monkeypatch.setattr(credential_pool, "_cache", lambda: BrokenCache())
+        monkeypatch.setattr(credential_pool, "_cache", BrokenCache)
         pool = CredentialPool(["key-aaaa-0001", "key-bbbb-0002"], provider_key="mineru")
 
         idx = pool.acquire()
@@ -378,7 +377,7 @@ class TestCrossProcessSharedState:
 
 
 class TestNoCredentialLeak:
-    """B4 红线：缓存键与日志都不得出现凭证明文（日志最多尾 4 位）。"""
+    """B4 红线：缓存键与日志都不得出现凭证的任何片段（日志只给槽位序号）。"""
 
     def test_cache_keys_and_logs_never_contain_plaintext(
         self,
@@ -398,7 +397,9 @@ class TestNoCredentialLeak:
         assert all(cred not in key for key in keys)
         assert all(key.isascii() for key in keys), keys  # 中文 provider 名不得裸拼进键
 
-        expected_digest = hashlib.sha256(cred.encode("utf-8")).hexdigest()[:16]
+        # 键里用的是 KDF 派生的稳定摘要（不是 sha256：见 ``_credential_digest`` 的注释）
+        expected_digest = credential_pool._credential_digest(cred)
+        assert len(expected_digest) == 16
         assert any(expected_digest in key for key in keys)
 
         logs = "\n".join(pool_logs.messages)
@@ -406,11 +407,12 @@ class TestNoCredentialLeak:
         assert "跳过额度耗尽凭证" in logs
         assert "无可用凭证" in logs
         assert cred not in logs
-        assert cred[-4:] in logs  # 只允许尾 4 位
+        # 收紧口径：连尾 4 位都不许出现（它仍是凭证的一部分，且 CodeQL 把脱敏写法判为泄漏）
+        assert cred[-4:] not in logs
+        assert "槽#1" in logs  # 归因改由槽位序号承担
 
-    def test_short_credential_is_fully_masked(self) -> None:
-        assert credential_pool._mask_credential("abc") == "****"
-        assert credential_pool._mask_credential("demo-credential-abcd") == "****abcd"
+    def test_slot_label_carries_no_credential(self) -> None:
+        assert [credential_pool._slot_label(i) for i in (0, 2)] == ["槽#1", "槽#3"]
 
 
 class TestSnapshot:

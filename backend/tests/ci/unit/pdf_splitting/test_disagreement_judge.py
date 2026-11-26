@@ -201,7 +201,7 @@ def test_disabled_judgement_makes_no_request(monkeypatch: pytest.MonkeyPatch) ->
 
 @pytest.mark.parametrize("domain", sorted(judge.BLOCKED_DOMAINS))
 def test_blocked_domain_never_sends_request(monkeypatch: pytest.MonkeyPatch, domain: str) -> None:
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
     seen = _install_transport(monkeypatch, _forbidden)
 
     judgement = judge.judge_candidates(_IMAGE_BYTES, ["张三丰", "张四丰"], domain=domain)
@@ -216,7 +216,7 @@ def test_blocked_domain_never_sends_request(monkeypatch: pytest.MonkeyPatch, dom
 
 def test_identical_candidates_accepted_without_request(monkeypatch: pytest.MonkeyPatch) -> None:
     """去重后只剩一条（含空白候选被丢弃）→ accept/identical，零请求。"""
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
     seen = _install_transport(monkeypatch, _forbidden)
 
     judgement = judge.judge_candidates(_IMAGE_BYTES, ["张三丰", "张三丰", "  ", "张三丰"])
@@ -234,7 +234,7 @@ def test_identical_candidates_accepted_without_request(monkeypatch: pytest.Monke
 
 
 def test_policy_rejection_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
     seen = _install_transport(
         monkeypatch,
         _plan_handler(
@@ -269,7 +269,7 @@ def test_policy_rejection_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> Non
 
 def test_unauthorized_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
     """401/403 换不来新结果（key 不会自己变好）→ 每条候选只请求一次。"""
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
     seen = _install_transport(
         monkeypatch,
         _plan_handler(
@@ -289,7 +289,7 @@ def test_unauthorized_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_transport_error_fails_open_without_raising(monkeypatch: pytest.MonkeyPatch) -> None:
     """网络异常：退避重试到上限后 fail-open 成 human/call_failed，异常不穿透。"""
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
 
     def _handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("upstream unreachable", request=request)
@@ -306,7 +306,7 @@ def test_transport_error_fails_open_without_raising(monkeypatch: pytest.MonkeyPa
 
 def test_policy_rejection_outranks_call_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """规则 4 优先于规则 5：失败不短路，后面的策略拒绝仍要被发现（结论同为交人工，reason 不同）。"""
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
     seen = _install_transport(
         monkeypatch,
         _plan_handler(
@@ -328,7 +328,7 @@ def test_policy_rejection_outranks_call_failure(monkeypatch: pytest.MonkeyPatch)
 
 def test_rate_limit_retries_two_times_then_scores(monkeypatch: pytest.MonkeyPatch) -> None:
     """429 两次后成功：第 3 次就拿到分，不该再多试。"""
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
     seen = _install_transport(
         monkeypatch,
         _plan_handler(
@@ -351,7 +351,7 @@ def test_rate_limit_retries_two_times_then_scores(monkeypatch: pytest.MonkeyPatc
 
 def test_rate_limit_retries_are_capped(monkeypatch: pytest.MonkeyPatch) -> None:
     """一直 429 → 尝试次数封顶（首次 + 3 次重试），不会无限重试。"""
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
     seen = _install_transport(
         monkeypatch,
         _plan_handler(
@@ -374,7 +374,7 @@ def test_rate_limit_retries_are_capped(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_prob_low_when_best_below_floor(monkeypatch: pytest.MonkeyPatch) -> None:
     """比率很大但两边分都极低 → prob_low（「两个都不像」里挑一个不算采信）。"""
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
     _install_transport(
         monkeypatch,
         _plan_handler(
@@ -397,7 +397,7 @@ def test_prob_low_when_best_below_floor(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_ratio_low_when_scores_are_close(monkeypatch: pytest.MonkeyPatch) -> None:
     """实测错值也能拿 0.58：0.996 vs 0.158 只差 6.3 倍 → 拉不开，交人工。"""
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
     _install_transport(
         monkeypatch,
         _plan_handler(
@@ -420,7 +420,7 @@ def test_ratio_low_when_scores_are_close(monkeypatch: pytest.MonkeyPatch) -> Non
 
 def test_ratio_ok_accepts_winner_despite_low_absolute_prob(monkeypatch: pytest.MonkeyPatch) -> None:
     """真值绝对分只有 0.158 也能采信——只要它比次高分拉开 ≥ ratio_min 倍且高于下限。"""
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
     _install_transport(
         monkeypatch,
         _plan_handler(
@@ -444,7 +444,7 @@ def test_ratio_ok_accepts_winner_despite_low_absolute_prob(monkeypatch: pytest.M
 
 def test_ratio_uses_epsilon_when_runner_up_is_zero(monkeypatch: pytest.MonkeyPatch) -> None:
     """次高分恰为 0 时比率用 1e-9 兜底（不开除零、也不把比率压成 1）。"""
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
     _install_transport(
         monkeypatch,
         _plan_handler(
@@ -478,7 +478,7 @@ def test_mask_hides_short_text_entirely() -> None:
 
 def test_log_never_contains_full_candidate_text(monkeypatch: pytest.MonkeyPatch) -> None:
     """日志字段齐全，但候选原文一个字都不许出现。"""
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
     _install_transport(
         monkeypatch,
         _plan_handler(
@@ -521,7 +521,7 @@ def test_log_never_contains_full_candidate_text(monkeypatch: pytest.MonkeyPatch)
 
 def test_snapshot_caps_entries_and_only_keeps_masked_text(monkeypatch: pytest.MonkeyPatch) -> None:
     """环形缓冲只留最近 N 条，且只有掩码文本。"""
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
     seen = _install_transport(monkeypatch, _forbidden)
 
     for _ in range(judge._SNAPSHOT_MAX + 7):
@@ -544,7 +544,7 @@ def test_snapshot_caps_entries_and_only_keeps_masked_text(monkeypatch: pytest.Mo
 
 def test_unexpected_error_falls_open_to_call_failed(monkeypatch: pytest.MonkeyPatch) -> None:
     """链路上任何意外（这里用编码图失败模拟）都落 human/call_failed，绝不穿透。"""
-    monkeypatch.setattr(judge, "_load_settings", lambda: _settings())
+    monkeypatch.setattr(judge, "_load_settings", _settings)
 
     def _boom(_image_bytes: bytes) -> str:
         raise TypeError("boom")

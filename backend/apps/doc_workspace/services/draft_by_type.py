@@ -39,9 +39,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from decimal import InvalidOperation
 from pathlib import Path
 from typing import Any, Callable
 
+from apps.core.exceptions import ValidationException
 from apps.documents.services.draft import spec_service
 
 from . import draft_service, write_service
@@ -129,6 +131,8 @@ def draft_document(
     context = {str(key): _to_docx_text(str(value)) for key, value in raw_context.items()}
 
     rendered = draft_service.render(template_bytes, context, pending=pending)
+    rendered = _apply_title_override(rendered, str(getattr(spec, "title_override", "") or ""))
+    rendered = _apply_headings(rendered, _heading_overrides(spec=spec, context=context))
 
     folder_template = _folder_template_for(owner.kind, owner.target)
     warnings: list[str] = []
@@ -261,10 +265,22 @@ def _build_facts(*, case: Any, contract: Any, given: dict[str, str]) -> dict[str
 
     抽取器是 `apps.documents.services.draft.facts_builder`。**它只负责「能读到的事实」**，
     金额/日期这类字段取不到就空着——宁可让成稿留 `<待填写：x>`，也不能让模型编一个金额。
+
+    这层兜底不是可选的：真机联调时 `CaseDTO.target_amount` 是字符串，金额格式化抛了
+    `ValueError`，整个起草直接 **500**——律师看到的就是「服务器错误」，而不是「金额没取到，
+    这里等你填」。**数据形状不对属于可预期情况**（DTO 跟实体类型不一致、历史脏数据），
+    降级成「只用律师显式给的事实」比把整单打挂有用。
+
+    只接「数据形状」那一类；程序性错误（NameError / ImportError 等）照常抛，
+    否则真 bug 会被这条兜底永久掩盖。
     """
     from apps.documents.services.draft.facts_builder import build_facts
 
-    return build_facts(case=case, contract=contract, explicit=given)
+    try:
+        return build_facts(case=case, contract=contract, explicit=given)
+    except (ValidationException, AttributeError, KeyError, TypeError, LookupError, ValueError, InvalidOperation):
+        logger.warning("事实组装失败，退回只用律师显式给的事实: %s", type(case).__name__, exc_info=True)
+        return {str(key): str(value) for key, value in (given or {}).items() if str(value).strip()}
 
 
 def _skeleton_bytes(spec: Any) -> bytes | None:
@@ -283,23 +299,40 @@ def _skeleton_bytes(spec: Any) -> bytes | None:
 def _folder_template_for(kind: str, target: Any) -> Any:
     """该案件/合同该用哪棵文件夹树（只读，不落库）。
 
-    案件按「案件类型 + 当前阶段」取；我方诉讼地位**没有**参与匹配——它要遍历当事人，会让这
-    条落位链路变成 N 次查询，而槽位不命中本来就有降级 + warning 兜着，律师看到 warning 再决定
-    要不要补模板。真出现「同类同阶段两套模板」时再补这一步（已知局限，不是漏写）。
+    ## 为什么必须带「我方诉讼地位」这一维（真机联调改的）
+
+    原来只用 `FolderTemplateQueryService.get_template_for_case(case_type, case_stage)`，而它
+    **不看 `legal_statuses`**，并且按 `-updated_at` 取第一条。实测后果：`civil + first_trial`
+    同时命中「民事一审起诉」（`legal_statuses=['plaintiff']`）与「民事一审答辩」
+    （`['defendant']`）两棵树，取到的是**答辩**那棵 —— 于是起诉状/管辖权异议在这棵树上
+    找不到槽位，整条起草直接失败。
+
+    这不是「已知局限」，是**选错了树**：同一案件类型同一阶段本来就可能有多棵树，区分它们的
+    唯一字段就是我方诉讼地位。所以改用仓里已有的 `CaseTemplateMatchPolicy`（案件类型 + 阶段 +
+    我方诉讼地位三维），不另写一套匹配规则。
     """
     case_type = str(getattr(target, "case_type", "") or "")
-    if kind == write_service.KIND_CASE:
-        from apps.documents.services.folder_template.id_service import FolderTemplateIdService
-        from apps.documents.services.folder_template.query_service import FolderTemplateQueryService
-        from apps.documents.services.folder_template.repo import FolderTemplateRepo
+    if kind != write_service.KIND_CASE:
+        from apps.documents.services.generation.pipeline.template_matcher import TemplateMatcher
 
-        query_service = FolderTemplateQueryService(repo=FolderTemplateRepo(), id_service=FolderTemplateIdService())
-        return query_service.get_template_for_case(
-            case_type=case_type, case_stage=str(getattr(target, "current_stage", "") or "")
-        )
-    from apps.documents.services.generation.pipeline.template_matcher import TemplateMatcher
+        return TemplateMatcher().match_folder_template(case_type)
 
-    return TemplateMatcher().match_folder_template(case_type)
+    from apps.cases.services.template.repo import CaseTemplateBindingRepo
+    from apps.cases.services.template.template_match_policy import CaseTemplateMatchInput, CaseTemplateMatchPolicy
+    from apps.documents.models import FolderTemplate, FolderTemplateType
+
+    # 手里是 CaseDTO（无 ORM 管理器），所以走按 id 取的那个重载。
+    legal_statuses = set(CaseTemplateBindingRepo().get_our_legal_statuses_by_case_id(int(target.id)))
+    match_input = CaseTemplateMatchInput(
+        case_type=case_type,
+        case_stage=str(getattr(target, "current_stage", "") or ""),
+        legal_statuses=legal_statuses,
+    )
+    templates = list(
+        FolderTemplate.objects.filter(is_active=True, template_type=FolderTemplateType.CASE).order_by("id")
+    )
+    matched = CaseTemplateMatchPolicy().filter(templates, match_input)
+    return matched[0] if matched else None
 
 
 def _placement_for(*, spec: Any, folder_template: Any) -> tuple[list[str] | None, list[str]]:
@@ -332,24 +365,154 @@ def _placement_for(*, spec: Any, folder_template: Any) -> tuple[list[str] | None
     return None, warnings
 
 
-def _to_docx_text(value: str) -> str:
-    """把槽值收拾成 docxtpl 认的正文形态。
+def _apply_headings(docx_bytes: bytes, headings: dict[str, str]) -> bytes:
+    """把「请求段 / 事实段」的小标题换成 `DocumentSpec.claim_heading` / `facts_heading`。
 
-    两件在模型输出里高频出现、且都会「印错」的东西：
+    **为什么必须接上这一步**：这两个字段在模型里、Admin 里、种子里都有，但此前**没有任何
+    代码读它**——纯死配置。真机产出的管辖权异议申请书顶着「诉讼请求：」，而这份文书的
+    规范小标题是「异议请求：」。声明了却不生效，比没有这个字段更坏：管理员改了以为生效了。
 
-    - `**加粗**`：docx 里没有 markdown，直接渲染就是两个星号；转成私用区哨兵，由渲染后处理
-      换成真正的加粗（哨兵不会被 autoescape 吃掉）。
-    - 裸 `\\n` 分段：docxtpl 只把 `\\a` 当段落分隔，`\\n` 会被 Word 挤在同一段里。
+    定位方式（不猜 XML 结构）：`headings` 的键是**已经填进去的正文首行**，值是要换成的标题。
+    找到文本等于该首行的段落，把**它前面最近的非空段落**的文字改掉。这样无需知道模板里
+    标题原文是什么，也不用去动 `{{槽位}}` 的 run 结构。
 
-    只在值里真有换行时才折段落：`to_body_text` 会剥掉输入自带的 `\\a`，对已经折好的值再折一次
-    等于把段落全压成一行。
+    找不到锚点就原样返回（不抛）——标题只是观感，不该让整份起草失败。
     """
-    from apps.documents.services.placeholders.long_text import markdown_bold_to_sentinel, to_body_text
+    if not headings:
+        return docx_bytes
+    import zipfile
+    from io import BytesIO
 
-    text = markdown_bold_to_sentinel(value)
-    if "\n" in text:
-        return to_body_text(text)
-    return text
+    from lxml import etree
+
+    ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    w_p, w_t = f"{{{ns}}}p", f"{{{ns}}}t"
+
+    src = zipfile.ZipFile(BytesIO(docx_bytes))
+    root = etree.fromstring(src.read("word/document.xml"))
+    paragraphs = list(root.iter(w_p))
+
+    def _text(node: Any) -> str:
+        return "".join((t.text or "") for t in node.iter(w_t)).strip()
+
+    changed = False
+    for anchor_text, heading in headings.items():
+        anchor_text = (anchor_text or "").strip()
+        heading = (heading or "").strip()
+        if not anchor_text or not heading:
+            continue
+        body_index = next((i for i, para in enumerate(paragraphs) if _text(para) == anchor_text), None)
+        if body_index is None:
+            logger.warning("小标题未生效：找不到正文锚点（首行 %r）", anchor_text[:30])
+            continue
+        prev_index = next((i for i in range(body_index - 1, -1, -1) if _text(paragraphs[i])), None)
+        if prev_index is None:
+            logger.warning("小标题未生效：正文前面没有非空段落")
+            continue
+        nodes = list(paragraphs[prev_index].iter(w_t))
+        if not nodes:
+            logger.warning("小标题未生效：标题段落没有 w:t")
+            continue
+        nodes[0].text = heading
+        nodes[0].set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+        for node in nodes[1:]:
+            node.text = ""
+        changed = True
+
+    if not changed:
+        return docx_bytes
+    patched = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
+    out = BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as dst:
+        for item in src.infolist():
+            dst.writestr(item, patched if item.filename == "word/document.xml" else src.read(item.filename))
+    return out.getvalue()
+
+
+def _heading_overrides(*, spec: Any, context: dict[str, str]) -> dict[str, str]:
+    """要换的小标题：{已填正文的首行: 目标标题}。取不到就不换。"""
+    from apps.documents.services.draft import spec_service as _spec
+
+    try:
+        available = set(_spec._skeleton_placeholders(spec))
+    except (AttributeError, KeyError, TypeError, ValueError, LookupError):
+        # 骨架占位符取不到就不换标题——标题只是观感，不该让整份起草失败。
+        return {}
+    out: dict[str, str] = {}
+    for section in ("claim", "facts"):
+        heading = str(getattr(spec, f"{section}_heading", "") or "").strip()
+        if not heading:
+            continue
+        key = _spec._section_target(spec, section, available)
+        if not key:
+            continue
+        value = (context.get(key) or "").strip()
+        if not value:
+            continue
+        _lines = value.splitlines()
+        first_line = _lines[0].strip() if _lines else ""
+        if first_line and first_line != heading:
+            out[first_line] = heading
+    return out
+
+
+def _apply_title_override(docx_bytes: bytes, title: str) -> bytes:
+    """把骨架首段的标题换成这份文书自己的标题（`DocumentSpec.title_override`）。
+
+    **为什么必须有这一步**：管辖权异议申请书复用起诉状的骨架，而骨架的第一段是写死的
+    「民事起诉状」——它不是占位符，槽位填不进去。真机联调时生成的管辖权异议申请书顶着
+    「民事起诉状」的标题，这在实务上是**给法院的文书贴错名字**。
+
+    只改第一段的文字，run 的格式（字号/加粗/居中）原样保留：把标题写进第一个 `w:t`，
+    该段其余 `w:t` 清空。没有非空段落时原样返回。
+    """
+    if not title.strip():
+        return docx_bytes
+    import zipfile
+    from io import BytesIO
+
+    from lxml import etree
+
+    ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    w_p, w_t = f"{{{ns}}}p", f"{{{ns}}}t"
+
+    src = zipfile.ZipFile(BytesIO(docx_bytes))
+    root = etree.fromstring(src.read("word/document.xml"))
+    for para in root.iter(w_p):
+        texts = list(para.iter(w_t))
+        if not any((node.text or "").strip() for node in texts):
+            continue
+        first, *rest = texts
+        first.text = title
+        first.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+        for node in rest:
+            node.text = ""
+        break
+    else:
+        return docx_bytes
+
+    patched = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
+    out = BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as dst:
+        for item in src.infolist():
+            dst.writestr(item, patched if item.filename == "word/document.xml" else src.read(item.filename))
+    return out.getvalue()
+
+
+def _to_docx_text(value: str) -> str:
+    """只做一件：把 `**加粗**` 换成私用区哨兵（渲染后处理换成真加粗）。
+
+    **这里绝不能折段落。** `\\n -> \\a` 的归一化只在 `draft_service.render()` 里做一次，
+    而 `to_body_text()` **不是幂等的**：它把输入自带的 `\\a` 当 C0 控制符剥掉（这是安全要求，
+    否则模型能自己断段、能插分页）。原先本函数先折一次、`render()` 再折一次，第二次把刚插入的
+    `\\a` 全吃掉 —— 实测 `to_body_text(to_body_text(x))` 把 5 段压成 1 行；而单元测试要么用
+    单段值、要么直接测 `to_body_text`，所以一路绿灯。真机联调才看出来：生成的起诉状正文是一整段墙。
+
+    职责边界：**归一化只有一处**（renderer），本函数只管样式。
+    """
+    from apps.documents.services.placeholders.long_text import markdown_bold_to_sentinel
+
+    return markdown_bold_to_sentinel(value)
 
 
 def _llm_caller(instruction: str) -> LLMCaller:
@@ -415,3 +578,19 @@ def _queue_review(*, enabled: bool, kind: str, owner_id: int, subpath: str, user
 
 
 __all__ = ["DEGRADED_SLOT", "draft_document"]
+
+
+def list_doc_types() -> list[dict[str, str]]:
+    """前端下拉用的文书类型清单（只含已登记的 spec）。
+
+    形状与 `DocTypeOut` 逐键对应。**不猜、不补**：`doc_type` 是律师说出口的那个词，
+    `display_name` 是写在文书首行的那个标题，两者都由 `DocumentSpec` 决定。
+    """
+    return [
+        {
+            "doc_type": spec.doc_type,
+            "display_name": spec.display_name,
+            "family": spec.family,
+        }
+        for spec in spec_service.list_specs(active_only=True)
+    ]

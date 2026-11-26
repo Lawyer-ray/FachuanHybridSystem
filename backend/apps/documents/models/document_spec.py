@@ -14,9 +14,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from django.db import models
 from django_lifecycle import LifecycleModel
 
-if TYPE_CHECKING:
-    from .document_template import DocumentTemplate
-
 
 class DraftFamily(models.TextChoices):
     """骨架族：同一族共用一份 docx 脊柱"""

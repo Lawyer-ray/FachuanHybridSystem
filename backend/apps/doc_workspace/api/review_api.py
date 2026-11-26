@@ -68,6 +68,7 @@ class DocFindingOut(Schema):
     risk_source: str = ""
     source_weight: str = ""
     consequence: str = ""
+    case_ref: str = ""
     legal_basis: str
     quote: str
     title: str
@@ -148,6 +149,7 @@ def _finding_out(f: Finding) -> DocFindingOut:
         risk_source=str(f.risk_source),
         source_weight=str(f.source_weight),
         consequence=str(f.consequence),
+        case_ref=f.case_ref,
         legal_basis=f.legal_basis,
         quote=f.quote,
         title=f.title,

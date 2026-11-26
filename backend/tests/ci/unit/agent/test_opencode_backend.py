@@ -224,7 +224,12 @@ class TestConfig:
 class TestMcpServers:
     """共享 MCP 的挂载参数。"""
 
-    def test_carries_token_session_and_tier(self) -> None:
+    def test_carries_token_session_and_tier(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # 同 cline：``_mcp_servers`` 会对 127.0.0.1:8011 做真 TCP 探测。CI 上没有常驻 MCP，
+        # 不把 ``port_open``/``shared_enabled`` 钉死就会在 CI 拿到空列表
+        # （本地开发机有 MCP → 一直绿，于是这条红只在 CI 出现）。
+        monkeypatch.setattr(mod, "port_open", lambda *_a, **_k: True)
+        monkeypatch.setattr(mod, "shared_enabled", lambda: True)
         servers = mod.OpenCodeBackend()._mcp_servers(_ctx(), "sess-9")
         assert len(servers) == 1
         server = servers[0]

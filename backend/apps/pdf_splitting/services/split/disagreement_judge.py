@@ -671,9 +671,9 @@ def is_enabled() -> bool:
     401 白白等超时，还可能把并发位占满拖慢其它判定。所以这里一并要求 key 非空，
     并在缺 key 时 warning 一次（运维看到就知道是漏填而不是功能坏了）。
     """
-    if not _parse_bool(OCR_JUDGE_ENABLED_KEY, _config_value(OCR_JUDGE_ENABLED_KEY), default=False):
+    if not _parse_bool(OCR_JUDGE_ENABLED_KEY, _config_value(OCR_JUDGE_ENABLED_KEY, label="enabled"), default=False):
         return False
-    if not _config_value(OCR_JUDGE_API_KEY_KEY):
+    if not _config_value(OCR_JUDGE_API_KEY_KEY, label="api_key"):
         logger.warning(
             "ocr_judge_enabled_without_key",
             extra={"hint": "OCR_JUDGE_ENABLED=1 但 OCR_JUDGE_API_KEY 为空，判定按未启用处理"},
@@ -690,17 +690,25 @@ def _load_settings() -> _Settings:
     """
     return _Settings(
         enabled=is_enabled(),
-        api_key=_config_value(OCR_JUDGE_API_KEY_KEY),
+        api_key=_config_value(OCR_JUDGE_API_KEY_KEY, label="api_key"),
     )
 
 
-def _config_value(key: str) -> str:
-    """读一个配置项（键不存在时用该键的默认值）；读不出来只 warning，绝不抛。"""
+def _config_value(key: str, *, label: str) -> str:
+    """读一个配置项（键不存在时用该键的默认值）；读不出来只 warning，绝不抛。
+
+    Args:
+        key: 配置表里的键名。
+        label: 日志里用的**固定标签**（``enabled`` / ``api_key``）。用调用点的字面量而不是
+            ``key`` 本体：常量名里带 ``api_key``，CodeQL 按变量名把它当敏感源，于是
+            ``extra={"key": key}`` 被判成 clear-text logging（PR #697 的 1 条 high）。
+            记下的是「哪一项读不到」，而不是它的值，也永不会记值。
+    """
     default = _CONFIG_DEFAULTS[key]
     try:
         return str(SystemConfigService().get_value(key, default) or "").strip()
     except (ImportError, AttributeError, OSError, RuntimeError, TypeError, ValueError):
-        logger.warning("ocr_judge_config_unreadable", extra={"key": key})
+        logger.warning("ocr_judge_config_unreadable", extra={"setting": label})
         return default
 
 
