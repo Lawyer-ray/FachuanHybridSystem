@@ -8065,6 +8065,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/doc-workspace/draft-by-type": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 按文书类型起草并落进项目文件夹的对应位置
+         * @description 律师说「出一份管辖权异议」时走这里：类型 → 骨架 → 填槽 → 渲染 → 找位置 → 落盘。
+         *
+         *     **不自由排版**：格式来自 `DocumentSpec.skeleton_template`，模型只能返回值。
+         *     `created=false` 时看 `reason`——多半是「这个文书还没有骨架」或「这个案件的文件夹里没有它的
+         *     位置」，这两种情况都不该由调用方自己造格式或换路径。
+         */
+        post: operations["apps_doc_workspace_api_write_api_draft_document_by_type"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/doc-workspace/snapshots": {
         parameters: {
             query?: never;
@@ -22302,6 +22326,92 @@ export interface components {
              */
             contract_type: string;
         };
+        /**
+         * DocDraftByTypeOut
+         * @description `DocDraftOut` 形状 + 文书类型 + 可念给律师听的 warnings。
+         */
+        DocDraftByTypeOut: {
+            /** Created */
+            created: boolean;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Subpath
+             * @default
+             */
+            subpath: string;
+            /**
+             * File Url
+             * @default
+             */
+            file_url: string;
+            /**
+             * Filled
+             * @default {}
+             */
+            filled: {
+                [key: string]: string;
+            };
+            /**
+             * Pending
+             * @default []
+             */
+            pending: string[];
+            /**
+             * Slot Fill Rate
+             * @default 0
+             */
+            slot_fill_rate: number;
+            /** Review Run Id */
+            review_run_id?: number | null;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Doc Type
+             * @default
+             */
+            doc_type: string;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+        };
+        /**
+         * DocDraftByTypeIn
+         * @description 一句话起草：只报文书类型，骨架 / 各槽来源 / 落位槽位全部来自 `DocumentSpec`。
+         */
+        DocDraftByTypeIn: {
+            /** Doc Type */
+            doc_type: string;
+            /** Case Id */
+            case_id?: number | null;
+            /** Contract Id */
+            contract_id?: number | null;
+            /**
+             * Facts
+             * @default {}
+             */
+            facts: {
+                [key: string]: string;
+            };
+            /**
+             * Auto Review
+             * @default true
+             */
+            auto_review: boolean;
+            /**
+             * Instruction
+             * @default
+             */
+            instruction: string;
+        };
         /** DocSnapshotListOut */
         DocSnapshotListOut: {
             /**
@@ -35968,6 +36078,16 @@ export interface operations {
                      * @default
                      */
                     dual_engines?: string;
+                    /**
+                     * Ocr Judge Enabled
+                     * @default 1
+                     */
+                    ocr_judge_enabled?: string;
+                    /**
+                     * Segment Strategy
+                     * @default batch
+                     */
+                    segment_strategy?: string;
                 };
             };
         };
@@ -39002,6 +39122,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocDraftOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_write_api_draft_document_by_type: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocDraftByTypeIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocDraftByTypeOut"];
                 };
             };
         };

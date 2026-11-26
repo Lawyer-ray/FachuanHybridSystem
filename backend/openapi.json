@@ -13955,6 +13955,16 @@
                     "default": "",
                     "title": "Dual Engines",
                     "type": "string"
+                  },
+                  "ocr_judge_enabled": {
+                    "default": "1",
+                    "title": "Ocr Judge Enabled",
+                    "type": "string"
+                  },
+                  "segment_strategy": {
+                    "default": "batch",
+                    "title": "Segment Strategy",
+                    "type": "string"
                   }
                 },
                 "title": "MultiPartBodyParams",
@@ -19565,6 +19575,44 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/DocDraftIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/draft-by-type": {
+      "post": {
+        "operationId": "apps_doc_workspace_api_write_api_draft_document_by_type",
+        "summary": "按文书类型起草并落进项目文件夹的对应位置",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocDraftByTypeOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "律师说「出一份管辖权异议」时走这里：类型 → 骨架 → 填槽 → 渲染 → 找位置 → 落盘。\n\n**不自由排版**：格式来自 `DocumentSpec.skeleton_template`，模型只能返回值。\n`created=false` 时看 `reason`——多半是「这个文书还没有骨架」或「这个案件的文件夹里没有它的\n位置」，这两种情况都不该由调用方自己造格式或换路径。",
+        "tags": [
+          "文档工作面"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocDraftByTypeIn"
               }
             }
           },
@@ -50679,6 +50727,139 @@
           "template_id"
         ],
         "title": "DocDraftIn",
+        "type": "object"
+      },
+      "DocDraftByTypeOut": {
+        "description": "`DocDraftOut` 形状 + 文书类型 + 可念给律师听的 warnings。",
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          },
+          "subpath": {
+            "default": "",
+            "title": "Subpath",
+            "type": "string"
+          },
+          "file_url": {
+            "default": "",
+            "title": "File Url",
+            "type": "string"
+          },
+          "filled": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Filled",
+            "type": "object"
+          },
+          "pending": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Pending",
+            "type": "array"
+          },
+          "slot_fill_rate": {
+            "default": 0.0,
+            "title": "Slot Fill Rate",
+            "type": "number"
+          },
+          "review_run_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Run Id"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "doc_type": {
+            "default": "",
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "created"
+        ],
+        "title": "DocDraftByTypeOut",
+        "type": "object"
+      },
+      "DocDraftByTypeIn": {
+        "description": "一句话起草：只报文书类型，骨架 / 各槽来源 / 落位槽位全部来自 `DocumentSpec`。",
+        "properties": {
+          "doc_type": {
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          },
+          "facts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Facts",
+            "type": "object"
+          },
+          "auto_review": {
+            "default": true,
+            "title": "Auto Review",
+            "type": "boolean"
+          },
+          "instruction": {
+            "default": "",
+            "title": "Instruction",
+            "type": "string"
+          }
+        },
+        "required": [
+          "doc_type"
+        ],
+        "title": "DocDraftByTypeIn",
         "type": "object"
       },
       "DocSnapshotListOut": {
