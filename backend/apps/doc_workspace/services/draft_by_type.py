@@ -87,6 +87,8 @@ def draft_document(
     instruction: str = "",
     comment_author: str = "",
     auto_review: bool = True,
+    assess_first: bool = True,
+    force: bool = False,
     user: Any = None,
     org_access: Any = None,
 ) -> dict[str, Any]:
@@ -128,6 +130,24 @@ def draft_document(
     contract = owner.target if owner.kind == write_service.KIND_CONTRACT else None
     given = {str(key): str(value) for key, value in (facts or {}).items()}
     merged = _build_facts(case=case, contract=contract, given=given)
+    warnings: list[str] = []
+
+    # 先判断「材料够不够」，再决定要不要花一次起草调用。
+    # 顺序不能反：起草一次要几十秒并且会落盘，而材料缺口恰恰是律师此刻最需要知道的答案。
+    readiness: dict[str, Any] | None = None
+    if assess_first:
+        readiness = _assess(
+            facts=merged, cause_of_action=_cause_of_action(case=case, contract=contract), instruction=instruction
+        )
+        warnings.extend(readiness.get("warnings") or [])  # type: ignore[arg-type]
+        if readiness.get("verdict") == "blocked" and not force:
+            return _rejected(
+                doc_type,
+                _blocked_reason(doc_type=doc_type, spec=spec, readiness=readiness),
+                warnings,
+                readiness=readiness,
+            )
+
     raw_context, pending = spec_service.resolve_slot_values(
         spec, case=case, contract=contract, facts=merged, llm_caller=_llm_caller(instruction)
     )
@@ -138,7 +158,6 @@ def draft_document(
     rendered = _apply_headings(rendered, _heading_overrides(spec=spec, context=context))
 
     folder_template = _folder_template_for(owner.kind, owner.target)
-    warnings: list[str] = []
     if folder_template is None:
         return _rejected(
             doc_type,
@@ -207,10 +226,13 @@ def draft_document(
         "review_run_id": review_run_id,
         "warnings": warnings,
         "reason": "",
+        "readiness": readiness or {},
     }
 
 
-def _rejected(doc_type: str, reason: str, warnings: list[str] | None = None) -> dict[str, Any]:
+def _rejected(
+    doc_type: str, reason: str, warnings: list[str] | None = None, readiness: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """「不生成」的统一回执：`reason` 必须能直接念给律师听。"""
     logger.info("一句话起草未生成: doc_type=%s reason=%s", doc_type, reason)
     return {
@@ -225,7 +247,104 @@ def _rejected(doc_type: str, reason: str, warnings: list[str] | None = None) -> 
         "review_run_id": None,
         "warnings": list(warnings or []),
         "reason": reason,
+        "readiness": readiness or {},
     }
+
+
+def _assess(*, facts: dict[str, str], cause_of_action: str, instruction: str) -> dict[str, Any]:
+    """跑一次立案前判断，并把结果拍成可序列化的字典。
+
+    复用起草同一个模型调用口（`_llm_caller`）：律师那句补充要求对「缺不缺材料」同样有效
+    （「被告已经付过一部分了」会直接改变缺口清单）。
+    """
+    from apps.documents.services.draft import readiness as readiness_service
+    from apps.documents.services.draft.facts_builder import MATERIAL_FACTS_KEY
+
+    result = readiness_service.assess(
+        facts=facts,
+        material_summary=str(facts.get(MATERIAL_FACTS_KEY, "") or ""),
+        cause_of_action=cause_of_action,
+        llm_caller=_llm_caller(instruction),
+    )
+    return _serialize_readiness(result)
+
+
+def _serialize_readiness(result: Any) -> dict[str, Any]:
+    return {
+        "verdict": result.verdict,
+        "profile_key": result.profile_key,
+        "matrix": result.matrix,
+        "missing_materials": result.missing_materials,
+        "questions": result.questions,
+        "blocking": result.blocking,
+        "warnings": result.warnings,
+    }
+
+
+def _cause_of_action(*, case: Any, contract: Any) -> str:
+    """案件/合同上的案由口径。合同侧没有案由字段，返回空串落到兜底要件档案。"""
+    if case is None:
+        return ""
+    return str(getattr(case, "cause_of_action", "") or "")
+
+
+def _blocked_reason(*, doc_type: str, spec: Any, readiness: dict[str, Any]) -> str:
+    """把「闸门关了」翻译成律师能照着办事的一句话：先说结论，再说缺哪几项。"""
+    name = str(getattr(spec, "display_name", "") or doc_type)
+    blocking = [str(item) for item in (readiness.get("blocking") or []) if str(item).strip()]
+    head = "、".join(blocking[:5]) or "关键材料"
+    count = len(blocking) or 1
+    return (
+        f"现在还出不了《{name}》：至少 {count} 项材料/事实没到位——{head}。"
+        "先补这些再出（缺口清单与要核实的问题在 readiness 里），"
+        "或者明确要求「先出一份草稿」，那时缺口会写成 <待填写：x> 并挂批注。"
+    )
+
+
+def assess_readiness(
+    *,
+    case_id: int | None = None,
+    contract_id: int | None = None,
+    facts: dict[str, str] | None = None,
+    instruction: str = "",
+    cause_of_action: str = "",
+    user: Any = None,
+    org_access: Any = None,
+) -> dict[str, Any]:
+    """判断现有材料能不能支撑这份文书：**不渲染、不落盘、只读**。
+
+    律师问「这个案子还缺什么」时走这里。返回 `verdict` / 要件事实矩阵 / 补充材料清单 /
+    需要核实的问题；`verdict=blocked` 表示关键材料没到位，此时起草会被闸门挡住
+    （除非显式 force）。**它不替律师下法律结论**：要件来自 `element_profiles` 的数据，
+    模型只判断「这一条在本案满不满足」。
+    """
+    if (case_id is None) == (contract_id is None):
+        return {
+            "verdict": "unknown",
+            "profile_key": "",
+            "matrix": [],
+            "missing_materials": [],
+            "questions": [],
+            "blocking": [],
+            "warnings": [_OWNER_REASON],
+        }
+    owner, reason = _resolve_owner(case_id=case_id, contract_id=contract_id, user=user, org_access=org_access)
+    if owner is None:
+        return {
+            "verdict": "unknown",
+            "profile_key": "",
+            "matrix": [],
+            "missing_materials": [],
+            "questions": [],
+            "blocking": [],
+            "warnings": [reason],
+        }
+    case = owner.target if owner.kind == write_service.KIND_CASE else None
+    contract = owner.target if owner.kind == write_service.KIND_CONTRACT else None
+    given = {str(key): str(value) for key, value in (facts or {}).items()}
+    merged = _build_facts(case=case, contract=contract, given=given)
+    resolved_cause = cause_of_action.strip() or _cause_of_action(case=case, contract=contract)
+    return _assess(facts=merged, cause_of_action=resolved_cause, instruction=instruction)
 
 
 def _resolve_owner(
@@ -609,7 +728,7 @@ def _queue_review(*, enabled: bool, kind: str, owner_id: int, subpath: str, user
     return int(run.pk)
 
 
-__all__ = ["DEGRADED_SLOT", "draft_document"]
+__all__ = ["DEGRADED_SLOT", "assess_readiness", "draft_document"]
 
 
 def list_doc_types() -> list[dict[str, str]]:
