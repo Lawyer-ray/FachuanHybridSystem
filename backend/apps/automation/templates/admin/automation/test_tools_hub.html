@@ -72,6 +72,9 @@
     .tool-card.secondary { --card-color-start: var(--fc-primary); --card-color-end: var(--fc-primary-dark); }
     .tool-card.success { --card-color-start: var(--fc-success-text); --card-color-end: var(--fc-success-text); }
     .tool-card.warning { --card-color-start: var(--fc-warning-border); --card-color-end: var(--fc-warning-text); }
+    /* info：首发那张「图片自动旋转」用的就是这个色号，但样式表里一直没定义，
+       于是它的顶部渐变条其实没画出来（var 未定义 ⇒ 整条声明失效）。补上。 */
+    .tool-card.info { --card-color-start: var(--fc-admin-blue); --card-color-end: var(--fc-primary); }
 
     .tool-icon {
         width: 56px;
@@ -96,6 +99,10 @@
     }
     .tool-icon.success {
         background: linear-gradient(135deg, var(--fc-success-text) 0%, var(--fc-success-text) 100%);
+        color: var(--fc-text-on-primary);
+    }
+    .tool-icon.info {
+        background: linear-gradient(135deg, var(--fc-admin-blue), var(--fc-primary));
         color: var(--fc-text-on-primary);
     }
     .tool-icon.warning {
@@ -181,7 +188,7 @@
             <div class="tool-name">{{ tool.name }}</div>
             <div class="tool-description">{{ tool.description }}</div>
             <div class="tool-arrow">
-                进入测试
+                {{ tool.cta|default:"进入测试" }}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M5 12h14M12 5l7 7-7 7"/>
                 </svg>
