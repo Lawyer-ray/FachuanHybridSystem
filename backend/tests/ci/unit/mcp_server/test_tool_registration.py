@@ -119,8 +119,8 @@ def test_registration_count_matches_registry() -> None:
     （数字对不上 / 工具注册了但模型看不到）。
     """
     registered = _registered_names()
-    assert len(registered) == 433, (
-        f"注册工具数 {len(registered)} != 433。新增/删除工具时同步更新该基线数"
+    assert len(registered) == 440, (
+        f"注册工具数 {len(registered)} != 440。新增/删除工具时同步更新该基线数"
         "（2026-10-25: 410→409→415，删除 auto_namer_process 后新增 6 个记忆工具；"
         "再新增 ask_user 提问工具 → 416；子 agent 调研 + 引用核查 → 418；"
         "2026-10-26 新增 rewrite_folder_file → 419；新增四个 BARLC 东盟域外法查明工具"

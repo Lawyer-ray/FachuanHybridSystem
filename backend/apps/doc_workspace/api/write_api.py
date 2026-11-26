@@ -300,3 +300,52 @@ def draft_document(request: HttpRequest, payload: DocDraftIn) -> Any:
         contract_type=payload.contract_type,
     )
     return DocDraftOut(**result.__dict__)
+
+
+class DocDraftByTypeIn(Schema):
+    """一句话起草：只报文书类型，骨架 / 各槽来源 / 落位槽位全部来自 `DocumentSpec`。"""
+
+    doc_type: str
+    """律师嘴里的那个词（`DocumentSpec.doc_type`），如「管辖权异议申请书」。"""
+
+    case_id: int | None = None
+    contract_id: int | None = None
+    """二选一：决定落到哪个项目文件夹。"""
+
+    facts: dict[str, str] = {}
+    """律师显式给出的事实，优先级最高；键是骨架里的占位符名。"""
+
+    auto_review: bool = True
+    instruction: str = ""
+    """律师那句话里除文书类型外的补充，作为额外要求交给填槽的模型。"""
+
+
+class DocDraftByTypeOut(DocDraftOut):
+    """`DocDraftOut` 形状 + 文书类型 + 可念给律师听的 warnings。"""
+
+    doc_type: str = ""
+    warnings: list[str] = []
+
+
+@router.post("/draft-by-type", response=DocDraftByTypeOut, summary="按文书类型起草并落进项目文件夹的对应位置")
+def draft_document_by_type(request: HttpRequest, payload: DocDraftByTypeIn) -> Any:
+    """律师说「出一份管辖权异议」时走这里：类型 → 骨架 → 填槽 → 渲染 → 找位置 → 落盘。
+
+    **不自由排版**：格式来自 `DocumentSpec.skeleton_template`，模型只能返回值。
+    `created=false` 时看 `reason`——多半是「这个文书还没有骨架」或「这个案件的文件夹里没有它的
+    位置」，这两种情况都不该由调用方自己造格式或换路径。
+    """
+    from ..services import draft_by_type
+
+    user = getattr(request, "auth", None)
+    result = draft_by_type.draft_document(
+        doc_type=payload.doc_type,
+        case_id=payload.case_id,
+        contract_id=payload.contract_id,
+        facts=payload.facts,
+        instruction=payload.instruction,
+        auto_review=payload.auto_review,
+        user=user,
+        org_access=getattr(user, "org_access", None),
+    )
+    return DocDraftByTypeOut(**result)

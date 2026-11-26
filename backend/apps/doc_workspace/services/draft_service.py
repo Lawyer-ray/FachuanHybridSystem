@@ -143,20 +143,33 @@ def resolve_slots(
 
 
 def render(template_bytes: bytes, values: dict[str, str], *, pending: list[str]) -> bytes:
-    """渲染成稿。未填槽写成可见占位，**不留空**。"""
+    """渲染成稿。未填槽写成可见占位，**不留空**。
+
+    每个值都先过 `markdown_bold_to_sentinel` + `to_body_text`：起草场景里的值本来就可能是
+    多段正文（事实与理由、答辩理由），`\\n` 直接进 docxtpl 只会变成软换行——同一个
+    `<w:p>` 内的 `<w:br/>`，第二段起吃不到首行缩进。断段必须走 `\\a`，而 `\\a` 只能由代码
+    插入（模型输出里的 `\\a`/`\\f` 会凭空改结构乃至撕页，`to_body_text` 负责剥掉）。
+    单行短值（金额、日期）过完仍是它自己，行为不变。
+    """
     from docxtpl import DocxTemplate
 
     from apps.documents.services.placeholders.fallback import SANDBOXED_JINJA_ENV
+    from apps.documents.services.placeholders.long_text import (
+        apply_bold_sentinels,
+        markdown_bold_to_sentinel,
+        to_body_text,
+    )
 
     context = dict(values)
     for slot in pending:
         context[slot] = PENDING_TEMPLATE.format(slot=slot)
+    body_context = {key: to_body_text(markdown_bold_to_sentinel(str(value))) for key, value in context.items()}
 
     doc = DocxTemplate(BytesIO(template_bytes))
-    doc.render(context, jinja_env=SANDBOXED_JINJA_ENV)
+    doc.render(body_context, jinja_env=SANDBOXED_JINJA_ENV)
     output = BytesIO()
     doc.save(output)
-    return output.getvalue()
+    return apply_bold_sentinels(output.getvalue())
 
 
 def _paragraph_texts(docx_bytes: bytes) -> list[str]:
@@ -165,20 +178,28 @@ def _paragraph_texts(docx_bytes: bytes) -> list[str]:
 
 
 def _assert_skeleton_intact(template_bytes: bytes, rendered_bytes: bytes) -> None:
-    """模板骨架不得被改写：不含槽位的段落必须逐字相同。
+    """模板骨架不得被改写：不含槽位的段落必须逐字、按序留在成稿里。
 
     这条约束是「模板是已验证资产」这个前提的可测量形式。LLM 一旦开始改结构
     （重排条款、合并段落、动编号），复核成本会立刻超过它省下的时间。
+
+    **为什么不再要求段落数相等**：长正文槽会合法地把 1 段变成 N 段（正文段落之间用 `\\a`
+    断段，见 `services/placeholders/long_text.py`），段落数因此不再是骨架不变量。真正的不变量
+    是「模板作者写的那些固定段落一个字都不许变」，所以改成子序列匹配：固定段落只能原样
+    出现，**不得减少、不得换序**。代价是固定段落与某段生成正文文字完全相同时会漏判——
+    这种巧合比误杀一份 20 段的起诉状低危得多。
     """
     tpl = _paragraph_texts(template_bytes)
     out = _paragraph_texts(rendered_bytes)
-    if len(tpl) != len(out):
-        raise RuntimeError(f"起草改动了段落数（模板 {len(tpl)} → 成稿 {len(out)}），模板骨架必须保留")
-    for index, (before, after) in enumerate(zip(tpl, out, strict=True)):
-        if _SLOT_RE.search(before):
-            continue
-        if before != after:
-            raise RuntimeError(f"起草改动了不含槽位的段落（第 {index + 1} 段：{before!r} → {after!r}）")
+    fixed = [(index, text) for index, text in enumerate(tpl) if not _SLOT_RE.search(text)]
+
+    cursor = 0
+    for index, before in fixed:
+        while cursor < len(out) and out[cursor] != before:
+            cursor += 1
+        if cursor >= len(out):
+            raise RuntimeError(f"起草改动了不含槽位的段落（模板第 {index + 1} 段：{before!r} 在成稿里找不到）")
+        cursor += 1
 
 
 def draft_contract(

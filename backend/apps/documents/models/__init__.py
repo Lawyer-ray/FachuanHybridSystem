@@ -31,6 +31,7 @@ from .choices import (
     TemplateCategory,
     TemplateStatus,
 )
+from .document_spec import DocumentSpec, DraftFamily, SlotSource
 from .document_template import DocumentTemplate, DocumentTemplateFolderBinding
 from .external_template import ExternalTemplate, ExternalTemplateFieldMapping
 from .fill_record import BatchFillTask, FillRecord
@@ -60,6 +61,9 @@ __all__ = [
     "FolderTemplate",
     "DocumentTemplate",
     "DocumentTemplateFolderBinding",
+    "DocumentSpec",
+    "DraftFamily",
+    "SlotSource",
     "FolderSlot",
     "Placeholder",
     "PlaceholderOverview",

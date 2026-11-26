@@ -179,6 +179,9 @@ export const WRITE_PREFIXES: readonly string[] = [
   // 不碰律师文件且幂等（同基线+同字节返回同一行），与 generate_/archive_ 同档；
   // 不补只能判 LOW = 连留痕都没有（verify_citations 一并升到 MEDIUM，无审批摩擦）。
   "verify_",
+  // 一句话起草（与 Python WRITE_PREFIXES 同步）：`draft_document` 会落盘并触发模型调用，
+  // 但同名不覆盖、可随手删稿，属 generate_ 那一档；不补只能判 LOW = 连留痕都没有。
+  "draft_",
 ];
 
 /**

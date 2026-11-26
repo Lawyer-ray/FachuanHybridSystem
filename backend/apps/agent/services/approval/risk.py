@@ -183,6 +183,11 @@ WRITE_PREFIXES: tuple[str, ...] = (
     # 副作用：``verify_citations``（法条核查，只读）一并从 LOW 升到 MEDIUM——
     # 中级是静默放行 + 审计留痕，无审批摩擦。
     "verify_",
+    # 一句话起草：``draft_document`` 会**落盘**（写进律师的案卷文件夹）并触发模型调用
+    # （填长正文槽 + 可选初审），但同名不覆盖、可随时删稿重来，不属「改律师现有文件」
+    # 那一档。名字里没有常规写前缀，不补就只能判 LOW——LOW 意味着 readOnlyHint=True
+    # 且无留痕，模型可以静默生成文书并消耗额度。与 ``generate_`` 同档（MEDIUM）。
+    "draft_",
 )
 
 DEFAULT_TIMEOUT = 300.0

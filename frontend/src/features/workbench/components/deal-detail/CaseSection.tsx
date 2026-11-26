@@ -42,6 +42,7 @@ export function CaseSection({
   highlighted,
   onAddLog,
   onOpenFile,
+  onDraft,
   selectedSubpath,
 }: {
   c: DealCase
@@ -58,6 +59,14 @@ export function CaseSection({
    * 详情页统一持有（右栏，与合同文件同一套 FilePreviewCard）。
    */
   onOpenFile?: (f: { subpath: string; name: string; size?: number; modified_at?: string }) => void
+  /**
+   * 「生成文书」——按案件开起草弹窗。
+   *
+   * 入口放在案件节而不是页头：文书（起诉状/答辩状/管辖权异议）属于**具体案件**，
+   * 一个委托下可能挂着多个阶段案，页头放一个按钮就得让律师再猜「生成到哪个案」；
+   * 合同侧文书当前不接（文件夹模板没有对应节点，后端会返回 created=false）。
+   */
+  onDraft?: (caseId: number) => void
   /** 当前预览中的 subpath（属于本案件时行高亮，知道「看的就是这份」） */
   selectedSubpath?: string | null
 }) {
@@ -94,6 +103,11 @@ export function CaseSection({
           <Chip key={n}>{n}</Chip>
         ))}
         <span className="relative top-[-2px] ml-auto flex items-center gap-2">
+          {onDraft && (
+            <ActionButton sm onClick={() => onDraft(c.id)} title="按文书类型起草一份新文书，落进本案文件夹">
+              ＋ 生成文书
+            </ActionButton>
+          )}
           {binding && (
             <span className="flex rounded-[7px] border border-border-light p-[2px]">
               <SegBtn active={view === 'logs'} onClick={() => setViewOverride('logs')}>

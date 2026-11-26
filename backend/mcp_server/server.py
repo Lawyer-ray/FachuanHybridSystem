@@ -158,6 +158,7 @@ from mcp_server.tools import (
     download_sms_document,
     download_sms_documents,
     download_supplementary_agreement,
+    draft_document,
     duplicate_workflow_template,
     enterprise_prefill,
     enterprise_search,
@@ -1328,6 +1329,8 @@ _t(list_document_revisions)
 _t(apply_document_revisions)
 _t(add_document_comments)
 _t(create_folder_file)
+# 一句话起草：律师报一个文书类型，系统出成品并落进文件夹对应位置（会落盘 → 需留痕）
+_t(draft_document)
 
 # 期限聚合：跨案件/合同/日志汇总到期事项
 _t(list_upcoming_deadlines)

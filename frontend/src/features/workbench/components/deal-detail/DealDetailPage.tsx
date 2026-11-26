@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useParams } from 'react-router'
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
+import { DraftDialog } from '@/features/doc-generation'
 import { CaseVerifyCard } from '@/features/material-prep'
 import { useMediaQuery } from '@/hooks/use-media'
 
@@ -16,6 +17,7 @@ import { FilePreviewCard } from './FilePreviewCard'
 import { ContractFileOverlays } from './ContractFileOverlays'
 import { ResizeHandle } from './ResizeHandle'
 import { useResizablePanel } from './use-resizable-panel'
+import { useDraftDialog } from './use-draft-dialog'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { PaymentDialog } from './PaymentDialog'
 import { refetchContractAndCases } from './refetch-contract'
@@ -63,6 +65,9 @@ export function DealDetailPage() {
    * 流水线从合同文件夹取文件。
    */
   const [picked, setPicked] = useState<PickedFile | null>(null)
+  /** 「生成文书」弹窗：哪一案在起草 + 成稿回落到本页画布（见 use-draft-dialog） */
+  const draft = useDraftDialog(setPicked)
+
   /** 合同文件夹的文件 → 预览（右栏合同文件夹树） */
   const openContractFile = useCallback(
     (f: { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number }) => {
@@ -248,6 +253,7 @@ export function DealDetailPage() {
                     highlighted={hl === c.id}
                     onAddLog={onAddLog}
                     onOpenFile={openCaseFile(c.id)}
+                    onDraft={draft.openFor}
                     selectedSubpath={picked?.kind === 'case' && picked.ownerId === c.id ? picked.subpath : null}
                   />
                   <CaseVerifyCard caseId={c.id} />
@@ -329,6 +335,15 @@ export function DealDetailPage() {
 
       {/* 先开票后付款：票挂合同名下；关闭即失效未关联缓存，右栏计数同步 */}
       <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
+
+      {/* 一句话生成文书。只有诉讼分支挂它：已上线的 spec 都是案件文书，合同文件夹
+          模板里没有对应落位节点（传 contract 侧会得到 created=false + 原因） */}
+      <DraftDialog
+        open={draft.caseId != null}
+        onOpenChange={(v) => { if (!v) draft.close() }}
+        caseId={draft.caseId}
+        onCreated={draft.onCreated}
+      />
     </main>
   )
 }

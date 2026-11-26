@@ -291,6 +291,7 @@ from mcp_server.tools.documents import (
     download_power_of_attorney_combined,
     download_preservation_application,
     download_supplementary_agreement,
+    draft_document,
     extract_document_text,
     extract_template_placeholders,
     fill_templates,
@@ -862,6 +863,8 @@ __all__ = [
     "save_archive_overrides",
     "delete_archive_overrides",
     "download_supplementary_agreement",
+    # 一句话起草（类型 → 骨架 → 填槽 → 落位 → 落盘）
+    "draft_document",
     # 诉讼文书生成
     "generate_complaint",
     "generate_defense",
