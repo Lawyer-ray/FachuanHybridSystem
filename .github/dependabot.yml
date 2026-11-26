@@ -39,3 +39,46 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+
+  # ── 前端（pnpm）─────────────────────────────────────────────
+  # 为什么必须加这一条（2026-11-26 实测）：上面两条只盯 `/backend` 的 uv 与 workflow
+  # 里的 action，`frontend/package.json` + `frontend/pnpm-lock.yaml` **一条都没被盯**。
+  # 这不是报错，是静默不做——没人想起来跑 `pnpm update`，前端依赖就永远不升。
+  # dependabot 的 `npm` 生态本身吃 pnpm 锁文件（`pnpm-lock.yaml` 在场即可，无需额外配置）。
+  #
+  # 分组理由与后端 `critical-backend-deps` 同源：改一行就可能整站白屏或让 lint/测试
+  # 直接起不来的包单独成单，标题点名、评审不跟十几个 patch 挤在一起；其余打包走。
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      critical-frontend-deps:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+          - "@vitejs/plugin-react-swc"
+          - "vite"
+          - "vitest"
+          - "@vitest/*"
+          - "typescript"
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
+          - "eslint"
+          - "@eslint/*"
+          - "tailwindcss"
+          - "@tailwindcss/*"
+      frontend:
+        patterns:
+          - "*"
+    ignore:
+      # TypeScript 大版本必须人工判断，别让机器人当 patch 提，也别让它天天重开：
+      # `typescript-eslint@8.74.0` 的 peer 是 `>=4.8.4 <6.1.0`，实测装 TS 7.0.2 后
+      # `pnpm lint`（eslint . --max-warnings 0）直接非零退出，`tsc -b` 倒是能过——
+      # 也就是说这条红线只有 lint 会拦，很容易被当成"机器人升级没事"放过去。
+      # 等 typescript-eslint 放开上界再删这条。
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
