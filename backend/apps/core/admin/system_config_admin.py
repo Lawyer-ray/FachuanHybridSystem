@@ -18,6 +18,25 @@ from apps.core.security.secret_display import value_cell
 from ._system_config_data import get_default_configs
 from .forms import SystemConfigAdminForm
 
+#: 代码里登记了说明的键，编辑页的「描述」行换成这个只读字段（名字见 `description_display`）。
+_CODE_DESCRIPTION_FIELD = "description_display"
+
+#: 只读说明行的提示：文案在代码里，改库没用。
+#:
+#: 它跟随只读值一起渲染，而不走 `help_text`：本项目的 `admin/includes/fieldset.html`
+#: 有意不渲染字段 help_text 与 fieldset description，挂在那两处的提示根本看不见。
+_CODE_DESCRIPTION_HELP = "本说明由代码维护，要改请改 apps/core/admin/_system_config_data/。"
+
+
+def _code_description_of(obj: SystemConfig | None) -> str | None:
+    """obj 对应的代码文案；新建页（无 obj）或代码里没登记这个键时返回 None。"""
+    if obj is None:
+        return None
+    # 延迟导入：`system_config_admin_service` 反过来 import 本包的 `_system_config_data`。
+    from apps.core.services.system_config_admin_service import code_description_of
+
+    return code_description_of(str(obj.key or ""))
+
 
 @admin.register(SystemConfig)
 class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
@@ -28,6 +47,8 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
     form = SystemConfigAdminForm
     # list_display / list_filter 刻意不设：本页 `result_list` 整块重写成分组卡片，
     # 二者都不参与渲染（list_filter 的侧栏还被 CSS 隐藏），只会白跑 DISTINCT 查询。
+    # 搜的是库里的副本（`description` 列），界面展示的是代码文案——两者可能不同：
+    # 代码里改过说明后库里那份还是旧的，按旧措辞仍然能搜到这一行。
     search_fields = ["key", "description"]
     ordering = ["category", "key"]
     change_list_template = "admin/core/systemconfig/change_list.html"
@@ -39,6 +60,48 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
     )
 
     readonly_fields: ClassVar[list[str]] = ["created_at", "updated_at"]
+
+    def get_readonly_fields(self, request: Any, obj: Any = None) -> Any:
+        """代码里登记了这个键 → 「描述」只读。
+
+        库里那份 `description` 此时是兜底/部署备注，不再展示（`get_fieldsets` 把它换成
+        只读的代码文案行），也就不该让人在表单里改一个不会生效的副本。
+        """
+        readonly = list(self.readonly_fields)
+        if _code_description_of(obj) is not None:
+            readonly.extend(["description", _CODE_DESCRIPTION_FIELD])
+        return readonly
+
+    def get_fieldsets(self, request: Any, obj: Any = None) -> Any:
+        """代码里登记了这个键 → 「描述」行换成只读的代码文案。
+
+        只读字段的展示值取自实例的属性（`AdminReadonlyField.contents`），所以要真的
+        显示代码文案，必须把该行换成一个由 `description_display` 供值的字段；
+        留在原字段上只能渲染出库里那句旧话。
+        """
+        fieldsets = super().get_fieldsets(request, obj)
+        if _code_description_of(obj) is None:
+            return fieldsets
+        return [
+            (
+                name,
+                {
+                    **options,
+                    "fields": tuple(
+                        _CODE_DESCRIPTION_FIELD if field == "description" else field for field in options["fields"]
+                    ),
+                },
+            )
+            for name, options in fieldsets
+        ]
+
+    @admin.display(description="描述")
+    def description_display(self, obj: SystemConfig) -> Any:
+        """编辑页「描述」的展示值：代码文案优先，库里的只在这个键不在代码里时兜底。"""
+        code = _code_description_of(obj)
+        if code is None:
+            return str(obj.description or "")
+        return format_html('{}<div class="help">{}</div>', code, _CODE_DESCRIPTION_HELP)
 
     def get_urls(self) -> list[Any]:  # pragma: no cover
         """添加自定义 URL"""
@@ -78,7 +141,13 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
         for config in changelist.queryset.order_by("category", "key"):
             value_text, value_title = value_cell(config.value, is_secret=bool(config.is_secret))
             grouped.setdefault(config.category, []).append(
-                {"config": config, "value_text": value_text, "value_title": value_title}
+                {
+                    "config": config,
+                    "value_text": value_text,
+                    "value_title": value_title,
+                    # 卡片上的说明同样以代码为准；库里的副本只在代码没登记这个键时兜底。
+                    "effective_description": _code_description_of(config) or str(config.description or ""),
+                }
             )
 
         # 遍历「枚举顺序 + 库里实际出现但枚举里没有的分类」：

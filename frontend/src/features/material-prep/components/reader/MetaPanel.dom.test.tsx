@@ -29,6 +29,7 @@ vi.mock('./PartyPicker', () => ({
   ),
 }))
 
+import type { PageQualityByMi } from '../../types'
 import { MetaPanel } from './MetaPanel'
 
 function wrap(children: ReactNode) {
@@ -373,6 +374,73 @@ describe('MetaPanel：页级识别风险接到正文面板', () => {
 
   it('旧任务草稿没有 pageAnomaly 时正文里不多一条提示（与改动前逐字一致）', () => {
     const { container } = renderWithDraft(undefined)
+    expect(container.querySelector('[data-degenerate-hint]')).toBeNull()
+    expect(container.querySelector('[data-column-anomaly-hint]')).toBeNull()
+    container.remove()
+  })
+})
+
+/**
+ * 页级质量（图纸 / 证件缺字段）同样要走到正文面板的逐页提示，而且必须按**源**求交集：
+ * 一个材料包可以有多份 PDF，页号各自从 1 开始，A 份的 P3 信号不能贴到 B 份的 P3 上。
+ */
+describe('MetaPanel：页级质量按源接到正文面板', () => {
+  /** 这一段只引用**第二份**源（mi=1）的第 3 页 */
+  const segOfSourceB = {
+    id: 's2',
+    t: '证据',
+    fn: '证据二',
+    refs: [{ mi: 1, p: 3 }],
+    manual: false,
+    md: '# 证据目录\n\n原告提交了转账凭证。',
+    blocks: [
+      { page: 3, type: 'paragraph', text: '原告提交了转账凭证。', rect: { x: 0.1, y: 0.2, w: 0.5, h: 0.05, approx: false, precision: 'exact' } },
+    ],
+  }
+
+  function renderWithQuality(pageQualityByMi: PageQualityByMi | null) {
+    return render(
+      wrap(
+        <MetaPanel
+          draft={{ mats: [], segs: [segOfSourceB], infos: [] } as never}
+          pageQualityByMi={pageQualityByMi}
+          pickInfo={-1}
+          onSetPickInfo={vi.fn()}
+          ops={ops() as never}
+          focusedSeg={0}
+          mdOpen
+          onToggleMdOpen={() => {}}
+          focusedBlockKey={null}
+          onLocateBlock={() => {}}
+        />,
+      ),
+    )
+  }
+
+  it('A 份（mi=0）P3 的图纸页 / 证件页提示不出现在 B 份（mi=1）的 P3 段上', () => {
+    const { container } = renderWithQuality({
+      '0': {
+        graphic_pages: [3],
+        doc_hints: { '3': 'id_card' },
+        doc_missing: { '3': { doc: 'id_card', missing: ['姓名'] } },
+      },
+    })
+    expect(container.querySelector('[data-quality-hint]')).toBeNull()
+    expect(container.querySelector('[data-doc-hint]')).toBeNull()
+    container.remove()
+  })
+
+  it('同一份源（mi=1）的提示照常出', () => {
+    const { container } = renderWithQuality({ '1': { graphic_pages: [3] } })
+    const hint = container.querySelector('[data-quality-hint]') as HTMLElement
+    expect(hint.textContent).toContain('P3 疑似图纸 / 照片')
+    container.remove()
+  })
+
+  it('旧草稿（没有 pageQualityByMi）时正文里不多一条提示（与改动前逐字一致）', () => {
+    const { container } = renderWithQuality(null)
+    expect(container.querySelector('[data-quality-hint]')).toBeNull()
+    expect(container.querySelector('[data-doc-hint]')).toBeNull()
     expect(container.querySelector('[data-degenerate-hint]')).toBeNull()
     expect(container.querySelector('[data-column-anomaly-hint]')).toBeNull()
     container.remove()

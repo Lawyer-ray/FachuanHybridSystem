@@ -57,6 +57,16 @@ export interface PageQuality {
   doc_missing?: Record<string, DocMissing>
 }
 
+/**
+ * 按**源**（`PageKey.mi`）存的页级质量统计。
+ *
+ * 为什么必须按源：一个材料包可以有多份 PDF，各有自己的识别任务，页号从 1 重新开始。
+ * 存成 `PageQuality` 单值的话，后一份的结果会整键覆盖前一份（丢页），而且「某份的 P5
+ * 取字失败」会显示到**任何**源的 P5 段上（给错页提示）——比不提示更糟。
+ * 键是 `String(mi)`：JSON 对象的键只能是字符串，草稿要落库，所以这里直接按字符串定形。
+ */
+export type PageQualityByMi = Record<string, PageQuality>
+
 /** 一页证件材料的缺字段记录（`PageQuality.doc_missing` 的条目） */
 export interface DocMissing {
   /** 证件类型码（与 `doc_hints` 同口径） */

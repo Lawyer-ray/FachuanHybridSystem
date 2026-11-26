@@ -15,7 +15,7 @@ import type {
   EngineDisagreement,
   Inconsistency,
   InfoField,
-  PageQuality,
+  PageQualityByMi,
 } from '../../types'
 import type { MetaOps } from './reader-ops'
 import { cn } from '@/lib/utils'
@@ -35,7 +35,7 @@ function placeholderOf(f: InfoField): string | undefined {
  *  只在一条都没记时作为空态出现，记了第一条它就该让位。 */
 export function MetaPanel({
   draft,
-  pageQuality = null,
+  pageQualityByMi = null,
   onGotoPage,
   pickInfo,
   onSetPickInfo,
@@ -62,8 +62,8 @@ export function MetaPanel({
   redetectBusy = false,
 }: {
   draft: DraftState
-  /** 页级质量统计（旧任务没有）：用于正文面板顶部的「本段含图纸」提示 */
-  pageQuality?: PageQuality | null
+  /** 按源（mi）存的页级质量统计（旧任务没有）：用于正文面板逐页的「含图纸 / 证件缺字段」提示 */
+  pageQualityByMi?: PageQualityByMi | null
   /** 从质量提示条跳原页（滚到该页 + 滚到该段） */
   onGotoPage?: (si: number, p: number) => void
   pickInfo: number
@@ -113,11 +113,12 @@ export function MetaPanel({
   const libRest = FIELD_LIB.filter((f) => !unavailable.has(f.k))
   // 本段覆盖的证件页：缺字段按页号从 doc_missing 补齐（提示条要说「缺什么」，
   // 光说「这页是身份证」律师还得自己去核对）。全卷算一次，不按页重复遍历。
-  const todosByPage = new Map(docTodosOf(pageQuality).map((t) => [t.page, t]))
-  const docPages = docHintPagesOf(draft.segs[si], pageQuality).map(({ page, doc }) => ({
+  // 键带源（`${mi}:${页}`）：多份 PDF 的页号各自从 1 开始，只按页号对账会把 A 份的缺字段贴到 B 份
+  const todosByPage = new Map(docTodosOf(pageQualityByMi).map((t) => [`${t.mi}:${t.page}`, t]))
+  const docPages = docHintPagesOf(draft.segs[si], pageQualityByMi).map(({ mi, page, doc }) => ({
     page,
     doc,
-    missing: todosByPage.get(page)?.missing,
+    missing: todosByPage.get(`${mi}:${page}`)?.missing,
   }))
   // 页级识别风险（退化页 / 列数突变页）：与上面 docPages 同口径，按 `seg.refs` 实时求交集。
   // 旧任务的草稿没有 pageAnomalyByMi（undefined），派生函数都给空 → 正文里一条提示都不多。
@@ -175,7 +176,7 @@ export function MetaPanel({
           onEditBlockApplied?.()
         }}
         onRemoveBlock={(key) => ops.removeBlock(si, key)}
-        graphicPages={graphicPagesOf(draft.segs[si], pageQuality)}
+        graphicPages={graphicPagesOf(draft.segs[si], pageQualityByMi)}
         docPages={docPages}
         degeneratePages={degeneratePages}
         columnAnomalies={columnAnomalies}

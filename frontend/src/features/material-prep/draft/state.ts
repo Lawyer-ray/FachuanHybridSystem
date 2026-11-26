@@ -14,20 +14,35 @@ export function isEmptyDraft(ds: DraftState | Record<string, never>): ds is Reco
 }
 
 /**
- * 把后端 `summary.page_quality` 落到草稿上（**随草稿持久化**）。
+ * 把某一**份** PDF 的页级质量落到草稿上（按 `mi` 分槽，见 `PageQualityByMi`；**随草稿持久化**）。
  *
  * 曾经故意不落盘，理由是「质量统计是这次识别的附带事实，落盘后会和律师之后的
  * 切段/合段/删页错位」。那个担心代码里已经天然解决：`graphicPagesOf` /
- * `docHintPagesOf` 都是拿 `seg.refs` 与 `quality.*_pages` **实时求交集**，段变了
- * 提示跟着变。而不落盘的代价很实在——刷新一次提示就没了，律师得重新点「自动识别」
- * 才看得到，可这个功能的意义恰恰是「打开就知道哪页要核对」。
+ * `docHintPagesOf` 都是拿 `seg.refs` 逐条查对应源再求交集，段变了提示跟着变。
+ * 而不落盘的代价很实在——刷新一次提示就没了，律师得重新点「自动识别」才看得到。
  * 持久化口径见 `DraftStateToSave`（已是完整 DraftState 形状）。
  *
+ * 按源存而不是整份覆盖（与 `withPageAnomaly` 同形）：一个包可以有多份 PDF，页号各自
+ * 从 1 开始。整份覆盖会 ① 只留下最后一份（丢页）② 让「A 份的 P5 取字失败」显示到
+ * B 份的 P5 段上（给错页）。
+ *
  * 空/缺失不写入：旧任务的 summary 里没这个键，写成 `{"graphic_pages": [], …}`
- * 只会让「有没有质量数据」这件事故意模糊。
+ * 只会让「有没有质量数据」这件事故意模糊。`null` = 这一份本次没有信号，**只删该槽**；
+ * 最后一槽清空时整个键消失（回到「与引入前逐位一致」）。
  */
-export function withPageQuality(d: DraftState, quality: PageQuality | null): DraftState {
-  return quality ? { ...d, pageQuality: quality } : d
+export function withPageQuality(d: DraftState, mi: number, quality: PageQuality | null): DraftState {
+  const key = String(mi)
+  const current = d.pageQualityByMi
+  if (!quality) {
+    if (!current || !(key in current)) return d
+    const { [key]: _drop, ...rest } = current
+    if (Object.keys(rest).length === 0) {
+      const { pageQualityByMi: _dropAll, ...without } = d
+      return without
+    }
+    return { ...d, pageQualityByMi: rest }
+  }
+  return { ...d, pageQualityByMi: { ...(current ?? {}), [key]: quality } }
 }
 
 /**
@@ -91,6 +106,36 @@ export function withPageAnomaly(d: DraftState, mi: number, anomaly: PageAnomaly 
     return { ...d, pageAnomalyByMi: rest }
   }
   return { ...d, pageAnomalyByMi: { ...(current ?? {}), [key]: anomaly } }
+}
+
+/**
+ * 兼容**存量草稿**的单值 `pageQuality`（v27.26.2 起改成按源存）。
+ *
+ * 不做这一步的后果很具体：律师已经存过草稿的包，打开后图纸页 / 取字失败页的提示
+ * 会**全部消失**，直到他重跑一次识别。这不是新功能该有的代价。
+ *
+ * 归属规则（只在不猜的前提下迁移）：
+ * - 草稿只引用**一个**源（`refs[].mi` 只有一个取值）→ 单值必然是它的，直接归到该源；
+ * - 一段都没引用（空草稿）→ 归到 `0`（单源包就是 0）；
+ * - 引用了**多个**源 → 无法判断这份单值属于谁，**丢弃**（错配到别的源上比不显示更糟）。
+ *
+ * 迁移是只读兼容：读到即转换，下一次保存自然写成新形状；旧的单值键一律删掉，
+ * 避免它永远躺在草稿里与新键并存。
+ */
+export function adoptLegacyPageQuality(d: DraftState): DraftState {
+  const raw = d as DraftState & { pageQuality?: PageQuality | null }
+  const legacy = raw.pageQuality ?? null
+  if (!legacy) return d
+  const { pageQuality: _drop, ...rest } = raw
+  if (rest.pageQualityByMi) return rest
+
+  const sources = new Set<number>()
+  for (const seg of rest.segs) {
+    for (const ref of seg.refs) sources.add(ref.mi)
+  }
+  if (sources.size > 1) return rest
+  const mi = sources.size === 1 ? [...sources][0]! : 0
+  return { ...rest, pageQualityByMi: { [String(mi)]: legacy } }
 }
 
 /**

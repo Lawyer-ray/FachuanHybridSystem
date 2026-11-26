@@ -21,6 +21,7 @@
  */
 export {
   readPageQuality,
+  qualityOf,
   graphicPagesOf,
   ocrFailedPagesOf,
   sparsePagesOf,
@@ -30,7 +31,7 @@ export {
   qualityFlagLabel,
   pagesText,
 } from './page-quality'
-export type { DocTodo } from './page-quality'
+export type { DocHintPage, DocTodo } from './page-quality'
 export {
   readPageAnomaly,
   degeneratePagesOf,

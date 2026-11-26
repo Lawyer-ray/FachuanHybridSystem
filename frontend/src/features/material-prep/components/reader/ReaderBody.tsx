@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 
-import type { DraftState, Inconsistency, OcrPending, PageKey, PageQuality } from '../../types'
+import type { DraftState, Inconsistency, OcrPending, PageKey, PageQualityByMi } from '../../types'
 import { groupBySeverity, judgeGateNotice, uniqueDisagreementKeys } from '../../draft'
 import { useEngineAdopt } from './use-engine-adopt'
 import type { useReaderOcr } from './use-ocr'
@@ -23,7 +23,7 @@ import { useGotoPage } from './use-goto-page'
  */
 export function ReaderBody({
   draft,
-  pageQuality = null,
+  pageQualityByMi = null,
   inconsistencies = [],
   messageId,
   narrow,
@@ -64,8 +64,8 @@ export function ReaderBody({
   redetectBusy = false,
 }: {
   draft: DraftState
-  /** 页级质量统计（`summary.page_quality`，旧任务为 null） */
-  pageQuality?: PageQuality | null
+  /** 按源（mi）存的页级质量统计（`summary.page_quality`，旧任务为 null） */
+  pageQualityByMi?: PageQualityByMi | null
   /** 跨页不一致清单（`summary.inconsistencies`，旧任务为空） */
   inconsistencies?: Inconsistency[]
   messageId: number
@@ -228,7 +228,7 @@ export function ReaderBody({
         metaWrapStyle={metaWrapStyle}
         onCollapsePanels={onCollapsePanels}
         draft={draft}
-        pageQuality={pageQuality}
+        pageQualityByMi={pageQualityByMi}
         inconsistencies={inconsistencies}
         engineUnchecked={engineUnchecked}
         onOpenInconsistencies={() => setInconsistencyOpen(true)}
@@ -279,7 +279,7 @@ export function ReaderBody({
         inconsistencies={inconsistencies}
         docTodoOpen={docTodoOpen}
         onDocTodoOpenChange={setDocTodoOpen}
-        pageQuality={pageQuality}
+        pageQualityByMi={pageQualityByMi}
         onGotoAnyPage={onGotoAnyPage}
         autoSplitTask={autoSplitTask}
         onHideAutoSplit={onHideAutoSplit}

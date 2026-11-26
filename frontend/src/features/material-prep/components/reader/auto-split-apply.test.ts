@@ -8,10 +8,15 @@
  * 律师看到的是一条绿色「已完成」。2026-11-25 一份真实卷宗里，某一页整案的核心
  * 事实（标的金额 + 生效刑事判决编号）就是这么静默消失的。
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { summarizeAutoSplitResults } from './auto-split-apply'
+// 回写那半边的用例要拿真实草稿跑一遍 `update`（mock 只替换 store 这一层）
+const storeMock = vi.hoisted(() => ({ getState: vi.fn() }))
+vi.mock('../../store', () => ({ useReader: storeMock }))
+
+import { applyAutoSplitResults, summarizeAutoSplitResults } from './auto-split-apply'
 import type { AutoSplitResult } from './auto-split-tracks'
+import type { DraftState } from '../../types'
 
 function result(overrides: Partial<AutoSplitResult> = {}): AutoSplitResult {
   return {
@@ -204,5 +209,71 @@ describe('summarizeAutoSplitResults：退化页 / 列数突变页要说出来但
     const out = summarizeAutoSplitResults({ ...base, results: [result()] })
     expect(out.message).not.toContain('退化')
     expect(out.message).not.toContain('列数')
+  })
+})
+
+/**
+ * 回写路径：页级质量按**源**（`result.mi`）分槽落草稿。
+ *
+ * 旧实现是单值 `pageQuality`，一个包两份 PDF 时后一份把前一份整键覆盖——
+ * 前面几份的「取字失败 / 图纸」提示全消失。这里用真实草稿跑一遍 `update`，
+ * 断言两个槽都在（不是只断言「函数被调用过」）。
+ */
+describe('applyAutoSplitResults：页级质量按源回写', () => {
+  function setup(draft: DraftState) {
+    const setInconsistencies = vi.fn()
+    let current = draft
+    storeMock.getState.mockReturnValue({
+      draft,
+      update: (fn: (d: DraftState) => DraftState) => {
+        current = fn(current)
+      },
+      setInconsistencies,
+    })
+    return {
+      get draft() {
+        return current
+      },
+      setInconsistencies,
+    }
+  }
+
+  const mats = [
+    { partIndex: 0, n: 'a.pdf', k: 'pdf' as const, pages: 10 },
+    { partIndex: 1, n: 'b.pdf', k: 'pdf' as const, pages: 10 },
+  ]
+
+  it('两份各自的信号都留在草稿里（后一份不再覆盖前一份）', async () => {
+    const box = setup({ mats, segs: [], infos: [] })
+    await applyAutoSplitResults({
+      results: [
+        result({ mi: 0, pageQuality: { ocr_failed_pages: [5] } }),
+        result({ mi: 1, jobId: 'job-2', pageQuality: { graphic_pages: [5] } }),
+      ],
+      photoTexts: [],
+      officeTexts: [],
+      choice: 'overwrite',
+    })
+    // A 份 P5 取字失败、B 份 P5 是图纸：两个槽各存各的，不会互相覆盖
+    expect(box.draft.pageQualityByMi).toEqual({
+      '0': { ocr_failed_pages: [5] },
+      '1': { graphic_pages: [5] },
+    })
+  })
+
+  it('重跑某一份且本次没信号 → 只清那一槽，别的源原样', async () => {
+    const box = setup({
+      mats,
+      segs: [],
+      infos: [],
+      pageQualityByMi: { '0': { ocr_failed_pages: [5] }, '1': { graphic_pages: [5] } },
+    })
+    await applyAutoSplitResults({
+      results: [result({ mi: 0, pageQuality: null })],
+      photoTexts: [],
+      officeTexts: [],
+      choice: 'overwrite',
+    })
+    expect(box.draft.pageQualityByMi).toEqual({ '1': { graphic_pages: [5] } })
   })
 })

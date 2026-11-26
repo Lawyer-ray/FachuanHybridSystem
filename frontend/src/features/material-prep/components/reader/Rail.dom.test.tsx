@@ -50,6 +50,11 @@ function makeDraft(segs: unknown[], mats: Array<Record<string, unknown>> = [mat(
   return { mats, segs, infos: [] } as never
 }
 
+/** 一份识别结果按源装槽（`mi` = 0）：这些夹具的段都只引用第一份源 */
+function byMi(quality: Record<string, unknown>) {
+  return { '0': quality }
+}
+
 function renderRail(props: Partial<Parameters<typeof Rail>[0]> = {}) {
   const onFocusSeg = vi.fn()
   const onRenameMat = vi.fn()
@@ -419,16 +424,23 @@ describe('Rail：质量入口与图形页', () => {
         seg('s1', 'A', [{ mi: 0, p: 1 }]),
         seg('s2', 'B', [{ mi: 0, p: 2 }]),
       ], [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 2 }]),
-      pageQuality: { graphic_pages: [2], sparse_pages: [], blank_pages: [], details: {} },
+      pageQualityByMi: byMi({ graphic_pages: [2], sparse_pages: [], blank_pages: [], details: {} }),
     })
     expect(rowProps[0]!.graphicPages).toEqual([])
     expect(rowProps[1]!.graphicPages).toEqual([2])
     container.remove()
   })
 
-  it('没有 pageQuality 时段行拿到空数组（不崩）', () => {
+  /**
+   * 旧草稿（没有 `pageQualityByMi`）→ 段行一个质量徽标都不出，与改动前逐字一致。
+   * `data-graphic-mark` / `data-ocr-failed-mark` / `data-doc-mark` 全部由这三个数组驱动，
+   * 三者为空即不渲染任何徽标（徽标本身的空数组口径见 RailSegRow 的用例）。
+   */
+  it('旧草稿（没有 pageQualityByMi）时段行拿到空数组，不新增徽标', () => {
     const { container } = renderRail()
     expect(rowProps[0]!.graphicPages).toEqual([])
+    expect(rowProps[0]!.ocrFailedPages).toEqual([])
+    expect(rowProps[0]!.docHintPages).toEqual([])
     container.remove()
   })
 })
@@ -453,7 +465,7 @@ describe('Rail：证件待补录入口与段行证件标记', () => {
   it('有缺字段的证件页时顶部出现入口，徽标数字等于页数', () => {
     const { container } = renderRail({
       draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 23 }])], [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 30 }]),
-      pageQuality: qualityWithDocs as never,
+      pageQualityByMi: byMi(qualityWithDocs as never),
       onOpenDocTodos: vi.fn(),
     })
     const entry = container.querySelector('[data-doc-todo-entry]') as HTMLElement
@@ -467,7 +479,7 @@ describe('Rail：证件待补录入口与段行证件标记', () => {
     const onOpenDocTodos = vi.fn()
     const { container } = renderRail({
       draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 23 }])]),
-      pageQuality: qualityWithDocs as never,
+      pageQualityByMi: byMi(qualityWithDocs as never),
       onOpenDocTodos,
     })
     fireEvent.click(container.querySelector('[data-doc-todo-entry]')!)
@@ -478,14 +490,14 @@ describe('Rail：证件待补录入口与段行证件标记', () => {
   it('旧任务没有 doc_hints 时不渲染入口（不给空清单的假入口）', () => {
     const { container } = renderRail({
       draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 23 }])]),
-      pageQuality: { graphic_pages: [2], sparse_pages: [], blank_pages: [], details: {} },
+      pageQualityByMi: byMi({ graphic_pages: [2], sparse_pages: [], blank_pages: [], details: {} }),
       onOpenDocTodos: vi.fn(),
     })
     expect(container.querySelector('[data-doc-todo-entry]')).toBeNull()
     container.remove()
   })
 
-  it('没有 pageQuality 时也不渲染入口（不崩）', () => {
+  it('没有 pageQualityByMi 时也不渲染入口（不崩）', () => {
     const { container } = renderRail({ onOpenDocTodos: vi.fn() })
     expect(container.querySelector('[data-doc-todo-entry]')).toBeNull()
     container.remove()
@@ -494,7 +506,7 @@ describe('Rail：证件待补录入口与段行证件标记', () => {
   it('只有 doc_hints 但没有任何缺字段时不渲染入口（没有可补录的东西）', () => {
     const { container } = renderRail({
       draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 23 }])]),
-      pageQuality: { graphic_pages: [], sparse_pages: [], blank_pages: [], details: {}, doc_hints: { '23': 'id_card' } },
+      pageQualityByMi: byMi({ graphic_pages: [], sparse_pages: [], blank_pages: [], details: {}, doc_hints: { '23': 'id_card' } }),
       onOpenDocTodos: vi.fn(),
     })
     expect(container.querySelector('[data-doc-todo-entry]')).toBeNull()
@@ -507,19 +519,19 @@ describe('Rail：证件待补录入口与段行证件标记', () => {
         seg('s1', 'A', [{ mi: 0, p: 23 }]),
         seg('s2', 'B', [{ mi: 0, p: 144 }]),
       ], [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 164 }]),
-      pageQuality: qualityWithDocs as never,
+      pageQualityByMi: byMi(qualityWithDocs as never),
     })
     // 类型码 + 该页缺失字段一起下推（tooltip 要按「有没有缺」分档）
     expect(rowProps[0]!.docHintPages).toEqual([
-      { page: 23, doc: 'id_card', missing: ['姓名', '身份证号', '住址'] },
+      { mi: 0, page: 23, doc: 'id_card', missing: ['姓名', '身份证号', '住址'] },
     ])
     expect(rowProps[1]!.docHintPages).toEqual([
-      { page: 144, doc: 'property_cert', missing: ['不动产单元号'] },
+      { mi: 0, page: 144, doc: 'property_cert', missing: ['不动产单元号'] },
     ])
     container.remove()
   })
 
-  it('没有 pageQuality 时段行拿到空数组（不崩）', () => {
+  it('没有 pageQualityByMi 时段行拿到空数组（不崩）', () => {
     const { container } = renderRail()
     expect(rowProps[0]!.docHintPages).toEqual([])
     container.remove()

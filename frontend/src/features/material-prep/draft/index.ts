@@ -37,6 +37,7 @@ export {
   withPageAnomaly,
   setEngineChecked,
 } from './state'
+export { adoptLegacyPageQuality } from './state'
 export {
   readJudgeState,
   mergeJudgeStates,
@@ -94,6 +95,7 @@ export {
 export { blockKeyOf, locateKeyOf } from './block-keys'
 export {
   readPageQuality,
+  qualityOf,
   readInconsistencies,
   inconsistencyKindOf,
   sortInconsistencies,
@@ -113,7 +115,7 @@ export {
   columnAnomalyOf,
   riskPageKeysOf,
 } from './quality'
-export type { DocTodo, SegmentReviewHint } from './quality'
+export type { DocHintPage, DocTodo, SegmentReviewHint } from './quality'
 export {
   readEngineDisagreements,
   readEngineBlocks,

@@ -9,10 +9,10 @@
 
 import type { components } from '@/types/api-schema'
 import type { EngineDisagreement, EngineName } from './engine-types'
-import type { Inconsistency, JudgeState, PageAnomalyByMi, PageQuality } from './quality-types'
+import type { Inconsistency, JudgeState, PageAnomalyByMi, PageQuality, PageQualityByMi } from './quality-types'
 
 export type { JudgeGateReason, JudgeState } from './quality-types'
-export type { ColumnAnomaly, PageAnomaly, PageAnomalyByMi } from './quality-types'
+export type { ColumnAnomaly, PageAnomaly, PageAnomalyByMi, PageQualityByMi } from './quality-types'
 
 export type MaterialKind = 'pdf' | 'photo' | 'office'
 
@@ -231,18 +231,18 @@ export interface DraftState {
    */
   pageRot?: PageRotMap
   /**
-   * 页级质量统计（哪些页是图纸 / 稀疏 / 空白）。
+   * 页级质量统计（哪些页是图纸 / 稀疏 / 取字失败 / 证件缺字段），**按源（`mi`）分槽**。
    *
    * 描述的是「这次识别产出了什么」，但**随草稿持久化**：消费方（`graphicPagesOf` /
-   * `docHintPagesOf`）拿 `seg.refs` 与它实时求交集，律师切段/删页后提示跟着变，
+   * `docHintPagesOf`）拿 `seg.refs` 逐条查对应源再实时求交集，律师切段/删页后提示跟着变，
    * 不存在错位；不落盘反而会让刷新一次提示就没了。口径见 `DraftStateToSave`。
    */
-  pageQuality?: PageQuality
+  pageQualityByMi?: PageQualityByMi
   pageAnomalyByMi?: PageAnomalyByMi
   /**
    * 双引擎分歧清单（`summary.engine_disagreements`，默认关闭双引擎时为空/缺省）。
    *
-   * 与 pageQuality 同级、同生命周期：它也是「这次识别产出了什么」的附带事实，
+   * 与 pageQualityByMi 同级、同生命周期：它也是「这次识别产出了什么」的附带事实，
    * 律师的切段/合段不改变它描述的东西。
    */
   engineDisagreements?: EngineDisagreement[]
@@ -261,7 +261,7 @@ export interface DraftState {
    *
    * 为什么落草稿而不是组件 state：律师核对到一半按 Esc / 刷新一次就得从头再来一遍，
    * 而这些分歧动辄几十条。它记录的是**律师的判断**（“这处我已经看过了”），
-   * 不是识别结果，所以与 pageQuality 那种机器事实区分开、随草稿持久化。
+   * 不是识别结果，所以与 pageQualityByMi 那种机器事实区分开、随草稿持久化。
    */
   engineChecked?: string[]
   /**
@@ -369,7 +369,7 @@ export interface RecognitionPrefs {
  * 而不落库的代价很实在——**刷新一次提示就没了**，律师得重新点「自动识别」才看得到，
  * 而这个功能的意义恰恰是「打开就知道哪页要核对」。
  *
- * 所以改回完整形状，pageQuality 随草稿一起持久化。
+ * 所以改回完整形状，pageQualityByMi 随草稿一起持久化。
  */
 export type DraftStateToSave = DraftState
 

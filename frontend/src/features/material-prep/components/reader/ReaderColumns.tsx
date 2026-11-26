@@ -1,4 +1,4 @@
-import type { DraftState, EngineDisagreement, Inconsistency, OcrPending, PageKey, PageQuality } from '../../types'
+import type { DraftState, EngineDisagreement, Inconsistency, OcrPending, PageKey, PageQualityByMi } from '../../types'
 import type { useReaderOcr } from './use-ocr'
 import type { buildFlowOps, buildMetaOps } from './reader-ops'
 import { Flow } from './Flow'
@@ -24,7 +24,7 @@ export function ReaderColumns({
   onCollapsePanels,
   // 左栏
   draft,
-  pageQuality,
+  pageQualityByMi,
   inconsistencies,
   engineUnchecked,
   onOpenInconsistencies,
@@ -80,7 +80,7 @@ export function ReaderColumns({
   metaWrapStyle?: React.CSSProperties
   onCollapsePanels: () => void
   draft: DraftState
-  pageQuality: PageQuality | null
+  pageQualityByMi: PageQualityByMi | null
   inconsistencies: Inconsistency[]
   /** 左栏徽标数字：只数未核对的引擎分歧 */
   engineUnchecked: number
@@ -140,7 +140,7 @@ export function ReaderColumns({
       <div className={railWrapCls} style={railWrapStyle}>
         <Rail
           draft={draft}
-          pageQuality={pageQuality}
+          pageQualityByMi={pageQualityByMi}
           inconsistencies={inconsistencies}
           onOpenInconsistencies={onOpenInconsistencies}
           onOpenDocTodos={onOpenDocTodos}
@@ -189,7 +189,7 @@ export function ReaderColumns({
             在原件上边看边改——设计意图（「抽屉不关」）与模态实现本来就矛盾。 */}
         <MetaPanel
           draft={draft}
-          pageQuality={pageQuality}
+          pageQualityByMi={pageQualityByMi}
           onGotoPage={onGotoSegmentPage}
           pickInfo={pickInfo}
           onSetPickInfo={onSetPickInfo}

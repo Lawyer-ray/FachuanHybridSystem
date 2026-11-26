@@ -24,6 +24,7 @@ import {
   setPackAssign,
   setPackStatus,
   withDefaultNames,
+  adoptLegacyPageQuality,
 } from './draft'
 import type { PageRefKey } from './draft/page-rotation'
 import type { BundleMat, DraftState, PageKey } from './types'
@@ -134,7 +135,11 @@ export const useReader = create<ReaderState>((set, get) => ({
       // 存量草稿的段可能没有 id（id 是后加的字段），读取时兜底补齐；
       // 仍用默认名的段按现行规则刷新（源名-P起始页）——老草稿里切开留下的余段
       // 都叫源文件名，打开就是几份同名；用户改过的名不动
-      const draft = hasStored ? withDefaultNames(ensureSegIds(ds)) : buildInitialDraft(detail, mats)
+      // 存量草稿的「单值 pageQuality」在这里被收进按源的新形状（见 adoptLegacyPageQuality）：
+      // 否则老包打开后图纸 / 取字失败提示会全消失，直到重跑一次识别。
+      const draft = hasStored
+        ? adoptLegacyPageQuality(withDefaultNames(ensureSegIds(ds)))
+        : buildInitialDraft(detail, mats)
       set({ detail, draft, status: 'ready', ...recognitionOf(draft) })
     } catch (e) {
       if (get().openId !== id) return
