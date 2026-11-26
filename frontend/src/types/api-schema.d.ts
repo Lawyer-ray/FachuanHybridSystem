@@ -5884,6 +5884,9 @@ export interface paths {
          *     律师再点「自动识别」会从零重跑 164 页（几分钟 + 几十元）。
          *     前端打开阅读器时先调这个：命中就直接拉 segments，miss 才建新任务。
          *
+         *     `pack_message_id` 是材料包主键：传了就只认这个包的任务。不传时退回
+         *     「文件名 + 页数」匹配（老客户端 / 脚本），那两维并不唯一。
+         *
          *     返回 null 表示没有可复用的（前端照常新建）。
          */
         get: operations["apps_pdf_splitting_api_pdf_splitting_api_find_reusable_pdf_split_job"];
@@ -5909,6 +5912,10 @@ export interface paths {
          *     典型场景：任务是由同事的浏览器、脚本或刷新前那个页面发起的，当前页面毫
          *     不知情。不查就再建一个，同一份 164 页卷宗会并行跑两遍（钱翻倍），而先前
          *     那个任务在界面上完全不存在（“幽灵任务”）。
+         *
+         *     `pack_message_id` 是材料包主键：传了就只认这个包提交的任务。没有它时
+         *     「同名 + 同页数」会把另一个包的任务认成这个包的（实测：打开 A 包，进度条
+         *     显示的是 B 包那份 0/37 页的任务）。
          *
          *     返回 null 表示没有进行中的（前端照常新建）。
          */
@@ -8083,6 +8090,29 @@ export interface paths {
          *     （`draft_service._assert_skeleton_intact` 会炸）。
          */
         post: operations["apps_doc_workspace_api_write_api_draft_document"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doc-workspace/draft/assess": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 立案前判断：材料够不够出这份文书，缺什么
+         * @description 律师问「这个案子还缺什么」时走这里：**不生成任何文件**。
+         *
+         *     要件来自后端数据（`element_profiles`），模型只判断「这一条在本案满不满足」——
+         *     所以同一份材料跑两次不会给出两套法律要件。`verdict=blocked` 时起草会被闸门挡住。
+         */
+        post: operations["apps_doc_workspace_api_write_api_assess_draft_readiness"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22364,9 +22394,80 @@ export interface components {
              */
             contract_type: string;
         };
+        /** DocDraftAssessOut */
+        DocDraftAssessOut: {
+            /**
+             * Verdict
+             * @default unknown
+             */
+            verdict: string;
+            /**
+             * Profile Key
+             * @default
+             */
+            profile_key: string;
+            /**
+             * Matrix
+             * @default []
+             */
+            matrix: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Missing Materials
+             * @default []
+             */
+            missing_materials: {
+                [key: string]: string;
+            }[];
+            /**
+             * Questions
+             * @default []
+             */
+            questions: {
+                [key: string]: string;
+            }[];
+            /**
+             * Blocking
+             * @default []
+             */
+            blocking: string[];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+        };
+        /**
+         * DocDraftAssessIn
+         * @description 立案前判断：只读、不渲染、不落盘。
+         */
+        DocDraftAssessIn: {
+            /** Case Id */
+            case_id?: number | null;
+            /** Contract Id */
+            contract_id?: number | null;
+            /**
+             * Cause Of Action
+             * @default
+             */
+            cause_of_action: string;
+            /**
+             * Facts
+             * @default {}
+             */
+            facts: {
+                [key: string]: string;
+            };
+            /**
+             * Instruction
+             * @default
+             */
+            instruction: string;
+        };
         /**
          * DocDraftByTypeOut
-         * @description `DocDraftOut` 形状 + 文书类型 + 可念给律师听的 warnings。
+         * @description `DocDraftOut` 形状 + 文书类型 + 可念给律师听的 warnings + 立案前判断。
          */
         DocDraftByTypeOut: {
             /** Created */
@@ -22420,6 +22521,13 @@ export interface components {
              * @default []
              */
             warnings: string[];
+            /**
+             * Readiness
+             * @default {}
+             */
+            readiness: {
+                [key: string]: unknown;
+            };
         };
         /**
          * DocDraftByTypeIn
@@ -22454,6 +22562,16 @@ export interface components {
              * @default
              */
             comment_author: string;
+            /**
+             * Assess First
+             * @default true
+             */
+            assess_first: boolean;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
         };
         /** DocSnapshotListOut */
         DocSnapshotListOut: {
@@ -36161,6 +36279,8 @@ export interface operations {
                      * @default batch
                      */
                     segment_strategy?: string;
+                    /** Pack Message Id */
+                    pack_message_id?: number | null;
                 };
             };
         };
@@ -36181,6 +36301,7 @@ export interface operations {
             query: {
                 source_name: string;
                 total_pages?: number | null;
+                pack_message_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -36204,6 +36325,7 @@ export interface operations {
             query: {
                 source_name: string;
                 total_pages?: number | null;
+                pack_message_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -39215,6 +39337,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocDraftOut"];
+                };
+            };
+        };
+    };
+    apps_doc_workspace_api_write_api_assess_draft_readiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocDraftAssessIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocDraftAssessOut"];
                 };
             };
         };

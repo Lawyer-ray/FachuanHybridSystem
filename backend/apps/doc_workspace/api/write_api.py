@@ -349,12 +349,85 @@ class DocDraftByTypeIn(Schema):
     对署名的要求都可能不同，放系统配置等于让一个人替全所决定。
     """
 
+    assess_first: bool = True
+    """起草前先判断材料够不够（多一次模型调用，约 20~40 秒）。
+
+    默认开：材料明显不全时，先告诉律师缺什么比先产出一份要重签的文书有用。
+    批量场景（一次给几十个案卷出文书）可以关掉，用 `assess` 单独先跑一轮。
+    """
+
+    force: bool = False
+    """材料缺口已到 blocking 时仍要出草稿。缺口会写成 `<待填写：x>` 并挂批注。"""
+
 
 class DocDraftByTypeOut(DocDraftOut):
-    """`DocDraftOut` 形状 + 文书类型 + 可念给律师听的 warnings。"""
+    """`DocDraftOut` 形状 + 文书类型 + 可念给律师听的 warnings + 立案前判断。"""
 
     doc_type: str = ""
     warnings: list[str] = []
+    readiness: dict[str, Any] = {}
+    """`assess` 的结果（verdict / 要件矩阵 / 补充材料清单 / 问题清单）。关掉评估时为空。"""
+
+
+class DocDraftAssessIn(Schema):
+    """立案前判断：只读、不渲染、不落盘。"""
+
+    case_id: int | None = None
+    contract_id: int | None = None
+    """二选一：判断哪个项目的材料够不够。"""
+
+    cause_of_action: str = ""
+    """案由。留空则取案件上的字段；它决定命中哪份要件档案（租赁承包 / 通用合同付款）。"""
+
+    facts: dict[str, str] = {}
+    """律师显式给出的事实（如「被告已付 3 个月」），会直接改变缺口清单。"""
+
+    instruction: str = ""
+    """律师的补充说明，喂给判断模型。"""
+
+
+class DocDraftAssessOut(Schema):
+    verdict: str = "unknown"
+    """ready / draftable_with_gaps / blocked / unknown。"""
+
+    profile_key: str = ""
+    """命中的要件档案（lease_arrears / contract_payment）。"""
+
+    matrix: list[dict[str, Any]] = []
+    """要件事实矩阵：requirement / fact / source / status。"""
+
+    missing_materials: list[dict[str, str]] = []
+    """补充材料清单：item / why / from_whom / form / severity。"""
+
+    questions: list[dict[str, str]] = []
+    """需要核实的问题：to / question / why。"""
+
+    blocking: list[str] = []
+    """挡住起草的那几项（severity=blocking 的缺口名）。"""
+
+    warnings: list[str] = []
+
+
+@router.post("/draft/assess", response=DocDraftAssessOut, summary="立案前判断：材料够不够出这份文书，缺什么")
+def assess_draft_readiness(request: HttpRequest, payload: DocDraftAssessIn) -> Any:
+    """律师问「这个案子还缺什么」时走这里：**不生成任何文件**。
+
+    要件来自后端数据（`element_profiles`），模型只判断「这一条在本案满不满足」——
+    所以同一份材料跑两次不会给出两套法律要件。`verdict=blocked` 时起草会被闸门挡住。
+    """
+    from ..services import draft_by_type
+
+    user = getattr(request, "auth", None)
+    result = draft_by_type.assess_readiness(
+        case_id=payload.case_id,
+        contract_id=payload.contract_id,
+        facts=payload.facts,
+        instruction=payload.instruction,
+        cause_of_action=payload.cause_of_action,
+        user=user,
+        org_access=getattr(user, "org_access", None),
+    )
+    return DocDraftAssessOut(**result)
 
 
 @router.post("/draft-by-type", response=DocDraftByTypeOut, summary="按文书类型起草并落进项目文件夹的对应位置")
@@ -376,6 +449,8 @@ def draft_document_by_type(request: HttpRequest, payload: DocDraftByTypeIn) -> A
         instruction=payload.instruction,
         comment_author=payload.comment_author,
         auto_review=payload.auto_review,
+        assess_first=payload.assess_first,
+        force=payload.force,
         user=user,
         org_access=getattr(user, "org_access", None),
     )

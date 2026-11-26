@@ -141,7 +141,7 @@ def test_missing_slot_degrades_to_other_filing(monkeypatch: pytest.MonkeyPatch, 
     """这个案件的文件夹里没有该槽位 → 只降级到 other_filing，并把降级原因说给律师听。"""
     captured = _wire(monkeypatch, tmp_path, kinds=("complaint", "other_filing"))
 
-    result = draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017)
+    result = draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, assess_first=False)
 
     assert result["created"] is True
     assert result["warnings"], "降级必须留 warning，否则律师不知道文书换了位置"
@@ -153,7 +153,7 @@ def test_success_path_returns_openable_file_url(monkeypatch: pytest.MonkeyPatch,
     """命中槽位 → 落进那一条路径，返回能直接交给画布的 file_url。"""
     captured = _wire(monkeypatch, tmp_path, kinds=(DOC_TYPE, "other_filing"))
 
-    result = draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017)
+    result = draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, assess_first=False)
 
     assert result["created"] is True
     assert result["subpath"].endswith(".docx")
@@ -169,7 +169,7 @@ def test_no_placement_anywhere_refuses_to_guess(monkeypatch: pytest.MonkeyPatch,
     """槽位与兜底槽都没有 → 不生成，并说清「这个案件的文件夹没有 X 的位置」。"""
     _wire(monkeypatch, tmp_path, kinds=("complaint", "defense"))
 
-    result = draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017)
+    result = draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, assess_first=False)
 
     assert result["created"] is False
     assert f"没有「{DISPLAY_NAME}」的位置" in result["reason"]
@@ -180,7 +180,7 @@ def test_multiple_hits_take_the_first_and_warn(monkeypatch: pytest.MonkeyPatch, 
     """同一种槽位在同一棵树里出现多次 → 取第一处并说明，不静默挑一个。"""
     captured = _wire(monkeypatch, tmp_path, kinds=(DOC_TYPE, "complaint", DOC_TYPE))
 
-    result = draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017)
+    result = draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, assess_first=False)
 
     assert result["created"] is True
     assert any("2 处" in warning for warning in result["warnings"])
@@ -199,7 +199,7 @@ def test_pending_slots_are_annotated_with_the_shared_placeholder(
         pending=["法院名称"],
     )
 
-    result = draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, auto_review=False)
+    result = draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, auto_review=False, assess_first=False)
 
     assert result["created"] is True
     assert result["pending"] == ["法院名称"]
@@ -232,7 +232,7 @@ def test_multi_line_slot_value_becomes_docx_paragraphs(monkeypatch: pytest.Monke
         context={"异议人": "甲公司", "法院名称": "第一段\n第二段"},
     )
 
-    draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, auto_review=False)
+    draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, auto_review=False, assess_first=False)
 
     rendered = captured["create_file"]["raw_docx"]
     paragraphs = [p.text.strip() for p in Document(io.BytesIO(rendered)).paragraphs if p.text.strip()]
@@ -253,9 +253,7 @@ def test_slot_text_is_not_refolded_before_render(monkeypatch: pytest.MonkeyPatch
     assert "\ue000" in draft_by_type._to_docx_text("**加粗**")
 
 
-def test_comment_author_comes_from_the_request_not_from_config(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-) -> None:
+def test_comment_author_comes_from_the_request_not_from_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
     """批注署名**随本次起草请求**走：前端填什么就是什么，缺省 `Lawyer`。
 
     **为什么不能做成系统配置**：署名是「这一份文书上写什么名字」——同一个所里不同案子、
@@ -263,11 +261,13 @@ def test_comment_author_comes_from_the_request_not_from_config(
     所有人的历史习惯。这里守两条：传了就用传的；没传就是 `Lawyer`。
     """
     captured = _wire(monkeypatch, tmp_path, kinds=(DOC_TYPE,), pending=["法院名称"])
-    draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, comment_author="李助理", auto_review=False)
+    draft_by_type.draft_document(
+        doc_type=DOC_TYPE, case_id=1017, comment_author="李助理", auto_review=False, assess_first=False
+    )
     assert captured["comment_author"] == "李助理"
 
     captured_default = _wire(monkeypatch, tmp_path, kinds=(DOC_TYPE,), pending=["法院名称"])
-    draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, auto_review=False)
+    draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, auto_review=False, assess_first=False)
     assert captured_default["comment_author"] == ""
 
 
@@ -278,7 +278,7 @@ def test_contract_owner_writes_into_the_contract_folder(monkeypatch: pytest.Monk
         draft_by_type, "_load_contract", lambda _contract_id: SimpleNamespace(name="某合同", case_type="civil")
     )
 
-    result = draft_by_type.draft_document(doc_type=DOC_TYPE, contract_id=318, auto_review=False)
+    result = draft_by_type.draft_document(doc_type=DOC_TYPE, contract_id=318, auto_review=False, assess_first=False)
 
     assert result["created"] is True
     assert captured["create_file"]["kind"] == "contract"
@@ -297,3 +297,69 @@ def test_requires_exactly_one_owner(monkeypatch: pytest.MonkeyPatch, tmp_path: A
     assert both["created"] is False
     assert "二选一" in neither["reason"]
     assert "二选一" in both["reason"]
+
+
+def _readiness(verdict: str, *, blocking: list[str] | None = None) -> dict[str, Any]:
+    """一份最小 readiness 回执（形状与 `_serialize_readiness` 一致）。"""
+    return {
+        "verdict": verdict,
+        "profile_key": "lease_arrears",
+        "matrix": [],
+        "missing_materials": [
+            {"item": item, "why": "", "from_whom": "", "form": "", "severity": "blocking"} for item in (blocking or [])
+        ],
+        "questions": [],
+        "blocking": list(blocking or []),
+        "warnings": [],
+    }
+
+
+def test_blocked_readiness_stops_before_writing(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+    """材料缺口是 blocking → 不落盘、不渲染，理由要能直接念给律师听。
+
+    「先花几十秒生成一份材料明显不全的起诉状」比「先说清缺什么」代价高得多：
+    后者律师能去补，前者只会让他以为已经可以递了。
+    """
+    _wire(monkeypatch, tmp_path, kinds=(DOC_TYPE,))
+    monkeypatch.setattr(
+        draft_by_type,
+        "_assess",
+        lambda **_kw: _readiness("blocked", blocking=["被告身份证复印件", "欠款对账与银行流水"]),
+    )
+
+    def _never_called(**_kwargs: Any) -> dict[str, Any]:
+        raise AssertionError("blocked 时不该走到写盘")
+
+    monkeypatch.setattr(write_service, "create_file", _never_called)
+
+    result = draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017)
+
+    assert result["created"] is False
+    assert "还出不了" in result["reason"]
+    assert "被告身份证复印件" in result["reason"]
+    assert result["readiness"]["verdict"] == "blocked"
+    assert result["readiness"]["blocking"] == ["被告身份证复印件", "欠款对账与银行流水"]
+
+
+def test_force_overrides_blocked_gate(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+    """律师明确要草稿时照做：缺口写进 <待填写> 与批注，而不是把整单拒掉。"""
+    captured = _wire(monkeypatch, tmp_path, kinds=(DOC_TYPE,))
+    monkeypatch.setattr(draft_by_type, "_assess", lambda **_kw: _readiness("blocked", blocking=["欠款对账"]))
+
+    result = draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, auto_review=False, force=True)
+
+    assert result["created"] is True
+    assert captured["create_file"] is not None
+    assert result["readiness"]["blocking"] == ["欠款对账"]
+
+
+def test_draftable_with_gaps_still_drafts(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+    """不阻塞的缺口不该挡住起草：它只是提醒，不是闸门。"""
+    captured = _wire(monkeypatch, tmp_path, kinds=(DOC_TYPE,))
+    monkeypatch.setattr(draft_by_type, "_assess", lambda **_kw: _readiness("draftable_with_gaps"))
+
+    result = draft_by_type.draft_document(doc_type=DOC_TYPE, case_id=1017, auto_review=False)
+
+    assert result["created"] is True
+    assert captured["create_file"] is not None
+    assert result["readiness"]["verdict"] == "draftable_with_gaps"

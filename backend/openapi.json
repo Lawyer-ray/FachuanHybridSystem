@@ -13965,6 +13965,17 @@
                     "default": "batch",
                     "title": "Segment Strategy",
                     "type": "string"
+                  },
+                  "pack_message_id": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Pack Message Id"
                   }
                 },
                 "title": "MultiPartBodyParams",
@@ -14010,6 +14021,22 @@
               "title": "Total Pages"
             },
             "required": false
+          },
+          {
+            "in": "query",
+            "name": "pack_message_id",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pack Message Id"
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -14031,7 +14058,7 @@
             }
           }
         },
-        "description": "查一份已算好的拆分任务，供前端跳过重跑直接复用。\n\n典型场景：材料包已识别过（后端有 36 段），但 `draft_state` 没回写——\n律师再点「自动识别」会从零重跑 164 页（几分钟 + 几十元）。\n前端打开阅读器时先调这个：命中就直接拉 segments，miss 才建新任务。\n\n返回 null 表示没有可复用的（前端照常新建）。",
+        "description": "查一份已算好的拆分任务，供前端跳过重跑直接复用。\n\n典型场景：材料包已识别过（后端有 36 段），但 `draft_state` 没回写——\n律师再点「自动识别」会从零重跑 164 页（几分钟 + 几十元）。\n前端打开阅读器时先调这个：命中就直接拉 segments，miss 才建新任务。\n\n`pack_message_id` 是材料包主键：传了就只认这个包的任务。不传时退回\n「文件名 + 页数」匹配（老客户端 / 脚本），那两维并不唯一。\n\n返回 null 表示没有可复用的（前端照常新建）。",
         "tags": [
           "PDF 拆解"
         ],
@@ -14071,6 +14098,22 @@
               "title": "Total Pages"
             },
             "required": false
+          },
+          {
+            "in": "query",
+            "name": "pack_message_id",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pack Message Id"
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -14092,7 +14135,7 @@
             }
           }
         },
-        "description": "查一份**正在进行中**的拆分任务，供前端接管轮询。\n\n典型场景：任务是由同事的浏览器、脚本或刷新前那个页面发起的，当前页面毫\n不知情。不查就再建一个，同一份 164 页卷宗会并行跑两遍（钱翻倍），而先前\n那个任务在界面上完全不存在（“幽灵任务”）。\n\n返回 null 表示没有进行中的（前端照常新建）。",
+        "description": "查一份**正在进行中**的拆分任务，供前端接管轮询。\n\n典型场景：任务是由同事的浏览器、脚本或刷新前那个页面发起的，当前页面毫\n不知情。不查就再建一个，同一份 164 页卷宗会并行跑两遍（钱翻倍），而先前\n那个任务在界面上完全不存在（“幽灵任务”）。\n\n`pack_message_id` 是材料包主键：传了就只认这个包提交的任务。没有它时\n「同名 + 同页数」会把另一个包的任务认成这个包的（实测：打开 A 包，进度条\n显示的是 B 包那份 0/37 页的任务）。\n\n返回 null 表示没有进行中的（前端照常新建）。",
         "tags": [
           "PDF 拆解"
         ],
@@ -19603,6 +19646,44 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/DocDraftIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/doc-workspace/draft/assess": {
+      "post": {
+        "operationId": "apps_doc_workspace_api_write_api_assess_draft_readiness",
+        "summary": "立案前判断：材料够不够出这份文书，缺什么",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocDraftAssessOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "律师问「这个案子还缺什么」时走这里：**不生成任何文件**。\n\n要件来自后端数据（`element_profiles`），模型只判断「这一条在本案满不满足」——\n所以同一份材料跑两次不会给出两套法律要件。`verdict=blocked` 时起草会被闸门挡住。",
+        "tags": [
+          "文档工作面"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocDraftAssessIn"
               }
             }
           },
@@ -50796,8 +50877,118 @@
         "title": "DocDraftIn",
         "type": "object"
       },
+      "DocDraftAssessOut": {
+        "properties": {
+          "verdict": {
+            "default": "unknown",
+            "title": "Verdict",
+            "type": "string"
+          },
+          "profile_key": {
+            "default": "",
+            "title": "Profile Key",
+            "type": "string"
+          },
+          "matrix": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Matrix",
+            "type": "array"
+          },
+          "missing_materials": {
+            "default": [],
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Missing Materials",
+            "type": "array"
+          },
+          "questions": {
+            "default": [],
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "blocking": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Blocking",
+            "type": "array"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "title": "DocDraftAssessOut",
+        "type": "object"
+      },
+      "DocDraftAssessIn": {
+        "description": "立案前判断：只读、不渲染、不落盘。",
+        "properties": {
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          },
+          "cause_of_action": {
+            "default": "",
+            "title": "Cause Of Action",
+            "type": "string"
+          },
+          "facts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Facts",
+            "type": "object"
+          },
+          "instruction": {
+            "default": "",
+            "title": "Instruction",
+            "type": "string"
+          }
+        },
+        "title": "DocDraftAssessIn",
+        "type": "object"
+      },
       "DocDraftByTypeOut": {
-        "description": "`DocDraftOut` 形状 + 文书类型 + 可念给律师听的 warnings。",
+        "description": "`DocDraftOut` 形状 + 文书类型 + 可念给律师听的 warnings + 立案前判断。",
         "properties": {
           "created": {
             "title": "Created",
@@ -50867,6 +51058,12 @@
             },
             "title": "Warnings",
             "type": "array"
+          },
+          "readiness": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Readiness",
+            "type": "object"
           }
         },
         "required": [
@@ -50926,6 +51123,16 @@
             "default": "",
             "title": "Comment Author",
             "type": "string"
+          },
+          "assess_first": {
+            "default": true,
+            "title": "Assess First",
+            "type": "boolean"
+          },
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
           }
         },
         "required": [

@@ -54,11 +54,24 @@ def draft_document(
         str,
         Field(
             description=(
-                "未决项批注的署名（Word/OnlyOffice 审阅面板里显示的\"人\"）。"
-                "缺省 Lawyer；按这一份文书的要求填，不要写死"
+                '未决项批注的署名（Word/OnlyOffice 审阅面板里显示的"人"）。缺省 Lawyer；按这一份文书的要求填，不要写死'
             )
         ),
     ] = "",
+    assess_first: Annotated[
+        bool,
+        Field(
+            description=(
+                "起草前先判断材料够不够（默认 true，多一次模型调用约 20~40 秒）。"
+                "材料明显不全时它会直接返回 created=false 与缺口清单——那是律师要的答案，"
+                "不要把 created=false 当成故障"
+            )
+        ),
+    ] = True,
+    force: Annotated[
+        bool,
+        Field(description="材料缺口已到 blocking 时仍要草稿；缺口会写成 <待填写：x> 并挂批注"),
+    ] = False,
 ) -> dict[str, Any]:
     """按文书类型起草一份文书，**直接落进项目文件夹的指定位置**。
 
@@ -80,10 +93,13 @@ def draft_document(
         facts: 律师显式给出的事实（可选，优先级最高）。
         instruction: 律师的补充要求（可选）。
         comment_author: 未决项批注的署名（可选，缺省 Lawyer）。
+        assess_first: 起草前先判断材料够不够（默认开）。
+        force: 缺口是 blocking 时仍出草稿。
 
     Returns:
         `{created, doc_type, name, subpath, file_url, filled, pending, slot_fill_rate,
-        review_run_id, warnings, reason}`；`file_url` 可直接交给画布打开。
+        review_run_id, warnings, reason, readiness}`；`file_url` 可直接交给画布打开。
+        `readiness.verdict=blocked` 时 `reason` 里就是「缺哪几项」，把原话回给律师。
     """
     if (case_id is None) == (contract_id is None):
         raise ValueError(
@@ -99,9 +115,68 @@ def draft_document(
             "facts": facts or {},
             "instruction": instruction,
             "comment_author": comment_author,
+            "assess_first": assess_first,
+            "force": force,
         },
     )
     return result
 
 
-__all__ = ["draft_document"]
+def assess_draft_readiness(
+    case_id: Annotated[int | None, Field(description="案件 ID（与 contract_id 二选一）", ge=1)] = None,
+    contract_id: Annotated[int | None, Field(description="合同 ID（与 case_id 二选一）", ge=1)] = None,
+    cause_of_action: Annotated[
+        str,
+        Field(
+            description=(
+                "案由；留空取案件上的字段。它决定用哪份要件档案，"
+                "例如「土地租赁合同纠纷」会问到解除权与履约保证金，「合同纠纷」只会问通用付款要件"
+            )
+        ),
+    ] = "",
+    facts: Annotated[
+        dict[str, str] | None,
+        Field(description="律师已知的事实（如「被告已付 3 个月租金」），会直接改变缺口清单"),
+    ] = None,
+    instruction: Annotated[str, Field(description="律师的补充说明（可选）")] = "",
+) -> dict[str, Any]:
+    """判断「这个案子现在的材料够不够出这份文书」——**只读，不生成任何文件**。
+
+    律师问「还缺什么」「能不能直接起诉」时先用这个工具，不要直接起草再让律师自己发现
+    材料不全。返回四块：要件事实矩阵（每个要件在本案对应什么事实、出处在哪、缺不缺）、
+    补充材料清单（要什么 / 为什么 / 向谁要 / 什么形式）、需要核实的问题清单、以及结论
+    `verdict`。
+
+    `verdict` 三个正常值：
+    - `ready`：材料齐，可以直接起草；
+    - `draftable_with_gaps`：能起草，但有非关键缺口，成稿里会出现 `<待填写：x>`；
+    - `blocked`：关键材料没到位，起草会被闸门挡住（除非显式 `force`）。
+
+    把 `missing_materials` 与 `questions` **原样转给律师**：那是他要去要材料、要去问客户的清单。
+    不要替律师补全这些事实，也不要因为 `blocked` 就自己换一种文书或另造格式。
+
+    Args:
+        case_id / contract_id: 二选一，判断哪个项目。
+        cause_of_action: 案由（可选，留空取案件字段）。
+        facts: 律师已知的事实（可选）。
+        instruction: 补充说明（可选）。
+
+    Returns:
+        `{verdict, profile_key, matrix, missing_materials, questions, blocking, warnings}`。
+    """
+    if (case_id is None) == (contract_id is None):
+        raise ValueError("case_id 与 contract_id 必须二选一：两个都不给就不知道判断哪个项目")
+    result: dict[str, Any] = client.post(
+        "/doc-workspace/draft/assess",
+        json={
+            "case_id": case_id,
+            "contract_id": contract_id,
+            "cause_of_action": cause_of_action,
+            "facts": facts or {},
+            "instruction": instruction,
+        },
+    )
+    return result
+
+
+__all__ = ["assess_draft_readiness", "draft_document"]
