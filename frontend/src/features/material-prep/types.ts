@@ -314,6 +314,22 @@ export function toggleCloudEngine(selection: CloudSelection, engine: CloudEngine
   return normalizeCloudSelection(next)
 }
 
+/**
+ * 分段策略：粒度 / 成本 / 稳定性三者的取舍。取值与后端 `PdfSplitSegmentStrategy` 逐字一致。
+ *
+ * · batch —— 逐批摘要再合并切边界。稳、大卷宗不会撞 LLM 超时；看得不全，可能把两份并成一份
+ * · wholebook —— 整本一次看完再切。边界更准；大卷宗可能超时（后端会自动退回 batch）
+ * · wholebook_cross —— 两种都跑，边界不一致的段标「两种切法不一致」交人工。**分段 LLM 调用翻倍**
+ */
+export type SegmentStrategy = 'batch' | 'wholebook' | 'wholebook_cross'
+
+export const SEGMENT_STRATEGIES: readonly SegmentStrategy[] = ['batch', 'wholebook', 'wholebook_cross']
+
+/** 脏值一律回落 `batch`：它是唯一不会放大成本的取值，也是后端默认。 */
+export function normalizeSegmentStrategy(raw: unknown): SegmentStrategy {
+  return SEGMENT_STRATEGIES.includes(raw as SegmentStrategy) ? (raw as SegmentStrategy) : 'batch'
+}
+
 /** 材料包级的识别成本选择（`DraftState.recognition`） */
 export interface RecognitionPrefs {
   /** fast_text = 电子页只抽文本层（不计费、无坐标）；layout = 电子页也上云（更准、更慢、按页计费） */
@@ -321,6 +337,11 @@ export interface RecognitionPrefs {
   /** 勾选的云端引擎：空 = 自动容灾；1 个 = 锁定；≥2 个**可比对的** = 交叉比对
    *  （多付一次云端费用）。`deepseek` 不参与比对，见 `DUAL_CAPABLE`。 */
   engines?: CloudSelection
+  /** 分段策略（见 `SegmentStrategy`）。缺省 = batch */
+  segmentStrategy?: SegmentStrategy
+  /** 分歧自动裁定：两个引擎读得不一样时，用打分器判「哪一侧与图上的字相符」。
+   *  默认 **true**；但**只在 ≥2 个可比对引擎时才有分歧可判**，单引擎下开着也是空转。 */
+  judge?: boolean
 }
 
 /**

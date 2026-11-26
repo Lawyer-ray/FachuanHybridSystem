@@ -38,6 +38,11 @@ function makeProps(over: Partial<ToolbarProps> = {}): ToolbarProps {
     maxCols: 3,
     onSetCols: vi.fn(),
     colsDisabled: false,
+    segmentStrategy: 'batch',
+    onSegmentStrategyChange: vi.fn(),
+    judgeOn: true,
+    onToggleJudge: vi.fn(),
+    onApplyTier: vi.fn(),
     onResetSegments: vi.fn(),
     onAutoSplit: vi.fn(),
     autoSplitRunning: false,
@@ -353,10 +358,12 @@ describe('ReaderToolbar：自动分段 split button', () => {
     unmount()
   })
 
-  it('两组选择都标注「本包记住」，补版面写明更慢更贵', async () => {
+  it('四组选择都标注「本包记住」（版面策略 / 解析平台 / 分段策略 / 分歧处理），补版面写明更慢更贵', async () => {
     const { unmount } = renderToolbar()
     await openSettings()
-    expect(screen.getAllByText(/本包记住/)).toHaveLength(2)
+    // 4 组：新增的两组也按包记住——分段策略决定分段 LLM 调用次数，判定决定分歧要不要自动定，
+    // 两者都是「这一包值不值得多花钱」的判断，换包不该继承。
+    expect(screen.getAllByText(/本包记住/)).toHaveLength(4)
     expect(screen.getByText(/电子页也送云端：更准但更慢更贵/)).toBeTruthy()
     unmount()
   })

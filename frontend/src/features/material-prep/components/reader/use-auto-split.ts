@@ -90,6 +90,9 @@ export function useAutoSplit() {
       // （dual_engines）。两者分开发是因为 cloud_backend 只认单值，塞逗号串会被
       // 后端当成未知值按 auto 处理（详见 platform-selection.resolveBackendRequest）。
       const { cloudBackend, dualEngines } = resolveBackendRequest(useReader.getState().cloudSelection)
+      // 分段策略与分歧裁定也是**按包选择**（draft.recognition），与引擎/版面同一批读：
+      // 前者决定分段 LLM 调用次数，后者只在双引擎分歧上有事可做。
+      const { segmentStrategy, judgeOn } = useReader.getState()
 
       // 轨道 ①：PDF —— 提交云端任务 + 串行轮询（复用已有结果 / 版面策略 / 双引擎都在里面）
       const pdf = await runPdfTrack({
@@ -101,6 +104,8 @@ export function useAutoSplit() {
         layoutMode,
         cloudBackend,
         dualEngines: dualEngines ? dualEngines.join(',') : null,
+        segmentStrategy,
+        ocrJudgeEnabled: judgeOn,
       })
       // 轮询期间可能已卸载（关掉阅读器）或重入：不再回写 store、不再弹提示
       if (pdf.stale) return

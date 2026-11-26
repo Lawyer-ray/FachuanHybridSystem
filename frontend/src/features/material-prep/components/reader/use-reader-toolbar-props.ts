@@ -1,6 +1,7 @@
 import { toast } from 'sonner'
 
 import { rotationTargetOf } from './rotation-target'
+import { applyTier, type SplitTierId } from './split-plan'
 import { useReaderStoreFields } from './use-reader-store-fields'
 import { countUnclassified, isAutoSegName } from '../../draft'
 import type { DraftState } from '../../types'
@@ -128,6 +129,18 @@ export function useReaderToolbarProps(params: {
     onToggleCloudEngine: st.toggleCloudEngine,
     // 一键关闭交叉比对：回到自动容灾（不计比对费），选择随包保存
     onClearCrossCheck: () => st.setCloudSelection([]),
+    segmentStrategy: st.segmentStrategy,
+    onSegmentStrategyChange: st.setSegmentStrategy,
+    judgeOn: st.judgeOn,
+    onToggleJudge: () => st.setJudgeOn(!st.judgeOn),
+    // 档位是一次性设三项：引擎 / 分段策略 / 判定。分开调三个 setter 会触发三次
+    // 草稿写回（三次持久化 + 三次重渲染），而它们语义上是一个动作。
+    onApplyTier: (id: SplitTierId) => {
+      const plan = applyTier(id)
+      st.setCloudSelection(plan.engines)
+      st.setSegmentStrategy(plan.segmentStrategy)
+      st.setJudgeOn(plan.judge)
+    },
     handleAssign,
   }
 }

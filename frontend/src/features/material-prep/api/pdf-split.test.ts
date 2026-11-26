@@ -29,7 +29,14 @@ vi.mock('@/lib/api', () => ({
   },
 }))
 
-import { findInflightPdfSplitJob, findReusablePdfSplitJob, jobDownloadUrl, segmentMdUrl, segmentPdfUrl } from './pdf-split'
+import {
+  createPdfSplitJob,
+  findInflightPdfSplitJob,
+  findReusablePdfSplitJob,
+  jobDownloadUrl,
+  segmentMdUrl,
+  segmentPdfUrl,
+} from './pdf-split'
 
 /** ky ResponsePromise 形状桩：同步可链 .json()，await 得 body */
 function respond(body: unknown) {
@@ -252,3 +259,38 @@ function respondWith(skipped = 0) {
     headers: { get: (name: string) => (name.toLowerCase() === 'x-export-skipped' ? String(skipped) : null) },
   })
 }
+
+/**
+ * 提交任务时的两项**任务级选择**。
+ *
+ * 它们不是运维开关：分段策略决定分段 LLM 调用几遍，分歧裁定只在双引擎分歧上有事可做。
+ * 契约只有两条要点——布尔值必须转成 `"1"/"0"`（后端按表单字符串解析），
+ * 而**不传**与传 `false` 是两件事：前者让后端用自己的默认（开），后者是用户明确关掉。
+ */
+describe('createPdfSplitJob：分段策略与分歧裁定', () => {
+  it('judge 传 false 时发 "0"（用户明确关掉，不能被后端默认覆盖）', async () => {
+    splittingClient().post.mockReturnValue(respond({ job_id: 'j1', status: 'pending' }))
+    await createPdfSplitJob(new File([new Uint8Array([1])], 'a.pdf'), {
+      dualEngines: 'mineru,paddleocr_vl',
+      segmentStrategy: 'wholebook_cross',
+      ocrJudgeEnabled: false,
+    })
+    const body = splittingClient().post.mock.calls[0]![1].body as FormData
+    expect(body.get('ocr_judge_enabled')).toBe('0')
+    expect(body.get('segment_strategy')).toBe('wholebook_cross')
+  })
+
+  it('judge 传 true 时发 "1"；两项都不传时干脆不发（交由后端默认）', async () => {
+    splittingClient().post.mockReturnValue(respond({ job_id: 'j2', status: 'pending' }))
+    await createPdfSplitJob(new File([new Uint8Array([1])], 'b.pdf'), { ocrJudgeEnabled: true })
+    const withJudge = splittingClient().post.mock.calls[0]![1].body as FormData
+    expect(withJudge.get('ocr_judge_enabled')).toBe('1')
+    expect(withJudge.get('segment_strategy')).toBeNull()
+
+    splittingClient().post.mockReturnValue(respond({ job_id: 'j3', status: 'pending' }))
+    await createPdfSplitJob(new File([new Uint8Array([1])], 'c.pdf'))
+    const bare = splittingClient().post.mock.calls[1]![1].body as FormData
+    expect(bare.get('ocr_judge_enabled')).toBeNull()
+    expect(bare.get('segment_strategy')).toBeNull()
+  })
+})

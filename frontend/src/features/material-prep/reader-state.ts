@@ -8,6 +8,7 @@ import type {
   OcrPending,
   PackStatus,
   PageKey,
+  SegmentStrategy,
 } from './types'
 
 /**
@@ -48,6 +49,10 @@ export interface ReaderState {
    * 见 constants.defaultRecognition）；存量草稿没有该键时回到自动容灾，不追溯计费。
    */
   cloudSelection: CloudSelection
+  /** 分段策略（按包持久化，权威值在 `draft.recognition.segmentStrategy`）。缺省 batch */
+  segmentStrategy: SegmentStrategy
+  /** 分歧自动裁定开关（按包持久化，默认 true）。单引擎下开着也不会有分歧可判 */
+  judgeOn: boolean
   /** 选页模式：平时点页面不做任何事，靠 ⌘/⇧ 或此模式 */
   selMode: boolean
   /** 当前选中的页 */
@@ -92,6 +97,10 @@ export interface ReaderState {
   resetPagesRotation: (refs: PageKey[]) => void
   /** 切换版面策略（影响下一次「自动分段」是否让电子页上云端）；按包落草稿 */
   setLayoutMode: (m: 'fast_text' | 'layout') => void
+  /** 改分段策略（取值见 `SegmentStrategy`），写回 `draft.recognition.segmentStrategy` */
+  setSegmentStrategy: (strategy: SegmentStrategy) => void
+  /** 开关分歧自动裁定，写回 `draft.recognition.judge` */
+  setJudgeOn: (on: boolean) => void
   /** 勾选 / 取消一个云端引擎（空集合即自动容灾）；按包落草稿 */
   toggleCloudEngine: (e: CloudEngine) => void
   /** 整组替换引擎选择（设置菜单「一键关闭交叉比对」用）；按包落草稿 */

@@ -737,6 +737,9 @@ describe('识别成本选择按包持久化', () => {
     expect(useReader.getState().draft?.recognition).toEqual({
       layoutMode: 'fast_text',
       engines: ['mineru', 'paddleocr_vl'],
+      // 分段默认分批（稳），判定默认开（用户要求默认开；只有双引擎分歧时才有事可做）
+      segmentStrategy: 'batch',
+      judge: true,
     })
   })
 

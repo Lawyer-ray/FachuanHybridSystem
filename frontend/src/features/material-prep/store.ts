@@ -5,7 +5,7 @@ import { discardPendingSave, scheduleSave } from './draft-persistence'
 import { clearPdfDocuments } from '@/lib/pdf'
 import { errMessage } from '@/lib/errors'
 import { READER_CLOSE_MS } from './constants'
-import { toggleCloudEngine, normalizeCloudSelection } from './types'
+import { toggleCloudEngine, normalizeCloudSelection, normalizeSegmentStrategy } from './types'
 import {
   applyPageSelection,
   appendMatsToDraft,
@@ -58,6 +58,8 @@ function resetState(over: Partial<ReaderState>): Partial<ReaderState> {
     // 成本选择不跨材料包继承——双引擎意味着同一份 PDF 付两次云端费用。
     layoutMode: 'fast_text',
     cloudSelection: [],
+    segmentStrategy: 'batch',
+    judgeOn: true,
     selMode: false,
     selPages: [],
     lastAnchor: -1,
@@ -75,10 +77,14 @@ function resetState(over: Partial<ReaderState>): Partial<ReaderState> {
  * 存量草稿没有 recognition 键时回到「仅文本层 + 自动容灾」，**不**套用新建包的
  * 双引擎默认：老包突然开始双倍计费是用户没同意过的变更。
  */
-function recognitionOf(d: DraftState): Pick<ReaderState, 'layoutMode' | 'cloudSelection'> {
+function recognitionOf(
+  d: DraftState,
+): Pick<ReaderState, 'layoutMode' | 'cloudSelection' | 'segmentStrategy' | 'judgeOn'> {
   return {
     layoutMode: d.recognition?.layoutMode ?? 'fast_text',
     cloudSelection: normalizeCloudSelection(d.recognition?.engines ?? []),
+    segmentStrategy: normalizeSegmentStrategy(d.recognition?.segmentStrategy),
+    judgeOn: d.recognition?.judge ?? true,
   }
 }
 
@@ -94,6 +100,8 @@ export const useReader = create<ReaderState>((set, get) => ({
   cols: 1,
   layoutMode: 'fast_text',
   cloudSelection: [],
+  segmentStrategy: 'batch',
+  judgeOn: true,
   selMode: false,
   selPages: [],
   lastAnchor: -1,
@@ -197,6 +205,16 @@ export const useReader = create<ReaderState>((set, get) => ({
     get().update((d) => ({ ...d, pageRot: resetRefsRotation(d.pageRot, keys) }))
   },
   setZoom: (z) => set({ zoom: z }),
+  setSegmentStrategy: (strategy) => {
+    const next = normalizeSegmentStrategy(strategy)
+    set({ segmentStrategy: next })
+    // 写回草稿：这一项决定分段 LLM 调用次数（wholebook_cross 翻倍），必须按包记住
+    get().update((d) => ({ ...d, recognition: { ...d.recognition, segmentStrategy: next } }))
+  },
+  setJudgeOn: (on) => {
+    set({ judgeOn: on })
+    get().update((d) => ({ ...d, recognition: { ...d.recognition, judge: on } }))
+  },
   setLayoutMode: (m) => {
     set({ layoutMode: m })
     get().update((d) => ({ ...d, recognition: { ...d.recognition, layoutMode: m } }))
