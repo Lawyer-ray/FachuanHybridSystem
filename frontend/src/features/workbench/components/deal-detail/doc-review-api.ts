@@ -23,6 +23,16 @@ export type Delivery = 'revision' | 'comment' | 'both' | 'list_only'
 export type FindingStatus = 'proposed' | 'accepted' | 'rejected' | 'stale' | 'moot' | 'merged' | 'unanchored'
 export type RunStatus = 'none' | 'queued' | 'running' | 'done' | 'failed' | 'superseded'
 
+/** 规则类别：强制性违反可能直接让条款无效，不能和普通建议混在一起看。 */
+export type RuleClass = 'mandatory' | 'contractual' | 'inherited' | 'procedural'
+/** 交易阶段：律师按工作节奏分阶段看清单，「某阶段 0 条」本身就是覆盖证明。 */
+export type FindingStage = 'before' | 'during' | 'after' | 'general'
+/** 风险来源：这条结论是怎么得出来的。 */
+export type RiskSource = 'statute' | 'case' | 'scenario' | 'subject'
+/** 来源权重：核心来源支撑结论，辅助来源只是旁证。 */
+export type SourceWeight = 'core' | 'supporting'
+export type Consequence = 'invalid' | 'unenforceable' | 'uneffective' | 'administrative' | 'breach'
+
 export interface FindingItem {
   id: number
   ordinal: number
@@ -44,6 +54,12 @@ export interface FindingItem {
   reject_note: string
   docx_rev_ids: number[]
   comment_ids: number[]
+  /** 以下四个维度可能缺：老轮次没有它们的结论。展示层必须容忍缺失。 */
+  rule_class?: RuleClass
+  stage?: FindingStage
+  risk_source?: RiskSource
+  source_weight?: SourceWeight
+  consequence?: Consequence
 }
 
 export interface ReviewRunPayload {
@@ -98,6 +114,47 @@ export const STATUS_LABEL: Record<FindingStatus, string> = {
   moot: '已消解',
   merged: '已合并',
   unanchored: '锚不到',
+}
+
+export const RULE_CLASS_LABEL: Record<string, string> = {
+  mandatory: '强制性',
+  contractual: '契约性',
+  inherited: '承继性',
+  procedural: '程序性',
+}
+export const STAGE_LABEL: Record<string, string> = {
+  before: '转让前',
+  during: '转让中',
+  after: '转让后',
+  general: '通用',
+}
+export const RISK_SOURCE_LABEL: Record<string, string> = {
+  statute: '法律规定',
+  case: '案例检索',
+  scenario: '场景推演',
+  subject: '标的特性',
+}
+export const SOURCE_WEIGHT_LABEL: Record<string, string> = { core: '核心来源', supporting: '辅助来源' }
+
+/**
+ * 违反后果档位。
+ *
+ * 与规则类别分工不同：类别说「必须改还是可以谈」，档位说「不改到底会怎样」。
+ * 把「承租人优先购买权被妨害 = 只能索赔」显示成「无效」是过度定性；
+ * 把「集体土地擅自入市 = 无效」显示成「行政处罚」是漏判——两种都真实出现过。
+ */
+export const CONSEQUENCE_LABEL: Record<string, string> = {
+  invalid: '可能无效',
+  unenforceable: '不得对抗第三人',
+  uneffective: '未生效（可补正）',
+  administrative: '处罚/登记受阻',
+  breach: '违约责任',
+}
+
+/** 标签查表：未知值原样显示（后端先上新枚举时前端不至于出现空白标签）。 */
+export function labelOf(labels: Record<string, string>, value: string | null | undefined): string {
+  if (!value) return ''
+  return labels[value] ?? value
 }
 
 function base(kind: FolderOwnerKind, ownerId: number, subpath: string) {

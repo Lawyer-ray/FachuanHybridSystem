@@ -19,19 +19,11 @@ from typing import Any
 
 import pytest
 from docx import Document
-from docx.oxml.ns import qn
 
-from apps.core.exceptions import ConflictError, PermissionDenied, ValidationException
+from apps.core.exceptions import ValidationException
 from apps.core.filesystem.bound_folder_browse import BoundFolderBrowseService
-from apps.doc_workspace.services import snapshot_service, write_service
+from apps.doc_workspace.services import write_service
 from apps.doc_workspace.services.docx.text import iter_paragraphs, visible_text
-from apps.onlyoffice.services.callback_service import (
-    ack_canvas_synced,
-    bump_external_write,
-    get_or_refresh_session,
-    load_session_by_key,
-    stale_canvas_reason,
-)
 
 pytestmark = pytest.mark.django_db
 

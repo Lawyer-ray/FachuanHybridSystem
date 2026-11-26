@@ -111,6 +111,92 @@ class Stance(models.TextChoices):
     NEUTRAL = "neutral", "中立复核"
 
 
+class RuleClass(models.TextChoices):
+    """规则的**类别**——决定「违反之后会怎样」，也就决定律师必须做什么。
+
+    这个维度是法务总的「第五元规则扫描」教出来的，而且它堵住了我们模型里的一个
+    真实漏判路径：
+
+    | 类别 | 违反后果 | 正确动作 |
+    |---|---|---|
+    | mandatory（强制性） | 可能**无效 / 不得对抗第三人 / 行政处罚** | **必须改**，没得谈 |
+    | contractual（契约性） | 违约、赔偿 | 可以谈，属于商业判断 |
+    | inherited（承继性） | 义务随标的一起转过来，漏了就替前人背债 | 必须核清上游合同 |
+    | procedural（程序性） | 办不成事（过户卡住、登记被退） | 必须补齐材料与顺序 |
+
+    **`mandatory` 是免疫的**：它不因立场对齐而降档，也不被过度审查的条数闸丢弃
+    （见 `review_pipeline.align_to_stance` / `enforce_gates`）。把「抵押未解除不得
+    转让」当成一条可谈的商业建议，等于让清单漏掉「合同无效」级别的风险。
+    """
+
+    MANDATORY = "mandatory", "强制性"
+    CONTRACTUAL = "contractual", "契约性"
+    INHERITED = "inherited", "承继性"
+    PROCEDURAL = "procedural", "程序性"
+
+
+class Stage(models.TextChoices):
+    """这笔交易处在哪个阶段。
+
+    「转让前 / 转让中 / 转让后」是律师的工作节奏：先查能不能转，再谈怎么付，
+    最后管交割后谁背什么。清单按阶段组织有两个好处：
+
+    1. 律师是按这个顺序干活的，不是按严重度从高到低干；
+    2. **某阶段零结论本身就是结论**——证明「这一段查过了」，而不是「AI 忘了」。
+       所以 `run.summary["stages"]` 四个键永远都在，零也写出来。
+    """
+
+    BEFORE = "before", "转让前"
+    DURING = "during", "转让中"
+    AFTER = "after", "转让后"
+    GENERAL = "general", "通用"
+
+
+class RiskSource(models.TextChoices):
+    """这条结论的风险是**从哪一维发现的**（法务总图中的「四维勘探」）。
+
+    只有 `statute` 是可以靠标准库穷举的；另外三维必须换手段（检索案例、推演流程、
+    抽取标的特征）。标出来是为了让律师判断成色：法条硬约束 vs 情景假设，
+    复核成本完全不同。
+    """
+
+    STATUTE = "statute", "法律规定"
+    CASE = "case", "案例检索"
+    SCENARIO = "scenario", "场景推演"
+    SUBJECT = "subject", "标的特性"
+
+
+class Consequence(models.TextChoices):
+    """违反这条规则之后，**法律上会发生什么**。
+
+    `rule_class` 只说「必须改还是可以谈」，这一档说的是「不改到底会怎样」——
+    法务总的四类规则里，强制性与程序性内部还各分几档，混成一档会让两种都失真：
+
+    - `invalid`（可能无效）：合同/条款效力被否定，任何一方与利害关系人都可主张；
+    - `unenforceable`（不得对抗第三人）：合同可能有效，但对抗不了抵押权人/共有人；
+    - `uneffective`（未生效）：需批准/登记而未经批准的「未生效」，可补正；
+    - `administrative`（处罚/登记受阻）：合同仍有效，但办不下来或被罚；
+    - `breach`（违约责任）：只是赔钱，属于商业判断区。
+
+    把「承租人优先购买权被妨害 = 只能索赔」写成「无效」是**过度定性**
+    （客户会据此砍价或拒签）；把「集体土地擅自入市 = 无效」写成「行政处罚」
+    是**漏判**。两种都真实存在过。
+    """
+
+    INVALID = "invalid", "可能无效"
+    UNENFORCEABLE = "unenforceable", "不得对抗第三人"
+    UNEFFECTIVE = "uneffective", "未生效（需批准/补正）"
+    ADMINISTRATIVE = "administrative", "处罚/登记受阻"
+    BREACH = "breach", "违约责任"
+
+
+class SourceWeight(models.TextChoices):
+    """在「条款的出生证明」里，这个来源是**核心**还是**辅助**。"""
+
+    CORE = "core", "核心来源"
+    SUPPORTING = "supporting", "辅助来源"
+
+
 class ReviewRun(models.Model):
     """一次审查动作（不是一份文档副本）。"""
 
@@ -185,6 +271,19 @@ class Finding(models.Model):
     clause_type: Any = models.CharField("条款类型", max_length=64, blank=True, default="")
 
     rule_key: Any = models.CharField("违反的标准条款", max_length=120, blank=True, default="")
+    rule_class: Any = models.CharField(
+        "规则类别", max_length=16, choices=RuleClass.choices, default=RuleClass.CONTRACTUAL
+    )
+    stage: Any = models.CharField("阶段", max_length=16, choices=Stage.choices, default=Stage.GENERAL)
+    risk_source: Any = models.CharField(
+        "风险来源", max_length=16, choices=RiskSource.choices, default=RiskSource.STATUTE
+    )
+    source_weight: Any = models.CharField(
+        "来源权重", max_length=16, choices=SourceWeight.choices, default=SourceWeight.CORE
+    )
+    consequence: Any = models.CharField(
+        "违反后果档位", max_length=16, choices=Consequence.choices, default=Consequence.BREACH
+    )
     legal_basis: Any = models.CharField("法律依据", max_length=255, blank=True, default="")
 
     quote: Any = models.TextField("被审原文", blank=True, default="")

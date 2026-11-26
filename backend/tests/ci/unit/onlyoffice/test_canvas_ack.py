@@ -136,9 +136,12 @@ def _disk(folder_root: Path) -> bytes:
     return (folder_root / "1-合同" / "a.docx").read_bytes()
 
 
-def _ai_live_apply(user: Any) -> None:
-    """模拟「AI 直改落盘 + 插件就地落笔成功」：磁盘变了、画布也变了。"""
-    (user,)  # 只有签名一致性的作用，无额外语义
+def _ai_live_apply(_user: Any) -> None:
+    """模拟「AI 直改落盘 + 插件就地落笔成功」：磁盘变了、画布也变了。
+
+    参数只为与真实回调签名一致（调用点都传当前用户），函数体用不到它——用 ``_user``
+    而不是裸写 ``user``，避免 CodeQL ``py/ineffectual-statement`` 把一句占位表达式当缺陷。
+    """
     bump_external_write(SOURCE_PATH, task_type=TASK_TYPE)
 
 

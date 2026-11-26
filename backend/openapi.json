@@ -51140,6 +51140,31 @@
             "title": "Rule Key",
             "type": "string"
           },
+          "rule_class": {
+            "default": "",
+            "title": "Rule Class",
+            "type": "string"
+          },
+          "stage": {
+            "default": "",
+            "title": "Stage",
+            "type": "string"
+          },
+          "risk_source": {
+            "default": "",
+            "title": "Risk Source",
+            "type": "string"
+          },
+          "source_weight": {
+            "default": "",
+            "title": "Source Weight",
+            "type": "string"
+          },
+          "consequence": {
+            "default": "",
+            "title": "Consequence",
+            "type": "string"
+          },
           "legal_basis": {
             "title": "Legal Basis",
             "type": "string"

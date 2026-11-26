@@ -30,7 +30,18 @@ from typing import Any
 from django.db import transaction
 from django.utils import timezone
 
-from ..models import Delivery, Finding, FindingStatus, RejectReason, ReviewRun, RunStatus, Severity, Verdict
+from ..models import (
+    Delivery,
+    Finding,
+    FindingStatus,
+    RejectReason,
+    ReviewRun,
+    RuleClass,
+    RunStatus,
+    Severity,
+    Stage,
+    Verdict,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -222,6 +233,30 @@ def apply_finding(
     return payload
 
 
+def stage_rollup(items: list[dict[str, Any]] | None = None, *, run: ReviewRun | None = None) -> dict[str, Any]:
+    """四个阶段**永远都在**的分组计数。
+
+    零结论的键也必须出现：那是「这一段查过了」的覆盖证明。隐藏空阶段，
+    律师就分不清「没问题」和「没看」——这两件事在法律服务里差得很远。
+    """
+    buckets: dict[str, Any] = {
+        stage: {"total": 0, "high": 0, "medium": 0, "low": 0, "proposed": 0} for stage in Stage.values
+    }
+    if run is not None:
+        rows: list[tuple[str, str, str]] = [(str(f.stage), str(f.severity), str(f.status)) for f in run.findings.all()]
+    else:
+        rows = [(str(i.get("stage") or Stage.GENERAL), str(i.get("severity")), "proposed") for i in (items or [])]
+
+    for stage, severity, status in rows:
+        bucket = buckets.setdefault(stage, {"total": 0, "high": 0, "medium": 0, "low": 0, "proposed": 0})
+        bucket["total"] += 1
+        if severity in bucket:
+            bucket[severity] += 1
+        if status == "proposed":
+            bucket["proposed"] += 1
+    return buckets
+
+
 def run_metrics(run: ReviewRun) -> dict[str, Any]:
     """覆盖率 / 误报率 / 采纳率——**每一个分母都写明它是什么**。
 
@@ -268,6 +303,13 @@ def run_metrics(run: ReviewRun) -> dict[str, Any]:
         "by_status": dict(statuses),
         "by_severity": dict(severities),
         "top_high": [{"id": f.id, "title": f.title} for f in top],
+        # 阶段覆盖：四个键永远都在（零结论也是覆盖证明）
+        "stages": stage_rollup(run=run),
+        # 强制性事项单独计数：它们决定「能不能签」，不该混在普通条数里
+        "mandatory_total": sum(1 for f in findings if f.rule_class == RuleClass.MANDATORY),
+        "mandatory_open": sum(
+            1 for f in findings if f.rule_class == RuleClass.MANDATORY and f.status == FindingStatus.PROPOSED
+        ),
     }
 
 

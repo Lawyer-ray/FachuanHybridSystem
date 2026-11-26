@@ -21,11 +21,14 @@ import { FindingRow } from './FindingRow'
 import {
   REJECT_REASONS,
   SEVERITY_LABEL,
+  STAGE_LABEL,
   bulkAccept,
   decideFinding,
   fetchLatestRun,
+  labelOf,
   startReview,
   type FindingItem,
+  type FindingStage,
   type ReviewRunPayload,
   type Severity,
 } from './doc-review-api'
@@ -42,18 +45,39 @@ import {
  * 3. **批量采纳必须二次确认**：落笔即写文件，一次误点等于几十条修订同时落下去；
  *    撤销只能走版本回滚。
  *
- * ## 为什么按 severity 分组而不是按顺序列
+ * ## 两个分组维度
  *
- * 律师的时间几乎全花在「高危」上。按严重度分组 + 「采纳全部高/中/低」让他们
- * 能先把低危批量清掉，把注意力留给真正要谈判的几条。
+ * 默认按 severity：律师的时间几乎全花在「高危」上，按档批量采纳能先把低危清掉。
+ * 另一个维度是阶段：按转让前/中/后/通用看，某个阶段 0 条本身就是「该阶段查过了」
+ * 的覆盖证明，所以空阶段也要出一行分组头，不能因为空就藏掉。
  */
 
 const SEVERITY_ORDER: Severity[] = ['high', 'medium', 'low']
+/** 阶段分组的固定顺序（转让前 → 转让中 → 转让后 → 通用），空阶段也列。 */
+const STAGE_ORDER: FindingStage[] = ['before', 'during', 'after', 'general']
+
+type GroupMode = 'severity' | 'stage'
+
+const GROUP_TABS: { key: GroupMode; label: string }[] = [
+  { key: 'severity', label: '严重度' },
+  { key: 'stage', label: '阶段' },
+]
 
 const SEVERITY_TONE: Record<Severity, string> = {
   high: 'bg-status-red/10 text-status-red border-status-red/25',
   medium: 'bg-status-yellow/10 text-status-yellow border-status-yellow/25',
   low: 'bg-secondary text-muted-foreground border-border',
+}
+
+const STAGE_TONE = 'bg-secondary text-secondary-foreground border-border'
+
+interface ReviewGroup {
+  key: string
+  label: string
+  tone: string
+  items: FindingItem[]
+  /** 只有严重度分组支持整档批量采纳（阶段分组不提供，避免一次写几十条） */
+  bulkSeverity?: Severity
 }
 
 export function ReviewPanel({
@@ -83,6 +107,7 @@ export function ReviewPanel({
   const [rejectNote, setRejectNote] = useState('')
   const [bulk, setBulk] = useState<Severity | 'all' | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [groupMode, setGroupMode] = useState<GroupMode>('severity')
 
   const latestKey = ['doc-review', 'latest', kind, ownerId, subpath] as const
 
@@ -152,13 +177,27 @@ export function ReviewPanel({
     },
   })
 
-  const groups = useMemo(() => {
+  const groups = useMemo<ReviewGroup[]>(() => {
     const items = run?.findings ?? []
+    if (groupMode === 'stage') {
+      // 老轮次没有 stage、或后端新增了未知阶段：一律归到「通用」，不能从清单里消失
+      const stageOf = (f: FindingItem): FindingStage =>
+        f.stage && STAGE_ORDER.includes(f.stage) ? f.stage : 'general'
+      return STAGE_ORDER.map((stage) => ({
+        key: stage,
+        label: labelOf(STAGE_LABEL, stage),
+        tone: STAGE_TONE,
+        items: items.filter((f) => stageOf(f) === stage),
+      }))
+    }
     return SEVERITY_ORDER.map((severity) => ({
-      severity,
+      key: severity,
+      label: `${SEVERITY_LABEL[severity]}危`,
+      tone: SEVERITY_TONE[severity],
       items: items.filter((f) => f.severity === severity),
+      bulkSeverity: severity,
     })).filter((g) => g.items.length > 0)
-  }, [run])
+  }, [run, groupMode])
 
   /** 画布里框选的文字 → 命中的条目（双向定位的另一半）。 */
   const highlighted = useMemo(() => {
@@ -196,6 +235,30 @@ export function ReviewPanel({
         </button>
       </div>
 
+      {(run?.findings?.length ?? 0) > 0 && (
+        <div className="flex flex-none items-center border-b border-border px-3 py-1.5">
+          <div role="tablist" aria-label="清单分组" className="flex gap-[2px] rounded-[7px] bg-secondary/60 p-[2px]">
+            {GROUP_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={groupMode === tab.key}
+                onClick={() => setGroupMode(tab.key)}
+                className={cn(
+                  'rounded-[5px] px-2 py-[2px] text-[10.5px] font-medium transition-colors',
+                  groupMode === tab.key
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
         {latest.isLoading && (
           <p className="px-1 py-6 text-center text-[11.5px] text-muted-foreground">正在读取清单…</p>
@@ -226,22 +289,22 @@ export function ReviewPanel({
         )}
 
         {groups.map((group) => (
-          <div key={group.severity} className="mb-2">
+          <div key={group.key} className="mb-2">
             <div className="flex items-center gap-1.5 px-1 py-1">
               <span
-                className={cn(
-                  'rounded-[5px] border px-1.5 py-0.5 text-[10.5px] font-semibold',
-                  SEVERITY_TONE[group.severity],
-                )}
+                className={cn('rounded-[5px] border px-1.5 py-0.5 text-[10.5px] font-semibold', group.tone)}
               >
-                {SEVERITY_LABEL[group.severity]}危
+                {group.label}
               </span>
               <span className="text-[10.5px] text-muted-foreground">{group.items.length} 条</span>
+              {groupMode === 'stage' && group.items.length === 0 && (
+                <span className="text-[10.5px] text-muted-foreground">本阶段无结论</span>
+              )}
               <div className="flex-1" />
-              {group.items.some((f) => f.status === 'proposed') && (
+              {group.bulkSeverity && group.items.some((f) => f.status === 'proposed') && (
                 <button
                   type="button"
-                  onClick={() => setBulk(group.severity)}
+                  onClick={() => setBulk(group.bulkSeverity ?? null)}
                   className="text-[10.5px] font-[550] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                 >
                   全部采纳

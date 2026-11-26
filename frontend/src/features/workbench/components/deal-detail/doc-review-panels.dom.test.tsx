@@ -9,7 +9,9 @@
  * 4. 锚点失效的条目必须显示出来且不能悄悄采纳（文件不会动，律师得知道）；
  * 5. 清单条目 → 画布定位（`onLocate`）、画布选区 → 条目高亮，缺任一半，
  *    「左看文档右看清单」就还是割裂的；
- * 6. 回滚也要二次确认，并说明「可以再滚回来」。
+ * 6. 回滚也要二次确认，并说明「可以再滚回来」；
+ * 7. 另两个维度不能丢：强制性违规要点名标红，阶段分组连 0 条的阶段也要列出
+ *    （那是「该阶段查过了」的覆盖证明），结论要能溯源到风险来源。
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -108,6 +110,77 @@ describe('ReviewPanel', () => {
     expect(screen.getByText('2 待决')).toBeTruthy()
     expect(screen.getByText('高危')).toBeTruthy()
     expect(screen.getByText('低危')).toBeTruthy()
+  })
+
+  it('强制性违规点名标出「强制性」角标', async () => {
+    api.fetchLatestRun.mockResolvedValue(run({ findings: [finding({ rule_class: 'mandatory' })] }))
+    render(withQuery(<ReviewPanel kind="contract" ownerId={393} subpath="1-合同/a.docx" selection="" onLocate={vi.fn()} />))
+
+    expect(await screen.findByText('强制性')).toBeTruthy()
+  })
+
+  it('强制性条目同时显示后果档位（「可能无效」不等于「违约」，不能混着显示）', async () => {
+    api.fetchLatestRun.mockResolvedValue(
+      run({ findings: [finding({ rule_class: 'mandatory', consequence: 'invalid' })] }),
+    )
+    render(withQuery(<ReviewPanel kind="contract" ownerId={393} subpath="1-合同/a.docx" selection="" onLocate={vi.fn()} />))
+
+    // 角标是「强制性·可能无效」
+    expect(await screen.findByText(/强制性·可能无效/)).toBeTruthy()
+  })
+
+  it('后果是「违约责任」时不额外标注（默认不打扰）', async () => {
+    api.fetchLatestRun.mockResolvedValue(run({ findings: [finding({ rule_class: 'mandatory', consequence: 'breach' })] }))
+    render(withQuery(<ReviewPanel kind="contract" ownerId={393} subpath="1-合同/a.docx" selection="" onLocate={vi.fn()} />))
+
+    expect(await screen.findByText('强制性')).toBeTruthy()
+    expect(screen.queryByText(/·违约责任/)).toBeNull()
+  })
+
+  it('结论标出风险来源；辅助来源弱化显示并标「（辅）」', async () => {
+    api.fetchLatestRun.mockResolvedValue(
+      run({
+        findings: [
+          finding({ id: 1, risk_source: 'statute' }),
+          finding({
+            id: 2,
+            severity: 'low',
+            title: '受让方资质需补充',
+            risk_source: 'scenario',
+            source_weight: 'supporting',
+          }),
+        ],
+      }),
+    )
+    render(withQuery(<ReviewPanel kind="contract" ownerId={393} subpath="1-合同/a.docx" selection="" onLocate={vi.fn()} />))
+
+    expect(await screen.findByText('据：法律规定')).toBeTruthy()
+    expect(screen.getByText('据：场景推演（辅）')).toBeTruthy()
+  })
+
+  it('切到「阶段」分组后四个阶段头都在，0 条的阶段也列出来（覆盖证明）', async () => {
+    api.fetchLatestRun.mockResolvedValue(
+      run({
+        findings: [
+          finding({ id: 1, stage: 'before' }),
+          finding({ id: 2, severity: 'medium', stage: 'during', title: '付款节奏不明' }),
+          finding({ id: 3, severity: 'low', stage: 'general', title: '措辞建议' }),
+        ],
+      }),
+    )
+    render(withQuery(<ReviewPanel kind="contract" ownerId={393} subpath="1-合同/a.docx" selection="" onLocate={vi.fn()} />))
+
+    expect(await screen.findByText('违约金无上限')).toBeTruthy()
+    expect(screen.getByRole('tab', { name: '严重度' }).getAttribute('aria-selected')).toBe('true')
+
+    fireEvent.click(screen.getByRole('tab', { name: '阶段' }))
+
+    for (const head of ['转让前', '转让中', '转让后', '通用']) {
+      expect(screen.getByText(head)).toBeTruthy()
+    }
+    expect(screen.getAllByText('1 条')).toHaveLength(3)
+    expect(screen.getAllByText('0 条')).toHaveLength(1)
+    expect(screen.getByText('本阶段无结论')).toBeTruthy()
   })
 
   it('点条目把原文送进画布定位', async () => {

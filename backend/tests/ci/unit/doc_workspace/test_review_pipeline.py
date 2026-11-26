@@ -24,16 +24,7 @@ import pytest
 from docx import Document
 
 from apps.core.filesystem.bound_folder_browse import BoundFolderBrowseService
-from apps.doc_workspace.models import (
-    Beneficiary,
-    Finding,
-    FindingKind,
-    PlaybookRule,
-    ReviewRun,
-    Severity,
-    Stance,
-    Verdict,
-)
+from apps.doc_workspace.models import Beneficiary, FindingKind, PlaybookRule, Severity, Stance, Verdict
 from apps.doc_workspace.services import playbook_service, review_pipeline
 
 pytestmark = pytest.mark.django_db

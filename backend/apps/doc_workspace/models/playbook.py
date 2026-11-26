@@ -27,7 +27,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 
-from .review import Severity, Stance
+from .review import Consequence, RuleClass, Severity, Stage, Stance
 
 
 class PlaybookStatus(models.TextChoices):
@@ -107,6 +107,21 @@ class PlaybookRule(models.Model):
         "缺失时的严重度", max_length=8, choices=Severity.choices, default=Severity.MEDIUM
     )
     required: Any = models.BooleanField("是否必备条款", default=True)
+    rule_class: Any = models.CharField(
+        "规则类别",
+        max_length=16,
+        choices=RuleClass.choices,
+        default=RuleClass.CONTRACTUAL,
+        help_text="mandatory=违反可能无效，免疫立场降权与条数闸",
+    )
+    stage: Any = models.CharField("所属阶段", max_length=16, choices=Stage.choices, default=Stage.GENERAL)
+    consequence: Any = models.CharField(
+        "违反后果档位",
+        max_length=16,
+        choices=Consequence.choices,
+        default=Consequence.BREACH,
+        help_text="可能无效 / 不得对抗第三人 / 未生效 / 处罚 / 违约——写进一页纸，避免过度定性或漏判",
+    )
 
     class Meta:
         verbose_name = "审查检查项"
@@ -130,4 +145,7 @@ class PlaybookRule(models.Model):
             "beneficiary": self.beneficiary,
             "severity_if_missing": self.severity_if_missing,
             "required": self.required,
+            "rule_class": self.rule_class,
+            "stage": self.stage,
+            "consequence": self.consequence,
         }

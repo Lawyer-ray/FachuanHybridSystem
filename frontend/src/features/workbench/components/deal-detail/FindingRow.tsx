@@ -3,9 +3,14 @@ import { AlertTriangle, Check, Loader2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import {
+  CONSEQUENCE_LABEL,
   DELIVERY_LABEL,
   REJECT_REASON_LABEL,
+  RISK_SOURCE_LABEL,
+  RULE_CLASS_LABEL,
+  SOURCE_WEIGHT_LABEL,
   STATUS_LABEL,
+  labelOf,
   type FindingItem,
   type FindingStatus,
 } from './doc-review-api'
@@ -28,10 +33,12 @@ const STATUS_TONE: Record<FindingStatus, string> = {
  * 已经 450 行（eslint `max-lines` 上限）；单行卡片的展示规则又是最容易被改来
  * 改去的一块，独立出来更好改也更好测。
  *
- * 三条展示纪律：
+ * 四条展示纪律：
  * - 「锚点失效」必须显眼：律师点了会发现画布跳不到，不如提前说清；
  * - 驳回理由码要回显：让律师知道这条为什么被标成「驳回：商业让步」；
- * - 交付载体要标（修订/批注/仅清单）：决定他点「采纳」之后文件里会出现什么。
+ * - 交付载体要标（修订/批注/仅清单）：决定他点「采纳」之后文件里会出现什么；
+ * - 强制性违规标红角标：它可能导致条款无效，不能被当成普通建议；
+ * - 结论要能溯源（「据：法律规定」），辅助来源弱化显示。
  */
 export function FindingRow({
   finding,
@@ -52,6 +59,8 @@ export function FindingRow({
 }) {
   const decided = finding.status !== 'proposed'
   const stale = finding.status === 'stale' || finding.status === 'unanchored'
+  const riskSource = labelOf(RISK_SOURCE_LABEL, finding.risk_source)
+  const supporting = finding.source_weight === 'supporting'
 
   return (
     <div
@@ -71,12 +80,32 @@ export function FindingRow({
           {finding.reason || finding.suggestion_note}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-1">
+          {finding.rule_class === 'mandatory' && (
+            <span className="rounded-[5px] border border-status-red/25 bg-status-red/10 px-1.5 py-0.5 text-[10px] font-semibold text-status-red">
+              {RULE_CLASS_LABEL.mandatory}
+              {finding.consequence && finding.consequence !== 'breach'
+                ? `·${labelOf(CONSEQUENCE_LABEL, finding.consequence)}`
+                : ''}
+            </span>
+          )}
           <span className="rounded-[5px] bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
             {DELIVERY_LABEL[finding.delivery]}
           </span>
           {finding.clause_type && (
             <span className="rounded-[5px] bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {finding.clause_type}
+            </span>
+          )}
+          {riskSource && (
+            <span
+              className={cn(
+                'rounded-[5px] px-1.5 py-0.5 text-[10px]',
+                supporting ? 'text-muted-foreground/60' : 'bg-secondary text-muted-foreground',
+              )}
+              title={finding.source_weight ? labelOf(SOURCE_WEIGHT_LABEL, finding.source_weight) : undefined}
+            >
+              据：{riskSource}
+              {supporting ? '（辅）' : ''}
             </span>
           )}
           {stale && (

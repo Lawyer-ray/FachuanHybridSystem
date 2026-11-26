@@ -16,14 +16,19 @@ from ninja import Router, Schema
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..models import (
+    Consequence,
     Delivery,
     Finding,
     FindingKind,
     FindingStatus,
     RejectReason,
     ReviewRun,
+    RiskSource,
+    RuleClass,
     RunStatus,
     Severity,
+    SourceWeight,
+    Stage,
     Stance,
     Verdict,
 )
@@ -58,6 +63,11 @@ class DocFindingOut(Schema):
     kind: str
     clause_type: str
     rule_key: str
+    rule_class: str = ""
+    stage: str = ""
+    risk_source: str = ""
+    source_weight: str = ""
+    consequence: str = ""
     legal_basis: str
     quote: str
     title: str
@@ -133,6 +143,11 @@ def _finding_out(f: Finding) -> DocFindingOut:
         kind=f.kind,
         clause_type=f.clause_type,
         rule_key=f.rule_key,
+        rule_class=str(f.rule_class),
+        stage=str(f.stage),
+        risk_source=str(f.risk_source),
+        source_weight=str(f.source_weight),
+        consequence=str(f.consequence),
         legal_basis=f.legal_basis,
         quote=f.quote,
         title=f.title,
@@ -346,4 +361,9 @@ def review_meta(request: HttpRequest) -> dict[str, Any]:
         "reject_reason": [{"value": v, "label": l} for v, l in RejectReason.choices],
         "stance": [{"value": v, "label": l} for v, l in Stance.choices],
         "run_status": [{"value": v, "label": l} for v, l in RunStatus.choices],
+        "rule_class": [{"value": v, "label": l} for v, l in RuleClass.choices],
+        "stage": [{"value": v, "label": l} for v, l in Stage.choices],
+        "risk_source": [{"value": v, "label": l} for v, l in RiskSource.choices],
+        "source_weight": [{"value": v, "label": l} for v, l in SourceWeight.choices],
+        "consequence": [{"value": v, "label": l} for v, l in Consequence.choices],
     }
