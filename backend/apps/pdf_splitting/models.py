@@ -231,6 +231,18 @@ class PdfSplitJob(models.Model):
     source_abs_path = models.CharField(max_length=2048, blank=True, default="", verbose_name="源绝对路径")
     source_relpath = models.CharField(max_length=1024, blank=True, default="", verbose_name="源相对路径")
     source_original_name = models.CharField(max_length=255, verbose_name="源文件名")
+    # ↓↓ 这份 PDF 是从哪个材料包（`InboxMessage` 主键）提交上来的。
+    #
+    # 为什么必须落库：接管「在飞任务」与复用「已算好的任务」原先只按
+    # `source_original_name` + `total_pages` 匹配，而这两个维度**不唯一**——
+    # 两份不同材料包里各有一份「证据材料.pdf」都有 37 页是常态（实测就发生过：
+    # 打开 A 包，底部进度条显示的却是 B 包那份任务的 0/37 页）。
+    # 没有这一列，前端无论如何都判不出「这个任务到底属于哪个包」。
+    #
+    # 刻意**不做** ForeignKey（不跨 app 建约束）：pdf_splitting 不该依赖 message_hub，
+    # 包被删时由 `cleanup_service` 按本列回收派生数据。
+    # 存量任务这一列为 NULL —— 它们只可能命中「调用方不传 pack 过滤」的老路径。
+    pack_message_id = models.BigIntegerField(null=True, blank=True, db_index=True, verbose_name="材料包消息ID")
     split_mode = models.CharField(
         max_length=32,
         choices=PdfSplitMode.choices,

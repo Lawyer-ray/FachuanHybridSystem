@@ -53,10 +53,11 @@ export function useReaderScreen() {
   const autoSplit = useAutoSplit()
   // 右栏「重新识别当事人」：自动识别只在分段那一刻跑一次，错了得能重来
   const redetect = useRedetectParties()
-  // 打开阅读器就查一次「有没有别人发起、还在跑的识别任务」，命中则接管轮询并
+  // 打开阅读器就查一次「有没有这个材料包发起、还在跑的识别任务」，命中则接管轮询并
   // 在底部进度面板上显示。以前任务只活在本页面内存里：刷新/换设备后界面一片空白，
   // 而云端那份 164 页卷宗还在烧钱（「幽灵任务」）。
   // 只在草稿就绪时查：mats 来自草稿，没草稿时页数也是猜的。
+  // 包号由 useInflightAutoSplit 自己从 store 读（会话态与探测都按包收敛）。
   const inflight = useInflightAutoSplit(readyDraft?.mats ?? [], readyDraft != null)
   // 老草稿缺「复核原因」（source_method）：打开时按 splitRef.jobId 从后端补一次，
   // 否则右栏提示条只能写「置信度 62%」，说不出为什么（见 review-backfill.ts）
@@ -137,7 +138,7 @@ export function useReaderScreen() {
     : {
       draft: readyDraft,
       // 页级质量统计与跨页不一致都是「机器读到什么」，旧任务里直接是空 / 缺省
-      pageQuality: readyDraft.pageQuality ?? null,
+      pageQualityByMi: readyDraft.pageQualityByMi ?? null,
       inconsistencies,
       // 0 = 还没打开任何材料包（与 useAssignLaunch 的 `messageId: openId ?? 0`
       // 同一口径）。不要写成 `openId as number`：断言不会把 null 变成 0，

@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Loader2, TriangleAlert } from 'lucide-react'
 
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { engineLabel } from '../../draft'
 import {
   STALE_SECONDS_LIMIT,
@@ -7,6 +9,7 @@ import {
   pipelineProgressPct,
   type JobProgressSnapshot,
 } from './auto-split-helpers'
+import { stopCurrentAutoSplitTask } from './use-auto-split-task'
 import type { EngineName } from '../../types'
 
 /**
@@ -21,15 +24,31 @@ import type { EngineName } from '../../types'
  * 叠一块会跟着内容一起滚、并让滚动高度计算变复杂。浮条贴底、与协作范式
  * （SelectionBar）一致，也不影响布局。z-[60] 与 SelectionBar 同级——两者都是
  * 底部浮条，选页汇总条只在选页后出现，不会与一个在跑的任务同时出现。
+ *
+ * ## 两个出口的区别（必须同时存在）
+ *
+ * · **不再显示** —— 只收起界面，任务继续跑（律师只是在看别的页，不想被挡）；
+ * · **停止识别** —— 真停：服务端置 `cancel_requested`，流水线在下一个批次边界退出。
+ *   以前只有前者，于是律师「关掉了进度条」却仍在被扣钱——他没有别的办法让那
+ *   个跑错了的任务停下来。这个是**破坏性**操作（已识别部分不写进草稿），所以
+ *   要二次确认，而且确认框里写清楚后果。
  */
 export function AutoSplitProgress({
   snapshot,
   onDismiss,
+  // 默认实现自己从会话态里找「这是哪个包的任务、要不要取消」：包号本来就记在那里，
+  // 再穿过 ReaderBody → ReaderOverlays 传三层 prop 只会多一种传错的姿势。
+  onStop = stopCurrentAutoSplitTask,
 }: {
   snapshot: JobProgressSnapshot
   /** 用户点「不再显示」：只从界面收起，**不**取消后端任务（一份 164 页卷宗要跑十几分钟） */
   onDismiss: () => void
+  /** 彻底停止：取消云端任务并停掉本地轮询 */
+  onStop?: () => Promise<void> | void
 }) {
+  // 二次确认与「正在停」都是本组件局部态：它们只描述这一次点击，不属于任务生命周期
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [stopping, setStopping] = useState(false)
   const stage = snapshot.stage
   const percent = pipelineProgressPct(stage, snapshot.progressPct)
   const elapsed = formatElapsed(snapshot.elapsedSeconds)
@@ -76,6 +95,14 @@ export function AutoSplitProgress({
         <span className="min-w-0 flex-1 truncate">{source || '本次识别'}</span>
         <button
           type="button"
+          onClick={() => setConfirmOpen(true)}
+          title="取消这次云端识别（真停下来，已识别部分不会写进草稿）"
+          className="flex-none text-[11.5px] text-destructive hover:underline"
+        >
+          停止识别
+        </button>
+        <button
+          type="button"
           onClick={onDismiss}
           title="隐藏进度（不会取消后台任务，重新打开材料包会再次显示）"
           className="flex-none text-[11.5px] text-secondary-foreground hover:underline"
@@ -91,6 +118,30 @@ export function AutoSplitProgress({
             已 {formatStale(snapshot.staleSeconds)}无响应，可能已中断
           </span>
         </p>
+      )}
+
+      {onStop && (
+        <ConfirmDialog
+          open={confirmOpen}
+          // 正在取消时不许关：否则提交还没回包框就没了，用户既看不到「处理中」也看不到失败原因
+          onOpenChange={(open) => {
+            if (!open && !stopping) setConfirmOpen(false)
+          }}
+          title="停止这次识别？"
+          description="云端任务会被取消，已识别的部分不会写进草稿；要重来需要重新发起（会重新计费）。已消耗的云端费用不退。"
+          confirmText="停止识别"
+          tone="destructive"
+          pending={stopping}
+          onConfirm={() => {
+            setStopping(true)
+            void Promise.resolve(onStop())
+              .catch(() => {})
+              .finally(() => {
+                setStopping(false)
+                setConfirmOpen(false)
+              })
+          }}
+        />
       )}
     </div>
   )

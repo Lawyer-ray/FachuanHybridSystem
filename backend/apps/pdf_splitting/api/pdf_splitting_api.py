@@ -344,6 +344,10 @@ def create_pdf_split_job(  # pragma: no cover
     # 非法值抛 ValidationException（400），不在这里静默兼容。
     ocr_judge_enabled: str = Form("1"),
     segment_strategy: str = Form("batch"),
+    # 提交来源材料包（InboxMessage 主键）。前端从阅读器发起时必传：它决定
+    # 「接管在飞任务 / 复用已算好的任务」能不能按包收敛——只按文件名 + 页数匹配时，
+    # 两个包里同名同页数的文件会互相串（进度条显示的是另一个包的任务）。
+    pack_message_id: int | None = Form(None),
 ) -> PdfSplitJobSubmitOut:
     # 安全审计第4轮：source_path 直读服务器本地文件系统，仅管理员可提交；
     # 文件上传（file）仍对登录用户开放。
@@ -360,6 +364,7 @@ def create_pdf_split_job(  # pragma: no cover
         dual_engines=dual_engines,
         ocr_judge_enabled=ocr_judge_enabled,
         segment_strategy=segment_strategy,
+        pack_message_id=pack_message_id,
         created_by=getattr(request, "user", None),
     )
     return PdfSplitJobSubmitOut(job_id=str(job.id), status=job.status)
@@ -367,7 +372,7 @@ def create_pdf_split_job(  # pragma: no cover
 
 @router.get("/reusable-job", response=PdfSplitJobOut | None)
 def find_reusable_pdf_split_job(
-    request: Any, source_name: str, total_pages: int | None = None
+    request: Any, source_name: str, total_pages: int | None = None, pack_message_id: int | None = None
 ) -> PdfSplitJobOut | None:  # pragma: no cover
     """查一份已算好的拆分任务，供前端跳过重跑直接复用。
 
@@ -375,12 +380,16 @@ def find_reusable_pdf_split_job(
     律师再点「自动识别」会从零重跑 164 页（几分钟 + 几十元）。
     前端打开阅读器时先调这个：命中就直接拉 segments，miss 才建新任务。
 
+    `pack_message_id` 是材料包主键：传了就只认这个包的任务。不传时退回
+    「文件名 + 页数」匹配（老客户端 / 脚本），那两维并不唯一。
+
     返回 null 表示没有可复用的（前端照常新建）。
     """
     job = PdfSplitJobService().find_reusable_job(
         source_name=source_name,
         total_pages=total_pages,
         user=_request_user(request),
+        pack_message_id=pack_message_id,
     )
     if job is None:
         return None
@@ -389,13 +398,17 @@ def find_reusable_pdf_split_job(
 
 @router.get("/inflight-job", response=PdfSplitJobOut | None)
 def find_inflight_pdf_split_job(
-    request: Any, source_name: str, total_pages: int | None = None
+    request: Any, source_name: str, total_pages: int | None = None, pack_message_id: int | None = None
 ) -> PdfSplitJobOut | None:
     """查一份**正在进行中**的拆分任务，供前端接管轮询。
 
     典型场景：任务是由同事的浏览器、脚本或刷新前那个页面发起的，当前页面毫
     不知情。不查就再建一个，同一份 164 页卷宗会并行跑两遍（钱翻倍），而先前
     那个任务在界面上完全不存在（“幽灵任务”）。
+
+    `pack_message_id` 是材料包主键：传了就只认这个包提交的任务。没有它时
+    「同名 + 同页数」会把另一个包的任务认成这个包的（实测：打开 A 包，进度条
+    显示的是 B 包那份 0/37 页的任务）。
 
     返回 null 表示没有进行中的（前端照常新建）。
     """
@@ -406,6 +419,7 @@ def find_inflight_pdf_split_job(
         source_name=source_name,
         total_pages=total_pages,
         user=_request_user(request),
+        pack_message_id=pack_message_id,
     )
     if job is None:
         return None

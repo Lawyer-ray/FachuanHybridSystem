@@ -46,11 +46,13 @@ def _make_job(
     minutes_ago: int = 0,
     stage: str = PdfSplitStage.EXTRACT,
     created_by: Any = None,
+    pack_message_id: int | None = None,
 ) -> PdfSplitJob:
     job = PdfSplitJob.objects.create(
         id=uuid4(),
         source_type=PdfSplitSourceType.UPLOAD,
         source_original_name=name,
+        pack_message_id=pack_message_id,
         status=status,
         stage=stage,
         total_pages=pages,
@@ -119,6 +121,104 @@ class TestFindInflightJob:
         """没给文件名时宁可 miss，也不能返回「随便一个任务」。"""
         _make_job()
         assert PdfSplitJobService().find_inflight_job(source_name="") is None
+
+
+class TestPackScopedMatching:
+    """同名同页数的两份文件分属两个材料包时，**不许互相串**。
+
+    2026-11-26 实测缺陷（用户报障）：律师打开材料包 601（37 页），底部进度条
+    显示的却是材料包 617 那份任务的「0/37 页」——两个包里各有一份同名同页数的
+    PDF（真实卷宗里极常见：都叫「材料.pdf」都 37 页）。旧口径只按
+    「文件名 + 页数」匹配，而这两维**不唯一**，于是任务被认成了另一个包的。
+
+    判据：包主键是「同一份文件」的权威认据；传了它就只认这个包提交的任务。
+    存量任务这一列为 NULL，在传了包过滤时一律不命中（宁可少接管，不冒充）。
+    """
+
+    OTHER_PACK = 601
+    MY_PACK = 617
+
+    def test_inflight_只认自己的包(self) -> None:
+        _make_job(name="材料.pdf", pages=37, pack_message_id=self.OTHER_PACK)
+        mine = _make_job(name="材料.pdf", pages=37, pack_message_id=self.MY_PACK)
+
+        found = PdfSplitJobService().find_inflight_job(
+            source_name="材料.pdf", total_pages=37, pack_message_id=self.MY_PACK
+        )
+
+        assert found is not None and found.id == mine.id
+
+    def test_inflight_只命中别的包时返回None(self) -> None:
+        """这是用户看到的那个 bug：宁可没进度条，也不能显示另一个包的任务。"""
+        _make_job(name="材料.pdf", pages=37, pack_message_id=self.OTHER_PACK)
+
+        assert (
+            PdfSplitJobService().find_inflight_job(source_name="材料.pdf", total_pages=37, pack_message_id=self.MY_PACK)
+            is None
+        )
+
+    def test_inflight_存量任务包为空时在包过滤下一律不命中(self) -> None:
+        _make_job(name="材料.pdf", pages=37, pack_message_id=None)
+
+        assert (
+            PdfSplitJobService().find_inflight_job(source_name="材料.pdf", total_pages=37, pack_message_id=self.MY_PACK)
+            is None
+        )
+
+    def test_inflight_不传包过滤时保持旧口径(self) -> None:
+        """老客户端 / 脚本不传包主键：退回「文件名 + 页数」，行为与改动前一致。"""
+        job = _make_job(name="材料.pdf", pages=37, pack_message_id=None)
+
+        found = PdfSplitJobService().find_inflight_job(source_name="材料.pdf", total_pages=37)
+
+        assert found is not None and found.id == job.id
+
+    def test_reusable_只认自己的包(self) -> None:
+        owner = LawyerFactory()
+        _make_job(
+            name="材料.pdf",
+            pages=37,
+            pack_message_id=self.OTHER_PACK,
+            status=PdfSplitJobStatus.REVIEW_REQUIRED,
+            created_by=owner,
+        )
+        mine = _make_job(
+            name="材料.pdf",
+            pages=37,
+            pack_message_id=self.MY_PACK,
+            status=PdfSplitJobStatus.REVIEW_REQUIRED,
+            created_by=owner,
+        )
+
+        found = PdfSplitJobService().find_reusable_job(
+            source_name="材料.pdf",
+            total_pages=37,
+            user=owner,
+            pack_message_id=self.MY_PACK,
+        )
+
+        assert found is not None and found.id == mine.id
+
+    def test_reusable_只命中别的包时返回None(self) -> None:
+        """复用错的包 = 把另一份材料的识别正文写进这个包的草稿，比多跑一遍贵得多。"""
+        owner = LawyerFactory()
+        _make_job(
+            name="材料.pdf",
+            pages=37,
+            pack_message_id=self.OTHER_PACK,
+            status=PdfSplitJobStatus.REVIEW_REQUIRED,
+            created_by=owner,
+        )
+
+        assert (
+            PdfSplitJobService().find_reusable_job(
+                source_name="材料.pdf",
+                total_pages=37,
+                user=owner,
+                pack_message_id=self.MY_PACK,
+            )
+            is None
+        )
 
 
 class TestElapsedSeconds:

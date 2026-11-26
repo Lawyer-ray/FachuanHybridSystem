@@ -5884,6 +5884,9 @@ export interface paths {
          *     律师再点「自动识别」会从零重跑 164 页（几分钟 + 几十元）。
          *     前端打开阅读器时先调这个：命中就直接拉 segments，miss 才建新任务。
          *
+         *     `pack_message_id` 是材料包主键：传了就只认这个包的任务。不传时退回
+         *     「文件名 + 页数」匹配（老客户端 / 脚本），那两维并不唯一。
+         *
          *     返回 null 表示没有可复用的（前端照常新建）。
          */
         get: operations["apps_pdf_splitting_api_pdf_splitting_api_find_reusable_pdf_split_job"];
@@ -5909,6 +5912,10 @@ export interface paths {
          *     典型场景：任务是由同事的浏览器、脚本或刷新前那个页面发起的，当前页面毫
          *     不知情。不查就再建一个，同一份 164 页卷宗会并行跑两遍（钱翻倍），而先前
          *     那个任务在界面上完全不存在（“幽灵任务”）。
+         *
+         *     `pack_message_id` 是材料包主键：传了就只认这个包提交的任务。没有它时
+         *     「同名 + 同页数」会把另一个包的任务认成这个包的（实测：打开 A 包，进度条
+         *     显示的是 B 包那份 0/37 页的任务）。
          *
          *     返回 null 表示没有进行中的（前端照常新建）。
          */
@@ -36161,6 +36168,8 @@ export interface operations {
                      * @default batch
                      */
                     segment_strategy?: string;
+                    /** Pack Message Id */
+                    pack_message_id?: number | null;
                 };
             };
         };
@@ -36181,6 +36190,7 @@ export interface operations {
             query: {
                 source_name: string;
                 total_pages?: number | null;
+                pack_message_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -36204,6 +36214,7 @@ export interface operations {
             query: {
                 source_name: string;
                 total_pages?: number | null;
+                pack_message_id?: number | null;
             };
             header?: never;
             path?: never;

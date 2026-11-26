@@ -17,8 +17,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const apiMock = vi.hoisted(() => ({
   findInflightPdfSplitJob: vi.fn(),
   getPdfSplitJob: vi.fn(),
+  cancelPdfSplitJob: vi.fn(),
 }))
 vi.mock('../../api', () => apiMock)
+// 包号从阅读器 store 读（`useReader((s) => s.openId)`）：这里给个可改的替身，
+// 免得把 pdf.js 一整套真实依赖拉进 jsdom。
+const readerMock = vi.hoisted(() => ({ openId: 617 }))
+vi.mock('../../store', () => ({
+  useReader: (selector: (s: { openId: number }) => unknown) => selector({ openId: readerMock.openId }),
+}))
 
 import { pollJob } from './auto-split-helpers'
 import type { BundleMat } from '../../types'
@@ -27,6 +34,7 @@ import {
   clearAutoSplitTask,
   readAutoSplitTask,
   reportAutoSplitProgress,
+  stopCurrentAutoSplitTask,
   useInflightAutoSplit,
   type JobProgressSnapshot,
 } from './use-auto-split-task'
@@ -52,10 +60,17 @@ function snap(over: Partial<JobProgressSnapshot> = {}): JobProgressSnapshot {
   }
 }
 
+/** 测试用的材料包主键：会话态按包归属，所有调用都要带上它 */
+const PACK = 617
+/** 另一个材料包（用来验证「A 包的进度条不许出现在 B 包上」） */
+const OTHER_PACK = 601
+
 beforeEach(() => {
   vi.clearAllMocks()
   clearAutoSplitTask()
+  readerMock.openId = PACK
   apiMock.findInflightPdfSplitJob.mockResolvedValue(null)
+  apiMock.cancelPdfSplitJob.mockResolvedValue({ job_id: 'job-1', status: 'cancelled' })
 })
 
 afterEach(() => {
@@ -98,7 +113,11 @@ describe('useInflightAutoSplit：打开阅读器自动接管', () => {
 
     // 探测请求必须带文件名 + 页数（后端靠这两个匹配同一份卷宗）
     await waitFor(() => {
-      expect(apiMock.findInflightPdfSplitJob).toHaveBeenCalledWith('证据材料.pdf', 164)
+      expect(apiMock.findInflightPdfSplitJob).toHaveBeenCalledWith({
+      packMessageId: PACK,
+      sourceName: '证据材料.pdf',
+      totalPages: 164,
+    })
     })
     // 命中后立刻接管轮询
     await waitFor(() => expect(apiMock.getPdfSplitJob).toHaveBeenCalledWith('job-9'))
@@ -192,7 +211,7 @@ describe('useInflightAutoSplit：打开阅读器自动接管', () => {
   it('已有在手任务时不抢成接管（否则终态不回写草稿）', async () => {
     // 模拟「用户先点了按钮、组件随后才挂载」：探测必须让位给在手任务，
     // 否则这次轮询的 owned 会被改成 false，跑完不回写草稿、钱白花
-    beginOwnedAutoSplit(snap({ jobId: 'mine' }))
+    beginOwnedAutoSplit(PACK, snap({ jobId: 'mine' }))
     const { result } = renderHook(() => useInflightAutoSplit([pdfMat('a.pdf')], true))
     // 探测是异步的（等一个微任务），给足一拍再断言「没发出去」
     await new Promise((resolve) => setTimeout(resolve, 20))
@@ -204,7 +223,7 @@ describe('useInflightAutoSplit：打开阅读器自动接管', () => {
 
 describe('useInflightAutoSplit：会话态生命周期', () => {
   it('「不再显示」只收起界面，任务仍在跑', () => {
-    beginOwnedAutoSplit(snap())
+    beginOwnedAutoSplit(PACK, snap())
     const { result } = renderHook(() => useInflightAutoSplit([], false))
     act(() => result.current.hide())
     expect(result.current.task.hidden).toBe(true)
@@ -212,7 +231,7 @@ describe('useInflightAutoSplit：会话态生命周期', () => {
   })
 
   it('clearAutoSplitTask 清空会话态', () => {
-    beginOwnedAutoSplit(snap())
+    beginOwnedAutoSplit(PACK, snap())
     const { result } = renderHook(() => useInflightAutoSplit([], false))
     expect(result.current.task.jobId).toBe('job-1')
     act(() => clearAutoSplitTask())
@@ -220,10 +239,121 @@ describe('useInflightAutoSplit：会话态生命周期', () => {
   })
 
   it('轮询回报的快照会更新到会话态（面板据此刷新进度）', () => {
-    beginOwnedAutoSplit(snap())
+    beginOwnedAutoSplit(PACK, snap())
     const { result } = renderHook(() => useInflightAutoSplit([], false))
-    act(() => reportAutoSplitProgress(snap({ processedPages: 120, progressPct: 73 })))
+    act(() => reportAutoSplitProgress(PACK, snap({ processedPages: 120, progressPct: 73 })))
     expect(result.current.task.snapshot?.processedPages).toBe(120)
+  })
+})
+
+describe('useInflightAutoSplit：任务归属材料包（2026-11-26 报障）', () => {
+  /**
+   * 用户报障：打开 601 号材料包，底部浮条上显示着 617 号那份任务的
+   * 「正在识别文字（0/37 页）」。两条路都会漏——会话态是模块级的，换包既不清空
+   * 也不看包号；「已有在手任务就不探测」还把别的包的任务当成了在手任务。
+   */
+  it('别的包的任务不上界面：第一帧就不给，等本包的探测结果', async () => {
+    // 律师刚从 617 切过来，那一份任务的会话态还在模块里
+    beginOwnedAutoSplit(OTHER_PACK, snap({ jobId: 'other-pack-job' }))
+
+    const { result } = renderHook(() => useInflightAutoSplit([pdfMat('材料.pdf')], true))
+
+    // 渲染期就按包号过滤过，不是等 effect 跑完才消失（否则会闪一帧别人的进度）
+    expect(result.current.task.jobId).toBeNull()
+    // 也不能被「已有在手任务」挡掉：必须为本包重新探测
+    await waitFor(() =>
+      expect(apiMock.findInflightPdfSplitJob).toHaveBeenCalledWith({
+        packMessageId: PACK,
+        sourceName: '材料.pdf',
+        totalPages: 164,
+      }),
+    )
+  })
+
+  it('换包后上一个包的会话态被撤掉（不留没有主人的幽灵浮条）', async () => {
+    beginOwnedAutoSplit(OTHER_PACK, snap({ jobId: 'other-pack-job' }))
+
+    renderHook(() => useInflightAutoSplit([pdfMat('材料.pdf')], true))
+
+    await waitFor(() => expect(readAutoSplitTask().packId).not.toBe(OTHER_PACK))
+    expect(readAutoSplitTask().jobId).toBeNull()
+  })
+
+  it('别的包的进度回报一律丢弃（切包后迟到的快照不许跨包落地）', () => {
+    beginOwnedAutoSplit(OTHER_PACK, snap({ jobId: 'other-pack-job', processedPages: 60 }))
+    renderHook(() => useInflightAutoSplit([], false))
+
+    act(() => reportAutoSplitProgress(PACK, snap({ processedPages: 999 })))
+
+    expect(readAutoSplitTask().snapshot?.processedPages).toBe(60)
+  })
+
+  it('本包探测到的任务照常接管（包过滤不能把正常接管一起关掉）', async () => {
+    apiMock.findInflightPdfSplitJob.mockResolvedValue({
+      job_id: 'job-mine',
+      status: 'processing',
+      progress: 20,
+      total_pages: 37,
+      processed_pages: 7,
+      stage: 'extract',
+      stale_seconds: 2,
+    })
+    holdNextPoll()
+
+    const { result } = renderHook(() => useInflightAutoSplit([pdfMat('材料.pdf', 37)], true))
+
+    await waitFor(() => expect(result.current.task.jobId).toBe('job-mine'))
+    expect(result.current.task.packId).toBe(PACK)
+  })
+})
+
+describe('useInflightAutoSplit：彻底停止（取消云端任务）', () => {
+  it('「停止识别」打到后端取消接口，并把会话态清空（浮条随之消失）', async () => {
+    apiMock.findInflightPdfSplitJob.mockResolvedValue({
+      job_id: 'job-stop',
+      status: 'processing',
+      progress: 10,
+      total_pages: 37,
+      processed_pages: 3,
+      stage: 'extract',
+      stale_seconds: 2,
+    })
+    holdNextPoll()
+    const { result } = renderHook(() => useInflightAutoSplit([pdfMat('材料.pdf', 37)], true))
+    await waitFor(() => expect(result.current.task.jobId).toBe('job-stop'))
+
+    await act(async () => {
+      await stopCurrentAutoSplitTask()
+    })
+
+    expect(apiMock.cancelPdfSplitJob).toHaveBeenCalledWith('job-stop')
+    expect(readAutoSplitTask().jobId).toBeNull()
+  })
+
+  it('取消失败时**不**清会话态：静默藏掉浮条等于谎称「停了」，而任务还在扣钱', async () => {
+    apiMock.cancelPdfSplitJob.mockRejectedValue(new Error('503 Service Unavailable'))
+    beginOwnedAutoSplit(PACK, snap({ jobId: 'job-x' }))
+
+    const { result } = renderHook(() => useInflightAutoSplit([], false))
+    await act(async () => {
+      await stopCurrentAutoSplitTask()
+    })
+
+    // 浮条还在、还能再按一次
+    expect(readAutoSplitTask().jobId).toBe('job-x')
+    expect(result.current.task.jobId).toBe('job-x')
+  })
+
+  it('还没拿到任务号（提交那几十秒）也能停：停本地即可，不必等服务端', async () => {
+    beginOwnedAutoSplit(PACK) // jobId 仍为 null
+
+    renderHook(() => useInflightAutoSplit([], false))
+    await act(async () => {
+      await stopCurrentAutoSplitTask()
+    })
+
+    expect(apiMock.cancelPdfSplitJob).not.toHaveBeenCalled()
+    expect(readAutoSplitTask().jobId).toBeNull()
   })
 })
 
@@ -322,8 +452,8 @@ describe('useInflightAutoSplit：接管时的两个防御分支', () => {
    * 而「吞掉」不等于「放弃」——第一份失败不该让第二份的在飞任务接管不到。
    */
   it('第一份材料探测抛错 → 继续看下一份，接管到第二份的任务', async () => {
-    apiMock.findInflightPdfSplitJob.mockImplementation((name: string) =>
-      name === '坏链接.pdf'
+    apiMock.findInflightPdfSplitJob.mockImplementation((args: { sourceName: string }) =>
+      args.sourceName === '坏链接.pdf'
         ? Promise.reject(new Error('Network request failed'))
         : Promise.resolve({
             job_id: 'job-next',
@@ -342,8 +472,16 @@ describe('useInflightAutoSplit：接管时的两个防御分支', () => {
     )
 
     await waitFor(() => expect(result.current.task.jobId).toBe('job-next'))
-    expect(apiMock.findInflightPdfSplitJob).toHaveBeenNthCalledWith(1, '坏链接.pdf', 164)
-    expect(apiMock.findInflightPdfSplitJob).toHaveBeenNthCalledWith(2, '卷宗.pdf', 164)
+    expect(apiMock.findInflightPdfSplitJob).toHaveBeenNthCalledWith(1, {
+      packMessageId: PACK,
+      sourceName: '坏链接.pdf',
+      totalPages: 164,
+    })
+    expect(apiMock.findInflightPdfSplitJob).toHaveBeenNthCalledWith(2, {
+      packMessageId: PACK,
+      sourceName: '卷宗.pdf',
+      totalPages: 164,
+    })
     expect(result.current.task.snapshot?.sourceName).toBe('卷宗.pdf')
   })
 

@@ -37,6 +37,13 @@ export type DualEngine = 'mineru' | 'paddleocr_vl' | 'textin'
 export async function createPdfSplitJob(
   file: File,
   opts: {
+    /**
+     * 提交来源材料包（`InboxMessage` 主键）。**必须传**：后端把它落进
+     * `PdfSplitJob.pack_message_id`，之后「接管在飞任务 / 复用已算好的任务」
+     * 才能按包收敛。不传时只按「文件名 + 页数」匹配，而这两维不唯一——
+     * 两个包里各有一份同名同页数的 PDF 就会互相串。
+     */
+    packMessageId?: number
     layoutMode?: 'fast_text' | 'layout'
     cloudBackend?: CloudBackend
     /** ≥2 个引擎时才传：逗号分隔的全部所选引擎（含正主），后端据此另起比对 */
@@ -61,6 +68,7 @@ export async function createPdfSplitJob(
   // 版面策略：layout 让电子版 PDF 也上云端拿版面块与坐标（原文坐标对照需要），
   // 代价是这些页也计费且更慢；默认 fast_text 不调云端。
   body.append('layout_mode', opts.layoutMode ?? 'fast_text')
+  if (opts.packMessageId != null) body.append('pack_message_id', String(opts.packMessageId))
   // 平台偏好：auto 会自动容灾（首选失败切下一个）；锁定则只用该平台、失败即失败。
   // **只收单值**：多选时由调用方（platform-selection 的 resolveBackendRequest）
   // 先算出正主，其余引擎走下面的独立字段。
@@ -286,39 +294,84 @@ export async function archiveSplitToCaseFolder(
  * 命中就由阅读器接管轮询并在底部进度条上显示，不需要用户再点按钮。
  * 返回 null 表示没有进行中的任务。失败同样静默返回 null：查在飞任务只是**优化**，
  * 查不到最多是少一个进度条，不该让整个识别入口跟着报错。
+ *
+ * `packMessageId` 是材料包主键：**传了只认这个包提交的任务**。没有它时后端退回
+ * 「文件名 + 页数」两重匹配，而那两维在真实卷宗里不唯一——实测发生过「打开 A 包，
+ * 底部进度条显示的是 B 包那份 0/37 页的任务」。宁可没进度条，不显示别人的任务。
  */
-export async function findInflightPdfSplitJob(
-  sourceName: string,
-  totalPages?: number,
-): Promise<PdfSplitJobPayload | null> {
-  const searchParams: Record<string, string | number> = { source_name: sourceName }
-  if (totalPages != null && totalPages > 0) searchParams.total_pages = totalPages
+export async function findInflightPdfSplitJob(args: {
+  packMessageId: number
+  sourceName: string
+  totalPages?: number
+}): Promise<PdfSplitJobPayload | null> {
   try {
-    return await pdfSplitApi.get('inflight-job', { searchParams }).json<PdfSplitJobPayload | null>()
+    return await pdfSplitApi
+      .get('inflight-job', { searchParams: packScopedSearch(args) })
+      .json<PdfSplitJobPayload | null>()
   } catch {
     return null
   }
 }
 
 /**
- * 查一份**已算好**的拆分任务（按原始文件名 + 页数三重匹配）。
+ * 查一份**已算好**的拆分任务（材料包 + 原始文件名 + 页数）。
  *
  * 为什么需要：律师跑完一次 164 页识别（云端 OCR + LLM 分段，5-10 分钟、几十元）
  * 后，只要 `draft_state` 没被回写（没点过「自动识别」，或换了浏览器），
  * 阅读器就拿不到结果；此时再点一次会从零重跑，前面的钱和时间全白花。
  *
  * 返回 null 表示没有可复用的，调用方照常新建任务。
+ *
+ * `packMessageId` 同 `findInflightPdfSplitJob`：错包的识别结果比多跑一遍贵得多
+ * （那些正文会被写进另一个包的草稿）。
  */
-export async function findReusablePdfSplitJob(
-  sourceName: string,
-  totalPages?: number,
-): Promise<PdfSplitJobPayload | null> {
-  const searchParams: Record<string, string | number> = { source_name: sourceName }
-  if (totalPages != null && totalPages > 0) searchParams.total_pages = totalPages
+export async function findReusablePdfSplitJob(args: {
+  packMessageId: number
+  sourceName: string
+  totalPages?: number
+}): Promise<PdfSplitJobPayload | null> {
   try {
-    return await pdfSplitApi.get('reusable-job', { searchParams }).json<PdfSplitJobPayload | null>()
+    return await pdfSplitApi
+      .get('reusable-job', { searchParams: packScopedSearch(args) })
+      .json<PdfSplitJobPayload | null>()
   } catch {
     // 查复用是**优化**，失败不该阻断识别主流程——降级为「没有可复用的」
     return null
   }
+}
+
+/** 在飞 / 复用两个端点的查询参数形状（逐字一致，只差路由名） */
+interface PackScopedQuery {
+  packMessageId: number
+  sourceName: string
+  totalPages?: number
+}
+
+/**
+ * `{ packMessageId, sourceName, totalPages }` → 查询参数。
+ *
+ * 页数**未知时不发**（`total_pages=0` 会让后端按「0 页」过滤，永远 miss）；
+ * 包主键与文件名必发——少了包主键，后端就退回「同名 + 同页数」那个不唯一的判据。
+ */
+function packScopedSearch(args: PackScopedQuery): Record<string, string | number> {
+  const searchParams: Record<string, string | number> = {
+    pack_message_id: args.packMessageId,
+    source_name: args.sourceName,
+  }
+  if (args.totalPages != null && args.totalPages > 0) searchParams.total_pages = args.totalPages
+  return searchParams
+}
+
+/**
+ * 彻底停止一次云端识别（POST /pdf-splitting/jobs/{job_id}/cancel）。
+ *
+ * 为什么必须打到后端：底部浮条的「不再显示」只收起界面，任务照旧在云端跑
+ * （继续计费、继续占 worker）。用户点「停止识别」时要求的是**真停**：服务端
+ * 置 `cancel_requested`，流水线在下一个批次边界退出（见 backend tasks.py）。
+ *
+ * 失败**直接抛**：隐藏浮条却让任务继续烧钱是最坏的一种「成功」——调用方
+ * 必须把失败告诉用户，并让浮条留在原地可以重试。
+ */
+export async function cancelPdfSplitJob(jobId: string): Promise<PdfSplitJobSubmit> {
+  return await pdfSplitApi.post(`jobs/${encodeURIComponent(jobId)}/cancel`).json<PdfSplitJobSubmit>()
 }
