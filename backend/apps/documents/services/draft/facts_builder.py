@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 import logging
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -169,13 +169,47 @@ def _material_filenames(case: Any) -> list[str]:
     return filenames
 
 
-def _money(value: Decimal | None) -> str:
-    return f"{value:.2f}" if value is not None else ""
+def _money(value: Any) -> str:
+    """金额统一成两位小数；**解析不了就返回空串**（= 缺失 → 走未决项），绝不抛。
+
+    为什么参数不收窄成 `Decimal`：真实调用方传进来的是 **DTO**，里面的金额字段是字符串
+    （`CaseDTO.target_amount` 来自 `DecimalField` 但已经过 DTO 序列化）。真机联调时
+    `f"{value:.2f}"` 直接 `ValueError` 把整个起草打成 500，而单测的 fixture 是 float，
+    所以一直没暴露。
+
+    宁可空着让人补，也不要把「解析了一半的字符串」写进起诉状的金额栏。
+    """
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return ""
+    if isinstance(value, Decimal):
+        amount = value
+    elif isinstance(value, (int, float)):
+        amount = Decimal(str(value))
+    else:
+        cleaned = str(value).strip()
+        for token in (",", "，", "¥", "￥", "元", " "):
+            cleaned = cleaned.replace(token, "")
+        try:
+            amount = Decimal(cleaned)
+        except (InvalidOperation, ValueError, TypeError):
+            logger.warning("金额字段无法解析成数字，按缺失处理（进未决项）: %r", value)
+            return ""
+    return f"{amount:.2f}"
 
 
 def _date(value: Any) -> str:
-    """实体日期按 ISO 写（2026-11-26）：中文年月日的排版是文书格式的事，不是事实的事。"""
-    return value.isoformat() if value is not None else ""
+    """实体日期按 ISO 写（2026-11-26）：中文年月日的排版是文书格式的事，不是事实的事。
+
+    与 `_money` 同一类坑：DTO 里的日期是字符串，`value.isoformat()` 会直接 AttributeError。
+    字符串原样返回（已经是 ISO 就正好，是中文日期也不算错别字，交给排版层）；解析不了的
+    对象一律返回空串，让它进未决项。
+    """
+    if value is None:
+        return ""
+    if hasattr(value, "isoformat"):
+        return str(value.isoformat())
+    text = str(value).strip()
+    return text
 
 
 def _text(value: Any) -> str:
