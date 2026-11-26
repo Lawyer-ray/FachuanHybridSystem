@@ -12,6 +12,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  *    已经写进文件夹了；
  * 3) **类型清单两种出参都要认**：现约定 `{ items: [...] }`，裸数组是它之前的
  *    形状。少一个分支，下拉会静默变成「没有可用的文书类型」。
+ *
+ * 立案前判断（`draft/assess`）另锁两件事：端点路径（子路由不能拼成
+ * `assess` 或 `readiness`）、超时必须放大到模型一轮的量级。
+ *
+ * 注：HTTP 层用 mock `createApiClient` 这个厂函数（本文件既有口径），
+ * 与 workbench/api/project.test 里真 stub fetch 的用例不同——`api.ts` 是惰性
+ * 建 ky 客户端的，node 环境没有可用于相对 URL 的 base，厂函数才是本模块的接缝。
  */
 type Recorder = {
   prefix: string
@@ -104,6 +111,33 @@ describe('doc-generation api 前缀与端点', () => {
     })
     expect(opts.timeout).toBe(api.DRAFT_TIMEOUT_MS)
     expect(api.DRAFT_TIMEOUT_MS).toBeGreaterThan(10_000)
+  })
+
+  it('立案前判断打 draft/assess，body 原样下发且超时远大于 ky 默认 10s', async () => {
+    await api.assessDraftReadiness({ case_id: 489, instruction: '被告已付 3 个月' })
+    const [path, opts] = lastPost()
+    expect(path).toBe('draft/assess')
+    expect(`${workspace().prefix}/${path}`).toBe('/api/v1/doc-workspace/draft/assess')
+    expect(opts.json).toEqual({ case_id: 489, instruction: '被告已付 3 个月' })
+    expect(opts.timeout).toBe(api.ASSESS_TIMEOUT_MS)
+    // 一轮模型比对实测 20~40 秒：用 ky 默认 10s 会把还在跑的判断掐掉
+    expect(api.ASSESS_TIMEOUT_MS).toBeGreaterThan(10_000)
+  })
+
+  it('立案前判断的出参原样返回（verdict / 缺口 / 问题 / warnings）', async () => {
+    const out = {
+      verdict: 'blocked',
+      profile_key: 'lease_arrears',
+      matrix: [{ requirement: '被告身份', fact: '', source: '', status: 'missing' }],
+      missing_materials: [
+        { item: '被告身份证复印件', why: '立案需明确被告', from_whom: '委托人', form: '复印件', severity: 'blocking' },
+      ],
+      questions: [{ to: '委托人', question: '是否已缴 6 月管理费？', why: '律师函只列 7-12 月' }],
+      blocking: ['被告身份证复印件'],
+      warnings: ['合同仅前 2000 字'],
+    }
+    workspace().body = out
+    await expect(api.assessDraftReadiness({ case_id: 489 })).resolves.toEqual(out)
   })
 })
 
