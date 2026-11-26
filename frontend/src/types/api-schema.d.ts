@@ -22449,6 +22449,11 @@ export interface components {
              * @default
              */
             instruction: string;
+            /**
+             * Comment Author
+             * @default
+             */
+            comment_author: string;
         };
         /** DocSnapshotListOut */
         DocSnapshotListOut: {

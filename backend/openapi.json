@@ -50921,6 +50921,11 @@
             "default": "",
             "title": "Instruction",
             "type": "string"
+          },
+          "comment_author": {
+            "default": "",
+            "title": "Comment Author",
+            "type": "string"
           }
         },
         "required": [
