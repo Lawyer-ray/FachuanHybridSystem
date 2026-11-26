@@ -1,9 +1,12 @@
 /**
- * 识别质量统计的类型（页级质量 / 证件缺字段 / 跨页不一致）。
+ * 识别质量统计的类型（页级质量 / 证件缺字段 / 跨页不一致 / 分歧裁定的总账）。
  *
- * 从 types.ts 拆出：这三者描述的都是「机器这次读出来的东西可不可信」，
+ * 从 types.ts 拆出：这几者描述的都是「机器这次读出来的东西可不可信」，
  * 与草稿本体（mats/segs/infos）是两个关注点；types.ts 已顶到规模硬红线。
  * 消费方仍从 `../types` 引（那里 re-export），不必知道拆到了哪。
+ *
+ * `JudgeState` 是后加的一项：它描述的不是「读到了什么」，而是「那一步**跑没跑**」——
+ * 但同属「机器事实」，且与 `EngineDisagreement` 成对出现（分歧清单 + 这些分歧有没有被自动判过）。
  */
 
 /**
@@ -93,4 +96,31 @@ export interface Inconsistency {
    * 按字符串而不是联合类型收：后端将来加判据时前端不该整块崩，未知值回退 frequency 文案。
    */
   kind?: string
+}
+
+/**
+ * 分歧自动裁定「没生效」的原因码。
+ *
+ * 与后端 `disagreement_judge.GATE_*` 一一对应；`unknown` 是不认识的取值（后端将来加码时
+ * 不丢信息、也不误报成某个已知原因）。`gate_off` 与 `missing_key` 对应**两个不同的配置项**，
+ * 所以不能合并成一个 bool：前者要改 `OCR_JUDGE_ENABLED`，后者要填 `OCR_JUDGE_API_KEY`。
+ */
+export type JudgeGateReason = 'enabled' | 'gate_off' | 'missing_key' | 'not_requested' | 'unknown'
+
+/**
+ * 一次识别里分歧裁定的总账（收窄后）。
+ *
+ * `requested` 是**任务级**开关（用户勾了什么），`enabled` 是**有效值**（任务要求 ∧ 部署可用）；
+ * 两者不同时才说明「你开了但没生效」，这正是渲染提示的唯一条件。
+ */
+export interface JudgeState {
+  requested: boolean
+  enabled: boolean
+  reason: JudgeGateReason
+  /** 送进打分器的分歧条数（被四道闸门挡掉的也算在内） */
+  annotated: number
+  /** 自动裁定的条数。判定**不删除任何分歧**，只加标记 */
+  accepted: number
+  /** 留在人工清单里的条数 */
+  human: number
 }

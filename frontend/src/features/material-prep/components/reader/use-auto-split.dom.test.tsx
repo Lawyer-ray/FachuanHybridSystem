@@ -35,6 +35,11 @@ const draftMock = vi.hoisted(() => ({
   // 双引擎分歧同样只是纯函数：收窄穿过去、落草稿穿过去
   readEngineDisagreements: vi.fn((raw: unknown) => (Array.isArray(raw) ? raw : [])),
   withEngineDisagreements: vi.fn((v: unknown) => v),
+  // 分歧裁定的门禁总账：同样是纯函数，收窄 / 合并 / 文案各穿一道
+  readJudgeState: vi.fn((raw: unknown) => (raw && typeof raw === 'object' ? raw : null)),
+  mergeJudgeStates: vi.fn((states: unknown[]) => states.find(Boolean) ?? null),
+  withJudgeState: vi.fn((v: unknown) => v),
+  judgeOutcomeNote: vi.fn(() => null),
 }))
 const storeMock = vi.hoisted(() => ({
   getState: vi.fn(),

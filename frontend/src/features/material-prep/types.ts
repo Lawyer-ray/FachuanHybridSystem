@@ -9,7 +9,9 @@
 
 import type { components } from '@/types/api-schema'
 import type { EngineDisagreement, EngineName } from './engine-types'
-import type { Inconsistency, PageQuality } from './quality-types'
+import type { Inconsistency, JudgeState, PageQuality } from './quality-types'
+
+export type { JudgeGateReason, JudgeState } from './quality-types'
 
 export type MaterialKind = 'pdf' | 'photo' | 'office'
 
@@ -242,6 +244,16 @@ export interface DraftState {
    * 律师的切段/合段不改变它描述的东西。
    */
   engineDisagreements?: EngineDisagreement[]
+  /**
+   * 分歧自动裁定这次到底判了没有、没判是为什么（`summary.engine_disagreements_judge`）。
+   *
+   * 为什么要落草稿而不是只留在本次会话：律师真正会问「为什么这 300 多条全是人工」的时机
+   * 是**明天再打开这个包**，而那次识别的 summary 早就不在内存里了。留不住它，这条能力的
+   * 门禁结果就永远只能当场看一眼。
+   *
+   * 缺省（旧草稿 / 旧任务）= 那时还没有这个功能，整条提示不渲染。
+   */
+  judgeState?: JudgeState
   /**
    * 已经人工核对过的分歧（键为 `draft/engine.ts` 的 `disagreementKey`）。
    *

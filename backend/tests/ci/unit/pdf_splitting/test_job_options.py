@@ -34,6 +34,7 @@ from apps.core.exceptions import ValidationException
 from apps.core.services.system_config_service import SystemConfigService
 from apps.pdf_splitting.models import PdfSplitJob, PdfSplitSegmentStrategy
 from apps.pdf_splitting.services.job_service import PdfSplitJobService
+from apps.pdf_splitting.services.split import disagreement_judge
 from apps.pdf_splitting.services.split import dual_engine_runner as runner
 from apps.pdf_splitting.services.split.pipeline import resolve_segment_strategy
 
@@ -239,6 +240,7 @@ class TestRunDualEngineJudgeGate:
         assert outcome.summary[runner.SUMMARY_ENGINE_DISAGREE_JUDGE] == {
             "enabled": False,
             "requested": False,
+            "reason": disagreement_judge.GATE_NOT_REQUESTED,
             "annotated": 0,
             "accepted": 0,
             "human": 0,
@@ -250,7 +252,7 @@ class TestRunDualEngineJudgeGate:
     ) -> None:
         pdf = _make_pdf(tmp_path / "缺key.pdf", pages=1)
         _stub_engine_texts(monkeypatch)
-        monkeypatch.setattr(runner, "is_judge_enabled", lambda: False)
+        monkeypatch.setattr(runner, "gate_state", lambda: (False, disagreement_judge.GATE_MISSING_KEY))
         judge_spy = MagicMock(return_value={})
         monkeypatch.setattr(runner, "judge_disagreements", judge_spy)
 
@@ -261,11 +263,13 @@ class TestRunDualEngineJudgeGate:
         assert judge["enabled"] is False
         assert judge["requested"] is True
         assert judge["annotated"] == 0
+        # 缺 key 与「总闸没开」是两个配置项：原因码必须能分开，否则界面只能说「未生效」
+        assert judge["reason"] == disagreement_judge.GATE_MISSING_KEY
 
     def test_任务要开且部署侧可用时真跑一次(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         pdf = _make_pdf(tmp_path / "可用.pdf", pages=1)
         _stub_engine_texts(monkeypatch)
-        monkeypatch.setattr(runner, "is_judge_enabled", lambda: True)
+        monkeypatch.setattr(runner, "gate_state", lambda: (True, disagreement_judge.GATE_ENABLED))
         judge_spy = MagicMock(return_value={})
         monkeypatch.setattr(runner, "judge_disagreements", judge_spy)
 
@@ -275,12 +279,13 @@ class TestRunDualEngineJudgeGate:
         judge = outcome.summary[runner.SUMMARY_ENGINE_DISAGREE_JUDGE]
         assert judge["enabled"] is True
         assert judge["requested"] is True
+        assert judge["reason"] == disagreement_judge.GATE_ENABLED
 
     def test_未传开关时跟随部署侧(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """None = 调用方没表态：仍按部署侧决定，不能悄悄变成「不判」。"""
         pdf = _make_pdf(tmp_path / "未表态.pdf", pages=1)
         _stub_engine_texts(monkeypatch)
-        monkeypatch.setattr(runner, "is_judge_enabled", lambda: True)
+        monkeypatch.setattr(runner, "gate_state", lambda: (True, disagreement_judge.GATE_ENABLED))
         judge_spy = MagicMock(return_value={})
         monkeypatch.setattr(runner, "judge_disagreements", judge_spy)
 
@@ -288,3 +293,4 @@ class TestRunDualEngineJudgeGate:
 
         assert judge_spy.call_count == 1
         assert outcome.summary[runner.SUMMARY_ENGINE_DISAGREE_JUDGE]["requested"] is True
+        assert outcome.summary[runner.SUMMARY_ENGINE_DISAGREE_JUDGE]["reason"] == disagreement_judge.GATE_ENABLED

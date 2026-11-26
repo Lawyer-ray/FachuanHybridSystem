@@ -176,14 +176,17 @@ def get_ocr_configs() -> list[dict[str, Any]]:
         # disagreement_judge.py 的模块常量里——写进 admin 只会给「随手调松阈值」开门，
         # 而且调松是静默生效的（不报错，只是把更多错值采信成对的）。
         #
-        # 注意：组件已实现但**尚未接线到主链**，现在打开开关不会产生任何效果。
+        # 两级门禁的语义见 `dual_engine_runner.py`（judge_requested / judge_effective）：
+        # 本项是**部署级总闸**，任务级开关是 `PdfSplitJob.ocr_judge_enabled`，两者都过才生效。
+        # 缺 key 时按未启用处理并打 `ocr_judge_enabled_without_key` warning。
         {
             "key": "OCR_JUDGE_ENABLED",
             "category": "ocr",
             "description": (
-                "多引擎分歧是否用第三方打分器裁定（0=关，默认；1=开）。"
-                "关着时与引入该功能前逐位一致：分歧只进人工抽屉。"
-                "打开前需先填 OCR_JUDGE_API_KEY，且主链已接线（否则开关无效果）。"
+                "多引擎分歧是否用第三方打分器自动裁定（0=关，默认；1=开）。"
+                "这是**部署级总闸**：关着或缺 Key 时一条都不判，分歧全部进人工清单。"
+                "与任务级开关（材料预处理 → 自动分段设置 → 分歧自动裁定）两级都过才生效；"
+                "缺 Key 时按未启用处理，日志会有 ocr_judge_enabled_without_key 提示。"
             ),
             "value": "0",
             "is_secret": False,
@@ -192,7 +195,9 @@ def get_ocr_configs() -> list[dict[str, Any]]:
             "key": "OCR_JUDGE_API_KEY",
             "category": "ocr",
             "description": (
-                "分歧裁定打分器的 API Key（Bearer Token）。留空则判定一律落人工；敏感项，加密存储。"
+                "分歧裁定打分器的 API Key（Bearer Token）。敏感项，加密存储。"
+                "它只决定「这台环境**能不能**判」，不决定「这份卷宗**要不要**判」——后者在任务上。"
+                "留空时即使总闸打开也按未启用处理，分歧全部落人工。"
                 "供应商侧政策：可读分辨率下的证件图像会被拒（content_policy_violation），"
                 "所以证件/账号类字段不走此路，走 L1 校验位。"
             ),

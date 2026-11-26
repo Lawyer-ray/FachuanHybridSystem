@@ -29,7 +29,14 @@ export {
 } from './page-rotation'
 export type { PageRefKey } from './page-rotation'
 export { nextSegId, ensureSegIds } from './seg-id'
-export { isEmptyDraft, withPageQuality, withEngineDisagreements, setEngineChecked } from './state'
+export { isEmptyDraft, withPageQuality, withEngineDisagreements, withJudgeState, setEngineChecked } from './state'
+export {
+  readJudgeState,
+  mergeJudgeStates,
+  judgeGateReasonText,
+  judgeGateNotice,
+  judgeOutcomeNote,
+} from './judge-state'
 export { resolveMats, buildInitialDraft } from './resolve'
 export {
   matLabel,

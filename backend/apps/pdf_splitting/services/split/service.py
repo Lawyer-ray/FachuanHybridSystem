@@ -34,6 +34,7 @@ from apps.pdf_splitting.services.storage import PdfSplitStorage
 from apps.pdf_splitting.services.template_registry import get_default_filename
 
 from .consistency_summary import attach_quality_flags_to_markdown, detect_inconsistencies, pick_top_inconsistencies
+from .disagreement_judge import GATE_NOT_REQUESTED
 from .dual_engine_runner import plan_dual_engine_factories, run_dual_engine
 from .export_utils import ExportUtils, deduplicate_filename, export_segment_pdf
 from .markdown_builder import build_segments_markdown, load_segment_markdown_map
@@ -73,8 +74,18 @@ def _dual_engine_summary(payload: dict[str, Any]) -> dict[str, Any]:
         # 「功能关着」与「跑了但一条都没判成」显示成同一个样子。
         # 零值里必须带上 ``requested``：前端拿它与 ``enabled`` 对比才能说
         # 「你开了但没生效」，缺键就会被当成 false 而误报。
+        # ``reason`` 同理：没有它，界面只能说「未生效」，说不出该去开总闸还是填 key
+        # （两种状态对应两个不同的配置项）。单引擎 / 旧任务的零值就是「这份没要求判」。
         "engine_disagreements_judge": dict(payload.get("engine_disagreements_judge") or {})
-        or {"enabled": False, "requested": False, "annotated": 0, "accepted": 0, "human": 0, "reasons": {}},
+        or {
+            "enabled": False,
+            "requested": False,
+            "reason": GATE_NOT_REQUESTED,
+            "annotated": 0,
+            "accepted": 0,
+            "human": 0,
+            "reasons": {},
+        },
     }
 
 

@@ -23,6 +23,7 @@ from typing import Any
 import pymupdf as fitz
 import pytest
 
+from apps.pdf_splitting.services.split import disagreement_judge
 from apps.pdf_splitting.services.split import dual_engine_judgement as judgement
 from apps.pdf_splitting.services.split import dual_engine_runner
 from apps.pdf_splitting.services.split.disagreement_judge import CandidateScore, Judgement
@@ -450,7 +451,7 @@ class TestRunnerWiring:
             "judge_disagreements",
             lambda **k: {judgement.disagreement_key(item): {"decision": "accept", "winner": TARGET_TEXT}},
         )
-        monkeypatch.setattr(dual_engine_runner, "is_judge_enabled", lambda: True)
+        monkeypatch.setattr(dual_engine_runner, "gate_state", lambda: (True, disagreement_judge.GATE_ENABLED))
 
         outcome = dual_engine_runner.run_dual_engine(
             path,
@@ -483,7 +484,7 @@ class TestRunnerWiring:
             raise RuntimeError("判定服务不可用")
 
         monkeypatch.setattr(dual_engine_runner, "judge_disagreements", _boom)
-        monkeypatch.setattr(dual_engine_runner, "is_judge_enabled", lambda: True)
+        monkeypatch.setattr(dual_engine_runner, "gate_state", lambda: (True, disagreement_judge.GATE_ENABLED))
 
         outcome = dual_engine_runner.run_dual_engine(path, engine_factories={"mineru": lambda: None})
 
@@ -510,9 +511,7 @@ class TestSkipGuards:
         path, rect = pdf_with_amount
         long_text = "甲" * (judgement.MAX_JUDGEABLE_CHARS + 1)
         item = _disagreement(left=long_text, right=long_text + "乙")
-        monkeypatch.setattr(
-            judgement, "verify_field", lambda **_k: (_ for _ in ()).throw(AssertionError("不该判"))
-        )
+        monkeypatch.setattr(judgement, "verify_field", lambda **_k: (_ for _ in ()).throw(AssertionError("不该判")))
         out = judgement.judge_disagreements(
             pdf_path=path,
             disagreements=[item],
@@ -528,9 +527,7 @@ class TestSkipGuards:
     ) -> None:
         path, rect = pdf_with_amount
         item = _disagreement(left="EMS", right="EMS 全球特快专递 单位名称")
-        monkeypatch.setattr(
-            judgement, "verify_field", lambda **_k: (_ for _ in ()).throw(AssertionError("不该判"))
-        )
+        monkeypatch.setattr(judgement, "verify_field", lambda **_k: (_ for _ in ()).throw(AssertionError("不该判")))
         out = judgement.judge_disagreements(
             pdf_path=path,
             disagreements=[item],
@@ -585,14 +582,30 @@ def test_dual_engine_summary_展开判定总账() -> None:
     empty = _dual_engine_summary({})["engine_disagreements_judge"]
     # ``requested``（任务级开关要求值）必须与 ``enabled``（有效值）成对出现：
     # 缺键时前端只能当 false，就会把「你开了但没生效」融成「你没开」。
+    # ``reason`` 同理：没有它，前端只能说「未生效」，说不出**该去改哪个配置项**
+    # （总闸没开 / 缺 key 是两个不同的运维动作）。
     assert empty == {
         "enabled": False,
         "requested": False,
+        "reason": "not_requested",
         "annotated": 0,
         "accepted": 0,
         "human": 0,
         "reasons": {},
     }
 
-    payload = {"engine_disagreements_judge": {"enabled": True, "annotated": 3, "accepted": 1, "human": 2, "reasons": {}}}
-    assert _dual_engine_summary(payload)["engine_disagreements_judge"]["accepted"] == 1
+    payload = {
+        "engine_disagreements_judge": {
+            "enabled": True,
+            "requested": True,
+            "reason": "enabled",
+            "annotated": 3,
+            "accepted": 1,
+            "human": 2,
+            "reasons": {},
+        }
+    }
+    out = _dual_engine_summary(payload)["engine_disagreements_judge"]
+    assert out["accepted"] == 1
+    # 已知键必须原样透传：`reason` 落在白名单外时会被这里悄悄吃掉。
+    assert out["reason"] == "enabled"

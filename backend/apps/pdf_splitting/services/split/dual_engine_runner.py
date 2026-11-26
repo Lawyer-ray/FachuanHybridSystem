@@ -56,7 +56,7 @@ from typing import Any
 
 import pymupdf as fitz
 
-from .disagreement_judge import is_enabled as is_judge_enabled
+from .disagreement_judge import GATE_NOT_REQUESTED, gate_state
 from .dual_engine import (
     ENGINE_MINERU,
     ENGINE_PADDLEOCR_VL,
@@ -264,9 +264,14 @@ def run_dual_engine(
     #
     # 两者都写进 summary：只回显全局开关的话，前端无法区分「用户没要」与
     # 「用户要了但没生效（缺 key）」，用户会以为判定坏了。
+    # ``reason`` 再把「没生效」分成**总闸没开**与**缺 key** 两种——它们是两个配置项、
+    # 两个不同的运维动作；只说「未启用」等于让人去猜该改哪一项。
     # 异常在这里兜住——判定是「多一票参考」，不许把双引擎任务拖挂。
     judge_requested = judge_enabled is not False
-    judge_effective = judge_requested and is_judge_enabled()
+    # 没被要求时不去问门禁：``gate_state()`` 在缺 key 时会打一条 warning，
+    # 而「用户本来就没开」发那条 warning 是误报。
+    judge_available, judge_reason = gate_state() if judge_requested else (False, GATE_NOT_REQUESTED)
+    judge_effective = judge_requested and judge_available
     judgements: dict[tuple[int, str, str], dict[str, Any]] = {}
     if judge_effective:
         try:
@@ -291,9 +296,10 @@ def run_dual_engine(
             ),
             SUMMARY_ENGINE_DISAGREE_SUMMARY: summarize_severities(disagreements),
             SUMMARY_ENGINE_DISAGREE_JUDGE: {
-                # enabled＝真正跑没跑，requested＝用户是否要求开。
+                # enabled＝真正跑没跑，requested＝用户是否要求开，reason＝没跑的原因。
                 "enabled": judge_effective,
                 "requested": judge_requested,
+                "reason": judge_reason,
                 **judge_summary(judgements),
             },
             # 编排层自身的可观测字段：哪个引擎没跑起来、跑了多少页。
