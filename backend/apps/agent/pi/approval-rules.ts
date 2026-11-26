@@ -55,6 +55,12 @@ const MCP_TOOL_PREFIX = "mcp__fachuan__";
  */
 export const HIGH_RISK_PATTERNS: readonly string[] = [
   "rewrite_",
+  // 文档工作面（2026-11-26，与 Python DANGER_PATTERNS 同步）：这三个都会
+  // **真的改/建律师的文件**。用完整工具名做子串，避免把 read_folder_file /
+  // list_folder_files 这类读工具或只写库的 create_folder_binding 一起升成高危。
+  "apply_document_revisions",
+  "add_document_comments",
+  "create_folder_file",
   "delete",
   "remove_",
   "destroy",
@@ -182,6 +188,10 @@ export const WRITE_PREFIXES: readonly string[] = [
   // 一句话起草（与 Python WRITE_PREFIXES 同步）：`draft_document` 会落盘并触发模型调用，
   // 但同名不覆盖、可随手删稿，属 generate_ 那一档；不补只能判 LOW = 连留痕都没有。
   "draft_",
+  // 文档工作面（2026-11-26，与 Python WRITE_PREFIXES 同步）：
+  // ``review_folder_file`` POST /doc-workspace/review/runs 会落库并触发模型调用，
+  // 但不动律师文件 → MEDIUM（静默放行 + 审计留痕），与 generate_/verify_ 同档。
+  "review_",
 ];
 
 /**

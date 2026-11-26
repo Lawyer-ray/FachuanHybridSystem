@@ -34,6 +34,8 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from apps.core.exceptions import BusinessException
+
 logger = logging.getLogger(__name__)
 
 # 下载路径里的两种取法
@@ -250,9 +252,11 @@ def _bound_folder_domain(
                 actor_kind=snapshot_service.ActorKind.HUMAN,
                 actor_id=getattr(owner, "pk", None),
             )
-        except (OSError, ValueError, RuntimeError, KeyError, AttributeError):
-            # 只接「读文件/写库/序列化」这几类可预期的失败。真正的编程错误（TypeError 等）
-            # 不在这里吞掉——快照是数据安全机制，静默吞掉意外异常等于把它变成摆设。
+        except (OSError, ValueError, RuntimeError, KeyError, AttributeError, BusinessException):
+            # 只接「读文件 / 权限 / 业务校验 / 序列化」这几类可预期的失败。
+            # `BusinessException` 必须在内：快照是**额外**的一次读，读的权限口径若与
+            # 写路径不同（或文件不在预期的位置），不该因此把律师的保存整单拒掉。
+            # 真正的编程错误（TypeError 等）仍然不吞——那说明代码坏了，得炸出来。
             logger.warning(
                 "覆盖前快照失败（不影响本次保存）: %s=%s subpath=%s",
                 kind,

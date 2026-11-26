@@ -129,7 +129,10 @@ def test_registration_count_matches_registry() -> None:
         "2026-11-20 多栏写安全（propose_write_patch / apply_file_write_patches）→ 429；"
         "扫描件归档（archive_pdf_split_to_case_folder）→ 430；"
         "2026-11-25 回传件核对三件套（list_unverified_returns / get_returned_document_check / "
-        "verify_returned_document）→ 433"
+        "verify_returned_document）→ 433；"
+        "文档工作面六件套（review_folder_file / list_document_findings / "
+        "list_document_revisions / apply_document_revisions / add_document_comments / "
+        "create_folder_file）→ 439"
         "（本测试防的是「注册面静默缩水」,正常增删改数字即可）。"
     )
 

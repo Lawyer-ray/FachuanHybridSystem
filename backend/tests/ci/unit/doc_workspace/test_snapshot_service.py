@@ -233,9 +233,16 @@ class TestConcurrency:
         with ThreadPoolExecutor(max_workers=6) as pool:
             list(pool.map(worker, payloads))
 
+
         seqs = sorted(
             DocSnapshot.objects.filter(owner_kind=KIND, owner_id=OWNER_ID, subpath=SUBPATH).values_list(
                 "seq", flat=True
             )
         )
         assert seqs == [1, 2, 3, 4, 5, 6]
+
+        # 显式清掉本用例造的行：`transactional_db` 靠 teardown 的 TRUNCATE 收尾，而线程
+        # 用过的连接一旦没干净关掉，TRUNCATE 会报「database is being accessed by other
+        # users」；残留行会污染后面的用例（organization 的「第一个用户」类测试正是靠
+        # 「库里一个用户都没有」判定的）。自己收干净，别把执行顺序变成隐式依赖。
+        DocSnapshot.objects.filter(owner_kind=KIND, owner_id=OWNER_ID, subpath=SUBPATH).delete()

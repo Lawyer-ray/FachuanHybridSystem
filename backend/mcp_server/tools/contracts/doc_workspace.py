@@ -89,6 +89,15 @@ def list_document_findings(
 
     律师的决策也会体现在 `status` 里：`proposed` 待决 / `accepted` 已采纳 /
     `rejected` 已驳回（带理由码）/ `stale` 锚点失效 / `moot` 已被消解。
+
+    Args:
+        contract_id: 合同 ID（文件在合同绑定文件夹）。
+        case_id: 案件 ID（文件在案件绑定文件夹）。与 contract_id 二选一。
+        subpath: 文件在绑定文件夹里的相对路径；与 run_id 二选一。
+        run_id: 指定某一轮审查；不给则取该文件最近一轮。
+
+    Returns:
+        `{"status": ..., "findings": [...], "summary": {...}}`。
     """
     if run_id is not None:
         by_run: dict[str, Any] = client.get(f"/doc-workspace/review/runs/{run_id}")
@@ -112,6 +121,14 @@ def list_document_revisions(
 
     改之前先看它：否则容易把已经改过的句子再提一次，或者把已被接受的修改
     当成现行文本去改。
+
+    Args:
+        subpath: 文件在绑定文件夹里的相对路径。
+        contract_id: 合同 ID。
+        case_id: 案件 ID。与 contract_id 二选一。
+
+    Returns:
+        `{"items": [{"paragraph_index", "author", "original", "suggested", "rev_ids"}]}`。
     """
     kind, owner_id = _owner(contract_id, case_id)
     result: dict[str, Any] = client.get(
@@ -134,6 +151,17 @@ def apply_document_revisions(
 
     半改过的文件既不是原稿也不是审完稿，律师无法判断哪几条生效了。
     返回 `applied=false` + `failed_index` 时，把那一条的 `selection` 加长到唯一再重试。
+
+    Args:
+        subpath: 文件在绑定文件夹里的相对路径。
+        patches: `[{"selection": 原文, "suggested": 改写}]`，按顺序落笔。
+        contract_id: 合同 ID。
+        case_id: 案件 ID。与 contract_id 二选一。
+        base_mtime: 打开文件时的 mtime；传了才做乐观锁（别人改过会返回 409）。
+
+    Returns:
+        `{"applied": true, "count": n, "rev_ids": [...]}` 或
+        `{"applied": false, "failed_index": i, "reason": "..."}`。
     """
     kind, owner_id = _owner(contract_id, case_id)
     result: dict[str, Any] = client.post(
@@ -164,6 +192,16 @@ def add_document_comments(
     什么时候用它而不是修订：只有风险提示、需要律师做商业判断的（「违约金无上限，
     是否接受取决于谈判地位」），或根本锚不到具体文字的缺失项。硬给一个「改法」
     等于替律师做商业决定。
+
+    Args:
+        subpath: 文件在绑定文件夹里的相对路径。
+        comments: `[{"selection": 对应的原文, "text": 批注内容}]`。
+        contract_id: 合同 ID。
+        case_id: 案件 ID。与 contract_id 二选一。
+        base_mtime: 打开文件时的 mtime；传了才做乐观锁。
+
+    Returns:
+        `{"applied": true, "comment_ids": [...], "failures": [...]}`。
     """
     kind, owner_id = _owner(contract_id, case_id)
     result: dict[str, Any] = client.post(

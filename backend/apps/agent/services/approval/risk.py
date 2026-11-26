@@ -188,6 +188,12 @@ WRITE_PREFIXES: tuple[str, ...] = (
     # 那一档。名字里没有常规写前缀，不补就只能判 LOW——LOW 意味着 readOnlyHint=True
     # 且无留痕，模型可以静默生成文书并消耗额度。与 ``generate_`` 同档（MEDIUM）。
     "draft_",
+    # 文档工作面（2026-11-26）：``review_folder_file`` POST /doc-workspace/review/runs
+    # **会落库**（ReviewRun + Finding）并触发模型调用，但不动律师文件、不覆盖任何东西。
+    # 不补就只能判 LOW——LOW 意味着 readOnlyHint=True 且无留痕，模型可以静默创建
+    # 审查轮次并消耗额度（``test_approval_alignment`` 的 LOW+写方法判据会红）。
+    # 与 ``generate_`` / ``verify_`` 同档（MEDIUM）。
+    "review_",
 )
 
 DEFAULT_TIMEOUT = 300.0
