@@ -29,7 +29,16 @@ from apps.agent.services.chat.regenerate import (
 from apps.agent.services.session_service import list_messages
 from apps.organization.models import LawFirm, Lawyer
 
-pytestmark = pytest.mark.django_db
+# ``transaction=True`` 不是可选项，是**隔离红线**：本文件建用户走 ``sync_to_async(_make_user)``，
+# 它在执行器线程里跑——那是**另一条 DB 连接**，不受本用例回滚事务管辖，于是 `create_user`
+# 真的提交进了测试库。默认（非 transaction）写法下这些行永远留库，后续任何用例都看得到：
+# 每个用例落一个 ``is_active=True`` 的 Lawyer，累计到 ``organization`` 目录时
+# ``AuthService.is_first_user()``（判定依据是「库里有没有已激活账号」）已经是 False，
+# ``test_registration_approval.py`` 里 4 个「首位用户」用例成批变红——
+# 2026-11-26 复现：只跑 ``test_regenerate.py`` + ``test_registration_approval.py`` 就稳定 4 红，
+# 单独跑后者 10 全过。``transaction=True`` 让每例结束 flush 掉跨连接的提交，
+# 写法与同类的 ``test_dual_stream.py`` / ``test_agent_session_store.py`` 一致。
+pytestmark = pytest.mark.django_db(transaction=True)
 
 
 def _make_user(username: str = "regen_user") -> Lawyer:
