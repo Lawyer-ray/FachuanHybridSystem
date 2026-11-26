@@ -25,6 +25,14 @@ from mcp_server.tools.contracts.contracts import (
     update_contract,
     update_contract_lawyers,
 )
+from mcp_server.tools.contracts.doc_workspace import (
+    add_document_comments,
+    apply_document_revisions,
+    create_folder_file,
+    list_document_findings,
+    list_document_revisions,
+    review_folder_file,
+)
 from mcp_server.tools.contracts.folder import (
     browse_folders,
     create_folder_binding,
@@ -88,6 +96,13 @@ __all__ = [
     "rewrite_folder_file",
     "propose_write_patch",
     "apply_file_write_patches",
+    # 文档工作面：审查 / 清单 / 已有修订 / 批量落笔 / 批注 / 新建
+    "review_folder_file",
+    "list_document_findings",
+    "list_document_revisions",
+    "apply_document_revisions",
+    "add_document_comments",
+    "create_folder_file",
     # 合同归档
     "learn_archive_rules",
     "get_archive_checklist",

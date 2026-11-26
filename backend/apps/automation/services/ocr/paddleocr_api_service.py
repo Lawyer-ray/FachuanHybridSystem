@@ -26,7 +26,7 @@ from typing import Any
 import httpx
 
 from apps.core.services.system_config_service import SystemConfigService
-from apps.document_parsing.services.credential_pool import get_credential_pool
+from apps.document_parsing.services.credential_pool import failure_reason_of_active_exception, get_credential_pool
 
 logger = logging.getLogger(__name__)
 
@@ -924,7 +924,8 @@ class PaddleOCRApiEngine:
         """取本引擎对应的凭证池（进程内共享）。
 
         复用 ``document_parsing`` 的 CredentialPool：它已经做好了轮询分配、
-        每 Key 并发上限、失败冷却 30s。自己再写一份只会多一处语义漂移。
+        每 Key 并发上限、按失败原因分档的冷却（瞬时 30s / 鉴权 30min / 额度耗尽到
+        下一个配额重置点）与日额度记账。自己再写一份只会多一处语义漂移。
 
         并发上限固定为 1：PaddleOCR 的任务是「提交 → 轮询 → 下载」长周期，
         同一 Key 上并发多个 Job 更容易撞队列满。1 意味着「一 Key 同时只跑一单」，
@@ -1050,6 +1051,9 @@ class PaddleOCRApiEngine:
         }
         # 任务是否成功：决定归还时是否让该 Key 进冷却。
         token_ok = False
+        # 页数用于凭证池的日额度记账：图片固定 1 页，PDF 先看调用方给的页数，
+        # 解析出逐页结构后再用实际页数记账（服务端回多少页就记多少页）。
+        processed_pages = 1 if not is_pdf else int(page_count or 0)
 
         # multipart/form-data 上传。
         # `model` 必须发官方模型名（如 PaddleOCR-VL-1.6），不能发配置键（paddleocr_vl_1_6），
@@ -1161,8 +1165,11 @@ class PaddleOCRApiEngine:
                         # 下载失败（403/5xx/网关错误页）必须在解析前抛出，否则会被当成空结果。
                         self._validate_result_download(result_resp)
                         # 走到这里才算这个 Key 真的可用；finally 据此决定是否让它进冷却。
+                        parsed = self._parse_job_result(result_resp.text, model)
                         token_ok = True
-                        return self._parse_job_result(result_resp.text, model)
+                        if parsed.layout_results:
+                            processed_pages = len(parsed.layout_results)
+                        return parsed
 
                     # 进度：done 时已无意义，只在处理中读取，避免把最后一跳重复报给调用方
                     progress = _read_extract_progress(poll_data)
@@ -1184,7 +1191,14 @@ class PaddleOCRApiEngine:
         finally:
             # 无论成功、失败还是抛异常，都必须归还槽位：
             # 遗忘一次就永久占住一个并发名额，多 Key 池会逐渐“假死”。
-            pool.release(token_idx, success=token_ok)
+            # 失败档位按真实异常判定（401/403→auth，429/额度→quota，其余→transient）；
+            # 只有成功时才能确定页数，失败不记账（部分消耗不可知，宁可不记也不双算）。
+            pool.release(
+                token_idx,
+                success=token_ok,
+                reason=failure_reason_of_active_exception(),
+                pages=processed_pages if token_ok else 0,
+            )
 
     def _parse_job_result(self, raw_text: str, model: str) -> PaddleOCRApiResult:
         """解析 Job API 的结果体。
@@ -1686,6 +1700,8 @@ class PaddleOCRApiEngine:
             raise RuntimeError("PaddleOCR API 所有凭证均在失败冷却中，请稍后重试")
         headers = {"Authorization": f"bearer {pool.credentials[token_idx]}"}
         token_ok = False
+        # 与同步版同口径：图片固定 1 页，PDF 先用调用方给的页数，结果带逐页结构再用实际页数
+        processed_pages = 1 if not is_pdf else int(page_count or 0)
 
         # 同步版同一限制：必须发官方模型名，否则 400「模型传参错误」(code=10007)
         data = {"model": self.api_model_name, "optionalPayload": json.dumps(optional_payload)}
@@ -1782,8 +1798,11 @@ class PaddleOCRApiEngine:
                         )
                         # S43-03：与同步版一致——下载失败先抛错，不能静默解析成空文本。
                         self._validate_result_download(jsonl_resp)
+                        parsed = self._parse_job_result(jsonl_resp.text, model)
                         token_ok = True
-                        return self._parse_job_result(jsonl_resp.text, model)
+                        if parsed.layout_results:
+                            processed_pages = len(parsed.layout_results)
+                        return parsed
 
                     progress = _read_extract_progress(poll_data)
                     if progress is not None:
@@ -1803,7 +1822,12 @@ class PaddleOCRApiEngine:
             raise RuntimeError(f"PaddleOCR API 网络错误: {e}") from e
         finally:
             # 与同步版同理：不归还就永久占一个并发名额，多 Key 池会逐渐假死。
-            pool.release(token_idx, success=token_ok)
+            pool.release(
+                token_idx,
+                success=token_ok,
+                reason=failure_reason_of_active_exception(),
+                pages=processed_pages if token_ok else 0,
+            )
 
     async def aextract_text(self, image_bytes: bytes) -> PaddleOCRApiResult:
         """异步提取图片中的文字。"""

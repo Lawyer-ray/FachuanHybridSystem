@@ -80,8 +80,21 @@ export async function runPdfTrack(args: {
   layoutMode: 'fast_text' | 'layout'
   cloudBackend: CloudBackend
   dualEngines: string | null
+  segmentStrategy: string
+  ocrJudgeEnabled: boolean
 }): Promise<PdfTrackOutcome> {
-  const { openId, targets, lease, setProgress, reportProgress, layoutMode, cloudBackend, dualEngines } = args
+  const {
+    openId,
+    targets,
+    lease,
+    setProgress,
+    reportProgress,
+    layoutMode,
+    cloudBackend,
+    dualEngines,
+    segmentStrategy,
+    ocrJudgeEnabled,
+  } = args
   const isStale = () => lease.isStale()
   const jobs = await Promise.all(
     targets.map(async ({ mat, mi }) => {
@@ -99,7 +112,13 @@ export async function runPdfTrack(args: {
       // 版面策略跟着当前会话走：开了补版面才让电子页上云端拿坐标
       return {
         mi,
-        jobId: await createPdfSplitJob(file, { layoutMode, cloudBackend, dualEngines }),
+        jobId: await createPdfSplitJob(file, {
+          layoutMode,
+          cloudBackend,
+          dualEngines,
+          segmentStrategy,
+          ocrJudgeEnabled,
+        }),
         prefetched: null,
       }
     }),

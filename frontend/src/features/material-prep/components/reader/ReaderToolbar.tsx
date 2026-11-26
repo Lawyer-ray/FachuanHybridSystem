@@ -10,7 +10,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { PBTN, PBTN_ON, ZOOM_MAX, ZOOM_MIN } from './ui'
 import { cn } from '@/lib/utils'
+import type { SegmentStrategy } from '../../types'
 import { AutoSplitSettings } from './AutoSplitSettings'
+import type { SplitTierId } from './split-plan'
 import { PickItem } from './PickItem'
 import { cloudSelectionSummary, type CloudEngine, type CloudSelection } from './platform-selection'
 
@@ -53,6 +55,11 @@ export function ReaderToolbar({
   cloudSelection,
   onToggleCloudEngine,
   onClearCrossCheck,
+  segmentStrategy,
+  onSegmentStrategyChange,
+  judgeOn,
+  onToggleJudge,
+  onApplyTier,
   inline = false,
 }: {
   narrow: boolean
@@ -92,6 +99,11 @@ export function ReaderToolbar({
   onToggleCloudEngine: (e: CloudEngine) => void
   /** 一键关闭交叉比对（回到自动容灾），选择随包保存 */
   onClearCrossCheck: () => void
+  segmentStrategy: SegmentStrategy
+  onSegmentStrategyChange: (s: SegmentStrategy) => void
+  judgeOn: boolean
+  onToggleJudge: () => void
+  onApplyTier: (id: SplitTierId) => void
   /** 嵌入顶栏行（≥1100px）：只输出按钮组，不自带容器 */
   inline?: boolean
 }) {
@@ -270,6 +282,11 @@ export function ReaderToolbar({
           onToggleCloudEngine={onToggleCloudEngine}
           onClearCrossCheck={onClearCrossCheck}
           onResetSegments={onResetSegments}
+          segmentStrategy={segmentStrategy}
+          onSegmentStrategyChange={onSegmentStrategyChange}
+          judgeOn={judgeOn}
+          onToggleJudge={onToggleJudge}
+          onApplyTier={onApplyTier}
         />
       </div>
     </>

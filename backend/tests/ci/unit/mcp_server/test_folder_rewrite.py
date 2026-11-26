@@ -38,15 +38,23 @@ class TestRewriteFolderFileDispatch:
             case_id=399,
         )
         assert out["applied"] is True
-        _path, kwargs = fake_client.post.call_args
+        args, kwargs = fake_client.post.call_args
         payload = kwargs["json"]
-        assert payload["case_id"] == 399
-        # 反向键绝不出现：case_id 被当 contract_id 发出去就是写错文件
+        # 端点也必须盯住：还挂在 `/contract-review/direct-edit/apply` 就等于
+        # 继续依赖那个即将移除的 app
+        assert args[0] == "/doc-workspace/apply"
+        # 2026-11-26：端点从 `/contract-review/direct-edit/apply` 换成
+        # `/doc-workspace/apply`，载荷也随之从 contract_id/case_id 变成
+        # kind + owner_id（新端点还要 base_mtime 做乐观锁）。
+        assert payload["kind"] == "case"
+        assert payload["owner_id"] == 399
+        # 反向键绝不出现：把 case 的文件当 contract 发出去就是写错文件
         assert "contract_id" not in payload
+        assert "case_id" not in payload
         assert payload["selection"] == "请求判令被告支付货款"
         assert payload["suggested"] == "请求判令被告立即支付全部货款"
 
-    def test_contract_id_only_keeps_legacy_shape(self, fake_client: Any) -> None:
+    def test_contract_id_only_sends_contract_kind(self, fake_client: Any) -> None:
         from mcp_server.tools.contracts.folder_rewrite import rewrite_folder_file
 
         rewrite_folder_file(
@@ -55,10 +63,13 @@ class TestRewriteFolderFileDispatch:
             replacement="新文本",
             contract_id=318,
         )
-        _path, kwargs = fake_client.post.call_args
+        args, kwargs = fake_client.post.call_args
         payload = kwargs["json"]
-        assert payload["contract_id"] == 318
+        assert args[0] == "/doc-workspace/apply"
+        assert payload["kind"] == "contract"
+        assert payload["owner_id"] == 318
         assert "case_id" not in payload
+        assert "contract_id" not in payload
 
     def test_both_ids_rejected_without_request(self, fake_client: Any) -> None:
         from mcp_server.tools.contracts.folder_rewrite import rewrite_folder_file

@@ -101,3 +101,19 @@ class CaseTemplateBindingRepo:
             .values_list("legal_status", flat=True)
             .distinct()
         )
+
+    def get_our_legal_statuses_by_case_id(self, case_id: int) -> list[str]:
+        """同上，但只按 id 取。
+
+        为什么需要这个重载：调用方（`doc_workspace.services.draft_by_type`）处在 service 层，
+        手里只有 `CaseDTO`，**没有** ORM 的 `case.parties` 管理器。按四层约束它不能自己去
+        拿 Model，所以把「按 id 查」这件事留在 repo（本模块就是 ORM 边界）。
+        """
+        from apps.cases.models.party import CaseParty
+
+        return list(
+            CaseParty.objects.filter(case_id=case_id, client__is_our_client=True)
+            .exclude(legal_status="")
+            .values_list("legal_status", flat=True)
+            .distinct()
+        )

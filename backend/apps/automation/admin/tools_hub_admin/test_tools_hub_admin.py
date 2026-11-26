@@ -42,6 +42,13 @@ class TestToolsHubAdmin(admin.ModelAdmin):  # pragma: no cover
             '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>'
             '<path d="M21 3v5h-5"/></svg>'
         )
+        icon_history = (
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+            ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            '<path d="M3 3v5h5"/>'
+            '<path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/>'
+            '<path d="M12 7v5l4 2"/></svg>'
+        )
 
         test_tools: list[Any] = [
             {
@@ -50,6 +57,22 @@ class TestToolsHubAdmin(admin.ModelAdmin):  # pragma: no cover
                 "url": "image_rotation_imagerotationtool_changelist",
                 "icon": icon_rotate,
                 "color": "info",
+                "cta": "进入测试",
+            },
+            # 文档快照：合同/案件文件每次被**覆盖之前**的旧内容都在这里。
+            # 从主菜单收进「其他工具」的理由：它不是日常操作入口，是「改坏了来这一版」的
+            # 兜底页——放在主菜单里只会增加噪声，但必须**找得到**，否则等于没有版本历史。
+            {
+                "name": "文档快照",
+                "description": (
+                    "合同/案件文件每次被覆盖前自动存一份完整旧内容"
+                    "（编辑器保存、AI 直改、审查落笔、回滚各一种原因），"
+                    "可回滚到任意一版；快照只追加，不可编辑也不可删"
+                ),
+                "url": "doc_workspace_docsnapshot_changelist",
+                "icon": icon_history,
+                "color": "secondary",
+                "cta": "查看版本历史",
             },
         ]
 

@@ -231,7 +231,12 @@ class TestResultFor:
 
 
 class TestMcp:
-    def test_headers_carry_three_keys(self) -> None:
+    def test_headers_carry_three_keys(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # 必须把「端口是否在听」钉死：``_mcp`` 会真探 127.0.0.1:8011（``port_open``），
+        # CI runner 上没有共享 MCP 在听，不打桩这条用例在 CI 必红（本地开发机常驻 MCP，
+        # 所以本地一直绿——这就是它「只在 CI 红」的原因）。同 test_antigravity_backend.py 的写法。
+        monkeypatch.setattr(mod, "port_open", lambda *_a, **_k: True)
+        monkeypatch.setattr(mod, "shared_enabled", lambda: True)
         url, headers = mod.ClineBackend()._mcp(_ctx(), "sess-1")
         assert url and url.endswith("/mcp")
         assert headers["Authorization"] == "Bearer tok"

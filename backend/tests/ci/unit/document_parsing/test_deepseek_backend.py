@@ -28,6 +28,12 @@ _RICH_PAGE = (
 )
 #: 整页就是一张图的形态（rich 模式对「照片页」的如实自述）。
 _IMAGE_ONLY = "<\uff5cref\uff5c>image<\uff5c/ref\uff5c><\uff5cbox\uff5c>[[0,0,999,999]]<\uff5c/box\uff5c>"
+#: 同一页里既有表格（正文是 HTML）又有整页图：剥版面标记时必须留住 `<table>`，
+#: 否则下游 `parse_table` 拿不到输入，整张表被铲成一行纯文本。
+_RICH_PAGE_WITH_TABLE = (
+    "<\uff5cref\uff5c>table<\uff5c/ref\uff5c><\uff5cbox\uff5c>[[50,100,950,400]]<\uff5c/box\uff5c>"
+    '<table border="1"><tr><td>甲方</td><td>乙方</td></tr></table>' + _IMAGE_ONLY
+)
 
 
 def _payload(pages: list[tuple[int, str, str]], usage: dict | None = None) -> dict[str, Any]:
@@ -130,6 +136,26 @@ class TestParseDocument:
         assert result.metadata["repaired_pages"] == [1]
         assert result.layout["pages"][0]["text"] == "重试后读出来的正文"
 
+    def test_顶层text剥掉版面标记但保留表格HTML(self, tmp_path: Any) -> None:
+        """非 pdf_splitting 调用方只读 `parsed.text`：那里不能出现裸标记。"""
+        backend = _StubBackend([_payload([(0, _RICH_PAGE_WITH_TABLE, "stop")])])
+
+        result = backend.parse_document(str(_make_pdf(tmp_path)))
+
+        assert "\uff5cref\uff5c" not in result.text
+        assert "[[" not in result.text
+        assert "<table" in result.text
+
+    def test_text模式正文保持不变(self, tmp_path: Any) -> None:
+        """text 模式本来就没有版面标记：顶层 text 必须仍是「逐页原文 + 空行分隔」。"""
+        table_html = '<table border="1"><tr><td>A</td><td>B</td></tr></table>'
+        backend = _StubBackend([_payload([(0, "第一页正文", "stop"), (1, table_html, "stop")])])
+
+        result = backend.parse_document(str(_make_pdf(tmp_path)))
+
+        assert result.text == f"第一页正文\n\n{table_html}"
+        assert [page["text"] for page in result.layout["pages"]] == ["第一页正文", table_html]
+
     def test_未配置Key时报可读错误(self, tmp_path: Any) -> None:
         backend = DeepSeekOCRBackend(api_key="", api_url="https://example.invalid/ocr")
         # _config 会去读 SystemConfig（要 DB）；本用例刻意不碰数据库，直接给它空值。
@@ -138,7 +164,7 @@ class TestParseDocument:
                 backend.parse_document(str(_make_pdf(tmp_path)))
 
     def test_文件过大时提前报可操作原因(self, tmp_path: Any) -> None:
-        backend = DeepSeekOCRBackend(api_key="test-key", api_url="https://example.invalid/ocr")  # pragma: allowlist secret
+        backend = DeepSeekOCRBackend(api_key="test-key", api_url="https://e.invalid")  # pragma: allowlist secret
         big = tmp_path / "big.pdf"
         big.write_bytes(b"0" * (50 * 1024 * 1024))
 
@@ -156,6 +182,22 @@ class TestRichBlocks:
 
     def test_没有标记的正文不造块(self) -> None:
         assert _parse_rich_blocks("普通正文，没有标记") == []
+
+    def test_image块没有正文也入块并保留bbox(self) -> None:
+        """`page_quality.rescue_image_region` 的触发条件就是「image + 空 text + 有 bbox」：
+        空 body 就丢等于把图片页补救整条废掉（实测 4/4 image 块全被丢）。"""
+        blocks = _parse_rich_blocks(_IMAGE_ONLY)
+
+        assert len(blocks) == 1
+        assert blocks[0]["type"] == "image"
+        assert blocks[0]["text"] == ""
+        assert blocks[0]["bbox"] == [0.0, 0.0, 999.0, 999.0]
+
+    def test_非image块没有正文仍然丢弃(self) -> None:
+        """只对 image 放行空 body：没有正文的 title/text 块进版面只会造成空块。"""
+        empty_title = "<\uff5cref\uff5c>title<\uff5c/ref\uff5c><\uff5cbox\uff5c>[[10,10,20,20]]<\uff5c/box\uff5c>"
+
+        assert _parse_rich_blocks(empty_title) == []
 
 
 class TestRegistryAndAvailability:

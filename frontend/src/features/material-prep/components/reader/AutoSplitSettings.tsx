@@ -7,8 +7,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import type { SegmentStrategy } from '../../types'
 import { CheckItem } from './CheckItem'
 import { PickItem } from './PickItem'
+import { costBadges, SPLIT_TIERS, tierOf, type SplitTierId } from './split-plan'
 import {
   CLOUD_ENGINES,
   cloudEngineLabel,
@@ -56,6 +58,11 @@ export function AutoSplitSettings({
   onToggleCloudEngine,
   onClearCrossCheck,
   onResetSegments,
+  segmentStrategy,
+  onSegmentStrategyChange,
+  judgeOn,
+  onToggleJudge,
+  onApplyTier,
 }: {
   /** 识别进行中禁用：不能改正在跑的策略 */
   disabled: boolean
@@ -66,7 +73,16 @@ export function AutoSplitSettings({
   /** 一键关闭交叉比对（回到自动容灾）；选择随包保存 */
   onClearCrossCheck: () => void
   onResetSegments: () => void
+  /** 分段策略：决定分段 LLM 调用次数（wholebook_cross 翻倍） */
+  segmentStrategy: SegmentStrategy
+  onSegmentStrategyChange: (s: SegmentStrategy) => void
+  /** 分歧自动裁定：只在 ≥2 个可比对引擎时有事可做 */
+  judgeOn: boolean
+  onToggleJudge: () => void
+  /** 应用一档成本预设（一次性设引擎 / 分段策略 / 判定） */
+  onApplyTier: (id: SplitTierId) => void
 }) {
+  const activeTier = tierOf({ engines: cloudSelection, segmentStrategy, judge: judgeOn })
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -80,7 +96,28 @@ export function AutoSplitSettings({
           <ChevronDown className="h-3.5 w-3.5" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[280px]">
+      <DropdownMenuContent align="end" className="min-w-[300px]">
+        {/* ── 简易：按成本选 ──
+            放在最上面是因为绝大多数律师只需要回答一个问题：「这一包值得花多少钱」。
+            每档都把两笔账分开写（取字几遍 / 分段几遍），合成一个"费用倍数"会误导。 */}
+        <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+          简易 · 按成本选
+          {activeTier === null && <span className="ml-1 text-[10.5px]">（已自定义）</span>}
+        </DropdownMenuLabel>
+        {SPLIT_TIERS.map((tier) => (
+          <PickItem
+            key={tier.id}
+            checked={activeTier === tier.id}
+            onSelect={() => onApplyTier(tier.id)}
+            label={`${tier.label} · ${costBadges(tier)}`}
+            hint={tier.hint}
+          />
+        ))}
+
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+          高级 · 逐项设置
+        </DropdownMenuLabel>
         <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
           版面策略（本包记住）
         </DropdownMenuLabel>
@@ -143,6 +180,51 @@ export function AutoSplitSettings({
         ) : (
           <p className="px-2 pb-1 pt-0.5 text-[11px] leading-4 text-muted-foreground">
             只勾一个 = 锁定该引擎，不比对 · 再勾一个可交叉比对
+          </p>
+        )}
+
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+          分段策略（本包记住）
+        </DropdownMenuLabel>
+        <PickItem
+          checked={segmentStrategy === 'batch'}
+          onSelect={() => onSegmentStrategyChange('batch')}
+          label="分批摘要"
+          hint="稳 · 大卷宗不会撞 LLM 超时 · 看得不全，可能把两份并成一份"
+        />
+        <PickItem
+          checked={segmentStrategy === 'wholebook'}
+          onSelect={() => onSegmentStrategyChange('wholebook')}
+          label="整本一次"
+          hint="边界更准 · 大卷宗可能超时，失败会自动退回分批"
+        />
+        <PickItem
+          checked={segmentStrategy === 'wholebook_cross'}
+          onSelect={() => onSegmentStrategyChange('wholebook_cross')}
+          label="两种都跑"
+          hint="最准 · 切法不一致的段标出来交人工 · 分段调用翻倍"
+        />
+
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+          分歧处理（本包记住）
+        </DropdownMenuLabel>
+        <CheckItem
+          checked={judgeOn}
+          onToggle={onToggleJudge}
+          label="分歧自动裁定"
+          hint={
+            judgeOn
+              ? '两个引擎读得不一样时打分裁定；判不了才进人工'
+              : '分歧全部进人工清单，不自动定任何一条'
+          }
+        />
+        {/* 判定只在双引擎分歧上跑：单引擎时开着也是空转。不偷偷关掉用户的开关，
+            但必须把这个后果说出来——否则「开了却没反应」会被当成坏了。 */}
+        {judgeOn && !crossChecks(cloudSelection) && (
+          <p className="px-2 pb-1 text-[11px] leading-4 text-muted-foreground">
+            当前只勾了不到两个可比对引擎：不会有分歧可判，这一项暂时是空转
           </p>
         )}
 

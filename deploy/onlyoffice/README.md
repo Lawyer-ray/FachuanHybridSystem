@@ -88,7 +88,8 @@ curl -s http://127.0.0.1:9980/healthcheck     # true
 |---|---|
 | `compose.yaml` | DS 编排（镜像 tag 锁版本、JWT、端口、字体挂载、回连宿主） |
 | `.env.example` | 密钥模板（`ONLYOFFICE_JWT_SECRET`），复制成 `.env` 后填值 |
-| `plugins/fachuan-rewrite/` | 法穿 AI 改写插件（幕后桥）：划词直改的选区通道 |
+| `plugins/fachuan-rewrite/` | 法穿 AI 改写插件（幕后桥）：选区 / 划词直改 / 批注 / 内核能力探测 |
+| （验证脚本在仓库根的 `scripts/verify_onlyoffice_*.py`） | 真机端到端验证：起假回调 + playwright 驱动画布，断言 docx 里的修订/批注 |
 | `README.md` | 本文件 |
 
 **不入库**：`.env`（真密钥）、`fonts/`（体积大 + 授权受限）。
@@ -121,6 +122,41 @@ git 里 `plugin.js` 是新的、`plugin.js.gz` 还是旧的，谁在别处部署
 
 真机踩过：`plugin.js` 已 17243 字节，下发的 `Content-Length` 仍是旧值 3899，
 于是 apply-revision 一直停在最脆的「精确子串匹配」层，AI 改完就降级成整页重载。
+
+### 坑三：改了仓库里的 `plugin.js` 但 DS 下发旧版 —— **挂载源是运行目录**
+
+`docker inspect onlyoffice` 会告诉你真相：
+
+```
+~/Downloads/Coding/AI/onlyoffice-dev/plugins/fachuan-rewrite
+  -> /var/www/onlyoffice/documentserver/sdkjs-plugins/fachuan-rewrite
+```
+
+所以改仓库文件**不会**生效，必须同步到运行目录并**删掉那边的旧 `.gz`**，再重启：
+
+```bash
+cp <repo>/deploy/onlyoffice/plugins/fachuan-rewrite/{plugin.js,config.json,index.html} \
+   <运行目录>/plugins/fachuan-rewrite/
+rm -f <运行目录>/plugins/fachuan-rewrite/*.gz
+docker restart onlyoffice
+
+# 验收：下发字节数 == 源文件字节数
+curl -s -o /dev/null -w '%{size_download}\n' \
+  http://127.0.0.1:9980/sdkjs-plugins/fachuan-rewrite/plugin.js
+wc -c < deploy/onlyoffice/plugins/fachuan-rewrite/plugin.js
+```
+
+### 坑四：`AddComment` 的 `Time` 必须是毫秒时间戳，否则**整份文档保存失败**
+
+DS 内核（`sdk-all.js` → `BinaryCommentsTableWriter.WriteComment`）做的是
+`new Date(comment.m_sTime - 0).toISOString()`；传 ISO 字符串会得到 `NaN`：
+
+```
+RangeError: Invalid time value  →  DoctRenderer:<result><error code="save" />
+```
+
+对外表现是回调 `status=3`（保存错误），律师侧看到「已保存」而实际什么都没写。
+**必须** `Time: Date.now()`。
 
 因此 `.gitignore` 已排除 `deploy/onlyoffice/plugins/*/*.gz`。**排查任何「改了插件没反应」，
 第一步都是核对实际下发的那一份**：

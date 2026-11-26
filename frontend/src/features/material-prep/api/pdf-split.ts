@@ -41,6 +41,16 @@ export async function createPdfSplitJob(
     cloudBackend?: CloudBackend
     /** ≥2 个引擎时才传：逗号分隔的全部所选引擎（含正主），后端据此另起比对 */
     dualEngines?: string | null
+    /**
+     * 分段策略：batch（分批摘要，稳）/ wholebook（整本一次，更准）/ wholebook_cross（两种都跑，分段调用翻倍）。
+     * 不传则由后端按系统默认（batch）处理。
+     */
+    segmentStrategy?: string
+    /**
+     * 分歧自动裁定：两个引擎读得不一样时打分裁定「哪一侧与图上的字相符」。
+     * 默认由后端取 true；**只在 ≥2 个可比对引擎时才有分歧可判**，单引擎下开着也是空转。
+     */
+    ocrJudgeEnabled?: boolean
   } = {},
 ): Promise<string> {
   const body = new FormData()
@@ -58,6 +68,10 @@ export async function createPdfSplitJob(
   // 交叉比对：≥2 个引擎时才有。独立字段而不是拼进 cloud_backend——
   // 后者只认单值，拼成逗号串会被后端当成未知值按 auto 处理，用户勾的引擎就白勾了。
   if (opts.dualEngines) body.append('dual_engines', opts.dualEngines)
+  // 这两项是**任务级选择**（按包记住），不是运维开关：分段策略决定分段 LLM 调用次数，
+  // 判定只在双引擎分歧上有事可做。不传时后端用自己的默认值（batch / 开）。
+  if (opts.segmentStrategy) body.append('segment_strategy', opts.segmentStrategy)
+  if (opts.ocrJudgeEnabled !== undefined) body.append('ocr_judge_enabled', opts.ocrJudgeEnabled ? '1' : '0')
   const result = await pdfSplitApi
     .post('jobs', { body, timeout: UPLOAD_TIMEOUT_MS })
     .json<PdfSplitJobSubmit>()

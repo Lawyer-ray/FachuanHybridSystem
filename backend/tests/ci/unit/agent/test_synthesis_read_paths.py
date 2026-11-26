@@ -27,7 +27,11 @@ from apps.agent.services.synthesis.kinds import SYNTHESIS_AGENT_KIND
 from apps.agent.services.synthesis.store import SYNTHESIS_AGENT_KIND as STORE_SYNTHESIS_AGENT_KIND
 from apps.organization.models import LawFirm, Lawyer
 
-pytestmark = pytest.mark.django_db
+# ``transaction=True`` 是隔离红线：建用户走 ``sync_to_async``（执行器线程 → 另一条连接），
+# 那里是 autocommit，``create_user`` 会真的提交进测试库；默认写法下这些 ``is_active=True``
+# 的 Lawyer 会一直留着，把后面 ``AuthService.is_first_user()`` 判成 False，连带
+# ``organization/test_registration_approval.py`` 的「首位用户」用例成批变红。
+pytestmark = pytest.mark.django_db(transaction=True)
 
 _TASK = "对方逾期付款，我方能否主张解除合同？"
 

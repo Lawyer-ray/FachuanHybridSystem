@@ -63,6 +63,17 @@ const ALLOWED_UNWIRED = new Map([
   // 示例格式（当前无条目，新增时照此写）：
   // ["scripts/check-foo.mjs", "依赖真实生产凭据，只能在发版机上手工跑"],
   [
+    "scripts/verify_onlyoffice_plugin_e2e.py",
+    "端到端验收：需要有真跑的 ONLYOFFICE Document Server 容器（OrbStack/Docker）+ 已下载的 chromium + playwright-core。CI 容器里没有 DS，也没有 100MB 浏览器；" +
+      "它验的是「插件内核 API 在 9.4 上到底存不存在」与「批注是否真的落进 comments.xml」——这两件事单测/mock 一律验不出来（本次就靠它抓到 AddComment 的 Time 必须是毫秒，传 ISO 会导致整份文档保存失败）。" +
+      "它不是「没人跑」：同一套语义的后端护栏（test_canvas_ack / test_write_service / test_write_multi）在 CI 里跑；本脚本在改动插件桥、DS 版本或保存链路时手工跑一次，输出贴进验收报告。",
+  ],
+  [
+    "scripts/verify_onlyoffice_scenario.py",
+    "端到端验收：同上，且要开两个浏览器页同开同一份文档（验 DS 协同是否收敛到同一份产物）。CI 无 DS、无浏览器；" +
+      "「同一 document key 才算协同」这条只有真开两页才能证伪。本脚本在改动 document key 计算 / 协同相关配置时手工跑一次。",
+  ],
+  [
     "scripts/verify_dsh_mcp.py",
     "端到端验收：需本机 node runtime + dsh home 里装好的 @deepseek-ai/dsh-mcp-client + 真启 dsh 子进程（冷启动数秒），CI 容器不具备且耗时远超单测。" +
       "它不是「没人跑」——依赖它的静态护栏 tests/ci/unit/agent/test_dsh_verify_assertion_sources.py 在 CI 里跑（守护脚本的断言来源不被生产静默）。" +

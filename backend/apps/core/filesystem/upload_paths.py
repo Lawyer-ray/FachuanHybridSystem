@@ -161,6 +161,9 @@ class MediaEntity:
     CONTRACT_REVIEW_OUTPUT = "contract_review/output"
     DOCUMENT_PARSING_UPLOADS = "document_parsing/uploads"
     PDF_SPLITTING = "pdf_splitting"
+    # 文档工作面的版本快照：内容寻址（`{sha256[:2]}/{sha256}.docx`），
+    # **不进绑定文件夹**——律师要看到的是干净的目录树，历史留底在 MEDIA 下。
+    DOC_SNAPSHOTS = "doc_snapshots"
     DOC_CONVERTER_SOURCE = "doc_converter_source"
     DOC_CONVERTER_OUTPUT = "doc_converter_output"
     DOC_CONVERTER_ZIP = "doc_converter_zip"

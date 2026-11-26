@@ -44,7 +44,13 @@ from apps.document_parsing.services.backends._page_artifacts import (
     strip_markdown_emphasis,
 )
 from apps.document_parsing.services.block_builder import attach_blocks
-from apps.document_parsing.services.credential_pool import CredentialPool, get_credential_pool
+from apps.document_parsing.services.credential_pool import (
+    REASON_AUTH,
+    CredentialPool,
+    failure_reason_of_active_exception,
+    get_credential_pool,
+    pages_from_metadata,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +100,7 @@ class TextinBackend:
             provider: DocumentParseProvider 实例；不传时按类型自动选择优先级最高的启用平台。
         """
         if app_id and secret_code:
-            # 显式覆盖：单凭证直用
+            # 显式覆盖：单凭证直用。无平台归属 → 池是纯进程内状态（不读写跨进程账本）
             self._pool: CredentialPool = CredentialPool([f"{app_id}|{secret_code}"], 0)
             provider_name = "__explicit_textin"
         else:
@@ -181,7 +187,8 @@ class TextinBackend:
         credential = self._pool.credentials[idx]
         pair = DocumentParseProvider.split_textin_credential(credential)
         if pair is None:
-            self._pool.release(idx, success=False)
+            # 凭证本身坏了（不是平台抖动）：按 auth 长冷却，否则每 30s 会重试同一把废凭证
+            self._pool.release(idx, success=False, reason=REASON_AUTH)
             raise TextinAPIError(f"TextinParse 凭证格式不合法（应为 app_id|secret_code）: {credential!r}")
         app_id, secret_code = pair
 
@@ -193,6 +200,8 @@ class TextinBackend:
             callback_url = ""
 
         success = False
+        # 配额记账口径是「本次实际处理了多少页」，同步路径解析完才知道，回调路径不知道就记 0
+        pages = 0
         self._client = self._build_client(app_id, secret_code)
         try:
             # 1. 创建异步解析任务（带回调时由云端完成后推送结果）
@@ -220,6 +229,7 @@ class TextinBackend:
                 return_markdown=return_markdown,
                 extract_images=extract_images,
             )
+            pages = pages_from_metadata(parsed.metadata)
 
             duration = time.time() - start_time
             logger.info(
@@ -242,7 +252,14 @@ class TextinBackend:
             raise TextinAPIError(f"TextinParse 解析失败: {e}") from e
         finally:
             self._client = None
-            self._pool.release(idx, success=success)
+            # 失败档位按真实异常判定（401/403→auth，429/额度→quota，其余→transient）：
+            # 额度耗尽的凭证必须冷却到下一个重置点，不能被当成「等 30s 就好」。
+            self._pool.release(
+                idx,
+                success=success,
+                reason=failure_reason_of_active_exception(),
+                pages=pages,
+            )
 
     def extract_text(
         self,
@@ -350,7 +367,8 @@ class TextinBackend:
             raise TextinAPIError("TextinParse 所有凭证仍在失败冷却中，请稍后重试")
         pair = DocumentParseProvider.split_textin_credential(self._pool.credentials[idx])
         if pair is None:
-            self._pool.release(idx, success=False)
+            # 凭证本身坏了（不是平台抖动）：按 auth 长冷却，否则每 30s 会重试同一把废凭证
+            self._pool.release(idx, success=False, reason=REASON_AUTH)
             raise TextinAPIError("TextinParse 凭证格式不合法（应为 app_id|secret_code）")
 
         success = False
@@ -361,7 +379,8 @@ class TextinBackend:
             return result
         finally:
             self._client = None
-            self._pool.release(idx, success=success)
+            # 回查不额外计入页数：页数在 parse_document 提交并解析结果时已经记过，重复记会双算额度
+            self._pool.release(idx, success=success, reason=failure_reason_of_active_exception())
 
     # ── 内部方法 ──────────────────────────────────────────────
 

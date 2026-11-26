@@ -8,9 +8,6 @@
     #changelist-form input[type="submit"][name="_save"],
     #changelist-form .submit-row { display: none !important; }
 
-    /* 隐藏过滤器 */
-    #changelist-filter { display: none !important; }
-
     /* 让内容区域占满宽度（覆盖 Django changelists.css 的 :has() 约束） */
     #changelist .changelist-form-container > div { max-width: 100% !important; }
 
@@ -164,6 +161,8 @@
     {# 不渲染默认 add 入口：配置由代码/平台页定义，手敲 key 无消费方，隐去避免误造无效配置 #}
 {% endblock %}
 
+{% block pagination %}{# 列表按分组全量渲染（数据来自 changelist.queryset），分页器只会计错数，直接不渲染 #}{% endblock %}
+
 {% block result_list %}
 <div class="config-groups">
     {% for group in grouped_configs %}
@@ -174,29 +173,29 @@
             <span class="toggle-icon">▶</span>
         </div>
         <div class="config-group-content">
-            {% for config in group.configs %}
+            {% for row in group.rows %}
             <div class="config-item">
                 <div style="flex: 1; min-width: 0;">
                     <div class="item-key">
-                        {{ config.key }}
-                        {% if config.is_secret %}<span class="secret-badge">敏感</span>{% endif %}
-                        {% if not config.is_active %}<span class="inactive-badge">已禁用</span>{% endif %}
+                        {{ row.config.key }}
+                        {% if row.config.is_secret %}<span class="secret-badge">敏感</span>{% endif %}
+                        {% if not row.config.is_active %}<span class="inactive-badge">已禁用</span>{% endif %}
                     </div>
-                    {% if config.description %}
-                    <div class="item-desc">{{ config.description }}</div>
+                    {% if row.config.description %}
+                    <div class="item-desc">{{ row.config.description }}</div>
                     {% endif %}
                 </div>
-                <div class="item-value">
-                    {% if not config.value %}
+                <div class="item-value"{% if row.value_title %} title="{{ row.value_title }}"{% endif %}>
+                    {% if not row.value_text %}
                         <span class="not-set">未设置</span>
-                    {% elif config.is_secret %}
-                        <span class="secret-mask">••••••••</span>
+                    {% elif row.config.is_secret %}
+                        <span class="secret-mask">{{ row.value_text }}</span>
                     {% else %}
-                        {{ config.value|truncatechars:50 }}
+                        {{ row.value_text }}
                     {% endif %}
                 </div>
                 <div class="item-actions">
-                    <a href="{% url 'admin:core_systemconfig_change' config.pk %}" class="edit-link">编辑</a>
+                    <a href="{% url 'admin:core_systemconfig_change' row.config.pk %}" class="edit-link">编辑</a>
                 </div>
             </div>
             {% endfor %}

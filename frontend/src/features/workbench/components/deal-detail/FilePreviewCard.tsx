@@ -5,10 +5,11 @@ import { toast } from 'sonner'
 import { OfficeView, type OfficeEditorHandle, type PluginBridgeMessage } from '@/components/shared/onlyoffice/OfficeView'
 import { prefillCopilot, quoteCopilot } from '@/features/copilot/launch'
 import { formatBytes } from '@/lib/format'
-import type { FolderOwnerKind } from '../../api'
+import { folderFileUrl, type FolderOwnerKind } from '../../api'
 import { FileKindChip } from './FileKindBadge'
 import { canSaveAs } from './use-save-as'
 import { useFolderSave } from './use-folder-save'
+import { useCanvasPresence } from './use-canvas-presence'
 import { useLiveRewriteApply } from './use-live-rewrite-apply'
 import { useFileRewriteNonce } from './use-rewrite-refresh'
 
@@ -52,7 +53,11 @@ export function FilePreviewCard({
   const liveApply = useLiveRewriteApply({
     enabled: isDocx,
     key: `${kind}:${ownerId}:${file.subpath}`,
+    // 就地落笔成功后要拿它登记「画布已同步」，口径与签配置的 file_url 逐字一致
+    fileUrl: folderFileUrl(kind, ownerId, file.subpath),
   })
+  // 告诉后端「这份文件的画布开着」：AI 写完盘据此决定要不要下发画布重放
+  useCanvasPresence(kind, ownerId, file.subpath, isDocx)
 
   /** 编辑器句柄：保存时用 downloadAs 取当前内容 */
   const editorRef = useRef<OfficeEditorHandle | null>(null)

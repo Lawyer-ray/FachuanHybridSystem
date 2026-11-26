@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
+import { getCanvasState } from '@/components/shared/onlyoffice/api'
 import { downloadUrl } from '@/lib/download'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
@@ -74,6 +75,39 @@ export function useFolderSave({
   const fileUrl = folderFileUrl(kind, ownerId, file.subpath)
   const [busy, setBusy] = useState<FolderSaveBusy>(null)
   const [downloading, setDownloading] = useState(false)
+  /**
+   * 已提示过的「保存被丢弃」时间戳（去重）。
+   *
+   * 为什么必须去重：`dropped_at` 是**持久信号**，直到画布重新打开（或就地落笔
+   * 成功 ack）才清。不去重的话，律师每按一次 ⌘S 就弹一次同一个错。
+   */
+  const warnedDropRef = useRef<string | null>('__unset__')
+
+  /**
+   * 保存之后查一次：这次保存到底有没有落盘。
+   *
+   * **为什么必须查**：过期画布的保存会被后端主动丢弃，但应答仍是 `error:0`
+   * （不让 DS 无限重试同一份旧内容）。不查的话，律师看到的是「已提交保存」，
+   * 而那一次编辑已经永久丢失——这是最坏的一类数据事故：静默。
+   *
+   * 判据用 `dropped_at` 而不是 `stale`：回调可能还没跑完，此时 `stale` 仍为
+   * true 属正常在途状态，拿它报警就是误报。`dropped_at` 只在真的丢过一次时出现。
+   */
+  const verifySaveLanded = useCallback(() => {
+    void getCanvasState(fileUrl)
+      .then((s) => {
+        if (!s.dropped_at) return
+        if (warnedDropRef.current === s.dropped_at) return
+        warnedDropRef.current = s.dropped_at
+        toast.error('本次保存已被丢弃，内容没有写入文件', {
+          description: s.reason || '文档已被 AI 改写，请关闭文档重新打开后再编辑',
+          duration: 12000,
+        })
+      })
+      .catch(() => {
+        /* 查不到状态不打扰律师：保存主链路的结果不受它影响 */
+      })
+  }, [fileUrl])
 
   const save = useCallback(() => {
     if (busy !== null || !canSave) return
@@ -88,11 +122,13 @@ export function useFolderSave({
       window.setTimeout(() => {
         void qc.invalidateQueries({ queryKey: workbenchKeys.folderEntries(kind, ownerId) })
         onSaved?.()
+        // 同一时刻查「到底有没有落盘」：失败时给律师一个明确的错，不是假成功
+        verifySaveLanded()
       }, 2500)
     } finally {
       setBusy(null)
     }
-  }, [busy, canSave, requestSave, onSaved, qc, kind, ownerId])
+  }, [busy, canSave, requestSave, onSaved, qc, kind, ownerId, verifySaveLanded])
 
   /** 另存为：登记意图 → forcesave（登记失败不保存，否则会把原稿覆盖） */
   const runSaveAs = useSaveAs({

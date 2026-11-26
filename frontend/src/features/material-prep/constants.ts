@@ -82,5 +82,11 @@ export const PACK_LEAVE_REMOVAL_MS = 540
  * 返回新对象：每次建草稿都拿自己的数组，避免多个包共享同一份可变选择集。
  */
 export function defaultRecognition(): RecognitionPrefs {
-  return { layoutMode: 'fast_text', engines: ['mineru', 'paddleocr_vl'] }
+  return {
+    layoutMode: 'fast_text',
+    engines: ['mineru', 'paddleocr_vl'],
+    // 分段策略与判定都按包持久化：前者决定分段 LLM 调用次数，后者只在双引擎下有分歧可判。
+    segmentStrategy: 'batch',
+    judge: true,
+  }
 }

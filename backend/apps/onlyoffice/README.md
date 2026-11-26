@@ -135,6 +135,23 @@ DS 回调实际走 `load_session_by_key()` **从库里重新取**，取到的已
 数据模型见 `models.py`（`EditorSession`：一个「用户 × 业务文档」的绑定）。`task_id` 用 UUID
 弱引用而非外键——onlyoffice 不硬依赖 `contract_review` 的模型层。
 
+### AI 就地落笔之后必须登记「画布已同步」（canvas-ack）
+
+**这条不调，律师的编辑会被静默丢弃。** 完整链条：
+
+1. 打开文档 → `canvas_seq = N`；
+2. AI 直改落盘 → `external_write_seq = N+1`，**故意不动 `canvas_seq`**（一起涨会让
+   stale 判据恒假，见上文「为什么不能用单个字段」）；
+3. 插件把修订**就地**落进画布（免整页重载）→ 前端**不重载**；
+4. 律师继续手改 → 保存 → 被判「旧画布」丢弃，且为不让 DS 重试仍回 `{"error": 0}`。
+
+第 3 步结束时画布和磁盘其实已经一致，只是没人告诉后端。所以插件回执 `ok` 之后，
+前端**必须**调 `POST /canvas-ack` 把 `canvas_seq` 单向上对齐；ack 失败按「就地落笔失败」
+处理 → 降级换 key 重载（慢但正确）。另配 `GET /canvas-state` 让前端在保存后核实
+「到底有没有落盘」，把丢弃说给律师听（`EditorSession.last_save_dropped_at`）。
+
+复现与修复记录：[`docs/analysis/onlyoffice-ai-2026-11-26/repro-p0-canvas-drop.md`](../../../docs/analysis/onlyoffice-ai-2026-11-26/repro-p0-canvas-drop.md)
+
 ## 二、配置项
 
 三项，全部走 `SystemConfig`（key 前缀 `ONLYOFFICE_`）→ `settings` → 环境变量三级回落，
@@ -290,6 +307,34 @@ ls ~/Downloads/Coding/AI/onlyoffice-dev/fonts/  # 宿主侧清单
 **授权红线**：`fonts/` 里的商业字体（汉仪旗黑 / 阿里普惠体 / 抖音美好体 / 华康）**仅限本机开发调试**。
 交付律所服务器**不能直接拷贝**，必须换开源字体（思源宋体/黑体、Noto Sans/Serif CJK）或采购授权。
 
+## 七·五、插件桥的三种能力（改写 / 批注 / 能力探测）
+
+`deploy/onlyoffice/plugins/fachuan-rewrite/`（幕后桥，无 UI）在 9.4.0.1 上实测可用：
+
+| action | 用途 | 回执 type |
+|---|---|---|
+| `apply-revision` | `SetAssistantTrackRevisions(true,"法穿AI")` → 定位 → `ReplaceTextSmart` | `applied` |
+| `add-comments` / `get-comments` | `AddComment({UserName, QuoteText, Text, Time})`（**Time 必须是毫秒时间戳**）/ `GetAllComments` | `commented` / `comments` |
+| `capabilities` | 内核 `typeof` 探测（`assistantTrackRevisions` / `contentControl`…） | `capabilities` |
+
+三条真机结论（证据：[`ds94-capability-probe.md`](../../../docs/analysis/onlyoffice-ai-2026-11-26/ds94-capability-probe.md)）：
+
+1. **`SetAssistantTrackRevisions` 在 9.4 存在**（压缩包 grep 命中 0 次，但运行时 `typeof` 是 function）——
+   AI 修订能单独署名，实测修订作者 `法穿AI` ≠ 登录用户；
+2. **内容控件不可用**（`AddContentControl` / `CreateDatePickerContentControl` / `SetFormsData` 全 false）→
+   起草槽位只能走 docxtpl 占位符 + 未决项批注；
+3. **`AddComment` 的 `Time` 传 ISO 字符串会让整份文档保存失败**（`RangeError: Invalid time value`，
+   回调 status=3）——DS 内核做 `new Date(m_sTime - 0)`，必须传毫秒数。
+
+真机验证脚本（放在 `scripts/verify_*` 下：仓库只允许验证脚本直接 print，库代码必须走 logger）：
+
+```bash
+cd backend
+# 从仓库根跑；两个脚本会自己起假回调 + playwright 驱动画布 + 断言 docx 字节
+DB_NAME=fachuan_dev backend/.venv/bin/python scripts/verify_onlyoffice_plugin_e2e.py   # 批注 + AI 署名
+DB_NAME=fachuan_dev backend/.venv/bin/python scripts/verify_onlyoffice_scenario.py     # 两页同开协同
+```
+
 ## 八、已知坑
 
 | 坑 | 原因 / 处置 |
@@ -370,6 +415,8 @@ onlyoffice/
 | GET | `/editor-config` | JWT/Session | 按文件签发已签名 config（`file_url` / `file_name` / `mode` / `version`） |
 | POST | `/callback` | DS 回调签名 | DS 状态回调；status=2/6 落盘并轮换 key |
 | GET | `/file` | HMAC 签名 | DS 回源取文件代理（`?src=&sig=`，可重复访问） |
+| GET | `/canvas-state` | JWT/Session | 该文件上当前用户的画布是否落后于磁盘 + 最近一次「保存被丢弃」时间 |
+| POST | `/canvas-ack` | JWT/Session | 登记「这份画布已与磁盘一致」（插件落笔成功后调） |
 
 > `/editor-config` 与 `/file` 的路径白名单由 `services/domain_registry.py` 的业务域
 > 注册表决定：`contract_review`（复审产物）、`contract_folder`（合同绑定文件夹）、

@@ -64,8 +64,38 @@ export interface OfficeEditorHandle {
    * 返回是否成功点到按钮（编辑器未就绪或 DOM 结构变化时返回 false）。
    */
   requestSave: () => boolean
-  /** 向文档内核发一条命令（划词直改走这条路，协议见 deploy/onlyoffice/plugins 里 plugin.js） */
+  /**
+   * 向文档内核发一条命令（协议见 deploy/onlyoffice/plugins 里 plugin.js）。
+   *
+   * 可用 action：`get-selection` / `insert-revision` / `locate` / `apply-revision` /
+   * `accept-all` / `reject-all` / `add-comments` / `get-comments` / `capabilities`。
+   * 回执统一从 `onPluginMessage` 回来（类型见 `PluginBridgeMessage`）。
+   */
   sendToPlugin: (action: string, text?: string, payload?: Record<string, unknown>) => void
+}
+
+/** 批注回执里单条的定位结果 */
+export interface PluginCommentResult {
+  index: number
+  ok: boolean
+  reason?: string
+  commentId?: string
+}
+
+/** 画布内已经存在的批注（`GetAllComments` 的归一化形态） */
+export interface PluginComment {
+  commentId: string
+  quote: string
+  text: string
+  userName: string
+  solved: boolean
+}
+
+/** 内核能力探测回执（决定「AI 署名分离」等分支走哪条路，不靠猜） */
+export interface PluginCapabilities {
+  assistantTrackRevisions?: boolean
+  trackRevisions?: boolean
+  contentControl?: boolean
 }
 
 /** 插件桥回传的消息（口径与 plugin.js 的 post({type:...}) 完全一致） */
@@ -75,6 +105,9 @@ export type PluginBridgeMessage =
   | { type: 'inserted'; text?: string; error?: string }
   | { type: 'located'; found?: boolean; result?: { ok: boolean } }
   | { type: 'applied'; result?: { ok: boolean; reason?: string; how?: string } }
+  | { type: 'commented'; result?: { ok: boolean; reason?: string; results?: PluginCommentResult[] } }
+  | { type: 'comments'; result?: { ok: boolean; reason?: string; comments?: PluginComment[] } }
+  | { type: 'capabilities'; result?: PluginCapabilities & { ok?: boolean } }
   | { type: 'done'; error?: string }
   | { type: 'hello'; editorType?: string; supported?: boolean }
 

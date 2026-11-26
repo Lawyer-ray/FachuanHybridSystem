@@ -36,6 +36,10 @@ class SystemConfig(models.Model):
         DOCUMENT_PARSING = "document_parsing", "文档解析配置"
         EMAIL = "email", "邮件配置"
         CLOUD_STORAGE = "cloud_storage", "云存储配置"
+        # OnlyOffice：0036 加过、0038（删 docspace 时整份重写 choices）误删过一次，
+        # 导致 3 条 ONLYOFFICE_* 活配置在 admin 列表页隐形、编辑页分类下拉里也没有当前值。
+        # 0042 恢复；改动 choices 时请勿整份复制旧列表。
+        ONLYOFFICE = "onlyoffice", "OnlyOffice 编辑器配置"
         GENERAL = "general", "通用配置"
         # 社交登录配置已独立为 SocialAuthProvider 表（apps/social_auth），
         # 不再作为本模型的分类

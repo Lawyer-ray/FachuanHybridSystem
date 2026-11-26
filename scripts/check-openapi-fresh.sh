@@ -106,9 +106,47 @@ if exclude:
     fs = cs = fs & cs
 added_paths, removed_paths = sorted(fp - cp), sorted(cp - fp)
 added_schemas, removed_schemas = sorted(fs - cs), sorted(cs - fs)
-drift = bool(added_paths or removed_paths or added_schemas or removed_schemas)
 
-print(f"{'DRIFT' if drift else 'OK'}\t{len(added_paths)}\t{len(removed_paths)}\t{len(added_schemas)}\t{len(removed_schemas)}\t{len(fp)}")
+# 字段级漂移：只比「路径名 + schema 名」会漏掉**同一 schema 里新增/删除/改类型的字段**。
+# 2026-11-26 实测：给 DocFindingOut 加了 case_ref，这条护栏报「一致」——而前端拿到的
+# 类型里根本没有那个字段。字段漂移恰恰是最难查的一类（TS 相信生成物）。
+FIELDS_ADDED: list[str] = []
+FIELDS_REMOVED: list[str] = []
+FIELDS_CHANGED: list[str] = []
+fresh_schemas = fresh.get("components", {}).get("schemas", {})
+committed_schemas = committed.get("components", {}).get("schemas", {})
+for name in sorted(fs & cs):
+    fresh_props = (fresh_schemas.get(name) or {}).get("properties") or {}
+    committed_props = (committed_schemas.get(name) or {}).get("properties") or {}
+    for field in sorted(set(fresh_props) - set(committed_props)):
+        FIELDS_ADDED.append(f"{name}.{field}")
+    for field in sorted(set(committed_props) - set(fresh_props)):
+        FIELDS_REMOVED.append(f"{name}.{field}")
+    for field in sorted(set(fresh_props) & set(committed_props)):
+        if fresh_props[field] != committed_props[field]:
+            FIELDS_CHANGED.append(f"{name}.{field}")
+
+drift = bool(
+    added_paths
+    or removed_paths
+    or added_schemas
+    or removed_schemas
+    or FIELDS_ADDED
+    or FIELDS_REMOVED
+    or FIELDS_CHANGED
+)
+
+print(
+    f"{'DRIFT' if drift else 'OK'}\t{len(added_paths)}\t{len(removed_paths)}\t"
+    f"{len(added_schemas)}\t{len(removed_schemas)}\t{len(fp)}\t"
+    f"{len(FIELDS_ADDED)}\t{len(FIELDS_REMOVED)}\t{len(FIELDS_CHANGED)}"
+)
+for item in FIELDS_ADDED[:20]:
+    print(f"ADD_FIELD\t{item}")
+for item in FIELDS_REMOVED[:20]:
+    print(f"DEL_FIELD\t{item}")
+for item in FIELDS_CHANGED[:20]:
+    print(f"CHG_FIELD\t{item}")
 for path in added_paths[:20]:
     print(f"ADD_PATH\t{path}")
 for path in removed_paths[:20]:
@@ -126,10 +164,13 @@ DEL_PATHS="$(printf '%s' "$SUMMARY" | head -1 | cut -f3)"
 ADD_SCHEMAS="$(printf '%s' "$SUMMARY" | head -1 | cut -f4)"
 DEL_SCHEMAS="$(printf '%s' "$SUMMARY" | head -1 | cut -f5)"
 TOTAL_PATHS="$(printf '%s' "$SUMMARY" | head -1 | cut -f6)"
+ADD_FIELDS="$(printf '%s' "$SUMMARY" | head -1 | cut -f7)"
+DEL_FIELDS="$(printf '%s' "$SUMMARY" | head -1 | cut -f8)"
+CHG_FIELDS="$(printf '%s' "$SUMMARY" | head -1 | cut -f9)"
 
 if [ "$MODE" = "json" ]; then
-  printf '{"status":"%s","added_paths":%s,"removed_paths":%s,"added_schemas":%s,"removed_schemas":%s,"total_paths":%s}\n' \
-    "$STATUS" "$ADD_PATHS" "$DEL_PATHS" "$ADD_SCHEMAS" "$DEL_SCHEMAS" "$TOTAL_PATHS"
+  printf '{"status":"%s","added_paths":%s,"removed_paths":%s,"added_schemas":%s,"removed_schemas":%s,"total_paths":%s,"added_fields":%s,"removed_fields":%s,"changed_fields":%s}\n' \
+    "$STATUS" "$ADD_PATHS" "$DEL_PATHS" "$ADD_SCHEMAS" "$DEL_SCHEMAS" "$TOTAL_PATHS" "$ADD_FIELDS" "$DEL_FIELDS" "$CHG_FIELDS"
   [ "$STATUS" = "OK" ] && exit 0 || exit 1
 fi
 
@@ -145,7 +186,8 @@ fi
 
 echo "❌ openapi 产物与代码不一致（代码有、产物没有 / 或反过来的）"
 echo "   新增路径 $ADD_PATHS 条 / 删除路径 $DEL_PATHS 条 / 新增 schema $ADD_SCHEMAS 个 / 删除 schema $DEL_SCHEMAS 个"
-printf '%s' "$SUMMARY" | tail -n +2 | sed 's/^ADD_PATH/   + 路径/; s/^DEL_PATH/   - 路径/; s/^ADD_SCHEMA/   + 类型/; s/^DEL_SCHEMA/   - 类型/'
+echo "   新增字段 $ADD_FIELDS 个 / 删除字段 $DEL_FIELDS 个 / 字段定义变更 $CHG_FIELDS 个"
+printf '%s' "$SUMMARY" | tail -n +2 | sed 's/^ADD_PATH/   + 路径/; s/^DEL_PATH/   - 路径/; s/^ADD_SCHEMA/   + 类型/; s/^DEL_SCHEMA/   - 类型/; s/^ADD_FIELD/   + 字段/; s/^DEL_FIELD/   - 字段/; s/^CHG_FIELD/   ~ 字段/'
 
 if [ "$MODE" = "write" ]; then
   echo

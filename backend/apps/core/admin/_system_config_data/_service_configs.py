@@ -166,14 +166,37 @@ def get_ocr_configs() -> list[dict[str, Any]]:
             "value": "https://api.deepseek.com/v1/tools/ocr",
             "is_secret": False,
         },
+        # ── 多引擎分歧裁定（Jev 判别式打分器）─────────────────────────────────
+        # 用途：两个引擎对**同一个字段**读出不同值时，把「裁块图 + 各候选文本」送打分器，
+        # 它返回「这段文本是该图正确转写的概率」。只认相对比较，不认绝对阈值。
+        # 取证与五条硬结论见 docs/analysis/multi-engine-ocr-brief-2026-11-25.md §11。
+        #
+        # 只有这两项进配置表：**因部署而异**的才是配置（key、开关）。接口地址、模型名、
+        # 并发上限、超时、两个阈值都是实测出来的工程常数，留在
+        # disagreement_judge.py 的模块常量里——写进 admin 只会给「随手调松阈值」开门，
+        # 而且调松是静默生效的（不报错，只是把更多错值采信成对的）。
+        #
+        # 注意：组件已实现但**尚未接线到主链**，现在打开开关不会产生任何效果。
         {
-            "key": "DEEPSEEK_OCR_PURPOSE",
+            "key": "OCR_JUDGE_ENABLED",
             "category": "ocr",
             "description": (
-                "DeepSeek 解析模式：text_recognition=只取文字（快、便宜、表格给出 HTML）；"
-                "rich_layout_recognition=带版面块与坐标（慢、退化率更高，但「原文坐标对照」需要它）"
+                "多引擎分歧是否用第三方打分器裁定（0=关，默认；1=开）。"
+                "关着时与引入该功能前逐位一致：分歧只进人工抽屉。"
+                "打开前需先填 OCR_JUDGE_API_KEY，且主链已接线（否则开关无效果）。"
             ),
-            "value": "text_recognition",
+            "value": "0",
             "is_secret": False,
+        },
+        {
+            "key": "OCR_JUDGE_API_KEY",
+            "category": "ocr",
+            "description": (
+                "分歧裁定打分器的 API Key（Bearer Token）。留空则判定一律落人工；敏感项，加密存储。"
+                "供应商侧政策：可读分辨率下的证件图像会被拒（content_policy_violation），"
+                "所以证件/账号类字段不走此路，走 L1 校验位。"
+            ),
+            "value": "",
+            "is_secret": True,
         },
     ]

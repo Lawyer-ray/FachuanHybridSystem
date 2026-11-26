@@ -40,11 +40,24 @@ vi.mock('./use-rewrite-refresh', () => ({
 
 import { useLiveRewriteApply } from './use-live-rewrite-apply'
 
+/**
+ * 画布同步登记（ack）。真实实现打后端 `POST /onlyoffice/canvas-ack`。
+ *
+ * 本文件只关心两件事：「就地成功 → 必须 ack」与「ack 失败 → 当作就地失败」。
+ */
+const ackCanvasSynced = vi.hoisted(() => vi.fn<(url: string) => Promise<{ ok: boolean }>>(async () => ({ ok: true })))
+vi.mock('@/components/shared/onlyoffice/api', () => ({ ackCanvasSynced }))
+
 /** 每个用例用独立 key 隔离注册表 */
 let seq = 0
 function newKey() {
   seq += 1
   return `contract:393:live-${seq}/a.docx`
+}
+
+/** 与 key 同源的站内路径（ack 用它登记「画布已同步」） */
+function newUrl() {
+  return `/api/v1/contracts/393/folder-file?subpath=live-${seq}%2Fa.docx`
 }
 
 function editorHandle() {
@@ -61,16 +74,19 @@ function emitBridge(data: Record<string, unknown> | null) {
 /** 挂载 hook、交出编辑器句柄，返回可复用的上下文 */
 function mount(enabled = true) {
   const key = newKey()
-  const hook = renderHook(() => useLiveRewriteApply({ enabled, key }))
+  const fileUrl = newUrl()
+  const hook = renderHook(() => useLiveRewriteApply({ enabled, key, fileUrl }))
   const handle = editorHandle()
   act(() => hook.result.current.onEditorReady(handle))
   const applier = () => registry.get(key)
-  return { key, hook, handle, applier }
+  return { key, fileUrl, hook, handle, applier }
 }
 
 beforeEach(() => {
   vi.useFakeTimers()
   registry.clear()
+  ackCanvasSynced.mockClear()
+  ackCanvasSynced.mockResolvedValue({ ok: true })
 })
 
 afterEach(() => {
@@ -80,7 +96,7 @@ afterEach(() => {
 describe('useLiveRewriteApply：握手与就绪', () => {
   it('编辑器未就绪时立刻 resolve(false)，不发命令也不等超时', async () => {
     const key = newKey()
-    const hook = renderHook(() => useLiveRewriteApply({ enabled: true, key }))
+    const hook = renderHook(() => useLiveRewriteApply({ enabled: true, key, fileUrl: newUrl() }))
     const live = registry.get(key)
     expect(live).toBeDefined()
 
@@ -160,6 +176,52 @@ describe('useLiveRewriteApply：回执与超时', () => {
     hook.unmount()
   })
 
+  it('applied 成功必须 ack 一次（不 ack 则律师后续保存会被当成旧画布静默丢弃）', async () => {
+    const { applier, fileUrl, hook } = mount()
+    emitBridge({ source: 'fachuan-plugin', type: 'ready', supported: true })
+
+    const pending = applier()!('a', 'b')
+    emitBridge({ source: 'fachuan-plugin', type: 'applied', result: { ok: true } })
+    await expect(pending).resolves.toBe(true)
+    expect(ackCanvasSynced).toHaveBeenCalledTimes(1)
+    // 口径必须与签配置的 file_url 逐字一致，否则后端找不到会话（静默失效）
+    expect(ackCanvasSynced).toHaveBeenCalledWith(fileUrl)
+    hook.unmount()
+  })
+
+  it('ack 回 ok:false 时按就地失败处理（宁可重载，也不留一个「以为同步了」的画布）', async () => {
+    ackCanvasSynced.mockResolvedValueOnce({ ok: false })
+    const { applier, hook } = mount()
+    emitBridge({ source: 'fachuan-plugin', type: 'ready', supported: true })
+
+    const pending = applier()!('a', 'b')
+    emitBridge({ source: 'fachuan-plugin', type: 'applied', result: { ok: true } })
+    await expect(pending).resolves.toBe(false)
+    hook.unmount()
+  })
+
+  it('ack 抛错也按就地失败处理（网络抖动不能把画布停在「伪同步」态）', async () => {
+    ackCanvasSynced.mockRejectedValueOnce(new Error('boom'))
+    const { applier, hook } = mount()
+    emitBridge({ source: 'fachuan-plugin', type: 'ready', supported: true })
+
+    const pending = applier()!('a', 'b')
+    emitBridge({ source: 'fachuan-plugin', type: 'applied', result: { ok: true } })
+    await expect(pending).resolves.toBe(false)
+    hook.unmount()
+  })
+
+  it('applied 失败时不 ack（画布确实还是旧的，对齐代次等于拆掉守门人）', async () => {
+    const { applier, hook } = mount()
+    emitBridge({ source: 'fachuan-plugin', type: 'ready', supported: true })
+
+    const pending = applier()!('a', 'b')
+    emitBridge({ source: 'fachuan-plugin', type: 'applied', result: { ok: false } })
+    await expect(pending).resolves.toBe(false)
+    expect(ackCanvasSynced).not.toHaveBeenCalled()
+    hook.unmount()
+  })
+
   it('applied{result.ok:false} → resolve(false)（原文已被前一次改动破坏，调用方重载）', async () => {
     const { applier, hook } = mount()
     emitBridge({ source: 'fachuan-plugin', type: 'ready', supported: true })
@@ -234,7 +296,7 @@ describe('useLiveRewriteApply：回执与超时', () => {
 
   it('enabled=false 时不注册就地通道（非 docx 文件不该走插件）', () => {
     const key = newKey()
-    const hook = renderHook(() => useLiveRewriteApply({ enabled: false, key }))
+    const hook = renderHook(() => useLiveRewriteApply({ enabled: false, key, fileUrl: newUrl() }))
     expect(registry.has(key)).toBe(false)
     hook.unmount()
   })

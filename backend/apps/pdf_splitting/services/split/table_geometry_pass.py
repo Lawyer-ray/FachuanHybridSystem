@@ -88,6 +88,7 @@ from .table_geometry import (
     assign_cell_texts,
     block_table_html,
     build_cell_boxes,
+    column_count_anomalies,
     grid_shape,
     html_grid_shape,
     match_tables_to_blocks,
@@ -351,6 +352,10 @@ SUMMARY_KEYS: tuple[str, ...] = (
     "tables_total",
     "cross_page_tables",
     "raster_lines_matched",
+    # 列数一致性（2026-11-26）：相邻两页都是密表、列数却不一致 —— 见
+    # ``table_geometry.column_count_anomalies`` 的 docstring（这条判据是 OXR 对照逼出来的）
+    "column_anomalies",
+    "column_anomaly_pages",
 )
 
 
@@ -377,6 +382,8 @@ def summary_block(artifact: Any, *, enabled: bool) -> dict[str, Any]:
         "tables_total": 0,
         "cross_page_tables": 0,
         "raster_lines_matched": 0,
+        "column_anomalies": [],
+        "column_anomaly_pages": [],
     }
     summary = artifact.get("summary") if isinstance(artifact, dict) else None
     if isinstance(summary, dict):
@@ -1067,6 +1074,8 @@ def _empty_artifact() -> dict[str, Any]:
             "tables_total": 0,
             "cross_page_tables": 0,
             "raster_lines_matched": 0,
+            "column_anomalies": [],
+            "column_anomaly_pages": [],
         },
         "pages": {},
     }
@@ -1094,6 +1103,40 @@ def _finish_summary(
     # 而“每个失败页都有原因”这条只能用页级口径验 —— 两者单位不同，不能相加对比。
     summary["page_reason_counts"] = _page_reason_counts(artifact, processed=processed)
     summary["duration_ms"] = _elapsed_ms(started)
+    anomalies = column_count_anomalies(_primary_table_samples(artifact))
+    summary["column_anomalies"] = anomalies
+    summary["column_anomaly_pages"] = [int(str(item["page_no"])) for item in anomalies]
+    if anomalies:
+        # 进 warning 而不是 info：这条判据只在「同一份流水跨页列数突变」时响，
+        # 一声不响地留在 summary 里没人会去看（与退化页那条同一个理由）。
+        logger.warning(
+            "pdf_split_table_column_count_changed",
+            extra={"pages": summary["column_anomaly_pages"], "count": len(anomalies)},
+        )
+
+
+def _primary_table_samples(artifact: dict[str, Any]) -> list[tuple[int, int, int]]:
+    """每页取**主表**（行数最多的那张）的 ``(页号, 行数, 列数)``，供列数一致性比对。
+
+    为什么取主表而不取全部表：一页里可能有「正文小表 + 主表」，后者才代表这页的表格模板；
+    混进来会让同一份流水因为某页多了个小表而误报。
+    """
+    samples: list[tuple[int, int, int]] = []
+    for key, page in (artifact.get("pages") or {}).items():
+        page_no = _as_int(key)
+        tables = (page or {}).get("tables") or {}
+        if page_no is None or not tables:
+            continue
+        best: tuple[int, int] | None = None
+        for entry in tables.values():
+            rows, cols = _as_int((entry or {}).get("rows")), _as_int((entry or {}).get("cols"))
+            if rows is None or cols is None:
+                continue
+            if best is None or rows > best[0]:
+                best = (rows, cols)
+        if best is not None:
+            samples.append((page_no, best[0], best[1]))
+    return samples
 
 
 def _page_reason_counts(artifact: dict[str, Any], *, processed: set[int]) -> dict[str, int]:

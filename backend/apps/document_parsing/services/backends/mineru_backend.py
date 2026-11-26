@@ -39,7 +39,13 @@ from apps.document_parsing.services.backends._page_artifacts import (
     normalize_text,
 )
 from apps.document_parsing.services.block_builder import attach_blocks
-from apps.document_parsing.services.credential_pool import CredentialPool, get_credential_pool
+from apps.document_parsing.services.credential_pool import (
+    REASON_TRANSIENT,
+    CredentialPool,
+    failure_reason_of_active_exception,
+    get_credential_pool,
+    pages_from_metadata,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -252,6 +258,7 @@ class MineruBackend:
             keys = [k.strip() for k in re.split(r"[,\s\r\n]+", str(api_key)) if k.strip()]
             if not keys:
                 raise ValueError("MinerU API Key 解析后为空，请检查配置内容。")
+            # 显式凭证无平台归属：池是纯进程内状态（不读写跨进程账本）
             self._pool: CredentialPool = CredentialPool(keys, 0)
             provider_name = "__explicit_mineru"
         else:
@@ -305,9 +312,16 @@ class MineruBackend:
             raise MineruAPIError("MinerU 所有凭证仍在失败冷却中，请稍后重试")
         return self._pool.credentials[idx], idx
 
-    def _release_key(self, idx: int | None, *, success: bool) -> None:
+    def _release_key(
+        self,
+        idx: int | None,
+        *,
+        success: bool,
+        reason: str = REASON_TRANSIENT,
+        pages: int = 0,
+    ) -> None:
         if idx is not None:
-            self._pool.release(idx, success=success)
+            self._pool.release(idx, success=success, reason=reason, pages=pages)
 
     def parse_document(
         self,
@@ -351,6 +365,8 @@ class MineruBackend:
         # 每次解析任务占用一个 key，"_upload_file" 与 "_poll_batch_result" 共用该 key
         self._active_key, idx = self._acquire_key()
         success = False
+        # 配额记账口径是「本次实际处理了多少页」，同步路径解析完才知道，回调路径不知道就记 0
+        pages = 0
         try:
             # 1. 上传文件到 MinerU（上传后 MinerU 自动创建解析任务）
             batch_id = self._upload_file(file_path, callback=callback_url or None, seed=callback_seed or None)
@@ -377,6 +393,7 @@ class MineruBackend:
                 return_markdown=return_markdown,
                 extract_images=extract_images,
             )
+            pages = pages_from_metadata(parsed.metadata)
 
             duration = time.time() - start_time
             logger.info(
@@ -395,7 +412,14 @@ class MineruBackend:
             logger.error("MinerU 解析失败: %s - %s", file_path, str(e))
             raise MineruAPIError(f"MinerU 解析失败: {e}") from e
         finally:
-            self._release_key(idx, success=success)
+            # 失败档位按真实异常判定（401/403→auth，429/额度→quota，其余→transient）：
+            # 额度耗尽的 Key 必须冷却到下一个重置点，不能被当成「等 30s 就好」。
+            self._release_key(
+                idx,
+                success=success,
+                reason=failure_reason_of_active_exception(),
+                pages=pages,
+            )
 
     def extract_text(
         self,

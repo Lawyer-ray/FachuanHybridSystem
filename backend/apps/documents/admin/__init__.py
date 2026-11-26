@@ -5,6 +5,7 @@ Documents Admin 模块
 """
 
 from .audit_log_admin import TemplateAuditLogAdmin
+from .document_spec_admin import DocumentSpecAdmin
 from .document_template_admin import DocumentTemplateAdmin
 from .external_template_admin import ExternalTemplateAdmin
 from .folder_binding_admin import DocumentTemplateFolderBindingAdmin
@@ -16,6 +17,7 @@ from .proxy_matter_rule_admin import ProxyMatterRuleAdmin
 __all__ = [
     "FolderTemplateAdmin",
     "DocumentTemplateAdmin",
+    "DocumentSpecAdmin",
     "DocumentTemplateFolderBindingAdmin",
     "FolderSlotAdmin",
     "ProxyMatterRuleAdmin",

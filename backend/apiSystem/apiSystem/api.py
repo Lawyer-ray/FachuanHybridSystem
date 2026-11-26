@@ -240,6 +240,16 @@ def _register_app_routers() -> None:
     # router 自带 JWTOrSessionAuth；/file 与 /callback 端点在自身装饰器上 auth=None
     api_v1.add_router("/onlyoffice", onlyoffice_router)
 
+    # 文档工作面：以「项目文件夹里的那一份文件」为坐标的写通道。
+    # 与 /contract-review/direct-edit 的区别：不要 task_id、不产生第二份产物 docx。
+    from apps.doc_workspace.api.review_api import router as doc_workspace_review_router
+    from apps.doc_workspace.api.snapshot_api import router as doc_workspace_snapshot_router
+    from apps.doc_workspace.api.write_api import router as doc_workspace_write_router
+
+    api_v1.add_router("/doc-workspace", doc_workspace_write_router)
+    api_v1.add_router("/doc-workspace", doc_workspace_snapshot_router)
+    api_v1.add_router("/doc-workspace", doc_workspace_review_router)
+
     from apps.express_query.api import router as express_query_router
 
     api_v1.add_router("/express-query", express_query_router, auth=JWTOrSessionAuth(), tags=["快递查询"])

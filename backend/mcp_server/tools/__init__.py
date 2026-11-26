@@ -204,6 +204,8 @@ from mcp_server.tools.contract_review import (
 )
 from mcp_server.tools.contracts import (
     add_contract_party,
+    add_document_comments,
+    apply_document_revisions,
     apply_file_write_patches,
     browse_folders,
     clear_all_archive_materials,
@@ -212,6 +214,7 @@ from mcp_server.tools.contracts import (
     create_contract,
     create_contract_with_cases,
     create_folder_binding,
+    create_folder_file,
     create_payment,
     create_supplementary_agreement,
     delete_archive_material,
@@ -233,6 +236,8 @@ from mcp_server.tools.contracts import (
     list_cloud_storage_accounts,
     list_contract_scan_subfolders,
     list_contracts,
+    list_document_findings,
+    list_document_revisions,
     list_folder_files,
     list_supplementary_agreements,
     move_archive_material,
@@ -241,6 +246,7 @@ from mcp_server.tools.contracts import (
     remove_contract_party,
     reorder_archive_materials,
     reset_and_resync_case_materials,
+    review_folder_file,
     rewrite_folder_file,
     scale_to_a4,
     start_contract_scan,
@@ -285,6 +291,7 @@ from mcp_server.tools.documents import (
     download_power_of_attorney_combined,
     download_preservation_application,
     download_supplementary_agreement,
+    draft_document,
     extract_document_text,
     extract_template_placeholders,
     fill_templates,
@@ -636,6 +643,12 @@ __all__ = [
     "list_folder_files",
     "read_folder_file",
     "rewrite_folder_file",
+    "review_folder_file",
+    "list_document_findings",
+    "list_document_revisions",
+    "apply_document_revisions",
+    "add_document_comments",
+    "create_folder_file",
     "propose_write_patch",
     "apply_file_write_patches",
     # 合同归档
@@ -850,6 +863,8 @@ __all__ = [
     "save_archive_overrides",
     "delete_archive_overrides",
     "download_supplementary_agreement",
+    # 一句话起草（类型 → 骨架 → 填槽 → 落位 → 落盘）
+    "draft_document",
     # 诉讼文书生成
     "generate_complaint",
     "generate_defense",

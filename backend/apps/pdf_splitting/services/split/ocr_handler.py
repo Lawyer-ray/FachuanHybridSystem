@@ -243,7 +243,13 @@ def _recognize_page(ocr_service: Any, image_bytes: bytes, *, page_no: int) -> tu
     """
     result = ocr_service.recognize_layout(image_bytes)
     if result is None:
-        # 本地引擎没有版面概念；云端版面调用失败时也走这里（与改动前同样的纯文本兜底）
+        # 本地引擎没有版面概念；云端版面调用失败时也走这里（与改动前同样的纯文本兜底）。
+        #
+        # 云端 provider 要**绕开** ``recognize_bytes``：它内部还会再调一次云端，于是
+        # 「版面超时 600s 失败」后面再跟一次「纯文本超时 600s」，同一页付两遍代价。
+        # 直接走本地识别，云端失效时就只付一次。
+        if getattr(ocr_service, "provider", "") == "paddleocr_api":
+            return str(ocr_service.recognize_bytes_local(image_bytes) or ""), None
         return str(ocr_service.recognize_bytes(image_bytes) or ""), None
     text = str(getattr(result, "text", "") or "")
     return text, vl_page_layout(getattr(result, "layout_results", None), page_no=page_no, text=text)

@@ -26,6 +26,41 @@ from apps.organization.services.lawyer.approval import LawyerApprovalService
 PASSWORD = "Zz!8kQm2pLx7"  # pragma: allowlist secret
 
 
+@pytest.fixture(autouse=True)
+def _no_active_account(db: None) -> Iterator[None]:
+    """每个用例开始前，把系统置于「尚无可登录账号」——首位用户语义的前置条件。
+
+    ``AuthService.is_first_user()``（``apps/organization/services/auth/auth_service.py:66``）
+    的判据是「``organization_lawyer`` 里没有任何 ``is_active=True`` 的行」，这是**库级
+    全局状态**，不是本文件造出来的数据。全量跑时只要排在前面的一条用例把
+    ``is_active=True`` 的行**提交**进了测试库（``django_db`` 用例自己会 rollback，但走
+    另一条连接/线程的写入不会），本文件这 3 条「首位用户」用例就会整体判成
+    「不是首位用户」：``granted_admin is False`` / ``authenticate(...) is None`` /
+    ``FirstUserSetupService.execute`` 一次都没被调用；单独跑本文件时又全绿——
+    **绿灯取决于跑在哪个用例之后，等于没有护栏**。
+
+    做法是把前置条件显式化，断言因此与执行顺序无关。用 ``update(is_active=False)``
+    而不是 ``delete()``：``organization_lawyer`` 被 ``cases.CaseLog`` /
+    ``contracts.FinanceLog`` / ``ContractAssignment`` 等以 ``PROTECT`` 引用，泄漏行
+    一旦带上这些关联，``delete()`` 会抛 ``ProtectedError``，把「断言红」升级成
+    「fixture 炸」；而这里要的只是「没有可登录账号」，降级即可，不必删行。
+
+    只降级 ``is_active=True``：``is_active=False`` 的历史孤儿行正是
+    ``test_inactive_ghost_does_not_block_first_user`` 要守的场景，一并清掉就等于把
+    待测前提删掉了。
+    """
+    Lawyer.objects.filter(is_active=True).update(is_active=False)
+    # **显式断言前置条件**：不声明 ``db`` 时这个 fixture 的执行时机不确定（可能落在
+    # 用例自己的事务之外），于是「降级了没有」全靠运气——那正是这 4 个用例
+    # 「单独跑绿、全量顺序红」的成因。加上 ``db`` 并在这里断言，顺序依赖会立刻
+    # 以一行可读的消息暴露，而不是变成 ``is_first_user is False`` 这种间接失败。
+    assert not Lawyer.objects.filter(is_active=True).exists(), (
+        "前置条件不成立：库里仍有 is_active=True 的账号。"
+        "这不是本用例的问题，是别的用例泄漏了已提交的行——请修泄漏源，不要放宽断言。"
+    )
+    yield
+
+
 @pytest.fixture
 def no_setup() -> Iterator[None]:
     """跳过系统初始化（律所/团队/SystemConfig/文书模板），只验证注册语义。"""

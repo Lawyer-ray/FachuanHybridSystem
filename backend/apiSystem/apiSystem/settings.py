@@ -122,6 +122,7 @@ INSTALLED_APPS = [
     "apps.litigation_ai",  # 6.1 AI 诉讼文书生成
     "apps.contract_review",  # 6.2 合同审查
     "apps.onlyoffice",  # 6.25 OnlyOffice 文档编辑器（合同复审工作台画布）
+    "apps.doc_workspace",  # 6.26 文档工作面（以项目文件夹里的文件为坐标：写通道 / 快照 / 审查）
     "apps.finance",  # 6.3.1 金融工具(LPR计算器)
     "apps.oa_filing",  # 6.4 OA立案
     "apps.legal_research",  # 6.5 案例检索（法律数据源）

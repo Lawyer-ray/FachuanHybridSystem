@@ -422,3 +422,7 @@ CONTRIBUTING.md
 # vibe 生成的图片/视频素材（AI 产出的演示与宣传素材，体积大且可重新生成，不入库）
 /vibe_images/
 /vibe_videos/
+
+# worktree / 分支归档目录（`git bundle create ../_wt/...`，见 CLAUDE.md「worktree 三段闭环」）。
+# 约定放在仓库外，但路径写错时会把备份建到仓库里（已发生过一次），这里兜住。
+_wt/
