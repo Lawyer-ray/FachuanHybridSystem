@@ -128,7 +128,12 @@ def _trial_authority(case: Any) -> str:
 
 
 def _material_markdown(case: Any) -> str:
-    """按文件名把案件材料的解析 Markdown 拼成一段素材；取不到就返回空串。
+    """按文件名把案件材料的解析结果拼成一段素材；取不到就返回空串。
+
+    **为什么 markdown 空了要退回 text**：`markdown` 不是每个后端都产——DeepSeek OCR 只写
+    `text`（`ParsedDocument.markdown` 为 None），MinerU 也实测有 35/84 条完成任务 markdown
+    为空。只读 markdown 的写法会让这些材料**静默缺席**起草提示词，表现为「模型没看到合同」
+    而没有任何报错（真机基线 D2，见 docs/analysis/legal-doc-generation-2026-11-26/07）。
 
     待办（归案 bind 时补）：把解析任务 id 写到材料上（新增字段 + 迁移），再改成按 id 精确
     取。**在此之前不做要素抽取**——按文件名匹配本身就不够可靠，据此抽取事实等于凭空补量。
@@ -141,13 +146,16 @@ def _material_markdown(case: Any) -> str:
     for filename in filenames:
         task = (
             task_model.objects.filter(status=task_model.Status.COMPLETED, file_name=filename)
-            .only("file_name", "markdown")
+            .only("file_name", "markdown", "text")
             .order_by("-completed_at")
             .first()
         )
-        if task is None or not _text(task.markdown):
+        if task is None:
             continue
-        parts.append(f"### {filename}\n{task.markdown[:MATERIAL_EXCERPT_CHARS]}")
+        excerpt = _text(task.markdown) or _text(task.text)
+        if not excerpt:
+            continue
+        parts.append(f"### {filename}\n{excerpt[:MATERIAL_EXCERPT_CHARS]}")
         if len(parts) >= MATERIAL_LIMIT:
             break
     return "\n\n".join(parts)
