@@ -37,7 +37,7 @@ from apps.core.filesystem.bound_folder_browse import BoundFolderBrowseService
 
 from .docx.comments import add_comment
 from .docx.locate import LocateFailure, locate
-from .docx.revision import AI_AUTHOR, apply_revision, enable_track_changes
+from .docx.revision import apply_revision, enable_track_changes, resolve_ai_author
 
 logger = logging.getLogger(__name__)
 
@@ -240,7 +240,7 @@ def apply_span(
         return {"applied": False, "reason": hit.reason, "candidates": hit.candidates}
 
     enable_track_changes(doc)
-    result = apply_revision(hit.paragraph, selection, suggested, author=AI_AUTHOR)
+    result = apply_revision(hit.paragraph, selection, suggested, author=resolve_ai_author())
     if not result.ok:
         return {"applied": False, "reason": result.reason}
 
@@ -290,7 +290,7 @@ def apply_span(
         "subpath": subpath,
         "how": result.how,
         "mode": "disk",
-        "author": AI_AUTHOR,
+        "author": resolve_ai_author(),
         "rev_ids": list(result.rev_ids),
         "file_url": editor_source_path(kind, owner_id, subpath),
         # 画布开着时前端要把这条修订重放进当前画布（免整页重载）。
@@ -368,7 +368,7 @@ def apply_batch(
                 "reason": f"第 {index + 1} 条：{hit.reason}",
                 "failed_index": index,
             }
-        result = apply_revision(hit.paragraph, selection, suggested, author=AI_AUTHOR)
+        result = apply_revision(hit.paragraph, selection, suggested, author=resolve_ai_author())
         if not result.ok:
             return {
                 "applied": False,
@@ -407,7 +407,7 @@ def apply_batch(
         "applied": True,
         "mode": "disk",
         "count": len(patches),
-        "author": AI_AUTHOR,
+        "author": resolve_ai_author(),
         "rev_ids": rev_ids,
         "file_url": editor_source_path(kind, owner_id, subpath),
         "mirror_to_canvas": write_target(kind=kind, owner_id=owner_id, subpath=subpath, user=user) == TARGET_CANVAS,
@@ -452,7 +452,9 @@ def apply_comments(
         if isinstance(hit, LocateFailure):
             failures.append({"index": index, "reason": hit.reason})
             continue
-        outcome = add_comment(hit.paragraph, text=text, quote=selection, author=AI_AUTHOR)
+        # `quote` 可由调用方覆盖：占位符批注的锚点本身就是占位文字，再回显一遍是噪声。
+        quote = str(item.get("quote", selection))
+        outcome = add_comment(hit.paragraph, text=text, quote=quote, author=resolve_ai_author())
         if outcome.ok:
             landed.append(outcome.comment_id)
         else:

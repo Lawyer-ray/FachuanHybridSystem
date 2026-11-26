@@ -41,7 +41,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
 
-from .revision import AI_AUTHOR, _document_root
+from .revision import _document_root, resolve_ai_author
 
 logger = logging.getLogger(__name__)
 
@@ -123,8 +123,25 @@ def _next_comment_id(root: Any) -> int:
     return biggest + 1
 
 
-def _utc_now() -> str:
-    return datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _now_stamp() -> str:
+    """批注时间：**本地时间 + 显式时区偏移**（如 `2026-11-26T14:41:53+08:00`）。
+
+    ## 为什么不是 `...Z`（真 UTC）
+
+    存成 UTC 是 OOXML 的标准做法，Word 会按本机时区换算后显示，没问题。但
+    **OnlyOffice 修订/批注栏按原样显示**：实测一条 `06:41:53Z` 的批注在 DS 里就写成
+    06:41，而当时本地是 14:41 —— 律师看到「批注是凌晨留的」，自然会怀疑是别人改的。
+
+    ## 为什么也不是「本地时间 + Z」
+
+    那个更糟：`revision.py` 记着踩过的坑——本地时间冒充 UTC，Word 换算后整整偏 8 小时。
+
+    带偏移的 xsd:dateTime 是标准写法（`+08:00`），Word 换算成同一时刻显示，DS 原样显示
+    也是本地钟点，两端都对。
+    """
+    from django.utils import timezone
+
+    return timezone.localtime().isoformat(timespec="seconds")
 
 
 def _comment_body(text: str, quote: str) -> Any:
@@ -161,8 +178,8 @@ def add_comment(
     *,
     text: str,
     quote: str = "",
-    author: str = AI_AUTHOR,
-    initials: str = "AI",
+    author: str | None = None,
+    initials: str = "",
     date: str | None = None,
 ) -> CommentResult:
     """给整段挂一条批注。
@@ -178,11 +195,15 @@ def add_comment(
     part = _comments_part(doc)
     comment_id = _next_comment_id(part.element)
 
+    resolved_author = (author or "").strip() or resolve_ai_author()
+    # 缩写取署名首两字：空 initials 在 Word 里会画成一个空白头像块
+    resolved_initials = (initials or "").strip() or resolved_author[:2]
+
     comment = OxmlElement("w:comment")
     comment.set(_W_ID, str(comment_id))
-    comment.set(_W_AUTHOR, author)
-    comment.set(_W_INITIALS, initials)
-    comment.set(_W_DATE, date or _utc_now())
+    comment.set(_W_AUTHOR, resolved_author)
+    comment.set(_W_INITIALS, resolved_initials)
+    comment.set(_W_DATE, date or _now_stamp())
     comment.append(_comment_body(text.strip(), quote.strip()))
     part.element.append(comment)
 
@@ -207,7 +228,7 @@ def add_comments(
     doc: Any,
     targets: list[tuple[Paragraph, str, str]],
     *,
-    author: str = AI_AUTHOR,
+    author: str | None = None,
 ) -> list[CommentResult]:
     """批量加批注。单条失败不影响其他条（批注不改变正文，没有「部分写入更危险」的问题）。"""
     out: list[CommentResult] = []
@@ -225,4 +246,4 @@ def count_comments(doc: Any) -> int:
         return 0
 
 
-__all__ = ["AI_AUTHOR", "CommentResult", "add_comment", "add_comments", "count_comments", "copy"]
+__all__ = ["CommentResult", "add_comment", "add_comments", "count_comments", "copy"]

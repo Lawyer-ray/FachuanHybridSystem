@@ -26,6 +26,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -42,7 +43,35 @@ from .text import run_has_complex_child, run_text, visible_text
 #: **只允许这一个常量**：同一份文档里出现两个 AI 作者名（历史上曾有
 #: `法穿AI` 与 `法穿SI` 并存）会让律师在「审阅」面板里看到两个"人"，
 #: 也让按作者过滤的统计全部失真。
+logger = logging.getLogger(__name__)
+
 AI_AUTHOR = "法穿AI"
+
+#: SystemConfig 里覆盖署名的键（留空 = 用 :data:`AI_AUTHOR`）。
+COMMENT_AUTHOR_KEY = "DOC_COMMENT_AUTHOR"
+
+
+def resolve_ai_author() -> str:
+    """AI 落笔时显示的作者名：`SystemConfig.DOC_COMMENT_AUTHOR` > 常量默认值。
+
+    **为什么做成配置**：Word「审阅」面板与 OnlyOffice 修订栏里，批注/修订显示的是
+    **人**名。有的所不允许出现「AI」字样，要写成助理、内勤或某个中性名。硬编码一个
+    名字等于把「叫什么」这件事焊死在代码里，改一次要发版。
+
+    **但只允许一个名字生效**：历史上 `法���AI` 与 `法穿SI` 并存过一次，律师在审阅面板
+    里看到两个"人"，按作者过滤的统计也全失真。所以这里是**单值覆盖**，不是追加。
+
+    读配置失败一律回退常量（签名不值得让起草失败）。
+    """
+    try:
+        from apps.core.services.system_config_service import SystemConfigService
+
+        configured = str(SystemConfigService().get_value(COMMENT_AUTHOR_KEY, "") or "").strip()
+    except (ImportError, RuntimeError, AttributeError, ValueError):
+        logger.warning("读取 %s 失败，署名回退默认值", COMMENT_AUTHOR_KEY, exc_info=True)
+        return AI_AUTHOR
+    return configured or AI_AUTHOR
+
 
 _W_R = qn("w:r")
 _W_INS = qn("w:ins")

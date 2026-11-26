@@ -247,7 +247,7 @@ def draft_contract(
             comments=[
                 {
                     "selection": PENDING_TEMPLATE.format(slot=slot),
-                    "text": f"待确认：{slot}。这一项没有从已知事实里推出来，请补充后再定稿。",
+                    "text": f"待补：{slot}",
                 }
                 for slot in pending
             ],

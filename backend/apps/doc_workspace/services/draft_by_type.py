@@ -538,6 +538,24 @@ def _llm_caller(instruction: str) -> LLMCaller:
     return _call
 
 
+def _pending_comment(slot: str) -> str:
+    """未决项批注的正文：一句话，律师口吻。
+
+    ## 为什么这么短
+
+    原先是「待确认：审理机构。这一项没有从已知事实里推出来，请补充后再定稿。」——
+    一句话说了三件事，但**后两件是同一件事的重复**，而且「从已知事实里推出来」是
+    系统的说法，不是律师的说法。批注是写在别人要看的文书上的，越短越好：
+
+    - 律师写类似标注时就是「待补」「待核」加个对象，不会有解释性从句；
+    - 12 个未决项时，长文案会把批注栏撑成一篇说明文，反而没人看；
+    - 正文里已经明明白白摆着 `<待填写：审理机构>`，批注只需要**指路**，不需要复述。
+
+    大道至简：`待补：审理机构`。
+    """
+    return f"待补：{slot}"
+
+
 def _comment_pending(
     *, kind: str, owner_id: int, subpath: str, pending: list[str], user: Any, org_access: Any
 ) -> list[str]:
@@ -551,7 +569,9 @@ def _comment_pending(
         comments=[
             {
                 "selection": draft_service.PENDING_TEMPLATE.format(slot=slot),
-                "text": f"待确认：{slot}。这一项没有从已知事实里推出来，请补充后再定稿。",
+                "text": _pending_comment(slot),
+                # 占位符本身就是锚点，再回显一遍【原文】是噪声
+                "quote": "",
             }
             for slot in pending
         ],

@@ -190,7 +190,8 @@ class TestDraftContract:
 
         with zipfile.ZipFile(wired / "1-合同" / result.name) as zf:
             comments = zf.read("word/comments.xml").decode("utf-8")
-        assert "待确认：dispute_clause" in comments
+        # 批注文案按「大道至简」收成一句：`待补：<槽名>`
+        assert "待补：dispute_clause" in comments
 
     def test_full_fill_has_no_pending_and_no_comment(self, wired: Path) -> None:
         result = self._draft(

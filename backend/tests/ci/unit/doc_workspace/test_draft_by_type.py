@@ -205,7 +205,9 @@ def test_pending_slots_are_annotated_with_the_shared_placeholder(
     assert result["slot_fill_rate"] == 0.5
     assert result["review_run_id"] is None
     assert captured["comments"] == [
-        {"selection": "<待填写：法院名称>", "text": "待确认：法院名称。这一项没有从已知事实里推出来，请补充后再定稿。"}
+        # 批注只指路、不复述：正文里已经摆着 `<待填写：法院名称>`，长文案会把批注栏
+        # 撑成一篇说明文。见 `_pending_comment` 的 docstring。
+        {"selection": "<待填写：法院名称>", "text": "待补：法院名称", "quote": ""}
     ]
 
 
