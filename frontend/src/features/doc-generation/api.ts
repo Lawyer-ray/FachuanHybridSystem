@@ -1,6 +1,6 @@
 import { createApiClient } from '@/lib/api'
 
-import type { DocType, DraftRequest, DraftResult } from './types'
+import type { DocType, DraftAssessRequest, DraftAssessResult, DraftRequest, DraftResult } from './types'
 
 /**
  * 文书生成 API（doc-workspace 前缀，与审查 / 版本共用同一组路由）。
@@ -28,6 +28,14 @@ function draftApi() {
  */
 export const DRAFT_TIMEOUT_MS = 240_000
 
+/**
+ * 立案前判断的超时：**远大于** ky 默认 10s。
+ *
+ * 一次判断是一轮完整的模型比对（后端实测 20~40 秒）。用默认超时会把正在跑的判断
+ * 当成失败，而失败与「材料齐全」在界面上只差一行字——律师会直接不信任这个判断。
+ */
+export const ASSESS_TIMEOUT_MS = 120_000
+
 /** 文书类型清单的 query key（弹窗与测试共用同一份） */
 export const DOC_TYPES_KEY = ['doc-generation', 'doc-types'] as const
 
@@ -47,4 +55,14 @@ export async function listDocTypes(): Promise<DocType[]> {
  */
 export async function draftByType(body: DraftRequest): Promise<DraftResult> {
   return draftApi().post('draft-by-type', { json: body, timeout: DRAFT_TIMEOUT_MS }).json<DraftResult>()
+}
+
+/**
+ * `POST draft/assess` —— 材料够不够出这份文书、缺什么（只读：不渲染、不落盘）。
+ *
+ * 入参**没有 doc_type**：判断的是「这个案子的材料够不够」，与具体出哪份文书无关
+ * （要件档案按案由命中）。弹窗里先选类型，只是为了让律师在「我要出什么」的上下文里看缺口。
+ */
+export async function assessDraftReadiness(body: DraftAssessRequest): Promise<DraftAssessResult> {
+  return draftApi().post('draft/assess', { json: body, timeout: ASSESS_TIMEOUT_MS }).json<DraftAssessResult>()
 }
