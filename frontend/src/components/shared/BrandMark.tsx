@@ -10,7 +10,21 @@ import { cn } from '@/lib/utils'
  * 只出内容、不管容器与跳转：登录后由 navbar 用 <Link> 包（回首页），
  * 免登录页没有首页可回，直接裸用。
  */
-export function BrandMark({ size = 'sm', className }: { size?: 'sm' | 'lg'; className?: string }) {
+export function BrandMark({
+  size = 'sm',
+  className,
+  subClassName,
+}: {
+  size?: 'sm' | 'lg'
+  className?: string
+  /**
+   * 副标（SI Copilot）自己的类名。
+   *
+   * 手机导航栏里「品牌 + 检索 + AI + 新建项目 + 头像」五样并排：品牌全称要 94px，
+   * 挤掉的是「新建项目」的文字。窄屏只留「法穿」两个字、副标收起，产品名仍然在。
+   */
+  subClassName?: string
+}) {
   return (
     <span
       className={cn(
@@ -20,7 +34,13 @@ export function BrandMark({ size = 'sm', className }: { size?: 'sm' | 'lg'; clas
       )}
     >
       <span className="font-bold text-foreground">法穿</span>
-      <span className={cn('ml-1 font-medium text-muted-foreground', size === 'sm' ? 'text-[12.5px]' : 'text-[13.5px]')}>
+      <span
+        className={cn(
+          'ml-1 font-medium text-muted-foreground',
+          size === 'sm' ? 'text-[12.5px]' : 'text-[13.5px]',
+          subClassName,
+        )}
+      >
         SI Copilot
       </span>
     </span>

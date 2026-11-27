@@ -152,7 +152,7 @@ export function AppNavbar({
       {/* 品牌：产品名（点击回首页）。字标统一由 BrandMark 出，客户上传页也用它，
           保证对外门面与登录后的观感一致 */}
       <Link to={ROUTES.home} className="flex flex-none items-center pr-1.5 no-underline">
-        <BrandMark />
+        <BrandMark subClassName="max-[420px]:hidden" />
       </Link>
 
       <nav
@@ -186,69 +186,86 @@ export function AppNavbar({
         />
       </nav>
 
-      {/* AI 助手：右侧常驻对话面板（features/copilot，壳层懒加载）。
-          ml-auto 由它承担右推；未传回调时（单测等场景）仍由检索按钮承担 */}
-      {onToggleCopilot && (
-        <button
-          type="button"
-          className="ml-auto hidden h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card sm:flex"
-          onClick={onToggleCopilot}
-        >
-          <Sparkles className="h-[13px] w-[13px]" />
-          <span>AI 助手</span>
-          <kbd className="rounded-[4px] border border-input bg-card px-[5px] py-[1px] text-[10px] text-muted-foreground">⌘J</kbd>
-        </button>
-      )}
-
-      {/* 全局检索 */}
-      <button
-        type="button"
-        className={`${onToggleCopilot ? '' : 'ml-auto '}hidden h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card sm:flex`}
-        onClick={() => onSearchOpenChange(true)}
-      >
-        <Search className="h-[13px] w-[13px]" />
-        <span>检索</span>
-        <kbd className="rounded-[4px] border border-input bg-card px-[5px] py-[1px] text-[10px] text-muted-foreground">⌘K</kbd>
-      </button>
-
-      <button
-        type="button"
-        className="flex h-8 items-center gap-1.5 rounded-[8px] bg-foreground px-3.5 text-[12.5px] font-semibold whitespace-nowrap text-background transition-opacity hover:opacity-85"
-        onClick={() => setNewProjectOpen(true)}
-      >
-        <Plus className="h-3 w-3" strokeWidth={2.5} />
-        新建项目
-      </button>
-
-      {/* 用户区：点头像开菜单；退出走确认弹窗——不能点一下就登出 */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      {/* 右侧动作区：**整组一起右推**。
+          以前 ml-auto 挂在「AI 助手」按钮上，而它在 <640px 是 hidden——手机上
+          没有任何元素承担右推，于是「新建项目」紧跟品牌标、看着像没对齐。现在由
+          这一层承担，与内部按钮显隐无关。
+          窄屏：检索与 AI 助手只留图标（文字与 ⌘K/⌘J 键帽收起），否则四个控件
+          + 品牌标在 360px 上排不下 */}
+      <div className="ml-auto flex flex-none items-center gap-1.5 max-[760px]:gap-1">
+        {onToggleCopilot && (
           <button
             type="button"
-            className="ml-1 flex flex-none items-center gap-1.5 rounded-full py-[2px] pr-2 pl-[2px] transition-colors hover:bg-secondary"
-            aria-label="用户菜单"
+            aria-label="AI 助手"
+            title="AI 助手（⌘J）"
+            className="flex h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card max-[760px]:w-8 max-[760px]:justify-center max-[760px]:px-0"
+            onClick={onToggleCopilot}
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-background">
-              <User className="h-3.5 w-3.5" />
-            </span>
-            <span className="hidden max-w-[88px] truncate text-[12.5px] font-medium md:inline">
-              {user?.username || '我的账号'}
-            </span>
+            <Sparkles className="h-[13px] w-[13px]" />
+            <span className="max-[760px]:hidden">AI 助手</span>
+            <kbd className="rounded-[4px] border border-input bg-card px-[5px] py-[1px] text-[10px] text-muted-foreground max-[760px]:hidden">
+              ⌘J
+            </kbd>
           </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
-            {user?.username || '我的账号'}
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => { void navigate(settings()) }}>设置</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onSelect={() => setLogoutOpen(true)}>
-            <LogOut className="h-3.5 w-3.5" />
-            退出登录
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        )}
+
+        {/* 全局检索：手机上同样要能开（⌘K 在触屏上不存在，这个按钮是唯一入口） */}
+        <button
+          type="button"
+          aria-label="全局检索"
+          title="全局检索（⌘K）"
+          className="flex h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card max-[760px]:w-8 max-[760px]:justify-center max-[760px]:px-0"
+          onClick={() => onSearchOpenChange(true)}
+        >
+          <Search className="h-[13px] w-[13px]" />
+          <span className="max-[760px]:hidden">检索</span>
+          <kbd className="rounded-[4px] border border-input bg-card px-[5px] py-[1px] text-[10px] text-muted-foreground max-[760px]:hidden">
+            ⌘K
+          </kbd>
+        </button>
+
+        <button
+          type="button"
+          aria-label="新建项目"
+          title="新建项目"
+          className="flex h-8 items-center gap-1.5 rounded-[8px] bg-foreground px-3.5 text-[12.5px] font-semibold whitespace-nowrap text-background transition-opacity hover:opacity-85 max-[340px]:w-8 max-[340px]:justify-center max-[340px]:px-0"
+          onClick={() => setNewProjectOpen(true)}
+        >
+          <Plus className="h-3 w-3" strokeWidth={2.5} />
+          <span className="max-[340px]:hidden">新建项目</span>
+        </button>
+
+        {/* 用户区：点头像开菜单；退出走确认弹窗——不能点一下就登出 */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="ml-0.5 flex flex-none items-center gap-1.5 rounded-full py-[2px] pr-1 pl-[2px] transition-colors hover:bg-secondary"
+              aria-label="用户菜单"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-background">
+                <User className="h-3.5 w-3.5" />
+              </span>
+              {/* 用户名只在 ≥768 显示：手机上它会把右侧动作区撑到换行 */}
+              <span className="hidden max-w-[88px] truncate text-[12.5px] font-medium md:inline">
+                {user?.username || '我的账号'}
+              </span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
+              {user?.username || '我的账号'}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => { void navigate(settings()) }}>设置</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={() => setLogoutOpen(true)}>
+              <LogOut className="h-3.5 w-3.5" />
+              退出登录
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       {/* 全局检索（⌘K） */}
       <GlobalSearch
