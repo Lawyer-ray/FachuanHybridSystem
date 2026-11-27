@@ -55,5 +55,9 @@ class Command(BaseCommand):
         for material in materials:
             task = getattr(material, "parsing_task", None)
             status = f"解析 #{task.pk}（{len(task.text or task.markdown or '')} 字）" if task else "未解析"
-            self.stdout.write(f"  ✓ {material.source_attachment.original_filename} · {status}")
+            attachment = material.source_attachment
+            # `source_attachment` 允许为空（手工登记的材料没有日志附件）：这里只是自尊打印，
+            # 不能为了一行字把整批归案崩在最后一步。
+            label = attachment.original_filename if attachment is not None else material.type_name
+            self.stdout.write(f"  ✓ {label} · {status}")
         self.stdout.write(self.style.SUCCESS(f"归案完成：{len(materials)} 份材料"))

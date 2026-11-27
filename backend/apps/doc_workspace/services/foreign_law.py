@@ -83,12 +83,15 @@ MIN_PLAUSIBLE_SECTIONS = 5
 #: 插件异常是 lazily 取的：`plugins` 是子模块，缺了也不该让本模块 import 失败
 #: （`_default_verifier` 里同样按需 import）。
 def _upstream_errors() -> tuple[type[BaseException], ...]:
+    plugin_errors: tuple[type[BaseException], ...] = ()
     try:
         from plugins.barlc_asean_law.models import BarlcError
     except ImportError:  # pragma: no cover —— 插件缺失时只剩标准异常面
-        BarlcError = ()
+        pass
+    else:
+        plugin_errors = (BarlcError,)
     return (
-        BarlcError,
+        *plugin_errors,
         # 插件的 `_authed_post` **不吞** httpx 异常：网络中断/超时/连接被拒会直接
         # 抛到这里。漏掉它，一次断网就会让整轮审查崩在 `execute_run` 之外
         # （轮次永远停在 running），而不是退化成「本轮没有域外法依据」。
