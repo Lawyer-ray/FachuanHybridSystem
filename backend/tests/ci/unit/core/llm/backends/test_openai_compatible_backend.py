@@ -73,6 +73,43 @@ class TestBuildExtraBody:
         provider = OpenAIProviderConfig(name="p", default_model="kimi-k2", enable_thinking=False)
         assert backend._build_extra_body("kimi-k2", provider) == {"chat_template_kwargs": {"thinking": False}}
 
+    def test_call_level_override_can_turn_thinking_off(self):
+        """单次调用可以**只关不开**。
+
+        真机事故：`kimi-2.6` 平台开着思考去审一份泰国合同，3 分钟全花在输出
+        「We need answer JSON only…」这类过程文字上，JSON 一个字符都没写出来，
+        整轮审查零结论。结构化抽取类调用必须能在**这一次**关掉思考。
+        """
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+
+        backend = OpenAICompatibleBackend()
+        provider = OpenAIProviderConfig(name="p", default_model="kimi-k2", enable_thinking=True)
+        fields = backend._build_extra_body("kimi-k2", provider, enable_thinking=False)
+        assert fields == {"chat_template_kwargs": {"thinking": False}}
+
+    def test_call_level_override_cannot_turn_thinking_on(self):
+        """平台关着的时候，单次调用**不许**打开思考（等于绕过平台总开关）。"""
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+
+        backend = OpenAICompatibleBackend()
+        provider = OpenAIProviderConfig(name="p", default_model="kimi-k2", enable_thinking=False)
+        fields = backend._build_extra_body("kimi-k2", provider, enable_thinking=True)
+        assert fields == {"chat_template_kwargs": {"thinking": False}}
+
+    def test_payload_carries_call_level_thinking_override(self):
+        """`enable_thinking` 必须真的进请求体——只看 `_build_extra_body` 会漏掉接线。"""
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+
+        backend = OpenAICompatibleBackend()
+        provider = OpenAIProviderConfig(name="p", default_model="kimi-k2", enable_thinking=True)
+        payload = backend._build_payload(
+            "kimi-k2", [{"role": "user", "content": "hi"}], 0.2, 100, provider=provider, enable_thinking=False
+        )
+        assert payload["extra_body"] == {"chat_template_kwargs": {"thinking": False}}
+
     def test_non_reasoning_model_returns_none(self):
         """非推理模型（qwen3）不下发任何开关，即使平台开关是打开的。"""
         from apps.core.llm.backends.base import OpenAIProviderConfig
