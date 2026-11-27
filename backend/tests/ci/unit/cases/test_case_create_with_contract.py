@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from types import SimpleNamespace
 from typing import Any
 
@@ -52,6 +53,21 @@ def test_create_case_links_contract(contract: Contract) -> None:
     assert case.contract_id == contract.id
     # 阶段走的是「按合同解析」那条路（合同勾了哪些代理阶段就只许建哪些）
     assert case.current_stage == "first_trial"
+
+
+@pytest.mark.django_db()
+def test_create_case_honours_start_date(contract: Contract) -> None:
+    """收案日期可回填（二审/执行常要填真实收案日）；不填则走模型默认（今天）。"""
+    svc = CaseCommandService(contract_service=_contract_stub(contract))
+
+    dated = svc.create_case(
+        {"name": "回填案件", "contract_id": contract.id, "start_date": date(2026, 7, 7)},
+        perm_open_access=True,
+    )
+    assert dated.start_date == date(2026, 7, 7)
+
+    today = svc.create_case({"name": "默认案件", "contract_id": contract.id}, perm_open_access=True)
+    assert today.start_date == date.today()
 
 
 @pytest.mark.django_db()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
 from typing import Any, ClassVar, Literal
 
 from apps.core.models.enums import CaseStatus
@@ -37,6 +38,9 @@ class CaseIn(ModelSchema):
     """
 
     contract_id: int | None = None
+    # 收案日期。模型上有默认值（date.today），但二审/执行这类后续程序常要回填
+    # 真实收案日；不给这个字段就只能建完再去改，而 CaseUpdate 同样没有它。
+    start_date: date | None = None
 
     class Meta:
         model = Case

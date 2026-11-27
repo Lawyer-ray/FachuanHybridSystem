@@ -32,6 +32,12 @@ export async function createCaseUnderContract(input: {
   court?: string
   /** 建档后后端会自动补建档编号 */
   isFiled?: boolean
+  /**
+   * 收案日期（YYYY-MM-DD）。不传 = 后端默认今天。
+   * 二审/执行常要回填真实收案日，所以这一项给到表单里，而不是建完再改
+   * （`CaseUpdate` 也没有这个字段，建完就改不了了）。
+   */
+  startDate?: string
 }): Promise<CaseListItem> {
   return casesApi
     .post('cases/full', {
@@ -45,6 +51,7 @@ export async function createCaseUnderContract(input: {
           ...(input.cause ? { cause_of_action: input.cause } : {}),
           ...(input.targetAmount != null ? { target_amount: input.targetAmount } : {}),
           ...(input.isFiled ? { is_filed: true } : {}),
+          ...(input.startDate ? { start_date: input.startDate } : {}),
         },
         ...(input.court ? { supervising_authorities: [{ name: input.court }] } : {}),
       },

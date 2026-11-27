@@ -16,6 +16,12 @@ import { errMessage } from '@/lib/errors'
 
 import { createCaseUnderContract } from '../../api'
 
+/** 今天（本地时区的 YYYY-MM-DD；不用 toISOString——那是 UTC，晚上会跳日） */
+function todayLocal(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 /**
  * 新建下一程序案件（左列「下一步」行上的 ＋ 新建X案件）。
  *
@@ -61,12 +67,15 @@ export function AddCaseDialog({
   const [amount, setAmount] = useState(defaults.amount)
   const [court, setCourt] = useState(defaults.court)
   const [isFiled, setIsFiled] = useState(false)
+  /** 收案日期：默认今天；二审/执行常要回填真实收案日，所以做成可改的字段 */
+  const [startDate, setStartDate] = useState(todayLocal())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const amountNum = amount.trim() === '' ? null : Number(amount)
   const amountBad = amountNum != null && (!Number.isFinite(amountNum) || amountNum < 0)
-  const canSubmit = name.trim().length > 0 && stageCode !== '' && !amountBad && !busy
+  const startBad = !/^\d{4}-\d{2}-\d{2}$/.test(startDate)
+  const canSubmit = name.trim().length > 0 && stageCode !== '' && !amountBad && !startBad && !busy
 
   async function submit() {
     if (!canSubmit) return
@@ -82,6 +91,7 @@ export function AddCaseDialog({
         targetAmount: amountNum,
         court: court.trim(),
         isFiled,
+        startDate: startDate || undefined,
       })
       toast.success('已新建' + stage + '案件')
       onSaved(created.id)
@@ -148,18 +158,28 @@ export function AddCaseDialog({
             </label>
           </div>
 
-          <label className="flex flex-col gap-1">
-            <span className="text-[12px] font-[600] text-secondary-foreground">法院 / 仲裁机构</span>
-            <Input
-              aria-label="主管机关"
-              value={court}
-              placeholder="例：佛山市顺德区人民法院"
-              onChange={(e) => setCourt(e.target.value)}
-            />
-            <span className="text-[11px] text-muted-foreground/80">
-              留空也能建，之后在案件卡的联系人里再补。
-            </span>
-          </label>
+          <div className="grid grid-cols-2 gap-3 max-[520px]:grid-cols-1">
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-[600] text-secondary-foreground">收案日期</span>
+              <Input
+                type="date"
+                aria-label="收案日期"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+              <span className="text-[11px] text-muted-foreground/80">后续程序（二审/执行）可回填历史日期</span>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-[600] text-secondary-foreground">法院 / 仲裁机构</span>
+              <Input
+                aria-label="主管机关"
+                value={court}
+                placeholder="例：某某人民法院"
+                onChange={(e) => setCourt(e.target.value)}
+              />
+              <span className="text-[11px] text-muted-foreground/80">留空也能建，之后在案件卡里再补</span>
+            </label>
+          </div>
 
           <label className="flex items-center gap-2 text-[12.5px] text-secondary-foreground">
             <input

@@ -58,6 +58,21 @@ describe('AddCaseDialog', () => {
     expect((screen.getByLabelText('主管机关') as HTMLInputElement).value).toBe(DEFAULTS.court)
   })
 
+  it('收案日期默认今天，且随请求一起发出（二审/执行可回填历史日期）', async () => {
+    const today = (() => {
+      const d = new Date()
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    })()
+    setup()
+    expect((screen.getByLabelText('收案日期') as HTMLInputElement).value).toBe(today)
+
+    fireEvent.change(screen.getByLabelText('收案日期'), { target: { value: '2026-07-07' } })
+    fireEvent.click(screen.getByRole('button', { name: '新建案件' }))
+
+    await waitFor(() => expect(api.createCaseUnderContract).toHaveBeenCalledTimes(1))
+    expect(api.createCaseUnderContract.mock.calls[0]![0]).toMatchObject({ startDate: '2026-07-07' })
+  })
+
   it('提交带上 contract_id / 阶段 / 案型 / 金额 / 法院，成功后把新案件 id 交回页面', async () => {
     const { onSaved, onClose } = setup()
     fireEvent.click(screen.getByRole('button', { name: '新建案件' }))
@@ -72,6 +87,7 @@ describe('AddCaseDialog', () => {
       targetAmount: 161762,
       court: DEFAULTS.court,
       isFiled: false,
+      startDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
     })
     expect(onSaved).toHaveBeenCalledWith(99)
     expect(onClose).toHaveBeenCalled()

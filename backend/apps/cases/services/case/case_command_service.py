@@ -107,6 +107,11 @@ class CaseCommandService(PermissionMixin):
         ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         self.check_authenticated(ctx)
 
+        # 「不填」= 用模型默认值。入参里留空会带一个 None 进来，而 start_date
+        # 是 NOT NULL（模型默认 date.today）——直接 create(start_date=None) 会 500。
+        if data.get("start_date") is None:
+            data.pop("start_date", None)
+
         contract_id: int | None = data.get("contract_id")
         if contract_id:
             self._validate_contract(contract_id)
