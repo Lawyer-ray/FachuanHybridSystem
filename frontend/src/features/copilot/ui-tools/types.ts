@@ -14,6 +14,8 @@
 // `{ origin; refId; title }`：同一件事两处拼写，字段一改就静默少传一个。
 // `import type` 编译期擦除，不破坏本文件的零运行时依赖。
 import type { CopilotLaunchContext } from '../launch'
+// `export type { … } from` 不会把名字带进本文件作用域，`PageUiAction` 还要用它，故单列一次 import
+import type { UiToolName } from './generated'
 
 /**
  * 动作名的权威定义在生成物里，这里只做转出：调用方（hooks / store / 组件）
@@ -74,3 +76,21 @@ export type UiExecutor = (
   args: Record<string, unknown>,
   ports: UiToolPorts,
 ) => UiToolOutcome | Promise<UiToolOutcome>
+
+/**
+ * 页面自己声明的动作实现：约定文件 `features/<feature>/ui-actions.ts` 的
+ * `uiActions` 数组元素（聚合逻辑见 `ui-tools/discover.ts`）。
+ *
+ * **为什么 `action` 是 `UiToolName` 而不是 `string`**：动作名的唯一来源是后端清单
+ * （`generated.ts` 由 `manifest.py` 反射生成）。写成 string 时，页面可以「实现」一个
+ * 模型永远不会调用的名字，而这件事既不红也不报错——`discover.ts` 的收集期还会再拦
+ * 一次（防陈旧生成物），但类型这一层更便宜。
+ *
+ * **为什么 `execute` 直接用 `UiExecutor` 而不是再抄一遍函数类型**：两处手抄之后，
+ * 页面实现会以「参数少一个 / 返回值形状不同」的形式静默错位，而这正是闭集守卫
+ * （`Record<UiToolName, UiExecutor>`）当初要消灭的故障形态。
+ */
+export interface PageUiAction {
+  action: UiToolName
+  execute: UiExecutor
+}

@@ -10,10 +10,16 @@
  * **不写业务 API 调用**：`confirm` 类动作要真写库时，走 `ports.dispatch` 让目标
  * feature 自己消费（`launch.ts` 的既定模式），执行器不 import 别的 feature 内部——
  * 那会把对方的 chunk 拖进 copilot 的懒加载边界。
+ *
+ * 页面自己声明的执行器（`features/<x>/ui-actions.ts`，收集见 `discover.ts`）在这里**优先于**
+ * 内置表：新增页面只写那个约定文件，不用回来改本文件。代价是「执行器里可以没有安全检查」，
+ * 所以路径白名单被上提到了 `runUiTool` 层、与实现无关（见那里的注释）。
  */
 
+import { COLLECTED_PAGE_EXECUTORS, resolveDiscoveredExecutor, setDiscoveredExecutors } from './discover'
 import { UI_TOOL_BY_NAME, UI_TOOL_SPECS } from './generated'
 import type { UiToolName, UiToolSpec } from './generated'
+import { queuePageAction } from './pending'
 import { MATERIAL_PREP_STAGES, pathForMaterialPrepStage, pathForNavigate } from './routes'
 import type { UiActionRequest, UiExecutor, UiToolOutcome, UiToolPorts } from './types'
 
@@ -71,9 +77,37 @@ export function resolveSpec(name: string): UiToolSpec | null {
   return Object.hasOwn(UI_TOOL_BY_NAME, name) ? UI_TOOL_BY_NAME[name as UiToolName] : null
 }
 
-/** 名字 → 执行器；不在闭集里返回 `null` */
+/**
+ * 名字 → 执行器。**顺序：页面声明优先，内置兜底；名字不在清单里返回 `null`。**
+ *
+ * 为什么页面优先：动作实现终将要搬回各自 feature（`features/<x>/ui-actions.ts`），
+ * 迁移期两边并存时页面那份才是最新的；内置优先会让「搬走之后的行为改动」静默失效。
+ *
+ * 覆盖内置执行器的安全代价由两层挡住，都不在执行器内部：
+ * 1. 闭集不变——名字必须在后端清单（`generated.ts`）里，发现期就已过滤；
+ * 2. `runUiTool` 的白名单守卫在**执行器之外**：`ui_navigate` 无论谁实现，都先过
+ *    `pathForNavigate`。所以这里可以允许覆盖，但不许**悄悄**覆盖。
+ */
 export function resolveExecutor(name: string): UiExecutor | null {
+  const fromPage = resolveDiscoveredExecutor(name)
+  if (fromPage) return fromPage
   return Object.hasOwn(UI_EXECUTORS, name) ? UI_EXECUTORS[name as UiToolName] : null
+}
+
+/**
+ * 换上「页面声明的执行器表」，并把「覆盖了内置执行器」在**收集期**吵一句。
+ *
+ * 生产路径只有一个调用点（本文件末尾的模块初始化）；导出是为了让测试注入假模块——
+ * 今天清单只有 3 条动作且全有内置实现，不注入就无法证明这条通道是活的。
+ */
+export function setPageExecutors(next: ReadonlyMap<string, UiExecutor>): void {
+  setDiscoveredExecutors(next)
+  for (const name of next.keys()) {
+    if (!Object.hasOwn(UI_EXECUTORS, name)) continue
+    console.warn(
+      `页面实现覆盖了内置执行器 ${name}；若是 ui_navigate 请确认白名单守卫仍在（现在它在 runUiTool 层，不受覆盖影响）`,
+    )
+  }
 }
 
 /**
@@ -95,6 +129,26 @@ function copilotContext(args: Record<string, unknown>): { origin: 'case' | 'cont
 const MATERIAL_PREP_STAGE_LIST = MATERIAL_PREP_STAGES.join(' / ')
 
 /**
+ * 白名单拒绝的统一文案：内置执行器与 `runUiTool` 的通用守卫共用一句。
+ * 各写一份的那天，同一件事在 banner 上会变成两种说法。
+ */
+const NAVIGATE_DENIED_MESSAGE = '跳转被拒：这个地址不在站内白名单里（只接受应用自己的页面路径）'
+
+/**
+ * 当前地址是否已经落在目标页上（`/material-prep?stage=todo` 算在 `/material-prep` 上，
+ * 子路径 `/material-prep/393` 也算——它与列表页共用同一个组件）。
+ *
+ * 必须按**段**比：`/material-prep-x` 不是 `/material-prep` 的子页面，用裸 `startsWith`
+ * 会把「排队 + 跳过去」误判成「已经在了」，动作就落在错页上。
+ */
+function isUnderRoute(currentPath: string, route: string): boolean {
+  const queryAt = currentPath.indexOf('?')
+  const pathname = queryAt === -1 ? currentPath : currentPath.slice(0, queryAt)
+  if (route === '/') return pathname === '/'
+  return pathname === route || pathname.startsWith(`${route}/`)
+}
+
+/**
  * 执行器闭集：`Record<UiToolName, UiExecutor>` 在清单多一条而这里少一条时直接编译红，
  * 这正是「双端完备」在类型系统里能拿到的最强保证。
  */
@@ -102,11 +156,7 @@ export const UI_EXECUTORS: Record<UiToolName, UiExecutor> = {
   ui_navigate: (args, ports) => {
     const path = pathForNavigate(args.path)
     if (path === null) {
-      return {
-        ok: false,
-        code: 'route_unreachable',
-        message: '跳转被拒：这个地址不在站内白名单里（只接受应用自己的页面路径）',
-      }
+      return { ok: false, code: 'route_unreachable', message: NAVIGATE_DENIED_MESSAGE }
     }
     ports.navigate(path)
     return { ok: true, detail: path }
@@ -149,6 +199,24 @@ export async function runUiTool(req: UiActionRequest, ports: UiToolPorts): Promi
   if (!validateArgs(spec, req.args)) {
     return { ok: false, code: 'invalid_args', message: `动作 ${req.action} 的参数不合法` }
   }
+  // 与实现无关的安全守卫：路径白名单**不跟着执行器走**。页面可以在 `ui-actions.ts` 里
+  // 覆盖 ui_navigate 的实现（见 resolveExecutor），但绕不过这一行——否则「谁能覆盖
+  // 执行器」就等于「谁能放开跳转白名单」，而白名单是整条链路上唯一的安全边界。
+  if (req.action === 'ui_navigate' && pathForNavigate(req.args.path) === null) {
+    return { ok: false, code: 'route_unreachable', message: NAVIGATE_DENIED_MESSAGE }
+  }
+  // 动作落在**还没挂载**的页面上：先排队再跳，由目标页挂载时取走（hooks/use-ui-pending-action）。
+  // 只对页面自己声明的执行器生效：内置三条本来就是 URL 直达（切阶段用 replace 原地改
+  // query、并要保住当前页的 ?message=），排到目标页再跑会多跳一次，还丢深链接。
+  if (
+    spec.route !== null &&
+    resolveDiscoveredExecutor(req.action) !== null &&
+    !isUnderRoute(ports.currentPath(), spec.route)
+  ) {
+    queuePageAction(spec.route, req)
+    ports.navigate(spec.route)
+    return { ok: true, detail: `已跳转到 ${spec.route}，页面就绪后继续` }
+  }
   try {
     return await executor(req.args, ports)
   } catch (error) {
@@ -162,3 +230,7 @@ export async function runUiTool(req: UiActionRequest, ports: UiToolPorts): Promi
 
 /** 清单里的动作名（测试与治理门禁用；顺序即清单声明序） */
 export const UI_TOOL_NAMES: readonly UiToolName[] = UI_TOOL_SPECS.map((spec) => spec.name)
+
+// 模块加载即装上 glob 收集到的页面动作表（收集期提示，不等到第一次动作才吵）。
+// 必须放在 `UI_EXECUTORS` 定义之后：`setPageExecutors` 要读它判断「覆盖了内置」。
+setPageExecutors(COLLECTED_PAGE_EXECUTORS)

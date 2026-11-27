@@ -12,7 +12,18 @@
 export type { UiToolName, UiToolRisk, UiToolSpec, UiToolTier, UiToolUndo } from './generated'
 export { UI_TOOL_BY_NAME, UI_TOOL_SPECS } from './generated'
 
-export type { UiActionRequest, UiExecutor, UiToolErrorCode, UiToolOutcome, UiToolPorts } from './types'
+export type {
+  PageUiAction,
+  UiActionRequest,
+  UiExecutor,
+  UiToolErrorCode,
+  UiToolOutcome,
+  UiToolPorts,
+} from './types'
+
+// 「等目标页面挂载后再执行」的队列：入队由 registry 在做（页面没挂载时），
+// 出队由 hooks/use-ui-pending-action 做。两个方向都从这里取，路径只拼一次。
+export { MAX_PENDING_PAGE_ACTIONS, queuePageAction, takePageActions } from './pending'
 
 export { resolveExecutor, resolveSpec, runUiTool, UI_EXECUTORS, UI_TOOL_NAMES, validateArgs } from './registry'
 
