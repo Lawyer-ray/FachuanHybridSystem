@@ -80,6 +80,13 @@ APPROVAL_WINDOW = timedelta(minutes=10)
 #: 覆盖前端重试与律师缓慢操作；同时短到「一周后的迟到回执」不可能翻掉当时的判断。
 RECEIPT_TTL = timedelta(seconds=300)
 
+#: 下发去重窗口：同一会话 + 同一动作 + 同一参数在这个时长内**仍未结算**时，
+#: 第二次下发直接判 ``duplicate``（见 :func:`find_unsettled`）。
+#: 30 秒的来历：ack 只等 2 秒（没拿到回执模型就会原样重发），积压 TTL 60 秒；
+#: 而律师自己「过一会儿再判一次」远不止 30 秒——窗口要长到盖住模型的重发，
+#: 又不该长到把律师真的要再执行一次也拦掉。
+DISPATCH_DEDUPE_WINDOW = timedelta(seconds=30)
+
 #: ``outcome`` 的初始值。**不是** ``ok``：回执可能永远不到，默认成功就是撒谎。
 OUTCOME_UNKNOWN = "unknown"
 #: 从未执行过、由「人/超时」判定的两种结局（``decision`` 同时会写同一个值）。
@@ -156,6 +163,70 @@ def _short_action_name(tool_name: str) -> str:
 
     prefix = tool_prefix()
     return tool_name[len(prefix) :] if tool_name.startswith(prefix) else tool_name
+
+
+async def find_unsettled(
+    *,
+    session_id: str,
+    action: str,
+    arguments_hash: str,
+    window: timedelta = DISPATCH_DEDUPE_WINDOW,
+) -> str | None:
+    """同一会话、同一动作、同一参数、**仍未结算**的最近一条下发的 ``call_id``。
+
+    这是「这个动作还在飞吗」的唯一判据，而它不需要一张 pending 表：台账里
+    ``outcome="unknown"`` 那一行本身就是「已下发、还没有结局」的事实。另建一张表等于
+    养出两个真相，补拉 / 超时清理 / 进程重启之后的核对全要在两张表之间对齐；而
+    ``publish_ui_action`` 在发出去时**已经**写了这行（写在等回执之前，回执才找得到它）。
+
+    ``outcome`` 只认 :data:`OUTCOME_UNKNOWN`：``denied`` / ``expired`` 是「从未执行」的
+    终态，``ok`` / ``error`` / ``aborted`` 已有结局——它们都不该拦住下一次下发。
+
+    **查询失败只 warn 返回 ``None``**：去重是防重发的优化，让一次查询故障挡住所有写动作
+    下发，等于把优化变成可用性故障（与 :func:`record_dispatch` 同一个口径）。
+
+    Args:
+        session_id: ``AgentSession.session_id``（UUID 字符串）；非法值直接返回 ``None``。
+        action: 清单里的动作名（与台账 ``action`` 列同口径）。
+        arguments_hash: :func:`arguments_hash_of` 算出的原始参数指纹。
+        window: 只看这么久之内创建的台账行，默认 :data:`DISPATCH_DEDUPE_WINDOW`。
+
+    Returns:
+        最近一条未结算下发的 ``call_id``；没有匹配、或查询失败时 ``None``。
+    """
+    # 延迟 import：理由见模块 docstring。
+    from django.db import DatabaseError
+    from django.utils import timezone
+
+    from ...models import AgentUiAction
+    from ..session_service import _as_uuid
+
+    normalized = _as_uuid(session_id) if session_id else None
+    if normalized is None:
+        return None
+    try:
+        return await (
+            AgentUiAction.objects.filter(
+                # 按会话的 UUID 外键过滤（走 Meta 里的 session + -created_at 索引），
+                # 不先查一次 AgentSession：这里只要 call_id，多一次查询没有意义。
+                session__session_id=normalized,
+                action=action,
+                arguments_hash=arguments_hash,
+                outcome=OUTCOME_UNKNOWN,
+                created_at__gte=timezone.now() - window,
+            )
+            .order_by("-created_at")
+            .values_list("call_id", flat=True)
+            .afirst()
+        )
+    except (DatabaseError, ValueError):
+        logger.warning(
+            "UI 动作去重查询失败（按「没有在飞的动作」处理，去重失效但不挡下发）: session=%s action=%s",
+            session_id,
+            action,
+            exc_info=True,
+        )
+        return None
 
 
 async def record_dispatch(

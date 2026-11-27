@@ -35,10 +35,16 @@ _CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
 _MAX_TEXT = 200
 #: 页面状态快照序列化后的字符上限（超了直接拒，理由见 :class:`UiSnapshotIn`）。
 _MAX_SNAPSHOT_STATE = 2000
-#: 单个 ``available_actions`` 名字的长度上限（真名都是 ``ui_xxx`` 量级，64 字已经宽裕）。
+#: 单个动作名（``available_actions`` / ``blocked_actions[].name``）的长度上限（真名都是
+#: ``ui_xxx`` 量级，64 字已经宽裕）。
 _MAX_ACTION_NAME = 64
-#: ``available_actions`` 的条数上限（同页面的动作数远小于此；多了就是噪声而已）。
-_MAX_AVAILABLE_ACTIONS = 10
+#: 两份动作列表（``available_actions`` / ``blocked_actions``）共用的条数上限：同页面的动作数远
+#: 小于此，多了就是噪声而已。两端同一口径（前端 ``MAX_AVAILABLE_ACTIONS`` / ``MAX_BLOCKED_ACTIONS``）。
+_MAX_ACTIONS = 10
+#: 动作名的字符集：与 ``manifest`` 里的真名一致（小写 + 下划线）。``-`` / 空格 / 中文都不收——
+#: 名字是**查表用的标识**，长得不像名字的只可能让模型去调一个不存在的动作。长度与
+#: ``_MAX_ACTION_NAME`` 同源（写死两处的话，改一处就会静默多收或少收一档）。
+_ACTION_NAME_RE = re.compile(rf"^[A-Za-z0-9_]{{1,{_MAX_ACTION_NAME}}}$")
 #: ``call_id`` 只可能是后端自己生成的 32 位十六进制。仍然限字符集与长度：它会拼进
 #: Redis 键、也会进日志行，放任任意字符串等于给人一个撑键名、改日志的口子。
 _CALL_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -107,6 +113,12 @@ class UiSnapshotIn(Schema):
     **查表用的不透明标识**，截短后匹配不到任何动作，模型也就不会（也无法）调它——失败方向是
     「少了一个提示」，**不构成假事实**；而截断状态会凭空造出「页面上没有这个字段」。所以前者
     容错、后者拒收。
+
+    **``blocked_actions`` 同 ``available_actions`` 的口径**（清洗 + 截断 + 限量，不拒收）：它
+    也是「查表用的标识 + 一句解释」，坏一条只少一条提示。但比名字多一条硬要求——``name`` 必须
+    像真名（:data:`_ACTION_NAME_RE`），``reason`` 必须非空：一条「没有原因」的 blocked 项对模型
+    等于「这条不许用」，它只会照此放弃，而律师看到的是 AI 莫名其妙不做。所以形状不对的项整条
+    丢掉，而不是留个半句。
     """
 
     #: 页面主动声明的那部分状态（``ui-tools/page-state.ts`` 的注册表产物）。
@@ -117,6 +129,9 @@ class UiSnapshotIn(Schema):
     note: str = ""
     #: 本页**此刻可做**的动作名（manifest 的 ``name``）。让模型不用先试错再改口。
     available_actions: list[str] = Field(default_factory=list)
+    #: 本页**有、但此刻做不了**的动作与原因（``[{"name", "reason"}]``）。与 ``available_actions``
+    #: 互补：那边说能做，这边说做不了以及为什么（如「还没选中材料包」），模型据此先补前置。
+    blocked_actions: list[dict] = Field(default_factory=list)
 
     @field_validator("route", "note")
     @classmethod
@@ -132,13 +147,45 @@ class UiSnapshotIn(Schema):
             name = _CONTROL_RE.sub("", item or "").strip()[:_MAX_ACTION_NAME]
             if name and name not in cleaned:
                 cleaned.append(name)
-        if len(cleaned) > _MAX_AVAILABLE_ACTIONS:
+        if len(cleaned) > _MAX_ACTIONS:
             logger.warning(
                 "页面快照的 available_actions 有 %d 条，超过 %d 条上限，已截断",
                 len(cleaned),
-                _MAX_AVAILABLE_ACTIONS,
+                _MAX_ACTIONS,
             )
-            return cleaned[:_MAX_AVAILABLE_ACTIONS]
+            return cleaned[:_MAX_ACTIONS]
+        return cleaned
+
+    @field_validator("blocked_actions")
+    @classmethod
+    def _clean_blocked_actions(cls, value: list[dict]) -> list[dict]:
+        """``blocked_actions`` 按不可信文本洗一遍：形状不对的项**整条丢掉**，同名的只留第一条。
+
+        丢而不拒：一条 bad 项只少一条提示；拒收则会让整份快照丢掉（连 ``available_actions``
+        一起），模型退回「没问到」。多键的项也丢——多出来的键没人在前端填过，留着只会让模型
+        以为契约里还有别的东西（而它没有）。
+        """
+        cleaned: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for item in value:
+            if set(item) != {"name", "reason"}:
+                continue
+            raw_name, raw_reason = item["name"], item["reason"]
+            if not isinstance(raw_name, str) or not isinstance(raw_reason, str):
+                continue
+            name = _CONTROL_RE.sub("", raw_name).strip()
+            reason = _untrusted_text(raw_reason)
+            if not _ACTION_NAME_RE.match(name) or not reason or name in seen:
+                continue
+            seen.add(name)
+            cleaned.append({"name": name, "reason": reason})
+        if len(cleaned) > _MAX_ACTIONS:
+            logger.warning(
+                "页面快照的 blocked_actions 有 %d 条，超过 %d 条上限，已截断",
+                len(cleaned),
+                _MAX_ACTIONS,
+            )
+            return cleaned[:_MAX_ACTIONS]
         return cleaned
 
     @model_validator(mode="after")

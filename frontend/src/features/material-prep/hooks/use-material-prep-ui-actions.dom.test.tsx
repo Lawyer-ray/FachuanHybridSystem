@@ -3,7 +3,8 @@
  * 接线 hook 的真实行为。DeskPage 的三个编排用例文件把本 hook **整块打桩**了
  * （`desk-page-test-harness.tsx` 里那句 `vi.mock`），所以这三件事只能在这里证明：
  *
- * 1. 挂载时把页面状态登记进 `readPageState('material-prep')`（AI 读到的就是这份）；
+ * 1. 挂载时把页面状态登记进 `readPageState('material-prep')`（AI 读到的就是这份），
+ *    以及「没选中材料包时判不了」这份 `blockedActions` 是否跟着 `selected` 走；
  * 2. 收到 `PACK_STATUS_CHANGED_EVENT` 后真的重拉材料包列表（执行器在 copilot 那侧写完库的路径）；
  * 3. `useUiPendingAction` 队列里的请求会被消费（「跳过来再继续做」的路径）。
  *
@@ -58,14 +59,19 @@ afterEach(() => {
   takePageActions(ROUTES.materialPrep)
 })
 
-function renderHost(stage: PrepStage = 'todo', selected: number | null = 812) {
-  return render(
+/** 整套宿主树（`rerender` 要重挂同一棵树，所以单独抽出来） */
+function hostTree(stage: PrepStage, selected: number | null) {
+  return (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[`${ROUTES.materialPrep}?stage=${stage}`]}>
         <Host stage={stage} selected={selected} />
       </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   )
+}
+
+function renderHost(stage: PrepStage = 'todo', selected: number | null = 812) {
+  return render(hostTree(stage, selected))
 }
 
 describe('① 页面状态登记（AI 读到的就是这份快照）', () => {
@@ -83,6 +89,34 @@ describe('① 页面状态登记（AI 读到的就是这份快照）', () => {
     unmount()
     // 卸载即注销：页面没了还回旧快照，等于让模型对着不存在的页面下指令
     expect(readPageState('material-prep')).toBeNull()
+  })
+})
+
+describe('①-b 没选中材料包 → 告诉模型这一页现在判不了（blocked_actions）', () => {
+  it('selected 为空时把 judge 标成做不了，且理由点名「先选一条」', () => {
+    const { unmount } = renderHost('todo', null)
+
+    const blocked = readPageState('material-prep')?.blockedActions
+    expect(blocked).toEqual([
+      {
+        name: 'ui_material_prep_judge',
+        reason: expect.stringContaining('选中'),
+      },
+    ])
+    // 理由必须给出下一步（选一条 / 问他是哪一个），否则模型只能猜一个 packId 硬调
+    expect(blocked?.[0]?.reason).toContain('选一条')
+
+    unmount()
+  })
+
+  it('选中之后马上不再 blocked（模型不能在能做的页面上继续读「做不了」）', () => {
+    const view = renderHost('todo', null)
+    expect(readPageState('material-prep')?.blockedActions).toHaveLength(1)
+
+    view.rerender(hostTree('todo', 812))
+
+    expect(readPageState('material-prep')?.blockedActions).toEqual([])
+    view.unmount()
   })
 })
 

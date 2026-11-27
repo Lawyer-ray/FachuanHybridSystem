@@ -36,11 +36,24 @@ MCP 的 inputSchema 由函数签名生成（本仓从不手写 schema）。``**k
 会在事件循环线程里跑，一个动作下发就钉住所有人的工具调用——与 ``tools/core/ask_user.py``
 刻意写成 ``async`` 是同一条理由。函数体本身也只做一件事：把动作推给前端，**不等回执**。
 
+## 部署级策略（deny / floor）
+
+清单是代码，事故现场要的是环境变量：
+
+- ``FACHUAN_UI_ACTION_DENY`` 命中的动作**跳过注册**（warning，不抛）——一条动作被禁不该让
+  整个 MCP 起不来；它也因此不在本模块返回的工具名台账里，``tool_tiers`` / exposure 那些
+  静态名单多列一个不存在的名字无害（pi 只按名字匹配，不会凭空造出工具）。
+- ``FACHUAN_UI_ACTION_RISK_FLOOR`` 抬高的是**生效档**，判级必须按生效档算，否则 floor 就只是
+  日志里的一句话：``safe`` 被抬到 ``confirm`` 时要真弹卡。
+
 ## annotations → 审批判级
 
-- ``safe`` → ``readOnlyHint=True``：判级退回名字判定（``ui_*`` 不在写前缀里 → LOW → 直通）；
-- ``confirm`` / ``guarded`` → ``destructiveHint=True``：``risk.py::_classify_by_annotations``
+- **生效**档 ``safe`` → ``readOnlyHint=True``：判级退回名字判定（``ui_*`` 不在写前缀里 →
+  LOW → 直通）；
+- **生效**档 ``confirm`` / ``guarded`` → ``destructiveHint=True``：``risk.py::_classify_by_annotations``
   取「至少 HIGH」→ 既有闸门在工具体执行**之前**拦下并弹审批卡。
+- 注解只是判级的输入，**不是安全边界**（MCP spec：annotations untrusted）；真正的策略在
+  :mod:`apps.agent.services.ui_action.policy` 与本模块的 deny 跳过。
 
 两个口径之间的桥是 ``apps/agent/services/approval/annotations.py::_annotation_table``：它把
 SDK 的 ``ToolAnnotations`` **对象**转成 ``{"read_only_hint": …}`` 三键 dict，``risk.py`` 才读
@@ -59,12 +72,12 @@ from typing import Annotated, Any, Literal
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
-from apps.agent.services.ui_action import collect_ui_action_results, publish_ui_action
+from apps.agent.services.ui_action import collect_ui_action_results, policy, publish_ui_action
 from apps.agent.services.ui_action.manifest import UI_ACTIONS, UiAction
 from mcp_server.identity import current_session_id
-from mcp_server.tools.ui.batch_tool import BATCH_TOOL_NAME, register_ui_batch_tool
+from mcp_server.tools.ui.batch_tool import BATCH_TOOL_NAME, _register_ui_batch_tool
 from mcp_server.tools.ui.state_tool import TOOL_NAME as STATE_TOOL_NAME
-from mcp_server.tools.ui.state_tool import register_ui_state_tool
+from mcp_server.tools.ui.state_tool import _register_ui_state_tool
 
 logger = logging.getLogger(__name__)
 
@@ -222,7 +235,7 @@ def _register_actions(
     *,
     reserved_names: Iterable[str],
 ) -> list[str]:
-    """按给定动作逐条注册，返回注册名列表。
+    """按给定动作逐条注册（跳过部署级禁用名单），返回注册名列表。
 
     ``actions`` 是参数而不是直接用 ``UI_ACTIONS``：``confirm`` / ``guarded`` 档在拿到真名
     动作之前也必须能实测判级（见 ``test_ui_tool_tiers`` 的合成动作）——判级只取决于
@@ -236,7 +249,22 @@ def _register_actions(
             raise RuntimeError(f"UI 动作与既有工具撞名，拒绝注册: {action.name}")
         if action.name in registered:
             raise RuntimeError(f"UI 动作在清单里重复登记: {action.name}")
-        register_tool(_tool_for(action), annotations=_annotations_for(action.risk))
+        if policy.is_denied(action.name):
+            # 跳过而不是抛：deny 是运维开关，写错一条不该让整个 MCP 起不来（拼错的名字在
+            # :func:`_register_ui_tools` 里单独告警）。也不静默：否则运维以为「已经关掉了」。
+            logger.warning("UI 动作被部署级名单禁用，未注册: %s（%s）", action.name, policy.DENY_ENV)
+            continue
+        risk = policy.effective_risk(action)
+        if policy.escalated(action):
+            # 可解释性：清单里的 safe 动作突然弹卡时，日志要能回答「为什么」。
+            logger.warning(
+                "UI 动作风险被部署级下限抬高: %s %s → %s（%s）",
+                action.name,
+                action.risk,
+                risk,
+                policy.FLOOR_ENV,
+            )
+        register_tool(_tool_for(action), annotations=_annotations_for(risk))
         registered.append(action.name)
     if registered:
         logger.info("ui 工具已注册 %d 个: %s", len(registered), ", ".join(registered))
@@ -262,6 +290,14 @@ def _register_ui_tools(
     会被 ``test_tool_registration`` 当作「实现完整但从未注册的工具」。注册器不是工具，
     按该门禁 docstring 的约定用 ``_`` 命名，而不是往白名单里加一条逃生门。
     """
+    # 先对账 deny 名单：拼错/已下线的名字只告警不抛（`_register_actions` 只按真实动作逐个查）。
+    for unknown in policy.unknown_denied_names({action.name for action in UI_ACTIONS}):
+        logger.warning(
+            "UI 动作 deny 名单里有清单外的名字（拼写错误、动作已下线，或它是手写的非清单工具——"
+            "deny 只作用于清单动作），忽略: %s（%s）",
+            unknown,
+            policy.DENY_ENV,
+        )
     registered = _register_actions(UI_ACTIONS, register_tool, reserved_names=reserved_names)
     registered.extend(
         _register_results_tool(register_tool, reserved_names=(*reserved_names, *registered)),
@@ -272,6 +308,6 @@ def _register_ui_tools(
     for tool_name, label in ((STATE_TOOL_NAME, "页面状态"), (BATCH_TOOL_NAME, "批量动作")):
         if tool_name in reserved_names or tool_name in registered:
             raise RuntimeError(f"UI {label}工具与既有工具撞名，拒绝注册: {tool_name}")
-    registered.append(register_ui_state_tool(register_tool))
-    registered.append(register_ui_batch_tool(register_tool))
+    registered.append(_register_ui_state_tool(register_tool))
+    registered.append(_register_ui_batch_tool(register_tool))
     return registered

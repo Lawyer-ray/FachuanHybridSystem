@@ -26,7 +26,7 @@ import logging
 import uuid
 from typing import Any
 
-from . import publish_ui_action
+from . import policy, publish_ui_action
 from .manifest import UI_ACTIONS, UiAction
 from .schema import validate_arguments
 
@@ -38,6 +38,17 @@ MAX_BATCH_STEPS = 5
 BATCH_TOOL_NAME = "ui_action_batch"
 #: 动作名 → 清单项（清单是闭集，唯一来源是 manifest，这里只建一次索引）。
 _ACTIONS_BY_NAME: dict[str, UiAction] = {action.name: action for action in UI_ACTIONS}
+
+
+def _available_actions() -> dict[str, UiAction]:
+    """当前可用动作 = 清单 − 部署级 deny 名单（见 :mod:`.policy`）。
+
+    每次校验都重新过滤而不是在 import 时冻结：deny 是部署级开关，冻结在 import 时会让
+    「改了环境变量没生效」且看不出原因；而清单只有个位数条目，重建索引的成本可以忽略。
+    被禁的动作走下面「不在可用清单里」的**既有**报错——不另造一句新文案，模型学到的
+    修法不变（换成可用动作），也不必知道“被禁用”与“不存在”背后的区别。
+    """
+    return {name: action for name, action in _ACTIONS_BY_NAME.items() if not policy.is_denied(name)}
 
 
 class BatchInvalid(ValueError):
@@ -67,6 +78,7 @@ def validate_batch(steps: Any) -> list[UiAction]:
         raise BatchInvalid(
             f"一批最多 {MAX_BATCH_STEPS} 步，这次给了 {len(steps)} 步。请拆成两批分别确认；整批没有下发。"
         )
+    actions_by_name = _available_actions()
     actions: list[UiAction] = []
     for offset, step in enumerate(steps):
         label = f"第 {offset + 1} 步"
@@ -79,10 +91,10 @@ def validate_batch(steps: Any) -> list[UiAction]:
             raise BatchInvalid(
                 f"{label}是 {BATCH_TOOL_NAME}：批量动作不能嵌套。请把内层步骤摊平到这一批里（仍最多 {MAX_BATCH_STEPS} 步）；整批没有下发。"
             )
-        action = _ACTIONS_BY_NAME.get(name)
+        action = actions_by_name.get(name)
         if action is None:
             raise BatchInvalid(
-                f"{label}的动作 {name} 不在可用清单里。可用动作：{'、'.join(sorted(_ACTIONS_BY_NAME))}。整批没有下发。"
+                f"{label}的动作 {name} 不在可用清单里。可用动作：{'、'.join(sorted(actions_by_name))}。整批没有下发。"
             )
         error = validate_arguments(action.args_schema, _args_of(step))
         if error is not None:

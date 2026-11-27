@@ -30,6 +30,21 @@ v1 那条「不该知道的就别让它说」并没有被推翻，它约束的�
 一次已经发生的页面跳转（实测 100~600ms），等更久只是白占 pi 的进程池槽位。
 窗口由 ``FACHUAN_UI_ACTION_ACK_WAIT`` 控制（默认 2.0，clamp 0~8，0 = 完全不等）。
 
+## 为什么「还在飞」用台账反推，而不是新建一张 pending 表
+
+模型没在 2 秒窗口里拿到回执时会**原样重发**同一个写动作；前端那条 5 秒同参窗只覆盖
+同一个标签页，跨 worker / 跨设备完全挡不住。判断「这个动作同参数是不是还没结算」
+不需要新表：台账里 ``outcome="unknown"`` 那一行本身就是「已下发、没有结局」的事实，
+:func:`audit.find_unsettled` 一次查询就能反答（对照 OpenHands：pending = 没有匹配
+observation 的 action）。另建表会养出两个真相：补拉、超时清理、进程重启后的对账全
+要在两张表之间对齐，而两张表总有一张会先漏。
+
+窗口定 30 秒（:data:`audit.DISPATCH_DEDUPE_WINDOW`）：ack 只等 2 秒（模型的重发就发生在
+这之后几秒）、积压 TTL 60 秒，而律师自己手动重试一次远不止 30 秒。它**只拦非幂等动作**
+（``action.idempotent is False``）：跳页、开面板这类重复执行无害的 ``safe`` 动作不该被它
+拦；拦截时返回 ``duplicate`` 并把原 ``call_id`` 交回去，模型下一步是去取那一次的结果，
+而不是再发一遍。
+
 ## 积压的历史结果放在哪个字段
 
 独立字段 ``earlier_results``（人类可读的字符串数组），不并进 ``note``：``note`` 只描述
@@ -148,8 +163,10 @@ async def publish_ui_action(
     ``0`` = 明确不等；批量里第 2 步起就是这么发的）。
 
     Returns:
-        ``{"status": "dispatched"|"dry_run"|"no_channel"|"disabled"|"invalid_args", ...}``
+        ``{"status": "dispatched"|"dry_run"|"no_channel"|"disabled"|"invalid_args"|"duplicate", ...}``
         ——返回值整个交给模型，状态本身就是它下一步的依据。
+        ``duplicate`` 是「同一动作同一参数还在飞」（非幂等动作才有），返回里带的是那一次的
+        ``call_id``：模型该去取它的结果，而不是再发一遍（见模块 docstring）。
         ``dispatched`` 有两种形态：``observed=true`` 附真实 ``outcome`` / ``code`` /
         ``location``；``observed=false`` 附 ``pending=true``（稍后可用
         ``ui_action_results`` 取）。详细的字段口径见 :func:`_dispatched_result`。
@@ -193,6 +210,34 @@ async def publish_ui_action(
             "delivered": False,
             "note": "当前没有可接收动作的页面（律师未打开该会话）。不要假定页面已变化，也不要重复调用。",
         }
+
+    # 同一动作、同一参数还在飞就不再发第二次：模型没拿到回执（2s 窗口）时会原样重发，
+    # 前端的 5s 同参窗只覆盖同一标签页，跨 worker / 跨设备挡不住。判据是台账反推
+    # （见 audit.find_unsettled 与模块 docstring），**只对非幂等动作生效**：
+    # 跳页/开面板重复执行无害，拦它们只会平白弄坏律师的操作。
+    if not action.idempotent:
+        existing = await audit.find_unsettled(
+            session_id=session_id,
+            action=action.name,
+            arguments_hash=audit.arguments_hash_of(arguments),
+        )
+        if existing:
+            logger.info(
+                "ui_action duplicate session=%s action=%s existing=%s",
+                session_id,
+                action.name,
+                existing,
+            )
+            return {
+                "status": "duplicate",
+                "call_id": existing,
+                "delivered": False,
+                "note": (
+                    f"同一动作、同一参数在过去 30 秒内已下发且尚未结算（call_id={existing}）。"
+                    "不要原样重发：先用 ui_action_results 取那一次的结果；"
+                    "若律师换了设备/刷新过页面，让他重新说一次。"
+                ),
+            }
 
     # 延迟 import：本模块要能被 ``python -m apps.agent.services.ui_action --ts``
     # 在无 Django settings 的环境里 import（生成器只碰 manifest/schema）。

@@ -8,9 +8,11 @@
  * （`turn-handlers.ts` 用展开合并，TS 的 excess-property 检查对 spread 不生效）。所以这里
  * 钉的是**真实分发路径**：喂一帧 `ui_snapshot_request`，断言回调被调用、载荷原样到达。
  *
- * 另外两条是应答本身的红线：
+ * 另外几条是应答本身的红线：
  * - 页面**声明了**状态 → 原样回 `state + route`；
- * - 页面**没声明** → 回 `note`（后端转成 `no_page_state`），**不许**把 `{}` 当空页面。
+ * - 页面**没声明** → 回 `note`（后端转成 `no_page_state`），**不许**把 `{}` 当空页面；
+ * - `blocked_actions` 恒发（有声明 = 那份清单、没声明 = 空数组）：模型靠它区分「页面没实现」
+ *   与「有但此刻不可用」，不发就等于让它去编一个 `packId` 硬调。
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -19,7 +21,13 @@ import { submitUiPageSnapshot } from './api'
 import { createUiSnapshotHandler } from './handlers/ui-action-handler'
 import { consumeAgentStream } from './streaming'
 import type { StreamHandlers } from './streaming'
-import { readPageState, registerPageState, unregisterPageState } from './ui-tools/page-state'
+import {
+  clearPageBlockedActions,
+  readPageState,
+  registerPageState,
+  setPageBlockedActions,
+  unregisterPageState,
+} from './ui-tools/page-state'
 
 vi.mock('./api', () => ({ submitUiPageSnapshot: vi.fn() }))
 
@@ -111,8 +119,23 @@ describe('页面状态应答', () => {
       route: expect.any(String),
       // 动作名清单（M4）：这页现在能做什么，模型据此不用试错；这里是名字不是结构，截断安全
       available_actions: expect.any(Array),
+      // 页面没登记「做不了什么」= 空数组（不是不带键：模型要能区分「没有」与「没问到」）
+      blocked_actions: [],
     })
     unregisterPageState('material-prep', provider)
+  })
+
+  it('页面登记了做不了的动作：blocked_actions 原样带上原因', () => {
+    const provider = () => ({ selected: null })
+    const blocked = [{ name: 'ui_material_prep_judge', reason: '当前没有选中材料包：先让律师选一条' }]
+    registerPageState('material-prep', provider)
+    setPageBlockedActions('material-prep', blocked)
+
+    createUiSnapshotHandler().onUiSnapshotRequest?.(FRAME, ORIGIN)
+
+    expect(sentReply()[1]).toMatchObject({ blocked_actions: blocked })
+    unregisterPageState('material-prep', provider)
+    clearPageBlockedActions('material-prep')
   })
 
   it('页面没声明状态：回 note，不许把 {} 当成空页面', () => {
@@ -124,6 +147,7 @@ describe('页面状态应答', () => {
       note: '页面没有声明状态',
       // 页面没声明状态 = 不知道它有哪些动作，回空表而不是编一份猜的清单
       available_actions: [],
+      blocked_actions: [],
     })
   })
 

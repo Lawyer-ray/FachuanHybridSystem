@@ -166,4 +166,7 @@ async def submit_ui_snapshot(
         # 页面自己声明的动作名（跨 lane 契约，由 ``UiSnapshotIn`` 提供，默认空列表）。
         # 模型据此知道「这一页现在能调哪些动作」，比让它猜省一轮试错。
         available_actions=payload.available_actions,
+        # 与 ``available_actions`` 成对：漏一行就等于这个字段永远拿不到（``accept_snapshot``
+        # 的默认值是空表，缺了不报错，只会让模型一直看到「没有什么做不了」）。
+        blocked_actions=payload.blocked_actions,
     )

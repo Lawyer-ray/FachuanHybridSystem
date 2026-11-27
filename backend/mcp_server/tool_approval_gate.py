@@ -285,12 +285,28 @@ def _error_result(text: str) -> CallToolResult:
 
 
 def _denied_text(short_name: str, level: RiskLevel, approval_id: str, reason: str) -> str:
-    """拒绝/超时的给模型文案：说清「去等审批」而不是「失败重试」。"""
+    """拒绝/超时的给模型文案：三段——**谁挡的**、**为什么**、**下一步该干什么**。
+
+    只说一句「未执行」的代价：模型把它当成一次普通失败，原样重发同一个写动作——律师
+    刚拒绝过，弹窗又被问一遍。所以段三必须同时给出「别原样重试」与两条可走的路
+    （先问律师 / 换一条不经审批的只读路径）。批准后那一次重试仍然是正规的（台账放行），
+    两件事分开说：批准前重试只会再等一张批过的卡。
+
+    纯字符串函数：本函数不做任何 IO（单测在 ``test_ui_action_denied_text.py``）。
+    """
     if approval_id:
-        pending = f"已发起人工审批 approval_id={approval_id}，不要重复调用，律师批准后原样重试一次即可直接放行。"
+        pending = (
+            f"已发起人工审批 approval_id={approval_id}：不要重复调用——律师批准后原样重试一次即可直接放行；"
+            "批准前不要原样重试同一动作，重复提交只会再等同一张审批卡。"
+        )
     else:
-        pending = "未生成可重试的审批单，不要重复调用同一工具同一参数。"
-    return f"工具 {short_name} 未执行（风险等级：{level.label}）。{pending}审批结论：{reason or '未获批准'}"
+        pending = "未生成可重试的审批单：不要重复调用，也不要原样重试同一动作（重试只会被再挡一次）。"
+    return (
+        f"工具 {short_name} 未执行（风险等级：{level.label}）：审批闸门在它执行前拦下了这次调用。"
+        f"审批结论：{reason or '未获批准（律师拒绝或等待超时）'}。"
+        f"{pending}"
+        "若确需执行，先向律师确认，或换一条不经审批的只读路径。"
+    )
 
 
 async def _consume_db_grant(dedupe_key: str, *, approval_id: str = "") -> bool:

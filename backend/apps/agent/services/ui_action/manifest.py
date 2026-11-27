@@ -32,12 +32,33 @@ P0/P1 登记了 3 条 ``safe`` 动作，之后补了**第一条** ``confirm`` �
 - 因此只需要后端审批，不需要 ``guarded`` 那层前端本地二次确认。
 
 ``guarded``（对外系统 / 不可逆 / 涉及凭证）仍留到 P3。
+
+## 风险与策略（部署级 floor / deny）
+
+**``risk`` 是唯一真相，``ToolAnnotations`` 只是 UX 文案**：MCP spec 明说客户端的
+annotations 是 untrusted，任何一端的注解都不能当安全边界——本仓的审批闸门读它只是做判级，
+真正的拦截在服务端。页面自述同理**不许提权**：快照里的 ``available_actions``、前端
+``generated.ts`` 可以少报动作（页面没挂载），但改不了清单档位，也绕不过部署级策略。
+
+部署层只能**加严**、不能降级，由 :mod:`.policy` 的两个环境变量控制（改完重启即可，
+不用改代码发版）：
+
+- ``FACHUAN_UI_ACTION_RISK_FLOOR``（``safe`` | ``confirm`` | ``guarded``，默认 ``safe``）：
+  生效档 = ``max(清单档, floor)``。:data:`CONFIRM_ACTION_NAMES` 按**生效档**派生，floor 抬到
+  ``confirm`` 时 ``ui_navigate`` 这类 ``safe`` 动作也会弹审批卡，分层清单跟着变。
+- ``FACHUAN_UI_ACTION_DENY``（逗号分隔动作名，默认空）：命中的动作**不注册**成 MCP 工具、
+  也不进批量可用清单——事故现场最硬的一刀。
+
+``--ts`` 生成物仍按**清单档位**生成：deny / floor 是部署参数，不该让前端代码随环境变形；
+前端拿到的 ``risk`` 描述的是「这个动作本身」，不是「这个部署今天有多严」。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Literal
+
+from . import policy
 
 #: 三档风险（不是两档）：``safe`` 无外部副作用；``confirm`` 单次写库/上传/触发 LLM，
 #: 走后端审批；``guarded`` 对外系统/不可逆/涉及凭证，审批 + 前端本地二次确认。
@@ -247,11 +268,17 @@ UI_ACTIONS: tuple[UiAction, ...] = (
 )
 
 
-#: 需要人工审批的动作名（``confirm`` 档）：``ui_material_prep_judge`` 写材料包归属。
+#: 需要人工审批的动作名——按**生效**风险档派生（清单 ``risk`` 被部署级 floor 抬高后的档）：
+#: 默认只有 ``ui_material_prep_judge``（写材料包归属）；``FACHUAN_UI_ACTION_RISK_FLOOR=confirm``
+#: 时三条 ``safe`` 动作也进来。
 #: ``mcp_server/tool_tiers.py`` 把它们并进 ``DIRECT_TOOLS``——分层政策是「破坏性工具
 #: 必须留在 direct」，而 ``DIRECT_PATTERNS`` 里的 ``delete_*`` 匹配不到 ``ui_*`` 这类名字，
-#: 必须显式并入。这里派生而不是手抄：confirm 动作被降级/改名时，分层跟着变。
-CONFIRM_ACTION_NAMES: frozenset[str] = frozenset(a.name for a in UI_ACTIONS if a.risk == "confirm")
+#: 必须显式并入。这里派生而不是手抄：动作被降级/改名、或部署把 floor 抬高时，分层跟着变。
+#: ``FACHUAN_UI_ACTION_DENY`` 不影响这个集合——被禁的动作根本不注册（见
+#: ``mcp_server/tools/ui/register.py``），「进不进审批」对它已经没有意义。
+CONFIRM_ACTION_NAMES: frozenset[str] = frozenset(
+    action.name for action in UI_ACTIONS if policy.effective_risk(action) != "safe"
+)
 
 
 #: 声明为 ``tier="direct"`` 的动作名。

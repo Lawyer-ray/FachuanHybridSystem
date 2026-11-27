@@ -7,7 +7,9 @@
  * 2. **段比较**：`/material-prep-x` 不是 `/material-prep` 的子页，把动作算给它等于让模型在
  *    错页上调本页动作；
  * 3. **≤10 且无重复**：`MAX_AVAILABLE_ACTIONS` 与后端同一上限，前端超发只是让后端白截一次；
- * 4. **页面没声明状态时不给动作名**：那时的清单只能是猜的，模型会照着它调不存在的动作。
+ * 4. **页面没声明状态时不给动作名**：那时的清单只能是猜的，模型会照着它调不存在的动作；
+ * 5. **`blockedActions` 跟着页面走**：页面登记了才带出、页面卸载/清掉就不再带（否则模型在
+ *    一个已经能做的页面上仍然读「先选一条」，会白问律师一句）。
  *
  * node 环境（本目录默认）：`currentRoute()` 是空串，「当前地址」只能由入参给——这正是把
  * `availableActionsForPath(pathname)` 做成**纯函数**的收益，判定逻辑不必挂在浏览器上。
@@ -18,12 +20,16 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { UI_TOOL_SPECS } from './generated'
 import {
   availableActionsForPath,
+  clearPageBlockedActions,
   MAX_AVAILABLE_ACTIONS,
+  MAX_BLOCKED_ACTIONS,
   readPageState,
   registerPageState,
+  setPageBlockedActions,
   subscribePageStateReads,
   unregisterPageState,
 } from './page-state'
+import type { PageStateAnswer } from './page-state'
 
 /** 全局动作（`route: null` = 任何页面都能做），按清单顺序 */
 const GLOBAL_ACTIONS = UI_TOOL_SPECS.filter((spec) => spec.route === null).map((spec) => spec.name)
@@ -38,6 +44,9 @@ let registered: (() => Record<string, unknown>) | null = null
 afterEach(() => {
   if (registered !== null) unregisterPageState('x', registered)
   registered = null
+  // blocked 表是模块级 Map：漏清一条会让下一条用例读到上一条的原因
+  clearPageBlockedActions('x')
+  clearPageBlockedActions('y')
 })
 
 describe('availableActionsForPath：本页动作在前、全局动作在后', () => {
@@ -97,7 +106,7 @@ describe('readPageState：把动作清单一起带出来', () => {
   })
 
   it('页面没声明状态时仍是 null，且通知里给的是空清单（不按当前地址编一份猜的动作表）', () => {
-    const answers: { state: unknown; availableActions: string[] }[] = []
+    const answers: PageStateAnswer[] = []
     const off = subscribePageStateReads((answer) => answers.push(answer))
 
     expect(readPageState('never-registered')).toBeNull()
@@ -106,5 +115,75 @@ describe('readPageState：把动作清单一起带出来', () => {
     expect(answers).toHaveLength(1)
     expect(answers[0]?.state).toBeNull()
     expect(answers[0]?.availableActions).toEqual([])
+    // 同理：页面都没对上，「做不了什么」也只能算猜
+    expect(answers[0]?.blockedActions).toEqual([])
+  })
+})
+
+/** ② 一份像样的「做不了」声明：名字取自真清单（`ui_material_prep_judge`） */
+function blockedJudge(reason = '当前没有选中材料包：先让律师选一条'): { name: string; reason: string } {
+  return { name: 'ui_material_prep_judge', reason }
+}
+
+describe('blockedActions：页面说「有但此刻做不了」的那份清单', () => {
+  it('页面登记了就一并读出来；同一条仍在 availableActions 里（两者不互斥）', () => {
+    const provider = (): Record<string, unknown> => ({ selected: null })
+    registered = provider
+    registerPageState('x', provider)
+    setPageBlockedActions('x', [blockedJudge()])
+
+    const read = readPageState('x')
+
+    expect(read?.blockedActions).toEqual([blockedJudge()])
+    // 动作清单是按路由静态算的，不知道「选中了哪一条」——同一条两边都在是预期形态
+    // （node 里当前地址是空串，所以这里直接问 route 版本；后端/工具描述写明「以 blocked 为准」）
+    expect(read?.availableActions).not.toContain('ui_material_prep_judge')
+    expect(availableActionsForPath('/material-prep')).toContain('ui_material_prep_judge')
+  })
+
+  it('清掉之后不再带（律师选了就不该再报「做不了」）', () => {
+    const provider = (): Record<string, unknown> => ({ selected: 812 })
+    registered = provider
+    registerPageState('x', provider)
+    setPageBlockedActions('x', [blockedJudge()])
+    expect(readPageState('x')?.blockedActions).toHaveLength(1)
+
+    clearPageBlockedActions('x')
+
+    expect(readPageState('x')?.blockedActions).toEqual([])
+  })
+
+  it('按页分开：给 x 登记不影响 y，也不出现在别人的读取结果里', () => {
+    const provider = (): Record<string, unknown> => ({ v: 1 })
+    registered = provider
+    registerPageState('x', provider)
+    registerPageState('y', provider)
+    setPageBlockedActions('x', [blockedJudge()])
+
+    expect(readPageState('y')?.blockedActions).toEqual([])
+    unregisterPageState('y', provider)
+  })
+
+  it(`只留前 ${MAX_BLOCKED_ACTIONS} 条（与后端同一上限，两端各截一次）`, () => {
+    const provider = (): Record<string, unknown> => ({ v: 1 })
+    registered = provider
+    registerPageState('x', provider)
+    setPageBlockedActions(
+      'x',
+      Array.from({ length: MAX_BLOCKED_ACTIONS + 2 }, (_, i) => blockedJudge(`原因 ${i}`)),
+    )
+
+    const read = readPageState('x')
+
+    expect(MAX_BLOCKED_ACTIONS).toBe(10)
+    expect(read?.blockedActions).toHaveLength(MAX_BLOCKED_ACTIONS)
+    expect(read?.blockedActions[0]).toEqual(blockedJudge('原因 0'))
+  })
+
+  it('页面没声明状态时仍返回 null（语义不变，blocked 不会把 null 变成一份快照）', () => {
+    // 只登记 blocked、不登记 provider：注册表里没有这一页
+    setPageBlockedActions('never-registered', [blockedJudge()])
+
+    expect(readPageState('never-registered')).toBeNull()
   })
 })

@@ -14,7 +14,7 @@
 ## 为什么注册函数单独一个模块、只导出名字
 
 接线在 ``tools/ui/register.py``（主会话统一改，避免并发写同一个文件）：
-``register_ui_batch_tool(_t)`` 返回注册名，调用方并入工具名台账与分层清单。
+``_register_ui_batch_tool(_t)`` 返回注册名，调用方并入工具名台账与分层清单。
 ``BATCH_TOOL_NAME`` 也从本模块转出——名字只有一处，``tool_tiers`` 那边 import 它而不是手抄
 字符串，否则改名时「清单里有、模型调不到」会静默发生（这类漂移不报错、也不红）。
 
@@ -39,7 +39,7 @@ from mcp_server.identity import current_session_id
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["BATCH_TOOL_NAME", "register_ui_batch_tool"]
+__all__ = ["BATCH_TOOL_NAME", "_register_ui_batch_tool"]
 
 
 def _ui_action_batch_tool() -> Callable[..., Any]:
@@ -92,7 +92,7 @@ def _ui_action_batch_tool() -> Callable[..., Any]:
     return _call
 
 
-def register_ui_batch_tool(register_tool: Callable[..., Any]) -> str:
+def _register_ui_batch_tool(register_tool: Callable[..., Any]) -> str:
     """注册 ``ui_action_batch`` 并返回注册名（调用方并入工具名台账与分层清单）。
 
     ``destructiveHint=True`` 是**整批**的语义，理由见模块 docstring。

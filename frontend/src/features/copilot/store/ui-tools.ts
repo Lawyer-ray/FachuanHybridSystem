@@ -52,6 +52,11 @@
  * 排队上限 `MAX_WRITE_QUEUE`：在飞的 1 个之外只再收 3 个。超限不是「再等等」，而是
  * 模型在乱发写动作（或帧被重放）；既不执行也不悄悄丢——落失败记录 + 回执，否则后端
  * 只能等到超时。
+ *
+ * ## 多标签页（见 `./ui-action-claim.ts` 文件头）
+ *
+ * 两个标签页都会收到同一条帧，`seenCallIds` 各一份挡不住对方——先抢占的那个执行，
+ * 抢不到就静默返回（不落运行记录、不回执）；为什么必须抢占与 TTL 为什么 15 秒见该模块。
  */
 
 import { UI_TOOL_SPECS, runUiTool, validateArgs } from '../ui-tools'
@@ -67,6 +72,7 @@ import type {
 import type { UiToolRun } from '../state-types'
 import type { CopilotState } from '../types'
 import type { Slice } from './slice'
+import { claimUiActionExecution } from './ui-action-claim'
 
 /** 清单项类型从清单自己推导：动作字段与生成物永远一致，不另抄一份 */
 type UiToolSpec = (typeof UI_TOOL_SPECS)[number]
@@ -375,6 +381,8 @@ export const createUiToolSlice: Slice<UiToolSlice> = (set, get) => {
       // 重复投递不回执：第一次投递已经发过，再发一遍只会让后端的 pending 表多一条假结算。
       // 也在排队之前挡：重放的帧不该占掉一个队位。
       if (rememberCallId(req.callId)) return
+      // 多标签页：同一条动作两个标签页都收到，抢不到执行权就静默返回（不落记录、不回执）
+      if (!claimUiActionExecution(req.callId)) return
 
       const batchId = req.batchId
       const gate = gateOf(batchId)

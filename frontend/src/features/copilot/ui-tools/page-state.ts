@@ -11,6 +11,11 @@
  * 快照里除了页面声明的 `state`，还带 `availableActions`（这一刻模型还能调哪些动作名）。
  * 那是**动作名字，不是参数结构**：截断只少一条可选项，不会像截结构体那样让模型误以为
  * 「这个字段页面上不存在」——所以这一份可以安全地卡上限。
+ *
+ * 另有一份 `blockedActions`：「这一页**有**、但**此刻**做不了」的动作 + 一句原因。
+ * `availableActions` 是按路由静态算的（清单里这一页有什么），不知道「选中了哪一条」，
+ * 所以两者**不互斥**；同一条两边都在时以 `blockedActions` 为准（理由：前置没满足）。
+ * 没有它，模型分不清「页面没实现」与「有但此刻不可用」，会自己编一个 `packId` 硬调。
  */
 
 import { UI_TOOL_SPECS } from './generated'
@@ -23,6 +28,23 @@ import { UI_TOOL_SPECS } from './generated'
  */
 export const MAX_AVAILABLE_ACTIONS = 10
 
+/**
+ * 一次快照最多回多少条「做不了 + 为什么」。
+ *
+ * 与 `MAX_AVAILABLE_ACTIONS` 同一理由与同一数值（后端 `UiSnapshotIn` 按同一上限再截一次）：
+ * 每条都要进模型上下文，而好消息是「做不了」的条目天然很少——超过 10 条就说明这份清单
+ * 已经不是「这一刻的阻塞」，而是页面在抄整张能力表。
+ */
+export const MAX_BLOCKED_ACTIONS = 10
+
+/** 「这一页有、但此刻做不了」的一条：动作名必须在后端清单里，原因是给模型看的一句话。 */
+export interface BlockedAction {
+  /** 动作名（必须在后端清单里） */
+  name: string
+  /** 给模型看的一句原因（≤ 200 字） */
+  reason: string
+}
+
 /** 页面声明状态的方式：一个读取函数（读到被问那一刻的最新值，而不是注册时的快照）。 */
 export type PageStateProvider = () => Record<string, unknown>
 
@@ -33,6 +55,8 @@ export type PageStateRead = {
   state: Record<string, unknown>
   /** 这一刻能调的动作名（本页动作在前、全局动作在后，见 `availableActionsForPath`） */
   availableActions: string[]
+  /** 有、但此刻做不了的动作与原因（截 10 条；空表 = 本页没报） */
+  blockedActions: BlockedAction[]
 }
 
 /** 最近一次被问的结果（`state=null` = 没有任何页面声明状态）。 */
@@ -41,12 +65,22 @@ export type PageStateAnswer = {
   route: string
   state: Record<string, unknown> | null
   availableActions: string[]
+  blockedActions: BlockedAction[]
 }
 
 /** 页名 → 已挂载的 provider（Set 保持插入序，最后一个 = 当前实例）；`order` 记注册顺序。 */
 const providers = new Map<string, Set<PageStateProvider>>()
 const order: string[] = []
 const listeners = new Set<(answer: PageStateAnswer) => void>()
+
+/**
+ * 页名 → 「这一页有、但此刻做不了」的动作。**与 `providers` 分开存**：供应商那边是
+ * 「状态怎么读」，这是一份由页面（`hooks/use-ui-page-state.ts`）推进来的静态快照。
+ *
+ * 多实例（面板 + 助手页同时挂同一页）是**后写者胜**，本表不承诺合并语义：`blockedActions`
+ * 是「这一刻」的事实，两个实例看到的选择本来就可能不同，合并只会造出一份谁都没见过的清单。
+ */
+const blockedByPage = new Map<string, BlockedAction[]>()
 
 /** 读出那一刻的地址（pathname + search）；非浏览器环境返回空串（node 单测）。 */
 export function currentRoute(): string {
@@ -61,6 +95,20 @@ export function registerPageState(page: string, provider: PageStateProvider): vo
   const at = order.indexOf(page)
   if (at !== -1) order.splice(at, 1)
   order.push(page)
+}
+
+/**
+ * 页面上报「此刻做不了什么」（由 `useUiPageState` 每次渲染推进来；不对外承诺多实例语义）。
+ *
+ * 截断在**写入**时就做掉：读的时候再截等于让内存里常驻一张没人会看的超长表。
+ */
+export function setPageBlockedActions(page: string, list: BlockedAction[]): void {
+  blockedByPage.set(page, list.slice(0, MAX_BLOCKED_ACTIONS))
+}
+
+/** 页面卸载 / 重新挂载时清掉这条登记（旧原因留着 = 让模型对着不存在的页面下结论）。 */
+export function clearPageBlockedActions(page: string): void {
+  blockedByPage.delete(page)
 }
 
 /** 页面卸载：注销这个 provider（同页还有别的实例时不摘页名）。 */
@@ -86,12 +134,19 @@ export function readPageState(page?: string): PageStateRead | null {
   if (target !== undefined) {
     const state = readProvider(target)
     if (state !== null) {
-      result = { page: target, route, state, availableActions: availableActionsForPath(route) }
+      result = {
+        page: target,
+        route,
+        state,
+        availableActions: availableActionsForPath(route),
+        blockedActions: (blockedByPage.get(target) ?? []).slice(0, MAX_BLOCKED_ACTIONS),
+      }
     }
   }
-  // 没声明状态时**不给**动作名：页面都没对上，此刻算出来的清单只能算猜，而模型会照着它
-  // 去调一个页面根本没实现的动作。后端那条路上同样不带（见 handlers/ui-action-handler.ts）。
-  const answer: PageStateAnswer = result ?? { page: null, route, state: null, availableActions: [] }
+  // 没声明状态时**不给**动作名（含「做不了」那份）：页面都没对上，此刻算出来的清单只能算猜，
+  // 而模型会照着它去调一个页面根本没实现的动作。后端那条路上同样不带
+  // （见 handlers/ui-action-handler.ts）。
+  const answer: PageStateAnswer = result ?? { page: null, route, state: null, availableActions: [], blockedActions: [] }
   for (const listener of listeners) listener(answer)
   return result
 }

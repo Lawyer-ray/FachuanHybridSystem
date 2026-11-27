@@ -67,14 +67,28 @@ export function createUiActionHandler(ctx: TurnHandlerContext): Pick<StreamHandl
  * **`available_actions` 恒发（含空数组）**：它是给模型「这一刻还能做什么」的补充。页面没声明
  * 状态时**不许**按当前地址编一份猜的动作表——模型会照着它去调一个页面根本没实现的动作，
  * 表现与 `unknown_action` 一样，却连告警都没有。
+ *
+ * **`blocked_actions` 同一条口径**：页面登记过的「有、但此刻做不了」原样带上（空表也要发）。
+ * 少了它，模型分不清「页面没实现」与「有但此刻不可用」，会自己编一个 `packId` 去硬调。
  */
 export function createUiSnapshotHandler(): Pick<StreamHandlers, 'onUiSnapshotRequest'> {
   return {
     onUiSnapshotRequest: (event) => {
       const read = readPageState(event.page ?? undefined)
       const reply: UiPageSnapshotReply = read
-        ? { state: read.state, route: read.route, available_actions: read.availableActions }
-        : { state: {}, route: currentRoute(), note: NO_PAGE_STATE_NOTE, available_actions: [] }
+        ? {
+            state: read.state,
+            route: read.route,
+            available_actions: read.availableActions,
+            blocked_actions: read.blockedActions,
+          }
+        : {
+            state: {},
+            route: currentRoute(),
+            note: NO_PAGE_STATE_NOTE,
+            available_actions: [],
+            blocked_actions: [],
+          }
       void submitUiPageSnapshot(event.request_id, reply).catch((error: unknown) => {
         console.warn(`[ui-snapshot] 快照应答未送达（request_id=${event.request_id}）：${String(error)}`)
       })

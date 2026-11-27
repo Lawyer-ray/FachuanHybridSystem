@@ -7,6 +7,8 @@
 
 import { api } from '@/lib/api'
 
+import type { BlockedAction } from '../ui-tools/page-state'
+
 /** 请求体（`POST /agent/ui-snapshots/{request_id}` 的冻结契约，镜像后端 `UiSnapshotIn`）。 */
 export interface UiPageSnapshotReply {
   state: Record<string, unknown>
@@ -22,6 +24,13 @@ export interface UiPageSnapshotReply {
    * 页面没声明状态时传空数组：那一刻的状态表里没有被登记的页面，动作清单只能是猜的。
    */
   available_actions: string[]
+  /**
+   * 这一页**有、但此刻做不了**的动作与原因（字段名逐字 `blocked_actions`，后端 `UiSnapshotIn`
+   * 同一拼法）。与 `available_actions` 不互斥：动作清单按路由静态算，不知道「选中了哪一条」，
+   * 所以同一条可能两边都在——后端据此告诉模型「以 blocked 为准，先补前置」。
+   * 页面没声明状态时传空数组（同 `available_actions`：那一刻不知道本页有什么可做）。
+   */
+  blocked_actions: BlockedAction[]
 }
 
 /** 快照应答的回执。`success=false` 不是失败：等待方（≤3s）可能已经超时。 */

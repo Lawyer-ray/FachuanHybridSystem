@@ -6,6 +6,7 @@
  * 「页面要让 AI 能读状态 / 能操作自己」所需要的**全部**东西，不多不少：
  * - 声明与读取页面状态（`registerPageState` / `unregisterPageState` / `readPageState`）；
  * - 当前地址上能调哪些动作名（`availableActionsForPath` + 上限常量）；
+ * - 「这一页有、但此刻做不了」的声明形状（`BlockedAction`，交给 `useUiPageState`）；
  * - 「先跳过去、再由目标页接着做」的队列（`queuePageAction` / `takePageActions`）；
  * - 两个一行接入的 hook（`useUiPageState` / `useUiPendingAction`）；
  * - 页面实现 `features/<x>/ui-actions.ts` 时要用的类型（`PageUiAction` 等）。
@@ -26,6 +27,10 @@
  */
 
 export type { PageUiAction, UiActionRequest, UiToolOutcome, UiToolPorts } from './types'
+
+// 只转出**类型**：写入那两条（`setPageBlockedActions` / `clearPageBlockedActions`）由
+// `useUiPageState` 自己调，页面没有理由也不该绕过 hook 改模块表（改了就不会随卸载撤掉）。
+export type { BlockedAction } from './page-state'
 
 export {
   availableActionsForPath,

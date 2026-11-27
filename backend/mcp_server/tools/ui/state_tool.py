@@ -59,16 +59,29 @@ def _ui_page_state_tool() -> Callable[..., Any]:
         - 律师问的是业务问题本身（怎么起诉、条款怎么写）——页面状态帮不上忙；
         - 同一轮刚看过快照——重复问只会白等最多 3 秒。
 
-        **返回**：``{"status", "route", "state", "available_actions", "hint"?}``。
+        **返回**：``{"status", "route", "state", "available_actions", "blocked_actions", "hint"?}``。
 
         - ``ok``：``state`` 是页面声明的那部分字段，可以据此回答或决定下一步动作；
           ``available_actions`` 是这页**此刻真能调**的动作名（如 ``ui_material_prep_judge``）
-          ——有它就直接调那个工具，不用先瞎试一遍再改口；
+          ——有它就直接调那个工具，不用先瞎试一遍再改口（但先看 ``blocked_actions``：
+          同时出现时以 ``blocked_actions`` 为准，那说明前置没满足）；
         - ``no_page_state``：页面在，但它没声明结构化状态；``available_actions`` 仍可能是真的
           （页面只是没声明字段，并不是没有动作）；
         - ``timeout`` / ``no_channel``：**没问到**——这不等于页面是空的。这两种返回**没有**
-          ``available_actions`` 键，所以「键不存在」只说明没问到，不能读成「这页没有可用动作」。
-          改成直接问律师，绝不要把「没问到」当成「页面上没有」。
+          ``available_actions`` / ``blocked_actions`` 键，所以「键不存在」只说明没问到，不能读成
+          「这页没有可用动作」或「这页什么都做得了」。改成直接问律师，绝不要把「没问到」当成「页面上没有」。
+
+        ``blocked_actions`` 是「这些动作这一页**有**、但**此刻**做不了」的原因表
+        （``[{"name": "ui_material_prep_judge", "reason": "当前没有选中材料包：先让律师选一条…"}]``）：
+        动作本身在这页上存在，只是前置条件没满足（如律师还没选中一条记录）。它和
+        ``available_actions`` 不互斥——动作清单是按页面静态算的，不知道「选中了哪一条」，
+        所以同一条可能两边都出现：**同时出现时以 ``blocked_actions`` 为准**。
+
+        **不要硬调 ``blocked_actions`` 里的动作**：为了凑参数去猜一个前置（编一个 ``packId``）
+        是本条工具最常见的错，结果要么报错、要么改错对象，而且不会有任何告警。正确处置是两条之一——
+        先补齐前置（让律师选一条 / 问他指的是哪一个），或换一条能做完的路（``ui_navigate`` 到能干
+        这事的页面，或改用能查到数据的后端工具）。空表 = 没听说有什么做不了；
+        只有 ``ok`` / ``no_page_state`` 才带这个键。
 
         Args:
             page: 要读哪一页（如 ``"material-prep"``）；省略 = 取最近注册且已挂载的页面。
@@ -85,7 +98,7 @@ def _ui_page_state_tool() -> Callable[..., Any]:
     return _call
 
 
-def register_ui_state_tool(register_tool: Callable[..., Any]) -> str:
+def _register_ui_state_tool(register_tool: Callable[..., Any]) -> str:
     """注册 ``ui_page_state`` 并返回注册名（调用方并入工具名台账）；只读注解 → 判级退回名字判定。"""
     register_tool(_ui_page_state_tool(), annotations=ToolAnnotations(read_only_hint=True))
     logger.info("ui 页面状态工具已注册: %s", TOOL_NAME)

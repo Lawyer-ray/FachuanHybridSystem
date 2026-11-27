@@ -1,7 +1,8 @@
 /**
  * 材料预处理页接 UI 动作的**全部接线**，一行进 `DeskPage`：
  *
- * 1. 声明「AI 能读的那部分页面状态」（阶段 / 选中包 / 各阶段条数）；
+ * 1. 声明「AI 能读的那部分页面状态」（阶段 / 选中包 / 各阶段条数），以及没选中包时**判不了**
+ *    （`blockedActions`：模型据此决定是问人还是换路，而不是自己编一个 `packId`）；
  * 2. 监听执行器的广播事件 → 重拉列表 + toast（执行器可能在 copilot 那侧跑，见
  *    `ui-actions.ts` 的 `PACK_STATUS_CHANGED_EVENT`）；
  * 3. 消费「先跳过来、再由本页继续做」的挂起队列。
@@ -17,7 +18,7 @@ import { toast } from 'sonner'
 
 import { ROUTES } from '@/app/paths'
 import { useUiPageState, useUiPendingAction } from '@/features/copilot/ui-tools/contract'
-import type { UiActionRequest } from '@/features/copilot/ui-tools/contract'
+import type { BlockedAction, UiActionRequest } from '@/features/copilot/ui-tools/contract'
 
 import type { PrepStage } from '../stages'
 import {
@@ -50,13 +51,29 @@ export function useMaterialPrepUiActions({
   // 后端 `UiSnapshotIn` 的 `state` 上限 2000 字且超限**直接拒收**（不截断，截断会造出
   // 「页面上没有这个字段」的假事实）：这里四个字段全是小标量（阶段名 / 包 id / 四个计数），
   // 天然在限内；往这里加字段前先估一下序列化长度。
-  useUiPageState(PAGE_NAME, {
-    page: PAGE_NAME,
-    route: location.pathname + location.search,
-    stage,
-    selected,
-    counts,
-  })
+  // 没选中材料包时，「判材料包」这条动作**有但此刻不可用**：模型不被告知就会自己编一个
+  // `packId` 硬调（它看到 judge 在 available_actions 里）。理由必须点名「先选一条」——
+  // 模型据此才能决定是问人（问律师指的是哪一个）还是换一条路，而不是猜一个 id。
+  const blockedActions: BlockedAction[] =
+    selected === null
+      ? [
+          {
+            name: 'ui_material_prep_judge',
+            reason: '当前没有选中材料包：先让律师选一条，或问他指的是哪一个',
+          },
+        ]
+      : []
+  useUiPageState(
+    PAGE_NAME,
+    {
+      page: PAGE_NAME,
+      route: location.pathname + location.search,
+      stage,
+      selected,
+      counts,
+    },
+    { blockedActions },
+  )
 
   const refreshPacks = useCallback(
     () => queryClient.invalidateQueries({ queryKey: PACKS_KEY }),

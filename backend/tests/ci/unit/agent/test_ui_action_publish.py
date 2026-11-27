@@ -12,6 +12,13 @@
 一旦这个分支开始无条件等待，本用例会先超时。
 
 回执本身的语义（幂等/超时/积压）在 ``test_ui_action_ack.py``，本文件只管下发契约。
+
+最后四组用例钓「下发去重」：同一会话 + 同一非幂等动作 + 同一参数还在飞（台账里仍是
+``outcome="unknown"``）时，第二次下发必须返回 ``duplicate`` 而不是再发一帧——模型
+没在 2s 窗口里拿到回执时会原样重发，而前端的 5s 同参窗只管同一标签页。这批用例必须
+建库（判据就是台账那行），``django_db(transaction=True)`` 的理由同
+``test_ui_action_audit.py``：async ORM 在 asgiref 执行器连接上跑，普通事务包裹下看不见
+用例里创建的行。
 """
 
 from __future__ import annotations
@@ -22,11 +29,15 @@ from typing import Any
 
 import pytest
 
+from apps.agent.models import AgentSession, AgentUiAction
 from apps.agent.services.ui_action import ack, publish_ui_action
 from apps.agent.services.ui_action.manifest import UI_ACTIONS, UiAction
+from apps.organization.models import Lawyer
 
 NAVIGATE: UiAction = next(action for action in UI_ACTIONS if action.name == "ui_navigate")
 SET_STAGE: UiAction = next(action for action in UI_ACTIONS if action.name == "ui_material_prep_set_stage")
+#: 清单里唯一的 ``confirm`` 动作（``idempotent=False``）：去重只对这类动作生效。
+JUDGE: UiAction = next(action for action in UI_ACTIONS if action.name == "ui_material_prep_judge")
 
 
 class _FakeBus:
@@ -204,3 +215,121 @@ async def test_delivered_false_when_nobody_listens(monkeypatch: pytest.MonkeyPat
     assert result["status"] == "dispatched"
     assert result["delivered"] is False
     assert len(bus.published) == 1
+
+
+# ── 下发去重：用台账反推「还在飞」 ──────────────────────────────────────
+
+
+async def _make_session(username: str) -> AgentSession:
+    """建真会话：只有 ``session_id`` 是真 UUID，台账行才会挂到会话上（去重按会话查）。
+
+    不设口令：本文件不测登录，任何口令字面量都会被 detect-secrets 拦。
+    """
+    user: Lawyer = await Lawyer.objects.acreate(username=username, real_name=f"下发去重用例-{username}")
+    return await AgentSession.objects.acreate(title="下发去重用例", user=user)
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_same_confirm_action_twice_is_deduplicated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """① 同一会话 + 同一 confirm 动作 + 同参数连发两次：第二次 ``duplicate``，总线只多一帧。
+
+    返回里必须带**第一次**的 ``call_id``：模型下一步是去取那一次的结果
+    （``ui_action_results``），而不是再发一遍、把同一个写动作做两次。
+    """
+    session = await _make_session("uidispatch-dup")
+    bus = _install_bus(monkeypatch, _FakeBus())
+    args = {"packId": 814, "target": "done"}
+    session_id = str(session.session_id)
+
+    first = await publish_ui_action(action=JUDGE, arguments=args, session_id=session_id)
+    second = await publish_ui_action(action=JUDGE, arguments=args, session_id=session_id)
+
+    assert first["status"] == "dispatched"
+    assert second["status"] == "duplicate"
+    assert second["call_id"] == first["call_id"], "要交回那一次的 call_id，模型才知道去取谁"
+    assert second["delivered"] is False
+    assert "ui_action_results" in second["note"] and "不要原样重发" in second["note"]
+    assert len(bus.published) == 1, "被去重的那次一帧都不该发"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_settled_action_can_be_dispatched_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    """② 第一次结算（``outcome`` 落成 ``ok``）之后，同参数第三次正常下发。
+
+    去重只看 ``outcome="unknown"``：已有结局的行不许拦住下一次——否则「同一个材料包
+    先判 done、律师改主意再判 filed」会被当成重复挡掉，而它是一次新的决定。
+    """
+    session = await _make_session("uidispatch-settled")
+    bus = _install_bus(monkeypatch, _FakeBus())
+    args = {"packId": 814, "target": "done"}
+    session_id = str(session.session_id)
+
+    first = await publish_ui_action(action=JUDGE, arguments=args, session_id=session_id)
+    await AgentUiAction.objects.filter(call_id=first["call_id"]).aupdate(outcome="ok")
+    third = await publish_ui_action(action=JUDGE, arguments=args, session_id=session_id)
+
+    assert third["status"] == "dispatched"
+    assert third["call_id"] != first["call_id"]
+    assert len(bus.published) == 2
+
+
+@pytest.mark.asyncio
+async def test_idempotent_action_is_never_deduplicated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """③ 幂等动作（navigate）连发两次都要下发：重复执行无害，拦它只会弄坏律师的操作。
+
+    直接把 ``find_unsettled`` 换成炸弹性替身：幂等动作**连查都不该查**——否则
+    「同参数」的跳页/开面板会被自己的上一条堵住。
+    """
+    bus = _install_bus(monkeypatch, _FakeBus())
+
+    async def _boom(**kwargs: Any) -> str | None:
+        raise AssertionError("幂等动作不该去查「还在飞」")
+
+    monkeypatch.setattr("apps.agent.services.ui_action.audit.find_unsettled", _boom)
+    session_id = _session_id()
+
+    first = await publish_ui_action(action=NAVIGATE, arguments={"path": "/material-prep"}, session_id=session_id)
+    second = await publish_ui_action(action=NAVIGATE, arguments={"path": "/material-prep"}, session_id=session_id)
+
+    assert first["status"] == "dispatched"
+    assert second["status"] == "dispatched"
+    assert len(bus.published) == 2
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_different_arguments_are_not_deduplicated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """④ 参数不同（packId 815）→ 正常下发：去重是「同一份参数」，不是「同一个动作」。"""
+    session = await _make_session("uidispatch-args")
+    bus = _install_bus(monkeypatch, _FakeBus())
+    session_id = str(session.session_id)
+
+    first = await publish_ui_action(action=JUDGE, arguments={"packId": 814, "target": "done"}, session_id=session_id)
+    second = await publish_ui_action(action=JUDGE, arguments={"packId": 815, "target": "done"}, session_id=session_id)
+
+    assert first["status"] == "dispatched"
+    assert second["status"] == "dispatched"
+    assert second["call_id"] != first["call_id"]
+    assert len(bus.published) == 2, "换了一个材料包就是另一次决定，不许被当成重复"
+
+
+@pytest.mark.asyncio
+async def test_no_channel_never_reaches_dedupe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """⑤ 没有会话 → 仍是 ``no_channel``，且**不进去重**（去重按会话查，无会话无从查起）。
+
+    分支顺序也是断言：``no_channel`` 排在去重前面，没通道时连台账都不该碰。
+    """
+    bus = _install_bus(monkeypatch, _FakeBus())
+
+    async def _boom(**kwargs: Any) -> str | None:
+        raise AssertionError("没有会话时不该去查「还在飞」")
+
+    monkeypatch.setattr("apps.agent.services.ui_action.audit.find_unsettled", _boom)
+
+    result = await publish_ui_action(action=JUDGE, arguments={"packId": 814, "target": "done"}, session_id=None)
+
+    assert result["status"] == "no_channel"
+    assert result["delivered"] is False
+    assert bus.published == []

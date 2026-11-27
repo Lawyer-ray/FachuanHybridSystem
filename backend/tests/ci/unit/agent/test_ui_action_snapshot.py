@@ -18,6 +18,7 @@ import asyncio
 import json
 import time
 import uuid
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -176,13 +177,14 @@ async def test_ok_reading_returns_state_and_route(monkeypatch: pytest.MonkeyPatc
 
     result = await snapshot.request_snapshot("material-prep", _session_id(), timeout_s=1.0)
 
-    # ``available_actions`` 恒在（M4）：页面没上报就是空表——空表 = 「这页没说」，
-    # 而不是「这页没有动作」，模型据此仍会先问页面，不会据此断言能力不存在。
+    # ``available_actions`` / ``blocked_actions`` 恒在：页面没上报就是空表——空表 = 「这页没说」，
+    # 而不是「这页没有动作」/「这页什么都做得了」，模型据此仍会先问页面，不会据此断言能力。
     assert result == {
         "status": "ok",
         "route": "/material-prep",
         "state": {"stage": "todo"},
         "available_actions": [],
+        "blocked_actions": [],
     }
 
 
@@ -237,6 +239,152 @@ async def test_contract_payload_wakes_the_requester(monkeypatch: pytest.MonkeyPa
     assert result["state"]["stage"] == "todo"
     # 模型看到的是脱敏后的值，而不是页面提交的原文。
     assert result["state"][_SENSITIVE_FIELD] == "ab***34"
+
+
+@pytest.mark.asyncio
+async def test_contract_blocked_actions_reach_the_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """⑥ ``blocked_actions`` 全链路透传：契约层清洗 → ``accept_snapshot`` → 模型读到的 ``ok`` 里。
+
+    这是本字段唯一有用的形态：模型要同时看到「能做」与「做不了 + 为什么」，才能决定是先补前置
+    还是换一条路。只到契约层就断掉时，模型见到的仍是一张没有原因的静态动作表。
+    """
+    bus = _install_bus(monkeypatch, _FakeBus())
+    reason = "当前没有选中材料包：先让律师选一条"
+
+    async def answer() -> dict[str, Any]:
+        while not bus.published:
+            await asyncio.sleep(0.01)
+        body = UiSnapshotIn(
+            state={"selected": None},
+            route="/material-prep",
+            available_actions=["ui_material_prep_judge"],
+            blocked_actions=[{"name": "ui_material_prep_judge", "reason": reason}],
+        )
+        return await snapshot.accept_snapshot(
+            bus.published[0][1]["request_id"],
+            state=body.state,
+            route=body.route,
+            available_actions=body.available_actions,
+            blocked_actions=body.blocked_actions,
+        )
+
+    answering = asyncio.create_task(answer())
+    result = await snapshot.request_snapshot("material-prep", _session_id(), timeout_s=1.0)
+    receipt = await answering
+
+    assert receipt["accepted"] is True and receipt["success"] is True
+    assert result["status"] == "ok"
+    assert result["blocked_actions"] == [{"name": "ui_material_prep_judge", "reason": reason}]
+    # 不互斥：动作清单是按页面静态算的，同一条可能两边都在（见 state_tool 的 docstring）
+    assert result["available_actions"] == ["ui_material_prep_judge"]
+
+
+@pytest.mark.asyncio
+async def test_no_page_state_still_carries_blocked_actions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``no_page_state`` 也带 ``blocked_actions``：页面只是没声明字段，不等于没有做不了的动作。"""
+    blocked = [{"name": "ui_material_prep_judge", "reason": "先让律师选一条材料包"}]
+    _install_bus(
+        monkeypatch,
+        _FakeBus(
+            answer={"state": {}, "route": "/material-prep", "note": "页面没有声明状态", "blocked_actions": blocked}
+        ),
+    )
+
+    result = await snapshot.request_snapshot(None, _session_id(), timeout_s=1.0)
+
+    assert result["status"] == "no_page_state"
+    assert result["blocked_actions"] == blocked
+
+
+@pytest.mark.asyncio
+async def test_timeout_has_no_blocked_actions_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """没问到就不能带这个键：空表会被模型读成「这页什么都做得了」。"""
+    _install_bus(monkeypatch, _FakeBus())
+
+    result = await snapshot.request_snapshot("material-prep", _session_id(), timeout_s=0.1)
+
+    assert result["status"] == "timeout"
+    assert "blocked_actions" not in result
+
+
+@pytest.mark.asyncio
+async def test_no_channel_has_no_blocked_actions_key() -> None:
+    """同 ``timeout``：没有页面可问时，不许把「没问到」伪装成「没有做不了的动作」。"""
+    result = await snapshot.request_snapshot(None, None)
+
+    assert result["status"] == "no_channel"
+    assert "blocked_actions" not in result
+
+
+def test_blocked_actions_truncated_to_ten(caplog: pytest.LogCaptureFixture) -> None:
+    """⑦ 超过 10 条只截断（不拒收）+ warn：与 ``available_actions`` 同口径。"""
+    items = [{"name": f"ui_action_{i}", "reason": f"原因 {i}"} for i in range(12)]
+
+    with caplog.at_level("WARNING"):
+        payload = UiSnapshotIn(state={}, route="/x", blocked_actions=items)
+
+    assert len(payload.blocked_actions) == 10
+    assert payload.blocked_actions[0]["name"] == "ui_action_0"
+    assert any("blocked_actions" in record.message for record in caplog.records)
+
+
+def test_malformed_blocked_actions_dropped() -> None:
+    """⑧ 形状不对的项整条丢掉（不拒收整份快照）：名字带 ``-``、空原因、多余键、同名重复。"""
+    payload = UiSnapshotIn(
+        state={},
+        route="/material-prep",
+        blocked_actions=[
+            {"name": "ui_material_prep_judge", "reason": "先让律师选一条"},
+            {"name": "ui-material-prep-judge", "reason": "名字里不许有短横"},
+            {"name": "ui_material_prep_set_stage", "reason": "   "},
+            {"name": "ui_navigate", "reason": "多余键", "extra": "x"},
+            {"name": "ui_material_prep_judge", "reason": "同名重复，留第一条"},
+            {"name": "ui_copilot_open", "reason": "\x07控制字符被洗掉"},
+        ],
+    )
+
+    assert payload.blocked_actions == [
+        {"name": "ui_material_prep_judge", "reason": "先让律师选一条"},
+        {"name": "ui_copilot_open", "reason": "控制字符被洗掉"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_endpoint_passes_blocked_actions_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    """⑨ 端点那一行透传（``api/ui_api.py``）：漏了它，契约层洗得再干净也永远到不了模型。
+
+    这个字段的失效形态特别安静：``accept_snapshot(blocked_actions=...)`` 有默认空表，
+    少传一个关键字既不报错也不变更任何已有断言，只是模型永远读到「没什么做不了」——
+    而这正是本字段存在要防的那件事。所以这里直接调端点，钉「HTTP 那一层传了」。
+    """
+    from apps.agent.api import ui_api
+
+    captured: dict[str, Any] = {}
+
+    async def fake_accept(request_id: str, **kwargs: Any) -> dict[str, Any]:
+        captured["request_id"] = request_id
+        captured.update(kwargs)
+        return {"accepted": True, "success": True}
+
+    async def allow(*_args: Any, **_kwargs: Any) -> None:
+        return None
+
+    monkeypatch.setattr(ui_api.snapshot, "accept_snapshot", fake_accept)
+    monkeypatch.setattr(ui_api, "_current_user", lambda _request: SimpleNamespace(pk=7))
+    monkeypatch.setattr(ui_api, "_rejection_reason", allow)
+
+    body = UiSnapshotIn(
+        state={"selected": None},
+        route="/material-prep",
+        available_actions=["ui_material_prep_judge"],
+        blocked_actions=[{"name": "ui_material_prep_judge", "reason": "先让律师选一条材料包"}],
+    )
+    await ui_api.submit_ui_snapshot(object(), "req-through", body)
+
+    assert captured["request_id"] == "req-through"
+    assert captured["blocked_actions"] == [{"name": "ui_material_prep_judge", "reason": "先让律师选一条材料包"}]
+    # 两个字段成对：只测 blocked 的话，下一次改动里 available 被漏掉也不会有人发现
+    assert captured["available_actions"] == ["ui_material_prep_judge"]
 
 
 @pytest.mark.asyncio
