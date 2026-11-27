@@ -30,11 +30,18 @@ class ContractQueryService:
         # DB 取数与 DTO 构建双省；详情视图保持全量预取。
         prefetch = [
             "contract_parties__client",
+            # 当事人证件：ClientOut.resolve_identity_docs 读 client.identity_docs，
+            # 只预取到 client 这一层时，每行每个当事人的证件都会各发一条
+            # cases_clientidentitydoc 查询（真库 50 行页面实测 96 条，占全部 SQL 的 85%）。
+            # 再下一层即可，不必单独预取 client。
+            "contract_parties__client__identity_docs",
             "payments__invoices",
             "reminders",
             "assignments__lawyer",
             "assignments__lawyer__law_firm",
             "supplementary_agreements__parties__client",
+            # 补充协议的当事人证件同理（同一页里补充协议方的 ClientOut 也会逐条补查）
+            "supplementary_agreements__parties__client__identity_docs",
             # cases 仅供列表 DTO（contract_list_assembler 的 case_dtos）prefetch 展开，
             # 消除循环内 contract.cases.all() 的 N+1。
             "cases",

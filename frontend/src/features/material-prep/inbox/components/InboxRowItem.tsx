@@ -18,6 +18,15 @@ function SourceIcon({ row }: { row: InboxRow }) {
 }
 
 /**
+ * 行容器结构类（尺寸 / 间距 / 对齐），骨架行 `InboxRowSkeleton` 用同一串。
+ *
+ * 只放结构：`group`（交互态标记）、`relative`（整行按钮的定位上下文）、
+ * `text-left` / `transition-colors` 留在 InboxRowItem 自己身上——骨架不需要它们。
+ * 骨架与真行共用同一常量是「数据到位不跳」的前提，不要再复制一份。
+ */
+export const INBOX_ROW_SHELL = 'flex w-full items-start gap-3 px-4 py-3'
+
+/**
  * 收件箱单行。
  *
  * 视觉四要素：未读色条（左）、来源徽章 + 主题（中）、附件小样 + 时间（右）。
@@ -61,7 +70,8 @@ export const InboxRowItem = memo(function InboxRowItem({
   return (
     <li
       className={cn(
-        'group relative flex w-full items-start gap-3 px-4 py-3 text-left transition-colors',
+        'group relative text-left transition-colors',
+        INBOX_ROW_SHELL,
         active ? 'bg-secondary/70' : 'hover:bg-secondary/40',
         !row.is_read && 'font-medium',
       )}

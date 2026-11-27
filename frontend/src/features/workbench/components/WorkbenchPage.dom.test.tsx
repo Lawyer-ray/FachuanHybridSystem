@@ -123,11 +123,28 @@ afterEach(() => {
 })
 
 describe('WorkbenchPage 加载 / 错误态', () => {
-  it('首屏加载中：展示加载文案，不出列表', () => {
+  it('首屏加载中：展示加载文案，不出列表', async () => {
     listPageMock.mockReturnValue(new Promise(() => {}))
     setupUi()
-    expect(screen.getByText('正在加载项目数据…')).toBeTruthy()
+    // 文案现在挂在骨架的播报区里，而播报区有 300ms 延迟（防闪一帧），故要等；
+    // 超时放宽到 2s：默认 1s 在满载的 CI 上只剩 700ms 余量，容易误红
+    expect(await screen.findByText('正在加载项目数据…', {}, { timeout: 2000 })).toBeTruthy()
     expect(screen.queryByText('王五委托')).toBeNull()
+  })
+
+  it('首屏加载中：300ms 后挂出与真行同源的骨架（8 行占位），不再有整块转圈', async () => {
+    listPageMock.mockReturnValue(new Promise(() => {}))
+    const { container } = setupUi()
+
+    // 延迟窗口内连播报区都不渲染（更快的请求根本不该看见骨架）
+    expect(container.querySelector('[role="status"]')).toBeNull()
+
+    const status = await screen.findByRole('status', {}, { timeout: 2000 })
+    expect(status.getAttribute('aria-busy')).toBe('true')
+    expect(document.querySelectorAll('[data-skeleton-row="deal"]')).toHaveLength(8)
+    // 旧实现（LoadingBlock 的 Loader2 转圈）必须彻底消失：整页只有一个 role=status
+    expect(container.querySelector('.animate-spin')).toBeNull()
+    expect(screen.getAllByRole('status')).toHaveLength(1)
   })
 
   it('列表接口失败：展示错误文案与重试按钮；点重试重新请求', async () => {

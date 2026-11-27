@@ -13,6 +13,16 @@ interface DealRowProps {
 }
 
 /**
+ * 行容器结构类：尺寸 / 间距 / 边框 / 分隔线。
+ *
+ * 抽成常量是为了让骨架行（`DealRowSkeleton`）用**同一串**类。骨架与真行只要差
+ * 1px 内边距，数据到位时整页就会跳一下——「加载中不跳」这件事就等于没做。
+ * 只放结构类：`group`（交互状态标记）、`cursor-pointer` / `hover:bg-secondary` /
+ * `transition-colors`（交互）留在 DealRow 自己身上，骨架不需要它们。
+ */
+export const DEAL_ROW_SHELL = 'flex items-center gap-[18px] border-b border-border px-4 py-3 last:border-b-0'
+
+/**
  * 列表行：名称主视觉 + 类型标签 / 我方 vs 对方副行 + 金额/到期右对齐。
  * 类型（民商事/刑事/常法…）只在行内做小标签，不参与分区——分区按争议解决 / 非诉。
  * 交互语义：左键 = 详情页、右键/👁 = 抽屉预览。
@@ -28,8 +38,9 @@ export const DealRow = memo(function DealRow({ deal, onOpenSheet, onOpenDetail }
       role="button"
       tabIndex={0}
       className={
-        'group flex cursor-pointer items-center gap-[18px] border-b border-border px-4 py-3 transition-colors last:border-b-0 hover:bg-secondary active:bg-secondary ' +
-        (today ? 'today' : '')
+        'group cursor-pointer transition-colors hover:bg-secondary active:bg-secondary ' +
+        DEAL_ROW_SHELL +
+        (today ? ' today' : '')
       }
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('[data-prev]')) return
