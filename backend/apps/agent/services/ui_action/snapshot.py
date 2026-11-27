@@ -16,6 +16,7 @@ import logging
 import re
 import time
 import uuid
+from collections.abc import Sequence
 from typing import Any
 
 from ..event_bus import redis_cache_enabled
@@ -102,13 +103,26 @@ def _read(request_id: str) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
-async def accept_snapshot(request_id: str, *, state: dict[str, Any], route: str) -> dict[str, Any]:
+async def accept_snapshot(
+    request_id: str,
+    *,
+    state: dict[str, Any],
+    route: str,
+    available_actions: Sequence[str] = (),
+) -> dict[str, Any]:
     """把契约层（``UiSnapshotIn``）已脱敏、已限量的快照交给等待方。
     ``success=False`` 不是失败：模型只等 3 秒，律师慢一步就是超时（与回执同口径）。
+
+    ``available_actions`` 必须带默认值：缺省让它与 ``state`` / ``route`` 不同，是可选的——
+    页面没报可用动作、或调用方还没接上这个字段（``api/ui_api.py``），都退化成一个空表，
+    而不是把一个 TypeError 抛进一条本来只该降级的链路。
     """
     if not _REQUEST_ID_RE.match(request_id or ""):
         return {"accepted": False, "success": False, "error": "request_id 不合法（限字母/数字/下划线/短横，≤64）"}
-    found = await resolve(request_id, {"state": state, "route": route})
+    found = await resolve(
+        request_id,
+        {"state": state, "route": route, "available_actions": list(available_actions)},
+    )
     return {
         "accepted": True,
         "success": found,
@@ -122,7 +136,9 @@ async def request_snapshot(
     timeout_s: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     """请求页面回一份结构化状态；返回 ``status`` 四态之一（超时不抛异常）。
-    ``ok`` / ``no_page_state`` 带 ``route``；``no_channel`` / ``timeout`` 只有状态本身。
+    ``ok`` / ``no_page_state`` 带 ``route`` 与 ``available_actions``（页面没报就是空表）；
+    ``no_channel`` / ``timeout`` 只有状态本身——**没问到就不带字段**，空表会被模型读成
+    「页面上没有可做的动作」。
     """
     if not session_id:
         return {"status": "no_channel"}
@@ -152,8 +168,24 @@ async def request_snapshot(
         return {"status": "timeout"}
     route = str(payload.get("route") or "")
     note = str(payload.get("note") or "").strip()
+    # 页面报来的动作名只在契约层洗过一遍（去控制字符/截断/去重/限量）；这里再挡一次类型：
+    # 跨进程那份 payload 是 JSON，``available_actions`` 不一定是 list。
+    actions = _available_actions(payload)
     if note:
         # 前端明确说「页面没有声明状态」：**不许**当成空对象，模型据此会误判页面为空。
-        return {"status": "no_page_state", "route": route, "note": note}
+        return {"status": "no_page_state", "route": route, "note": note, "available_actions": actions}
     state = payload.get("state")
-    return {"status": "ok", "route": route, "state": state if isinstance(state, dict) else {}}
+    return {
+        "status": "ok",
+        "route": route,
+        "state": state if isinstance(state, dict) else {},
+        "available_actions": actions,
+    }
+
+
+def _available_actions(payload: dict[str, Any]) -> list[str]:
+    """从应答载荷里取动作名（非字符串项丢掉；没有就是空表）。"""
+    raw = payload.get("available_actions")
+    if not isinstance(raw, list):
+        return []
+    return [item for item in raw if isinstance(item, str) and item]

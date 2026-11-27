@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Any, Literal
 
@@ -26,12 +27,18 @@ from pydantic import Field, field_validator, model_validator
 
 from apps.core.security.scrub import scrub_for_storage
 
+logger = logging.getLogger(__name__)
+
 #: 控制字符（含 DEL）。
 _CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
 #: ``code`` / ``detail`` / ``observed_location`` / ``route`` / ``note`` 的长度上限。
 _MAX_TEXT = 200
 #: 页面状态快照序列化后的字符上限（超了直接拒，理由见 :class:`UiSnapshotIn`）。
 _MAX_SNAPSHOT_STATE = 2000
+#: 单个 ``available_actions`` 名字的长度上限（真名都是 ``ui_xxx`` 量级，64 字已经宽裕）。
+_MAX_ACTION_NAME = 64
+#: ``available_actions`` 的条数上限（同页面的动作数远小于此；多了就是噪声而已）。
+_MAX_AVAILABLE_ACTIONS = 10
 #: ``call_id`` 只可能是后端自己生成的 32 位十六进制。仍然限字符集与长度：它会拼进
 #: Redis 键、也会进日志行，放任任意字符串等于给人一个撑键名、改日志的口子。
 _CALL_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -91,9 +98,15 @@ class UiSnapshotIn(Schema):
     ``state`` 会被**原样拼进模型上下文**、也会进日志，所以与 ``detail`` 同口径按不可信
     输入处理：先脱敏（密钥类字段遮成 ``***``）再限量。
 
-    **超限直接拒、不截断**：截断后的结构体会缺键，而模型会把缺的键当成「页面上确实
+    **``state`` 超限直接拒、不截断**：截断后的结构体会缺键，而模型会把缺的键当成「页面上确实
     没有这个字段」——比拒绝更误导。拒绝时把实际字数与上限写进错误，页面作者据此收窄
     自己声明的字段（模型拿到的仍是「没问到」，不会变成假的空页面）。
+
+    **``available_actions`` 相反：名字可以截断**（去控制字符 → strip → 截 64 字 → 丢空串
+    → 去重 → 最多 10 条，超出只截断，不拒收）。两者口径不同是因为坏处的形状不同：名字是
+    **查表用的不透明标识**，截短后匹配不到任何动作，模型也就不会（也无法）调它——失败方向是
+    「少了一个提示」，**不构成假事实**；而截断状态会凭空造出「页面上没有这个字段」。所以前者
+    容错、后者拒收。
     """
 
     #: 页面主动声明的那部分状态（``ui-tools/page-state.ts`` 的注册表产物）。
@@ -102,11 +115,31 @@ class UiSnapshotIn(Schema):
     route: str = ""
     #: 页面明说「我没声明状态」时带这句话；后端据此回 ``no_page_state`` 而不是空对象。
     note: str = ""
+    #: 本页**此刻可做**的动作名（manifest 的 ``name``）。让模型不用先试错再改口。
+    available_actions: list[str] = Field(default_factory=list)
 
     @field_validator("route", "note")
     @classmethod
     def _clean_untrusted(cls, value: str) -> str:
         return _untrusted_text(value)
+
+    @field_validator("available_actions")
+    @classmethod
+    def _clean_available_actions(cls, value: list[str]) -> list[str]:
+        """名字列表按不可信文本洗一遍：模型会原样读到它们，但坏名字只会「查不到」。"""
+        cleaned: list[str] = []
+        for item in value:
+            name = _CONTROL_RE.sub("", item or "").strip()[:_MAX_ACTION_NAME]
+            if name and name not in cleaned:
+                cleaned.append(name)
+        if len(cleaned) > _MAX_AVAILABLE_ACTIONS:
+            logger.warning(
+                "页面快照的 available_actions 有 %d 条，超过 %d 条上限，已截断",
+                len(cleaned),
+                _MAX_AVAILABLE_ACTIONS,
+            )
+            return cleaned[:_MAX_AVAILABLE_ACTIONS]
+        return cleaned
 
     @model_validator(mode="after")
     def _check_state_size(self) -> UiSnapshotIn:

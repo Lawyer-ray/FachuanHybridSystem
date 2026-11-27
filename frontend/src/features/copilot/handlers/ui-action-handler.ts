@@ -63,14 +63,18 @@ export function createUiActionHandler(ctx: TurnHandlerContext): Pick<StreamHandl
  *
  * **读不到时必须带 note**：只回 `state: {}` 而不解释，模型会把「页面没声明」当成「页面上
  * 什么都没有」，那是编造事实。后端把 note 转成 `no_page_state` 交给模型。
+ *
+ * **`available_actions` 恒发（含空数组）**：它是给模型「这一刻还能做什么」的补充。页面没声明
+ * 状态时**不许**按当前地址编一份猜的动作表——模型会照着它去调一个页面根本没实现的动作，
+ * 表现与 `unknown_action` 一样，却连告警都没有。
  */
 export function createUiSnapshotHandler(): Pick<StreamHandlers, 'onUiSnapshotRequest'> {
   return {
     onUiSnapshotRequest: (event) => {
       const read = readPageState(event.page ?? undefined)
       const reply: UiPageSnapshotReply = read
-        ? { state: read.state, route: read.route }
-        : { state: {}, route: currentRoute(), note: NO_PAGE_STATE_NOTE }
+        ? { state: read.state, route: read.route, available_actions: read.availableActions }
+        : { state: {}, route: currentRoute(), note: NO_PAGE_STATE_NOTE, available_actions: [] }
       void submitUiPageSnapshot(event.request_id, reply).catch((error: unknown) => {
         console.warn(`[ui-snapshot] 快照应答未送达（request_id=${event.request_id}）：${String(error)}`)
       })

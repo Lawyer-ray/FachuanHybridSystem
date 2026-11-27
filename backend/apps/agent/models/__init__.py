@@ -14,6 +14,7 @@ from .session import AgentSession
 from .skill import AgentSkillPreference
 from .subtask import AgentSubtask
 from .synthesis import AgentSynthesis
+from .ui_action import AgentUiAction
 
 __all__ = [
     "AgentApproval",
@@ -29,5 +30,6 @@ __all__ = [
     "AgentSkillPreference",
     "AgentSubtask",
     "AgentSynthesis",
+    "AgentUiAction",
     "content_hash_of",
 ]

@@ -14,6 +14,14 @@ export interface UiPageSnapshotReply {
   route: string
   /** 页面没有声明状态时带这句：后端据此回 `no_page_state`，不许把空对象当成空页面。 */
   note?: string
+  /**
+   * 这个地址上模型还能调的动作名（`ui-tools/page-state.ts` 的 `availableActionsForPath`）。
+   *
+   * 字段名逐字 `available_actions`（后端契约同一拼法），上限 10、两端各截一次。只放名字不放
+   * 参数结构，所以截断是安全的——少一条可选项，不是「这个字段不存在」。
+   * 页面没声明状态时传空数组：那一刻的状态表里没有被登记的页面，动作清单只能是猜的。
+   */
+  available_actions: string[]
 }
 
 /** 快照应答的回执。`success=false` 不是失败：等待方（≤3s）可能已经超时。 */

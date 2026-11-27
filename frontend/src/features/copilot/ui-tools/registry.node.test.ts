@@ -27,6 +27,7 @@ const INVALID_SAMPLES: Record<UiToolName, unknown> = {
   ui_navigate: {}, // 缺必填 path
   ui_copilot_open: { origin: 'invoice' }, // origin 不在枚举里
   ui_material_prep_set_stage: { stage: 'archived' }, // stage 不在枚举里
+  ui_material_prep_judge: { packId: 812, target: 'archived' }, // target 只能 done/filed
 }
 
 /** 每条 schema 至少一个合法样例（守卫不能把正常参数也拒了） */
@@ -34,18 +35,31 @@ const VALID_SAMPLES: Record<UiToolName, unknown> = {
   ui_navigate: { path: '/material-prep?stage=todo' },
   ui_copilot_open: {},
   ui_material_prep_set_stage: { stage: 'done' },
+  ui_material_prep_judge: { packId: 812, target: 'done' },
 }
 
 describe('双端完备：清单与执行器是同一组名字', () => {
+  // 这条是**完备性的唯一门禁**（`UI_EXECUTORS` 放宽成 Partial 之后，编译期不再保证齐全）：
+  // 它同时覆盖内置表与页面声明表（`features/*/ui-actions.ts` → discover），任何一边漏了
+  // 都会在这里指名道姓地红。
   it('UI_TOOL_SPECS 的每个名字都有执行器', () => {
     for (const spec of UI_TOOL_SPECS) {
       expect(resolveExecutor(spec.name), `缺执行器：${spec.name}`).not.toBeNull()
     }
   })
 
-  it('执行器表里没有清单之外的名字', () => {
-    const specNames = UI_TOOL_SPECS.map((spec) => spec.name).sort()
-    expect(Object.keys(UI_EXECUTORS).sort()).toEqual(specNames)
+  it('内置执行器表里没有清单之外的名字', () => {
+    // 只断言「⊆ 清单」：内置表不必覆盖全部动作（页面自实现的那条不在这里），
+    // 但多写一个清单外的名字就是「实现了一个模型永远不会调的动作」。
+    const specNames = UI_TOOL_SPECS.map((spec) => spec.name)
+    for (const name of Object.keys(UI_EXECUTORS)) {
+      expect(specNames, `内置表里出现了清单外的动作：${name}`).toContain(name)
+    }
+  })
+
+  it('页面自实现的动作不进内置表（judge 归 material-prep，见 features/material-prep/ui-actions.ts）', () => {
+    expect(Object.hasOwn(UI_EXECUTORS, 'ui_material_prep_judge')).toBe(false)
+    expect(resolveExecutor('ui_material_prep_judge')).not.toBeNull()
   })
 
   it('UI_TOOL_BY_NAME 与 UI_TOOL_SPECS 同源', () => {

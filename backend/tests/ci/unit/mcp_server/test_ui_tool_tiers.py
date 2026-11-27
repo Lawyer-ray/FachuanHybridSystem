@@ -148,6 +148,30 @@ class TestTierVisibility:
         assert not missing, f"声明了 direct 但实际按需加载（模型看不见）: {missing}"
 
 
+class TestConfirmVisibilityGate:
+    """G1：``confirm`` / ``guarded`` 在**真实** ``build_tool_exposure()`` 里必须是 ``direct``。
+
+    为什么不并进 :class:`TestTierVisibility`：那里的两条查的是 ``DIRECT_TOOLS`` 与通配
+    模式，没有任何 ``confirm`` 动作时循环体**空转**——绿，但什么也没验证。所以这里显式
+    要求“至少有一条 confirm 动作参与”，否则清单被误删、或被误降级成 deferred 都无人发觉。
+    """
+
+    def test_at_least_one_confirm_action_participates(self) -> None:
+        confirm = [action for action in UI_ACTIONS if action.risk == "confirm"]
+        assert confirm, "清单里一条 confirm 动作都没有：下面那条门禁会变成空转的假绿"
+        deferred = sorted(action.name for action in confirm if action.tier != "direct")
+        assert not deferred, f'confirm 动作必须 tier="direct"（藏起来只降低可见性、不降低风险）: {deferred}'
+
+    def test_confirm_and_guarded_are_direct_in_real_exposure(self) -> None:
+        risky = [action for action in UI_ACTIONS if action.risk in ("confirm", "guarded")]
+        assert any(action.risk == "confirm" for action in risky), "没有 confirm 动作参与，这条门禁是空跑"
+        mapping = build_tool_exposure()
+        hidden = sorted(action.name for action in risky if mapping.get(action.name) != "direct")
+        assert not hidden, (
+            f"这些动作在真实 toolExposure 里不是 direct（模型看不见、律师也看不到 AI 的破坏力）: {hidden}"
+        )
+
+
 class TestNames:
     """名字是审批与审计的匹配键，撞名/怪字符都是静默错对象。"""
 

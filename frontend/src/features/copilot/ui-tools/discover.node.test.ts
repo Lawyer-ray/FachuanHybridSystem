@@ -3,8 +3,8 @@
  *
  * 断言分三层，缺一层这条通道就是「看起来接上了」：
  * 1. **纯逻辑**：`collectExecutors` 对模块表的合并与跳过（直接喂假模块，不碰文件系统）；
- * 2. **真实聚合**：`import.meta.glob` 今天收出来的东西（仓库里还没有 `ui-actions.ts`，
- *    所以是空表——这条会随着第一个约定文件落地而红，见用例里的提示）；
+ * 2. **真实聚合**：`import.meta.glob` 今天收出来的东西（第一个约定文件已落地，
+ *    所以必须能收到 `ui_material_prep_judge`；空表反而是故障）；
  * 3. **端到端一跳**：注入假模块后 `resolveExecutor` / `runUiTool` 真的走到页面实现，
  *    且 `ui_navigate` 的路径白名单**不跟着执行器走**（安全不变式）。
  */
@@ -41,17 +41,19 @@ function makePorts(overrides: Partial<UiToolPorts> = {}): UiToolPorts {
 }
 
 afterEach(() => {
-  // 还原真实发现表（今天为空表，因此不会产生覆盖提示），再撤掉 console 的 spy
+  // 还原真实发现表（今天只含页面自实现的那条，与内置表不重叠，因此不会产生覆盖提示），
+  // 再撤掉 console 的 spy
   setPageExecutors(COLLECTED_PAGE_EXECUTORS)
   vi.restoreAllMocks()
 })
 
 describe('① 真实聚合：仓库当前的 ui-actions.ts', () => {
-  it('没有 ui-actions.ts 时聚合结果为空且不抛异常', () => {
-    // 第一个约定文件落地时这条会红：**不要删掉它**，改成断言那个动作在表里
-    // （`expect(COLLECTED_PAGE_EXECUTORS.has('ui_xxx')).toBe(true)`），否则「glob 挂错模式」
-    // 这类故障又会变成静默的
-    expect(COLLECTED_PAGE_EXECUTORS.size).toBe(0)
+  it('真的收到了 material-prep 声明的 ui_material_prep_judge（glob 模式没挂错）', () => {
+    // 这条是 `UI_EXECUTORS` 放宽成 Partial 之后的**第二条完备性门禁**：
+    // 只有 registry 那条时，glob 模式写错也只会红在「缺执行器」，要查半天才知道红在哪一层。
+    // 所以这里**不要**改回 `size === 0`——第一个约定文件已经落地，空表才是故障。
+    expect(COLLECTED_PAGE_EXECUTORS.has('ui_material_prep_judge')).toBe(true)
+    expect(COLLECTED_PAGE_EXECUTORS.size).toBeGreaterThanOrEqual(1)
   })
 
   it('聚合结果只可能含清单里的动作（闭集在收集期就成立，不靠执行期兜）', () => {

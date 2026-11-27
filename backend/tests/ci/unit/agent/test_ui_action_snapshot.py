@@ -176,7 +176,14 @@ async def test_ok_reading_returns_state_and_route(monkeypatch: pytest.MonkeyPatc
 
     result = await snapshot.request_snapshot("material-prep", _session_id(), timeout_s=1.0)
 
-    assert result == {"status": "ok", "route": "/material-prep", "state": {"stage": "todo"}}
+    # ``available_actions`` 恒在（M4）：页面没上报就是空表——空表 = 「这页没说」，
+    # 而不是「这页没有动作」，模型据此仍会先问页面，不会据此断言能力不存在。
+    assert result == {
+        "status": "ok",
+        "route": "/material-prep",
+        "state": {"stage": "todo"},
+        "available_actions": [],
+    }
 
 
 @pytest.mark.asyncio

@@ -59,12 +59,16 @@ def _ui_page_state_tool() -> Callable[..., Any]:
         - 律师问的是业务问题本身（怎么起诉、条款怎么写）——页面状态帮不上忙；
         - 同一轮刚看过快照——重复问只会白等最多 3 秒。
 
-        **返回**：``{"status", "route", "state", "hint"?}``。
+        **返回**：``{"status", "route", "state", "available_actions", "hint"?}``。
 
         - ``ok``：``state`` 是页面声明的那部分字段，可以据此回答或决定下一步动作；
-        - ``no_page_state``：页面在，但它没声明结构化状态；
-        - ``timeout`` / ``no_channel``：**没问到**——这不等于页面是空的。改成直接问律师，
-          绝不要把「没问到」当成「页面上没有」。
+          ``available_actions`` 是这页**此刻真能调**的动作名（如 ``ui_material_prep_judge``）
+          ——有它就直接调那个工具，不用先瞎试一遍再改口；
+        - ``no_page_state``：页面在，但它没声明结构化状态；``available_actions`` 仍可能是真的
+          （页面只是没声明字段，并不是没有动作）；
+        - ``timeout`` / ``no_channel``：**没问到**——这不等于页面是空的。这两种返回**没有**
+          ``available_actions`` 键，所以「键不存在」只说明没问到，不能读成「这页没有可用动作」。
+          改成直接问律师，绝不要把「没问到」当成「页面上没有」。
 
         Args:
             page: 要读哪一页（如 ``"material-prep"``）；省略 = 取最近注册且已挂载的页面。

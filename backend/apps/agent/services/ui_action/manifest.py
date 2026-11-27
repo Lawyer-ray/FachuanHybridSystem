@@ -16,11 +16,22 @@
 参数 → URL、怎么开面板、跨 feature 发哪条 window 事件，全是前端的知识（只有前端
 知道路由表与组件边界）。清单里写执行细节的唯一结果是两端各演化一套口径。
 
-## 本次范围（P0+P1）
+## 本次范围（P0+P1 + 第一条 ``confirm`` 动作）
 
-只登记 3 条 ``safe`` 动作。``confirm`` / ``guarded`` 的枚举位已经就位
-（:data:`UiActionRisk` 三值 + :data:`CONFIRM_ACTION_NAMES` 接口），写类动作留到
-P2/P3——先把「能下发、不假装看见」这条管道跑通。
+P0/P1 登记了 3 条 ``safe`` 动作，之后补了**第一条** ``confirm`` 动作
+``ui_material_prep_judge``（判定材料包归属）。
+
+为什么不继续留在 ``safe``：它真的写一次库（改材料包的归属状态），按三档定义
+（见 :data:`UiActionRisk`）就该走审批。
+
+为什么是 ``confirm`` 而不是 ``guarded``——看爆炸半径：
+
+- 只动**一个**材料包的状态位，不删材料、不对外发任何东西；
+- 可纠正：判错了重判一次就回去了（``undo="none"`` 说的是「不自动回滚」，不是
+  「不可修复」）；
+- 因此只需要后端审批，不需要 ``guarded`` 那层前端本地二次确认。
+
+``guarded``（对外系统 / 不可逆 / 涉及凭证）仍留到 P3。
 """
 
 from __future__ import annotations
@@ -120,6 +131,26 @@ _COPILOT_OPEN_ARGS: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+#: ``ui_material_prep_judge`` 的参数。``target`` 的两个值就是前端 ``PrepStage``
+#: （``features/material-prep/stages.ts``）里的两个**终态**，与 ``_SET_STAGE_ARGS``
+#: 同一套词：收件箱/待处理是「还没判」，判定只能落到 ``done`` 或 ``filed``。
+_JUDGE_ARGS: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "packId": {
+            "type": "integer",
+            "description": "材料包 id（收件箱里的一条消息也算一个材料包，用它的 id）。",
+        },
+        "target": {
+            "type": "string",
+            "enum": ["done", "filed"],
+            "description": "done=已归案（挂进案件），filed=不接归档（判定为不接收、留档不挂案件）。",
+        },
+    },
+    "required": ["packId", "target"],
+    "additionalProperties": False,
+}
+
 #: ``ui_material_prep_set_stage`` 的参数。枚举值来自前端的 ``PrepStage``
 #: （``features/material-prep/stages.ts``：收件箱 + 材料包三态），后端不另立一套词。
 _SET_STAGE_ARGS: dict[str, Any] = {
@@ -187,13 +218,30 @@ UI_ACTIONS: tuple[UiAction, ...] = (
         undo="toggle",
         idempotent=True,
     ),
+    UiAction(
+        name="ui_material_prep_judge",
+        title="判定材料包归属",
+        describe=(
+            "把材料包判为「已归案」或「不接归档」。只在材料预处理页用；"
+            "要真的把材料挂到案件上，用归案动作，不要用这个代替。"
+        ),
+        args_schema=_JUDGE_ARGS,
+        risk="confirm",
+        tier="direct",
+        handler="material_prep_judge",
+        route="/material-prep",
+        undo="none",
+        side_effects=("write_db",),
+        idempotent=False,
+        long_running=False,
+    ),
 )
 
 
-#: 需要人工审批的动作名（``confirm`` 档）。本次清单里没有 confirm 动作，故为空集。
-#: 接口先立着：``mcp_server/tool_tiers.py`` 要把它们并进 ``DIRECT_TOOLS``——
-#: 分层政策是「破坏性工具必须留在 direct」，而 ``DIRECT_PATTERNS`` 里的 ``delete_*``
-#: 匹配不到 ``ui_delete_pack`` 这类名字，必须显式并入。
+#: 需要人工审批的动作名（``confirm`` 档）：``ui_material_prep_judge`` 写材料包归属。
+#: ``mcp_server/tool_tiers.py`` 把它们并进 ``DIRECT_TOOLS``——分层政策是「破坏性工具
+#: 必须留在 direct」，而 ``DIRECT_PATTERNS`` 里的 ``delete_*`` 匹配不到 ``ui_*`` 这类名字，
+#: 必须显式并入。这里派生而不是手抄：confirm 动作被降级/改名时，分层跟着变。
 CONFIRM_ACTION_NAMES: frozenset[str] = frozenset(a.name for a in UI_ACTIONS if a.risk == "confirm")
 
 
@@ -203,7 +251,8 @@ CONFIRM_ACTION_NAMES: frozenset[str] = frozenset(a.name for a in UI_ACTIONS if a
 #: ``deferred``（见 ``apps/agent/pi/shared_mcp.py`` 写 mcp.json 那一段）——**没列进
 #: DIRECT_TOOLS 的工具不会声明给模型**，模型要先 ``tool_search`` 才知道有 ``ui_navigate``。
 #: 而 ``ui_navigate`` / ``ui_copilot_open`` / ``set_stage`` 是“律师开口就要动页面”的高频动作，
-#: 必须常驻可见（08 §2.2）。
+#: ``ui_material_prep_judge`` 则是“写一次库”的 ``confirm`` 动作——同样必须常驻可见
+#: （08 §2.2 + 分层政策的「破坏性工具必须可见」）。
 #:
 #: 一律从清单派生，而不是让 ``tool_tiers`` 手抄一遍名字：`tier` 写两处就是「装样子的
 #: 单源」——2026-11-27 评审 P1-3 就是这么抓到清单说 direct、实际是 deferred 的。

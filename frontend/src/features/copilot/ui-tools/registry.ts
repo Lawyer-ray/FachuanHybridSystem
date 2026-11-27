@@ -2,8 +2,10 @@
  * 动作名 → 执行器：前端执行层的**闭集**，以及参数的**第二道**守卫。
  *
  * 两道闸都是「静默失效」的解药：
- * 1. `record<UiToolName, UiExecutor>` 让「清单里有、执行器没有」在编译期就红——
- *    否则模型调完页面毫无反应、日志里连报错都没有（这是本条链路上最贵的故障形态）。
+ * 1. **名字闭集**：`UiToolName` 只来自后端清单（`generated.ts`），表里写一个清单外的名字
+ *    编译就红——「前端实现了模型永远不会调的动作」是假能力，不是能力。
+ *    闭集的另一半「清单里有、执行器没有」现在由**运行期**门禁守（为什么不在编译期了、
+ *    门禁搬去了哪两条用例，见 `UI_EXECUTORS` 的 docstring）。
  * 2. 后端已按 `args_schema` 校验过一轮，这里再校验一次：灰度期前端旧、后端新时，
  *    新参数形状会带着旧前端一起跑，此时唯一能拦住的是本地守卫。
  *
@@ -91,14 +93,17 @@ export function resolveSpec(name: string): UiToolSpec | null {
 export function resolveExecutor(name: string): UiExecutor | null {
   const fromPage = resolveDiscoveredExecutor(name)
   if (fromPage) return fromPage
-  return Object.hasOwn(UI_EXECUTORS, name) ? UI_EXECUTORS[name as UiToolName] : null
+  // `hasOwn` 不能省：内置表是普通对象，`resolveExecutor('toString')` 会摸到原型链上的函数
+  if (!Object.hasOwn(UI_EXECUTORS, name)) return null
+  return UI_EXECUTORS[name as UiToolName] ?? null
 }
 
 /**
  * 换上「页面声明的执行器表」，并把「覆盖了内置执行器」在**收集期**吵一句。
  *
  * 生产路径只有一个调用点（本文件末尾的模块初始化）；导出是为了让测试注入假模块——
- * 今天清单只有 3 条动作且全有内置实现，不注入就无法证明这条通道是活的。
+ * 内置表只覆盖 3 条通用动作，页面声明那条通道（`ui_material_prep_judge`）要靠注入
+ * 才能证明「页面优先」真的生效。
  */
 export function setPageExecutors(next: ReadonlyMap<string, UiExecutor>): void {
   setDiscoveredExecutors(next)
@@ -149,10 +154,30 @@ function isUnderRoute(currentPath: string, route: string): boolean {
 }
 
 /**
- * 执行器闭集：`Record<UiToolName, UiExecutor>` 在清单多一条而这里少一条时直接编译红，
- * 这正是「双端完备」在类型系统里能拿到的最强保证。
+ * 内置执行器表：只有「URL 直达、不依赖任何 feature 内部状态」的通用动作住在这里。
+ *
+ * ## 为什么类型是 `Partial<Record<…>>` 而不是 `Record<…>`
+ *
+ * `Record<UiToolName, UiExecutor>` 的语义是「**每个**清单动作都必须在这张表里有实现」。
+ * material-prep 接入后这条不成立了：`ui_material_prep_judge` 要真写库，实现归页面自己
+ * （`features/material-prep/ui-actions.ts`，由 `discover.ts` 的 glob 收集）。硬塞进这里
+ * 等于让 copilot 的执行层 import 材料预处理页的 API 模块，把两边的 chunk 绑在一起。
+ *
+ * **放宽的是「完备性在编译期保证」，不是闭集**：键仍然是 `UiToolName`（清单外的名字编译
+ * 就红），`runUiTool` 仍先查 `resolveSpec`，未知名字照旧判 `unknown_action`。
+ *
+ * ## 完备性门禁搬到了运行期，两条缺一不可
+ *
+ * 1. `registry.node.test.ts`「清单里的每条动作都能 resolve 到执行器」：逐条
+ *    `resolveExecutor(spec.name)` 非空——它同时覆盖本表与页面声明表，是离原来那条
+ *    编译期保证最近的东西；
+ * 2. `discover.node.test.ts`「真实聚合」：证明 glob 真的收得到 material-prep 的实现。
+ *    只有第 1 条时，glob 模式写错也只会红在「缺执行器」，查半天才知道红在哪一层。
+ *
+ * 所以「缺实现」的故障形态仍然是**红**（测试红，且 CI 必跑），不是静默——这次放宽
+ * 没有削弱守卫，只是把守卫从编译器挪到了会指名道姓的那条用例上。
  */
-export const UI_EXECUTORS: Record<UiToolName, UiExecutor> = {
+export const UI_EXECUTORS: Partial<Record<UiToolName, UiExecutor>> = {
   ui_navigate: (args, ports) => {
     const path = pathForNavigate(args.path)
     if (path === null) {

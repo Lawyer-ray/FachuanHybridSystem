@@ -14,6 +14,7 @@ export type UiToolName =
   | 'ui_navigate'
   | 'ui_copilot_open'
   | 'ui_material_prep_set_stage'
+  | 'ui_material_prep_judge'
 
 /**
  * 三档风险：`safe` 无外部副作用直接执行；`confirm` 走后端审批；
@@ -124,6 +125,33 @@ export const UI_TOOL_SPECS: readonly UiToolSpec[] = [
     handler: 'setMaterialPrepStage',
     idempotent: true,
     undo: 'toggle',
+  },
+  {
+    name: 'ui_material_prep_judge',
+    title: '判定材料包归属',
+    describe: '把材料包判为「已归案」或「不接归档」。只在材料预处理页用；要真的把材料挂到案件上，用归案动作，不要用这个代替。',
+    argsSchema: {
+      additionalProperties: false,
+      properties: {
+        packId: {
+          description: '材料包 id（收件箱里的一条消息也算一个材料包，用它的 id）。',
+          type: 'integer',
+        },
+        target: {
+          description: 'done=已归案（挂进案件），filed=不接归档（判定为不接收、留档不挂案件）。',
+          enum: ['done', 'filed'],
+          type: 'string',
+        },
+      },
+      required: ['packId', 'target'],
+      type: 'object',
+    },
+    route: '/material-prep',
+    risk: 'confirm',
+    tier: 'direct',
+    handler: 'material_prep_judge',
+    idempotent: false,
+    undo: 'none',
   },
 ]
 

@@ -106,14 +106,25 @@ describe('页面状态应答', () => {
     createUiSnapshotHandler().onUiSnapshotRequest?.(FRAME, ORIGIN)
 
     expect(sentReply()[0]).toBe('r-1')
-    expect(sentReply()[1]).toEqual({ state: { stage: 'todo', selected: 'm-42' }, route: expect.any(String) })
+    expect(sentReply()[1]).toEqual({
+      state: { stage: 'todo', selected: 'm-42' },
+      route: expect.any(String),
+      // 动作名清单（M4）：这页现在能做什么，模型据此不用试错；这里是名字不是结构，截断安全
+      available_actions: expect.any(Array),
+    })
     unregisterPageState('material-prep', provider)
   })
 
   it('页面没声明状态：回 note，不许把 {} 当成空页面', () => {
     createUiSnapshotHandler().onUiSnapshotRequest?.({ ...FRAME, page: 'never-registered' }, ORIGIN)
 
-    expect(sentReply()[1]).toEqual({ state: {}, route: expect.any(String), note: '页面没有声明状态' })
+    expect(sentReply()[1]).toEqual({
+      state: {},
+      route: expect.any(String),
+      note: '页面没有声明状态',
+      // 页面没声明状态 = 不知道它有哪些动作，回空表而不是编一份猜的清单
+      available_actions: [],
+    })
   })
 
   it('POST 失败只 warn：不 await，也不把异常扔回读循环', async () => {

@@ -4,9 +4,13 @@
 
 v1 里 ``publish_ui_action`` 写死 ``observed: False``，理由是「跨请求回执要新表 + pending
 补拉 + 超时清理，这笔账不成立」。v2-A 把它拆开看清了：**注入点就是工具返回值本身**
-（工具调用发生在模型循环内部），所以回执既不需要表、也不需要再开一次请求，只需要
-① ``publish`` 之后 ``await`` 最多 2 秒；② 没等到就进进程内积压，由同一会话的下一次
-工具调用或 ``ui_action_results`` 取走（机制见 :mod:`.ack`）。
+（工具调用发生在模型循环内部），所以回执的**等待链路**既不需要表、也不需要再开一次
+请求，只需要① ``publish`` 之后 ``await`` 最多 2 秒；② 没等到就进进程内积压，由同一会话
+的下一次工具调用或 ``ui_action_results`` 取走（机制见 :mod:`.ack`）。
+
+M1 补的是另一件事：``confirm`` / ``guarded`` 档动作要留**审计台账**（``AgentUiAction``，
+见 :mod:`.audit`）。那张表不参与等待与补拉——它是「谁让 AI 干了什么、页面回了什么」的
+持久痕迹，写失败也照样下发、照样收回执。
 
 v1 那条「不该知道的就别让它说」并没有被推翻，它约束的是**措辞**而不是**能力**：
 ``observed`` 为真才允许断言页面变了；为假时 note 必须明确说「拿到回执前不要断言」。
@@ -43,7 +47,7 @@ import os
 import uuid
 from typing import Any
 
-from . import ack
+from . import ack, audit
 from .manifest import UiAction
 from .schema import validate_arguments
 
@@ -218,6 +222,18 @@ async def publish_ui_action(
         )
         delivered = bool(published) or has_remote
         _log_dispatch(session_id, action, delivered)
+        # 台账写在「已经发出去」之后、等回执之前：回执到达时那一行必须已经存在，
+        # 否则 apply_receipt 的条件 UPDATE 会打在空气上（前端 200ms 内就可能回执）。
+        # 该写哪一档、失败要不要吞，全由 audit 自己判定——这里不判，也不会因为
+        # 它返回 False 就改下发结果（审计没有否决下发的权力）。
+        await audit.record_dispatch(
+            call_id=call_id,
+            action_name=action.name,
+            arguments=arguments,
+            risk=action.risk,
+            session_id=session_id,
+            delivered=delivered,
+        )
         observed = await ack.wait(call_id, wait_seconds)
     finally:
         await ack.discard(call_id)

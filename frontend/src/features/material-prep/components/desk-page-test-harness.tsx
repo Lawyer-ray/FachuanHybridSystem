@@ -26,6 +26,9 @@ const syncMock = vi.hoisted(() => ({ useSyncSources: vi.fn() }))
 const storeMock = vi.hoisted(() => ({ open: vi.fn(), openId: null as number | null }))
 
 vi.mock('../hooks/use-material-packs', () => hookMock)
+// 本 hook 里有 useQueryClient()：这些用例只验证 DeskPage 的编排逻辑，不提供 QueryClientProvider，
+// 故与 use-material-packs / use-inbox 同款整块打桩（真实行为由 use-material-prep-ui-actions.dom.test.tsx 覆盖）。
+vi.mock('../hooks/use-material-prep-ui-actions', () => ({ useMaterialPrepUiActions: vi.fn() }))
 // 收件箱角标走的是 inbox 子域的 hooks（不是 ../hooks/use-material-packs），单独打桩：
 // 不打桩它会去要 QueryClient，而这些用例只验证 DeskPage 自己的编排逻辑。
 vi.mock('../inbox/hooks/use-inbox', () => ({

@@ -28,7 +28,12 @@
 
 import { useEffect, useRef } from 'react'
 
-import { registerPageState, unregisterPageState } from '../ui-tools'
+// 直连实现文件，**不要**改成 `from '../ui-tools'`（桶）：桶会引 `registry.ts` → `discover.ts`，
+// 而 discover 是 `import.meta.glob('/src/features/<feature>/ui-actions.ts', { eager: true })`。
+// 页面引本 hook 的那一刻就会把 registry + 整张 eager glob 表拉进自己的 chunk，还从 discover
+// 回转到本 feature——「页面 → copilot/ui-tools → discover → 本 feature」的回头路。
+// 页面侧的统一入口是 `ui-tools/contract.ts`（它只转出这些轻符号）。
+import { registerPageState, unregisterPageState } from '../ui-tools/page-state'
 
 export function useUiPageState(page: string, state: Record<string, unknown>): void {
   const latest = useRef(state)
