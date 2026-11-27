@@ -155,15 +155,18 @@ def default_model() -> str | None:
 
 #: 是否在模型下拉里列出 BYOK 自定义模型（``fachuan-gw/kimi-2.6`` 这种）。
 #:
-#: 默认**关**：CLI 直跑能通，但 SDK 客户端这条路（``--input-format stream-json``）
-#: 实测拿不到（``You do not have access to this model service`` / ``Sorry, something
-#: went wrong``），而 2026-11-27 真机就是「选了它 → 报错」。宁可先不展示，也不让
-#: 用户点到一个必然失败的选项。等 SDK 侧跑通（或改走 CLI 子进程）再打开。
+#: 默认**开**（2026-11-27 已跑通）：SDK 起 CLI 时必须带
+#: ``QODER_SDK_CUSTOM_BASE_URL_BYOK=1`` 才会加载 BYOK provider（见 ``build_env``），
+#: 加上之后 ``fachuan-gw/kimi-2.6`` 实测能回答且 ``model_usage`` 是它自己。
+#: 留这个开关是为了「怀疑 BYOK 把栏弄坏」时能一键回到只有 Qoder 自有模型的形态。
 SHOW_BYOK_ENV = "FACHUAN_QODER_SHOW_BYOK"
 
 
 def show_byok() -> bool:
-    return os.environ.get(SHOW_BYOK_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+    raw = os.environ.get(SHOW_BYOK_ENV, "").strip().lower()
+    if not raw:
+        return True
+    return raw in {"1", "true", "yes", "on"}
 
 
 def for_display() -> tuple[list[str], str | None]:

@@ -126,3 +126,12 @@ export interface AgentBackendSelection {
   /** 给某一栏指定模型（空串 = 取消指定，回落平台默认） */
   setAnswerModel: (kind: string, model: string) => void
 }
+
+/** `GET /agent/qoder/byok`：平台模型（LLMProvider）有没有接进 qoder */
+export interface QoderByokState {
+  registered: boolean
+  /** 模型 id 的前缀（`<provider_id>/<model>`） */
+  provider_id: string
+  display_name?: string
+  base_url?: string
+}

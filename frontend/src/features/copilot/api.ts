@@ -14,7 +14,7 @@
 
 import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
-import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, PendingQuestionItem, QuestionAnswerItem, QuestionAnswerReceipt, QoderAuthState, QoderLoginState, UsageSummary } from './types'
+import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, PendingQuestionItem, QuestionAnswerItem, QuestionAnswerReceipt, QoderAuthState, QoderByokState, QoderLoginState, UsageSummary } from './types'
 
 /** scope → 创建会话的请求体字段（origin + case_id/contract_id） */
 function scopePayload(scope?: CopilotScope): Record<string, string | number> {
@@ -281,4 +281,24 @@ export function startQoderLogin(accountId = ''): Promise<QoderLoginState> {
 /** 轮询某次授权的状态；未知 id 返回 `state=expired`（后端不抛 404）。 */
 export function fetchQoderLoginStatus(loginId: string): Promise<QoderLoginState> {
   return api.get(`agent/qoder/login/${loginId}`).json<QoderLoginState>()
+}
+
+/**
+ * 平台模型（LLMProvider）在 qoder 里的接入状态。
+ *
+ * BYOK 是把自家网关接进 qoder 的**唯一**官方通道（CLI 是 `/model` → Custom，
+ * SDK 是 `create_byok_config`）；接入后模型清单里会多出 `<provider_id>/<model>`。
+ */
+export function fetchQoderByok(): Promise<QoderByokState> {
+  return api.get('agent/qoder/byok').json<QoderByokState>()
+}
+
+/** 一键把「AI 平台」里的网关注册成 qoder 的自定义 provider（幂等）。 */
+export function registerQoderByok(): Promise<QoderByokState> {
+  return api.post('agent/qoder/byok/platform').json<QoderByokState>()
+}
+
+/** 取消接入（删掉 qoder 的 settings.json 里那条 provider）。 */
+export function deleteQoderByok(): Promise<QoderByokState> {
+  return api.delete('agent/qoder/byok/platform').json<QoderByokState>()
 }

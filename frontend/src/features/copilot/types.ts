@@ -18,7 +18,7 @@ import type { ToolRunState } from './domain/tool-view'
 
 export type { CitationRef, CitationKind } from './domain/knowledge'
 export type { MentionCandidate, MentionInsert, MentionKind } from './domain/mention'
-export type { AgentBackendOption, AgentSpec, QoderAuthState, QoderLoginState } from './backend-types'
+export type { AgentBackendOption, AgentSpec, QoderAuthState, QoderByokState, QoderLoginState } from './backend-types'
 export type { CopilotContext, CopilotScope } from './scope-types'
 export type { AgentSkill, AgentSkillList, AgentSkillToggleReceipt } from './skill-types'
 export type {
