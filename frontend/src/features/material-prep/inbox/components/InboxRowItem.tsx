@@ -94,7 +94,8 @@ export const InboxRowItem = memo(function InboxRowItem({
         <span className="flex items-center gap-2">
           <span
             className={cn(
-              'truncate text-[13px] leading-[1.35]',
+              // 窄屏给主题两行：一行只够十来个字，收件箱里最先要看的就是主题
+              'truncate text-[13px] leading-[1.35] max-[520px]:line-clamp-2 max-[520px]:whitespace-normal',
               row.is_read ? 'text-foreground/85' : 'text-foreground',
               !row.is_read && 'font-semibold',
             )}
@@ -118,7 +119,7 @@ export const InboxRowItem = memo(function InboxRowItem({
           >
             {SOURCE_LABEL[row.source_type] ?? row.source_name}
           </span>
-          <span className="truncate" title={rowSubtitle(row)}>
+          <span className="min-w-0 truncate" title={rowSubtitle(row)}>
             {rowSubtitle(row)}
           </span>
         </span>
@@ -151,13 +152,15 @@ export const InboxRowItem = memo(function InboxRowItem({
             )
           )}
           {/* 可转但未转：给一个极简提示，不放大成按钮（行本身就是入口） */}
+          {/* 窄屏收起这两个次要徽标：它们把主题/发送人挤成五六个字，
+              而「能不能转」在点开的抽屉里同样看得到 */}
           {convertible && (
-            <span className="rounded-[4px] border border-border px-1 py-px text-[10px] text-muted-foreground">
+            <span className="rounded-[4px] border border-border px-1 py-px text-[10px] text-muted-foreground max-[520px]:hidden">
               可转材料包
             </span>
           )}
           {packSource && (
-            <span className="rounded-[4px] border border-border px-1 py-px text-[10px] text-muted-foreground">
+            <span className="rounded-[4px] border border-border px-1 py-px text-[10px] text-muted-foreground max-[520px]:hidden">
               材料包
             </span>
           )}

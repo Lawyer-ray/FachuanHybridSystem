@@ -114,7 +114,9 @@ export function DetailRail({
                   )}
                   {d.content}
                 </span>
-                <span className="mt-px block text-[11px] whitespace-nowrap text-muted-foreground/80 tabular-nums">
+                {/* 窄屏允许折行：到期文案 + 范围标签都是 nowrap 时，在 320–360 的
+                    宽度里会顶出卡片边缘 */}
+                <span className="mt-px block text-[11px] whitespace-nowrap text-muted-foreground/80 tabular-nums max-[680px]:whitespace-normal">
                   {dueLabel(d.due, today)}
                   {d.today ? ' · 今天' : ''}
                   <b className="ml-2 font-[620] text-muted-foreground">{d.scope}</b>

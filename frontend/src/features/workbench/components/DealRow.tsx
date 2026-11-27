@@ -76,7 +76,9 @@ export const DealRow = memo(function DealRow({ deal, onOpenSheet, onOpenDetail }
               {deal.ctype}
             </span>
           )}
-          <span className="truncate">
+          {/* min-w-0：flex 子项的自动最小宽度是内容宽，不加它 truncate 根本不生效，
+              后面的 OA 编号（flex-none）就会顶出容器、压到右侧金额/到期那一列上 */}
+          <span className="min-w-0 truncate">
             {deal.parties.client}
             {deal.parties.other && (
               <>
@@ -85,7 +87,10 @@ export const DealRow = memo(function DealRow({ deal, onOpenSheet, onOpenDetail }
               </>
             )}
           </span>
-          {deal.no && <span className="flex-none text-muted-foreground/70 tabular-nums">{deal.no}</span>}
+          {/* 窄屏收起 OA 编号：副行的主角是「我方 vs 对方」，编号可在详情页看 */}
+          {deal.no && (
+            <span className="flex-none text-muted-foreground/70 tabular-nums max-[560px]:hidden">{deal.no}</span>
+          )}
         </div>
       </div>
 

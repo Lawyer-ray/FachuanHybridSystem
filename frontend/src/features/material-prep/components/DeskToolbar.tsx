@@ -70,7 +70,9 @@ export function DeskToolbar({
       {slots.sources && <SourcePills source={source} onSourceChange={handlers.onSourceChange} />}
       {slots.unread && <UnreadToggle {...handlers} />}
       {hasLeft && hasRight && <span className="mx-1 h-4 w-px bg-border" aria-hidden />}
-      <div className="ml-auto flex items-center gap-1.5">
+      {/* 窄屏：右侧那组（搜索 / 同步 / 视图切换）单独占一行——留在药丸后面会被挤成
+          半截，搜索框原本固定 200px 还会把整条工具栏顶出横向滚动 */}
+      <div className="ml-auto flex items-center gap-1.5 max-[680px]:ml-0 max-[680px]:w-full">
         {slots.search && (
           <SearchBox
             search={handlers.search ?? ''}
@@ -168,7 +170,7 @@ function SearchBox({
   searching?: boolean
 }) {
   return (
-    <label className="flex h-[28px] w-[200px] items-center gap-1.5 rounded-[7px] border border-input bg-background px-2 transition-colors focus-within:border-ring/40">
+    <label className="flex h-[28px] w-[200px] items-center gap-1.5 rounded-[7px] border border-input bg-background px-2 transition-colors focus-within:border-ring/40 max-[680px]:w-auto max-[680px]:min-w-0 max-[680px]:flex-1">
       <Search className="h-3.5 w-3.5 flex-none text-muted-foreground" aria-hidden />
       <input
         value={search}

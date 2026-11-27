@@ -39,8 +39,10 @@ export function DetailHeader({
         </span>
       </nav>
 
+      {/* 窄屏：标题与动作各占一整行。此前它是「标题 flex-1 + 动作 ml-auto」，
+          手机上 flex 会先把标题压成一条窄柱去容纳四个按钮，标题于是折成七八行 */}
       <div className="mb-4 flex flex-wrap items-start gap-[18px]">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 max-[680px]:basis-full">
           <h1 className="text-[23px] leading-[1.4] font-[760] tracking-[-0.022em] break-all max-[680px]:text-[19px]">
             {deal.client}
           </h1>
@@ -49,7 +51,7 @@ export function DetailHeader({
             className="mt-1.5 text-[13px] leading-[1.8] text-muted-foreground tabular-nums"
           />
         </div>
-        <div className="ml-auto flex flex-wrap gap-2 pt-1.5 max-[680px]:ml-0 max-[680px]:pt-0">
+        <div className="ml-auto flex flex-wrap gap-2 pt-1.5 max-[680px]:ml-0 max-[680px]:w-full max-[680px]:basis-full max-[680px]:pt-0">
           {/* 放在最左：它是一次**导航**，不是本页的创建动作——所以渲染成真锚点
               （可中键开新标签）。页头主按钮位留给真能完成的事，不再给占位动作 */}
           <ActionButton title="改项目名称 / 案型 / 状态 / 服务期 / 收费 / 代理阶段" to={projectEdit(deal.id)}>
