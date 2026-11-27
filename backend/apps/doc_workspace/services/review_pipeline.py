@@ -1,5 +1,15 @@
 """审查执行链：标准库 → 提示词 → 结论 → 立场对齐 → 三道闸 → 落库。
 
+本模块只保留**执行链本身**（建轮次、调模型、落库、一页纸）。原来混在同一个文件里的
+三个纯函数域已各自独立成模块，本模块按原路径 re-export 它们的全部符号，
+``review_pipeline.X`` 的历史 import 与测试断言全部照旧可用：
+
+- ``review_prompt``  —— 提示词渲染（``build_prompt``）与中文文案表；
+- ``review_parse``   —— 模型输出解析、截断抢救、条目归一化；
+- ``review_gates``   —— 立场对齐与三道闸（治过度审查的可测判据）。
+
+依赖方向单向：本模块 → 上述三个模块，三个模块都不反向 import 本模块。
+
 ## 为什么结论要再过一层「立场对齐」（而不是全交给模型）
 
 同一份合同代表甲方还是乙方，结论方向是**相反**的：同一条「违约金对等」的缺失，
@@ -25,361 +35,53 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
-import re
-from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from django.db import transaction
 from django.utils import timezone
 
-from ..models import (
-    Beneficiary,
-    Consequence,
-    Delivery,
-    Finding,
-    FindingKind,
-    Jurisdiction,
-    ReviewRun,
-    RiskSource,
-    RuleClass,
-    RunStatus,
-    Severity,
-    SourceWeight,
-    Stage,
-    Stance,
-    Verdict,
-)
+from ..models import Finding, Jurisdiction, ReviewRun, RuleClass, RunStatus, SourceWeight, Stance, Verdict
 from . import playbook_service, review_model, write_service
+
+# 解耦（2026-11-29）：提示词 / 解析 / 闸门三块纯函数分别搬到
+# review_prompt / review_parse / review_gates，此处按原路径 re-export，
+# 使 ``review_pipeline.build_prompt``、``review_pipeline._normalize_item``、
+# ``review_pipeline.align_to_stance`` 等历史访问方式保持可用。
+from .review_gates import (
+    _QUANTIFIED_RE,
+    _SEVERITY_ORDER,
+    FORMAT_RATIO_MAX,
+    MAX_MAIN_ITEMS,
+    TOP_N,
+    GateReport,
+    _downgrade,
+    align_to_stance,
+    enforce_gates,
+    has_quantified_consequence,
+)
+from .review_parse import (
+    _JSON_ARRAY_RE,
+    ReviewOutput,
+    _normalize_item,
+    _salvage_findings,
+    parse_findings,
+    parse_review_output,
+)
+from .review_prompt import (
+    _FOREIGN_LAW_RULES,
+    _JURISDICTION_TEXT,
+    _STANCE_TEXT,
+    CONSEQUENCE_TEXT,
+    RISK_SOURCE_TEXT,
+    STAGE_TEXT,
+    build_prompt,
+)
 
 logger = logging.getLogger(__name__)
 
 #: 一次 LLM 调用（注入点）。测试注入假函数，生产用默认实现。
 LLMCaller = Callable[[list[dict[str, str]]], str]
-
-MAX_MAIN_ITEMS = 25
-FORMAT_RATIO_MAX = 0.20
-TOP_N = 3
-
-_SEVERITY_ORDER = [Severity.LOW, Severity.MEDIUM, Severity.HIGH]
-
-#: 量化后果的判据：出现数字 + 单位/比例/期限，才算「说不改会亏什么」。
-_QUANTIFIED_RE = re.compile(r"\d+(?:\.\d+)?\s*(?:%|％|万|亿|元|日|天|个月|年|倍|次|条|页)")
-
-#: 立场 → 提示词里的一句话（用 `dict[str, str]` 而不是 `Stance` 键，避免 mypy 的
-#: `.get(Stance, str)` 重载歧义）
-_STANCE_TEXT: dict[str, str] = {
-    Stance.PARTY_A: "代表甲方（我方是甲方）",
-    Stance.PARTY_B: "代表乙方（我方是乙方）",
-    Stance.NEUTRAL: "中立复核（不代表任何一方，按法律风险给意见）",
-}
-
-#: 法域 → 提示词里的「你是谁、按什么法审」。
-#:
-#: 以前这一行写死「你是中国执业律师」。审一份泰国土地租赁合同时，这句话会让模型：
-#: ① 用中国法的形式要件（统一社会信用代码/不动产登记簿）去要求一份泰国合同；
-#: ② 把自己知道的中国法条当依据写进 `legal_basis`；
-#: ③ 完全不去想 Land Code / CCC 那几条真正的硬约束。
-_JURISDICTION_TEXT: dict[str, str] = {
-    Jurisdiction.CN: "你熟悉中国法，正在审查一份适用中国法的合同。",
-    Jurisdiction.TH: (
-        "你熟悉泰国法（Civil and Commercial Code / Land Code / Foreign Business Act / "
-        "Condominium Act / Labour Protection Act / Revenue Code），正在审查一份适用**泰国法**的合同。"
-    ),
-    Jurisdiction.VN: "你熟悉越南法，正在审查一份适用**越南法**的合同。",
-    Jurisdiction.MY: "你熟悉马来西亚法，正在审查一份适用**马来西亚法**的合同。",
-    Jurisdiction.SG: "你熟悉新加坡法，正在审查一份适用**新加坡法**的合同。",
-    Jurisdiction.ID: "你熟悉印度尼西亚法，正在审查一份适用**印度尼西亚法**的合同。",
-    Jurisdiction.PH: "你熟悉菲律宾法，正在审查一份适用**菲律宾法**的合同。",
-    Jurisdiction.LA: "你熟悉老挝法，正在审查一份适用**老挝法**的合同。",
-    Jurisdiction.KH: "你熟悉柬埔寨法，正在审查一份适用**柬埔寨法**的合同。",
-    Jurisdiction.MM: "你熟悉缅甸法，正在审查一份适用**缅甸法**的合同。",
-    Jurisdiction.BN: "你熟悉文莱法，正在审查一份适用**文莱法**的合同。",
-}
-
-#: 非中国法域的提示词硬约束。
-#:
-#: 「不许凭记忆引外国法」必须是**显式规则**而不是期望：模型对外国法的记忆错误率远高于
-#: 中国法，而错误的法条引用比不提法条更危险（看起来最专业）。
-_FOREIGN_LAW_RULES = (
-    "## 域外法硬约束（违反即整条结论作废）\n"
-    "1. **不许凭记忆引用外国法条文**。只能引用「域外法查明结果」一节里实际列出的法条；\n"
-    "2. 引用时必须写清「法名 + 条号」（如 `Civil and Commercial Code Section 540`），"
-    "不写「泰国法律规定」这种无法核验的表述；\n"
-    "3. 合同里出现的**查无此法 / 查无此条**引用，无论你觉得它多合理，都必须报出来；\n"
-    "4. 你不确定某条是否现行有效时，写 `risk_source=scenario` 并在 `reason` 里注明「待查明」，"
-    "不要编一个条号。\n\n"
-)
-
-
-#: 阶段/来源的中文文案（一页纸与前端各有一份，改文案只需改这里与前端标签表）
-STAGE_TEXT: dict[str, str] = {
-    Stage.BEFORE: "转让前（能不能转）",
-    Stage.DURING: "转让中（怎么付、怎么交付、怎么登记）",
-    Stage.AFTER: "转让后（谁背什么）",
-    Stage.GENERAL: "通用",
-}
-
-CONSEQUENCE_TEXT: dict[str, str] = {
-    Consequence.INVALID: "可能无效",
-    Consequence.UNENFORCEABLE: "不得对抗第三人",
-    Consequence.UNEFFECTIVE: "未生效（可补正）",
-    Consequence.ADMINISTRATIVE: "处罚/登记受阻",
-    Consequence.BREACH: "违约责任",
-}
-
-RISK_SOURCE_TEXT: dict[str, str] = {
-    RiskSource.STATUTE: "法律规定",
-    RiskSource.CASE: "案例检索",
-    RiskSource.SCENARIO: "场景推演",
-    RiskSource.SUBJECT: "标的特性",
-}
-
-
-@dataclass
-class GateReport:
-    """三道闸的执行结果（写进 `run.summary`，可观测才叫闸）。"""
-
-    dropped_format: int = 0
-    dropped_cap: int = 0
-    dropped_no_impact_from_top: int = 0
-    mandatory_protected: int = 0
-    """被闸门豁免的强制性条目数（它们既不被格式闸丢、也不被条数闸截）"""
-    format_ratio_before: float = 0.0
-    format_ratio_after: float = 0.0
-    kept: int = 0
-    top: list[str] = field(default_factory=list)
-
-
-def _downgrade(severity: str) -> str:
-    try:
-        index = _SEVERITY_ORDER.index(severity)  # type: ignore[arg-type]
-    except ValueError:
-        return severity
-    return _SEVERITY_ORDER[max(0, index - 1)]
-
-
-def align_to_stance(
-    *,
-    beneficiary: str,
-    stance: str,
-    verdict: str,
-    severity: str,
-    rule_class: str = RuleClass.CONTRACTUAL,
-) -> tuple[str, str, str]:
-    """按立场调整结论。返回 `(verdict, severity, direction)`。
-
-    `direction`：
-    - `favor_us`  —— 这条标准保护我们，偏离 = 我们吃亏
-    - `favor_them`—— 这条标准保护对方，偏离对我们无害 → 降一档
-    - `neutral`   —— 对等条款或中立复核，不调整
-    """
-    # **强制性规则免疫立场对齐**：抵押未解除就转让、投资未达 25%、划拨地未审批……
-    # 这些不是「对谁有利」的问题，是「转让本身可能无效」的问题。把它们的严重度
-    # 按立场降一档，等于告诉律师「这条对你不重要」，而它会让整笔交易落空。
-    if rule_class == RuleClass.MANDATORY:
-        return verdict, severity, "mandatory"
-    if stance == Stance.NEUTRAL or beneficiary == Beneficiary.NEUTRAL:
-        return verdict, severity, "neutral"
-    if beneficiary == stance:
-        # 保护我们：缺失/偏离都要按标准库给的严重度算，不能降
-        return verdict, severity, "favor_us"
-    # 保护对方：偏离对我们反而是有利的，降一档并保留「观察到偏离」的事实
-    return verdict, _downgrade(severity), "favor_them"
-
-
-def has_quantified_consequence(text: str) -> bool:
-    return bool(_QUANTIFIED_RE.search(text or ""))
-
-
-def enforce_gates(
-    items: list[dict[str, Any]],
-    *,
-    max_items: int = MAX_MAIN_ITEMS,
-    format_ratio_max: float = FORMAT_RATIO_MAX,
-    top_n: int = TOP_N,
-) -> tuple[list[dict[str, Any]], GateReport]:
-    """三道闸。返回 `(保留下来的条目, 报告)`。"""
-    report = GateReport()
-    total = len(items)
-    if not total:
-        return [], report
-
-    formats = [i for i in items if i.get("kind") == FindingKind.FORMAT]
-    report.format_ratio_before = round(len(formats) / total, 4)
-
-    kept = list(items)
-
-    # 闸一：格式类占比超限 → 从**低严重度**的格式条目开始丢。
-    #
-    # 注意分母会跟着变小：丢掉一条格式条目，分子和分母同时 -1，所以不能一次
-    # 算好「该丢几条」，只能循环到占比真的落进阈值内。若清单里只有 2 条实质
-    # 结论，20% 意味着格式条目标本应为 0 —— 这正是想要的结果（没有实质内容时
-    # 不要拿格式条目凑数）。
-    def _protected(item: dict[str, Any]) -> bool:
-        """强制性规则不参与任何一道丢弃。"""
-        return item.get("rule_class") == RuleClass.MANDATORY
-
-    while kept:
-        format_count = len([i for i in kept if i.get("kind") == FindingKind.FORMAT])
-        if not format_count or format_count / len(kept) <= format_ratio_max:
-            break
-        victims = [i for i in kept if i.get("kind") == FindingKind.FORMAT and not _protected(i)]
-        if not victims:
-            break
-        victim = min(victims, key=lambda i: _SEVERITY_ORDER.index(i.get("severity", Severity.LOW)))
-        kept = [i for i in kept if i is not victim]
-        report.dropped_format += 1
-
-    # 闸二：条数上限 → 按严重度保留（高在前），**不是砍尾部**。
-    # 强制性条目先占位、永不被截：条数闸治的是「格式/措辞类噪音」，
-    # 把一条「合同可能无效」挤出去，等于用降噪的理由制造漏判。
-    protected = [i for i in kept if _protected(i)]
-    report.mandatory_protected = len(protected)
-    if len(kept) > max_items:
-        rest = [i for i in kept if not _protected(i)]
-        room = max(0, max_items - len(protected))
-        ranked = sorted(rest, key=lambda i: -_SEVERITY_ORDER.index(i.get("severity", Severity.LOW)))
-        keep_ids = {id(i) for i in ranked[:room]} | {id(i) for i in protected}
-        report.dropped_cap = len(kept) - len(keep_ids)
-        kept = [i for i in kept if id(i) in keep_ids]
-
-    live = len(kept)
-    report.format_ratio_after = round(
-        (len([i for i in kept if i.get("kind") == FindingKind.FORMAT]) / live) if live else 0.0, 4
-    )
-    report.kept = live
-
-    # 闸三：Top-N 必须带量化后果；写不出来的降级回清单（不给上台）
-    top_candidates = sorted(
-        (i for i in kept if i.get("verdict") != Verdict.NOT_APPLICABLE),
-        key=lambda i: -_SEVERITY_ORDER.index(i.get("severity", Severity.LOW)),
-    )
-    for item in top_candidates:
-        if len(report.top) >= top_n:
-            break
-        impact = str(item.get("impact") or item.get("reason") or "")
-        if not has_quantified_consequence(impact):
-            item["in_top"] = False
-            report.dropped_no_impact_from_top += 1
-            continue
-        item["in_top"] = True
-        report.top.append(str(item.get("title") or item.get("rule_key") or ""))
-    return kept, report
-
-
-def build_prompt(
-    *,
-    rules: list[dict[str, Any]],
-    contract_text: str,
-    stance: str,
-    contract_type: str,
-    feedback: str = "",
-    case_evidence: str = "",
-    jurisdiction: str = Jurisdiction.CN,
-    foreign_law_evidence: str = "",
-) -> list[dict[str, str]]:
-    """把标准库渲染成提示词。
-
-    **标准是数据不是散文**：每条检查项单独列出来，模型逐条判定。这样
-    「故意漏报」和「超范围发挥」都能被后面的闸拦住。
-    """
-    stance_text = _STANCE_TEXT.get(stance, "中立复核")
-
-    rule_lines = []
-    for rule in rules:
-        rule_lines.append(
-            "\n".join(
-                [
-                    f"- rule_key: {rule['rule_key']}",
-                    f"  条款类型: {rule['clause_type']}",
-                    f"  标准表述: {rule['standard_text']}",
-                    f"  可接受区间: {rule.get('acceptable_range') or '（必须与标准一致）'}",
-                    f"  法律依据: {rule.get('legal_basis') or '（无）'}",
-                    f"  必备条款: {'是' if rule.get('required') else '否'}",
-                    f"  规则类别: {rule.get('rule_class') or RuleClass.CONTRACTUAL}"
-                    f"（mandatory=违反可能无效，必须报、不许降级）",
-                    f"  阶段: {rule.get('stage') or Stage.GENERAL}",
-                ]
-            )
-        )
-
-    fmt = (
-        "## 输出格式（**先读这一节，它决定你的整份回答**）\n"
-        "**你的回答第一个字符必须是 `{`，最后一个字符必须是 `}`。**\n"
-        "禁止输出任何分析过程、思考过程、前言、结语、道歉或 Markdown 说明；"
-        "「Let me analyze…」「We need…」这类文字写出来就等于本次审查作废——"
-        "下游只解析 JSON，其余全部丢弃。\n"
-        "若需要先想清楚再写，也**只能想完直接输出 JSON**。\n"
-        "**顺序很重要：先画标的、再展开关系、最后逐条判定**。\n"
-        "```\n"
-        "{\n"
-        '  "subject_profile": ["这个标的的特殊性，逐条列（如：工业用地/带产业监管/历史污染/设备与不动产混杂/需政府审批）"],\n'
-        '  "relations": [{"relation":"关系方","why":"为什么必须扫","risk":"不扫会漏掉什么"}],\n'
-        '  "findings": [{\n'
-        '    "rule_key":"...","verdict":"deviation","severity":"high",\n'
-        '    "risk_source":"statute|case|scenario|subject","case_ref":"案号（仅 when risk_source=case）",\n'
-        '    "source_weight":"core|supporting",\n'
-        '    "quote":"合同原文片段（缺失时留空）","title":"一句话结论",\n'
-        '    "reason":"为什么","impact":"不改会损失什么（带数字）",\n'
-        '    "suggestion_original":"要替换的原文","suggestion_replacement":"改写后文本",\n'
-        '    "suggestion_note":"批注正文（只提醒不改正文时用）"}]\n'
-        "}\n"
-        "```\n\n"
-        "- `risk_source` 必须标：这条是**据法条**（statute）、**据类案**（case）、"
-        "**据流程推演**（scenario）、还是**据本标的特性**（subject）；\n"
-        "- `source_weight`：决定性依据填 core，旁证填 supporting；\n"
-        "- 若确实没有可报的问题，`findings` 返回空数组，但 `subject_profile` 与 "
-        "`relations` 仍要填——它们本身就是交付内容。\n\n"
-    )
-    persona = _JURISDICTION_TEXT.get(jurisdiction, _JURISDICTION_TEXT[Jurisdiction.CN])
-    foreign_block = _FOREIGN_LAW_RULES if jurisdiction != Jurisdiction.CN else ""
-    system = (
-        fmt
-        + persona
-        + "\n"
-        + f"本次立场：{stance_text}。\n"
-        + f"合同类型：{contract_type or '通用'}。\n\n"
-        + foreign_block
-        + "## 只报以下两类问题\n"
-        "1. 会造成**经济损失**的（金额、违约金、赔偿、付款条件、结算方式）；\n"
-        "2. 会造成**诉讼风险**的（管辖、仲裁、举证、解除、时效）。\n"
-        "纯措辞优化、纯排版问题**不要报**。宁缺毋滥：漏报一条可接受的，"
-        "比多报十条噪音代价小。\n\n"
-        "## 判定口径\n"
-        "- 每条结论必须对应下面**某一个 rule_key**，不要自创检查项；\n"
-        "- `verdict` 只能是 compliant / deviation / missing / not_applicable；\n"
-        "- 合同里**没有**该条款 → verdict=missing；有但与标准不符 → deviation；\n"
-        "- 该条款对本合同类型**不适用** → not_applicable（这一档必须用，"
-        "否则覆盖率会被算错）；\n"
-        "- `impact` 必须写「不改会损失什么」，能给数字就给数字（金额/比例/期限）。\n\n"
-        "## 先展开关系，再逐条判定\n"
-        "合同不只是甲乙双方。审查前必须先列出**与这个标的绑在一起的其他人**，"
-        "并逐个说清「谁、为什么必须扫、不扫会漏什么」：\n"
-        "- 政府部门（出让方/审批/监管：规划、产业监管、环评、消防）；\n"
-        "- 抵押权人、查封机关（权利受限时转让可能无效）；\n"
-        "- 承租人等享有**优先购买权**的人；\n"
-        "- 相邻地块权利人（地役权/通行/采光）；\n"
-        "- 历史污染责任人、原土地使用权人（修复义务与承继义务）；\n"
-        "- 地下资源（矿藏、地下水属国家所有）；\n"
-        "- 共有权人/按份共有人。\n"
-        "**没有对应关系方就写空数组，不要编造**；但漏掉一个真实存在的关系方，"
-        "就等于漏掉一整类风险。\n\n"
-        "## 规则类别决定动作\n"
-        "- `mandatory`（强制性）：违反可能**无效 / 不得对抗第三人 / 被处罚**——"
-        "必须报，且不要因为「对我方有利」就降低 `severity`；\n"
-        "- `inherited`（承继性）：义务随标的一起转过来，漏了就替前人背债；\n"
-        "- `procedural`（程序性）：办不成事（过户被退、登记卡住）；\n"
-        "- `contractual`（契约性）：可以谈，属于商业判断。\n\n"
-        + ("\n" + feedback if feedback else "")
-        + ("\n" + case_evidence if case_evidence else "")
-        + ("\n" + foreign_law_evidence if foreign_law_evidence else "")
-        + "## 审查标准库\n"
-        + "\n".join(rule_lines)
-    )
-    user = "## 合同全文\n" + contract_text[:120000]
-    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
 def _default_llm_call(messages: list[dict[str, str]]) -> str:
@@ -404,222 +106,6 @@ def _default_llm_call(messages: list[dict[str, str]]) -> str:
     if content is None and isinstance(response, dict):
         content = response.get("content")
     return str(content or "")
-
-
-_JSON_ARRAY_RE = re.compile(r"\[.*\]", re.DOTALL)
-
-
-@dataclass
-class ReviewOutput:
-    """一次审查的完整产出：标的画像 + 关系网 + 结论。"""
-
-    findings: list[dict[str, Any]] = field(default_factory=list)
-    subject_profile: list[str] = field(default_factory=list)
-    relations: list[dict[str, str]] = field(default_factory=list)
-
-
-def parse_review_output(raw: str) -> ReviewOutput:
-    """解析模型输出。**同时兼容两种形状**：
-
-    - 新契约：`{"subject_profile": [...], "relations": [...], "findings": [...]}`；
-    - 老契约：裸 JSON 数组（早期版本 / 测试桩）。
-
-    兼容不是偷懒：模型遵守新契约的比例永远不是 100%，而「因为整体结构不合规就把
-    整份审查结果丢掉」是不可接受的——宁可少拿标的画像，也要把结论留下。
-    """
-    if not (raw or "").strip():
-        return ReviewOutput()
-    text = raw.strip()
-    fenced = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
-    if fenced:
-        text = fenced.group(1).strip()
-
-    # 先试对象
-    obj = re.search(r"\{.*\}", text, re.DOTALL)
-    if obj:
-        try:
-            parsed = json.loads(obj.group(0))
-        except json.JSONDecodeError:
-            parsed = None
-        # **必须确认它真是新契约**：模型返回单元素数组 `[{...}]` 时，上面的
-        # `\{.*\}` 只会截到内层那个对象，那个对象里没有 findings 键——若直接当成
-        # 新契约，结论就被整份丢掉了（真机踩过：一份只有 1 条意见的合同永远空清单）。
-        if isinstance(parsed, dict) and ({"findings", "subject_profile", "relations"} & set(parsed)):
-            findings = parsed.get("findings")
-            profile = parsed.get("subject_profile")
-            relations = parsed.get("relations")
-            return ReviewOutput(
-                findings=[i for i in findings if isinstance(i, dict)] if isinstance(findings, list) else [],
-                subject_profile=[str(p_) for p_ in profile if str(p_).strip()] if isinstance(profile, list) else [],
-                relations=[
-                    {
-                        "relation": str(r.get("relation") or "").strip(),
-                        "why": str(r.get("why") or "").strip(),
-                        "risk": str(r.get("risk") or "").strip(),
-                    }
-                    for r in relations
-                    if isinstance(r, dict) and str(r.get("relation") or "").strip()
-                ]
-                if isinstance(relations, list)
-                else [],
-            )
-
-    # 截断抢救：模型把预算花在前面的口语分析上时，JSON 会被切在半句。
-    # 整份丢弃的代价是「AI 审了半天，清单空白」——比拿到 3 条不完整结论严重得多。
-    salvaged = _salvage_findings(text)
-    if salvaged:
-        logger.warning("审查输出被截断，已抢救出 %d 条结论", len(salvaged))
-        return ReviewOutput(findings=salvaged)
-
-    # 退回老契约：裸数组
-    match = _JSON_ARRAY_RE.search(text)
-    if not match:
-        logger.warning("审查结果无法解析（既不是对象也不是数组），前 200 字：%s", text[:200])
-        return ReviewOutput()
-    try:
-        data = json.loads(match.group(0))
-    except json.JSONDecodeError:
-        logger.warning("审查结果不是合法 JSON，前 200 字：%s", text[:200])
-        return ReviewOutput()
-    return ReviewOutput(findings=[i for i in data if isinstance(i, dict)] if isinstance(data, list) else [])
-
-
-def _salvage_findings(text: str) -> list[dict[str, Any]]:
-    """从**被截断**的模型输出里捞出所有完整的 finding 对象。
-
-    只做一件事：从 `"findings"` 后面的 `[` 开始按括号配对扫，遇到配对完整的
-    `{...}` 就 `json.loads` 一次，遇到不完整的（被截断）就停。`subject_profile`
-    与 `relations` 在截断场景下一律放弃——结论优先，画像可以下一轮再拿。
-
-    刻意**不猜**：不补引号、不补逗号、不把半截对象当完整对象。捞不出来就返回空，
-    让上层走「零结论 + 失败提示」这条确定路径，而不是拿一份改过的 JSON 去写库。
-    """
-    start = text.find('"findings"')
-    if start < 0:
-        return []
-    array_start = text.find("[", start)
-    if array_start < 0:
-        return []
-
-    findings: list[dict[str, Any]] = []
-    depth = 0
-    obj_start: int | None = None
-    in_string = False
-    escaped = False
-    for index in range(array_start, len(text)):
-        char = text[index]
-        if in_string:
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif char == '"':
-                in_string = False
-            continue
-        if char == '"':
-            in_string = True
-            continue
-        if char == "{":
-            if depth == 0:
-                obj_start = index
-            depth += 1
-            continue
-        if char == "}":
-            depth -= 1
-            if depth == 0 and obj_start is not None:
-                chunk = text[obj_start : index + 1]
-                obj_start = None
-                try:
-                    parsed = json.loads(chunk)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(parsed, dict):
-                    findings.append(parsed)
-            continue
-        if char == "]" and depth == 0:
-            break
-    return findings
-
-
-def parse_findings(raw: str) -> list[dict[str, Any]]:
-    """兼容旧调用方：只取结论。"""
-    return parse_review_output(raw).findings
-
-
-def _normalize_item(
-    item: dict[str, Any], *, rules_by_key: dict[str, dict[str, Any]], stance: str
-) -> dict[str, Any] | None:
-    rule_key = str(item.get("rule_key") or "").strip()
-    rule = rules_by_key.get(rule_key)
-    if rule is None:
-        # 模型自创检查项：不入库。闸一拦不住的东西必须在这里拦。
-        logger.info("丢弃自创检查项：%s", rule_key or "(空)")
-        return None
-
-    verdict = str(item.get("verdict") or Verdict.DEVIATION)
-    if verdict not in Verdict.values:
-        verdict = Verdict.DEVIATION
-    severity = str(item.get("severity") or rule.get("severity_if_missing") or Severity.MEDIUM)
-    if severity not in Severity.values:
-        severity = Severity.MEDIUM
-
-    rule_class = str(rule.get("rule_class") or RuleClass.CONTRACTUAL)
-    verdict, severity, direction = align_to_stance(
-        beneficiary=str(rule.get("beneficiary") or Beneficiary.NEUTRAL),
-        stance=stance,
-        verdict=verdict,
-        severity=severity,
-        rule_class=rule_class,
-    )
-
-    replacement = str(item.get("suggestion_replacement") or "").strip()
-    note = str(item.get("suggestion_note") or "").strip()
-    if replacement:
-        delivery = Delivery.BOTH if note else Delivery.REVISION
-    elif note:
-        delivery = Delivery.COMMENT
-    else:
-        delivery = Delivery.LIST_ONLY
-
-    risk_source = str(item.get("risk_source") or RiskSource.STATUTE)
-    if risk_source not in RiskSource.values:
-        risk_source = RiskSource.STATUTE
-    source_weight = str(item.get("source_weight") or SourceWeight.CORE)
-    if source_weight not in SourceWeight.values:
-        source_weight = SourceWeight.CORE
-
-    case_ref = str(item.get("case_ref") or "").strip()[:255]
-    if risk_source == RiskSource.CASE and not case_ref:
-        # 声称「据类案」却给不出案号 = 无法回指。降为辅助来源：可以留作线索，
-        # 但不能当决定性依据（编案号比不提类案严重得多）。
-        source_weight = SourceWeight.SUPPORTING
-
-    return {
-        "rule_key": rule_key,
-        "case_ref": case_ref,
-        "clause_type": str(rule.get("clause_type") or ""),
-        "rule_class": rule_class,
-        "stage": str(rule.get("stage") or Stage.GENERAL),
-        "risk_source": risk_source,
-        "source_weight": source_weight,
-        "consequence": str(rule.get("consequence") or Consequence.BREACH),
-        # 强制性条目的严重度不由模型决定：标准库里写的是什么就是什么。
-        # 否则模型一句「这里影响不大」就能把「可能无效」降成低危。
-        "severity": str(rule.get("severity_if_missing") or severity) if rule_class == RuleClass.MANDATORY else severity,
-        "legal_basis": str(rule.get("legal_basis") or ""),
-        "verdict": verdict,
-        "kind": FindingKind.RISK,
-        "quote": str(item.get("quote") or "").strip(),
-        "title": (str(item.get("title") or "") or rule_key)[:200],
-        "reason": str(item.get("reason") or ""),
-        "impact": str(item.get("impact") or ""),
-        "suggestion_original": str(item.get("suggestion_original") or "").strip(),
-        "suggestion_replacement": replacement,
-        "suggestion_note": note,
-        "delivery": delivery,
-        "direction": direction,
-        "in_top": False,
-    }
 
 
 def create_run(
