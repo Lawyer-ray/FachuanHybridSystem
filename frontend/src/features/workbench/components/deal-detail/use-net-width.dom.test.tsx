@@ -9,9 +9,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/hooks/use-media', () => ({ useMediaQuery: (q: string) => q.includes('1280') }))
-
-import { useDockedViewport, useNetWidth } from './use-net-width'
+import { useNetWidth } from './use-net-width'
 
 const realGetComputedStyle = globalThis.getComputedStyle
 
@@ -88,12 +86,5 @@ describe('useNetWidth', () => {
     unmount()
     expect(removeSpy).toHaveBeenCalledWith('resize', expect.any(Function))
     expect(docRemoveSpy).toHaveBeenCalledWith('copilot-width-change', expect.any(Function))
-  })
-})
-
-describe('useDockedViewport', () => {
-  it('宽屏判定走 (min-width: 1280px) 媒体查询', () => {
-    const { result } = renderHook(() => useDockedViewport())
-    expect(result.current).toBe(true)
   })
 })

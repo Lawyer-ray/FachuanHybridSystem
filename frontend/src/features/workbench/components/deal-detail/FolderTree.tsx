@@ -47,7 +47,9 @@ export function FolderTree({
   /** 当前预览中的 subpath（行高亮用） */
   selectedSubpath?: string | null
 }) {
-  const state = useFolderTreeState(kind, ownerId)
+  // selectedSubpath 只用于首次挂载时把当前文件所在的目录链展开（见 useFolderTreeState
+  // 注释：详情页开文档会让这棵树重挂一次，不这样的话刚点的那份就沉进折叠目录里）
+  const state = useFolderTreeState(kind, ownerId, selectedSubpath)
   const actions = state.mutation
   // 拖入文件夹行时展开目标（未展开才展开；toggle 会收起已展开的）
   const drop = useFolderDrop(kind, ownerId, actions.upload, (subpath) => {

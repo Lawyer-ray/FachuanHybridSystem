@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { CopyPlus, Download, FileSearch, Loader2, Save, Sparkles, X } from 'lucide-react'
+import { CopyPlus, Download, FileSearch, Loader2, Maximize2, Minimize2, Save, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { OfficeView, type OfficeEditorHandle, type PluginBridgeMessage } from '@/components/shared/onlyoffice/OfficeView'
@@ -22,6 +22,9 @@ import { useFileRewriteNonce } from './use-rewrite-refresh'
  *
  * **只读兜底**：pdf / 图片等不可编辑格式仍走 `view`，避免 OnlyOffice 把它们
  * 当可改文档打开（改完也存不回去）。
+ *
+ * **尺寸由父级给**：本组件只管「吃掉剩余高度」，画布高度/宽度归 DealDocLayout
+ * 的四种文档态决定（在右侧栏时 720px 宽就够，沉浸态要占满整宽）。
  */
 export function FilePreviewCard({
   kind,
@@ -30,6 +33,8 @@ export function FilePreviewCard({
   onClose,
   onSaved,
   onReview,
+  immersive = false,
+  onToggleImmersive,
 }: {
   kind: FolderOwnerKind
   ownerId: number
@@ -39,6 +44,10 @@ export function FilePreviewCard({
   onSaved?: () => void
   /** 「AI 审查」——仅 docx（流水线只吃 docx） */
   onReview?: (f: { subpath: string; name: string }) => void
+  /** 当前是否沉浸态（由父级持有状态） */
+  immersive?: boolean
+  /** 传了才渲染「沉浸编辑」按钮；不传说明该页不提供这档 */
+  onToggleImmersive?: () => void
 }) {
   const [ready, setReady] = useState(false)
   const isDocx = /\.docx$/i.test(file.name)
@@ -194,6 +203,19 @@ export function FilePreviewCard({
         >
           {downloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3.5" />}
         </button>
+
+        {onToggleImmersive && (
+          <button
+            type="button"
+            aria-label={immersive ? '退出沉浸' : '沉浸编辑'}
+            onClick={onToggleImmersive}
+            title={immersive ? '退出沉浸，回到对照视图' : '沉浸编辑：文档占满整宽与一屏高'}
+            aria-pressed={immersive}
+            className="grid size-6 flex-none place-items-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            {immersive ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+          </button>
+        )}
 
         <button
           type="button"

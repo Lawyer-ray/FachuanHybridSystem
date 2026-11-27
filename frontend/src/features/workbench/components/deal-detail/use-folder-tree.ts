@@ -41,9 +41,38 @@ function useLayer(kind: FolderOwnerKind, ownerId: number, subpath: string) {
   })
 }
 
-export function useFolderTreeState(kind: FolderOwnerKind, ownerId: number) {
+/**
+ * 某个文件的祖先目录（`1-立案/1-起诉状/a.docx` → `1-立案`、`1-立案/1-起诉状`）。
+ *
+ * 只取「目录段」，不含文件本身：把文件 subpath 塞进展开集合没有意义（展开的是目录）。
+ */
+function ancestorsOf(subpath?: string | null): Set<string> {
+  const out = new Set<string>()
+  if (!subpath) return out
+  const segs = subpath.split('/').slice(0, -1)
+  let acc = ''
+  for (const s of segs) {
+    if (!s) continue
+    acc = acc ? `${acc}/${s}` : s
+    out.add(acc)
+  }
+  return out
+}
+
+/**
+ * 树的展开集合。
+ *
+ * `selectedSubpath` 只在**初次挂载**时用来展开当前文件的祖先链，不能在后续
+ * 变更时恢复它——展开态是用户的手势，不能被每次点击重置。
+ *
+ * **为什么需要它**：详情页打开文档时档案卡会从右栏搬到内容列底部（DealDocLayout
+ * 的两种文档态是两个不同的 DOM 位置），树随之重挂一次、展开集合清空——律师刚点开的那份文件就沉进折叠的
+ * 三层目录里，连「下一份」都点不到。按选中文件重算祖先链，重挂后看到的就是
+ * 自己刚才所在的那一层；没选中文件时仍是一棵收起的树。
+ */
+export function useFolderTreeState(kind: FolderOwnerKind, ownerId: number, selectedSubpath?: string | null) {
   const qc = useQueryClient()
-  const [open, setOpen] = useState<Set<string>>(new Set())
+  const [open, setOpen] = useState<Set<string>>(() => ancestorsOf(selectedSubpath))
   const [creatingIn, setCreatingIn] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<{ subpath: string; name: string } | null>(null)
   const [deleting, setDeleting] = useState<{ subpath: string; name: string } | null>(null)

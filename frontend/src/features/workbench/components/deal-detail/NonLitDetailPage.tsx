@@ -23,7 +23,7 @@ import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-
 import { refetchContractAndCases } from './refetch-contract'
 import { addDeliverable } from './special-phase-crud'
 import { flattenTree, patchPhase, type PhaseNode } from './special-phase-tree'
-import { useDockedViewport, useNetWidth } from './use-net-width'
+import { useNetWidth } from './use-net-width'
 import { Card, DetailError, RailSection } from './ui'
 
 /**
@@ -73,18 +73,16 @@ export function NonLitDetailPage() {
   const [reviewTarget, setReviewTarget] = useState<{ subpath: string; name: string } | null>(null)
   /** 右栏页内预览的文件（null = 未选中）；高频「看一眼」不写 URL、不堆历史 */
   const [picked, setPicked] = useState<PickedFile | null>(null)
+  /** 沉浸态（DealDocLayout 的 ④）：关掉文档时一并复位，否则下一份打开就是全屏 */
+  const [immersive, setImmersive] = useState(false)
+  const closePreview = useCallback(() => {
+    setImmersive(false)
+    setPicked(null)
+  }, [])
 
   /** 净宽（100vw − 助手宽度）：决定「文档在右」还是「文档通栏」（见 use-net-width） */
   const netWidth = useNetWidth()
-  const dockedViewport = useDockedViewport()
   const docSideBySide = Boolean(picked) && netWidth >= DOC_SIDE_BY_SIDE_MIN
-  /**
-   * 文档对照形态：展开 + 净宽不足时，文档通栏置顶、事实卡退到其下。
-   *
-   * 只在宽屏（≥1280，详情页助手恒并排让位）成立——窄屏本来就该竖排，且助手此时
-   * 是盖在页面上的覆盖层、设不了 CSS 变量。
-   */
-  const focusDoc = Boolean(picked) && dockedViewport && !docSideBySide
 
   const svc = useServiceItems('contract', deal?.id ?? null, { sourceSubpath: manualSource })
   const serviceItems = svc.items
@@ -224,9 +222,10 @@ export function NonLitDetailPage() {
       <DealDocLayout
         picked={picked}
         docSideBySide={docSideBySide}
-        focusDoc={focusDoc}
         ownerId={deal.id}
-        onClose={() => setPicked(null)}
+        immersive={immersive}
+        onToggleImmersive={() => setImmersive((v) => !v)}
+        onClose={closePreview}
         onSaved={() => void d.refetch()}
         onReview={(f) => setReviewTarget(f)}
         aside={

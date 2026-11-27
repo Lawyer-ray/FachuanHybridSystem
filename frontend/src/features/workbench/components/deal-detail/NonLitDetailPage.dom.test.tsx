@@ -24,7 +24,6 @@ const h = vi.hoisted(() => ({
   special: { tree: [] as unknown[], saving: false, isLoading: false, stagesError: null, setTreeLocal: vi.fn(), saveStages: vi.fn() },
   svc: { items: [] as unknown[], sourceSubpath: '3-办案', candidates: [] as unknown[], isLoading: false },
   netWidth: 1440,
-  docked: true,
   toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() },
   termBar: vi.fn(),
   layout: vi.fn(),
@@ -52,7 +51,6 @@ vi.mock('./use-service-items', () => ({ useServiceItems: () => h.svc }))
 vi.mock('./use-special-phases', () => ({ useSpecialPhases: () => h.special }))
 vi.mock('./use-net-width', () => ({
   useNetWidth: () => h.netWidth,
-  useDockedViewport: () => h.docked,
 }))
 vi.mock('./refetch-contract', () => ({ refetchContractAndCases: vi.fn() }))
 vi.mock('../../api', () => ({ listFolderEntries: h.listFolderEntries }))
@@ -76,7 +74,7 @@ vi.mock('./DealDocLayout', () => ({
   DealDocLayout: (props: {
     picked: unknown
     docSideBySide: boolean
-    focusDoc: boolean
+    immersive: boolean
     aside: unknown
     rail: unknown
     children: React.ReactNode
@@ -84,7 +82,7 @@ vi.mock('./DealDocLayout', () => ({
     h.layout(props)
     return (
       <div>
-        LAYOUT:picked={String(props.picked !== null)}/side={String(props.docSideBySide)}/focus={String(props.focusDoc)}
+        LAYOUT:picked={String(props.picked !== null)}/side={String(props.docSideBySide)}/immersive={String(props.immersive)}
         <div>ASIDE:{JSON.stringify(Boolean(props.aside))}</div>
         <div>RAIL:{JSON.stringify(Boolean(props.rail))}</div>
         {props.aside as React.ReactNode}
@@ -180,7 +178,6 @@ beforeEach(() => {
   h.special = { tree: [], saving: false, isLoading: false, stagesError: null, setTreeLocal: vi.fn(), saveStages: vi.fn() }
   h.svc = { items: [], sourceSubpath: '3-办案', candidates: [], isLoading: false }
   h.netWidth = 1440
-  h.docked = true
 })
 
 describe('NonLitDetailPage · 三态', () => {
@@ -339,7 +336,7 @@ describe('NonLitDetailPage · 阶段目录与文件预览', () => {
     expect(h.layout.mock.calls[0]![0]).toMatchObject({ picked: null, docSideBySide: false })
 
     fireEvent.click(screen.getByText('FOLDERS:1'))
-    expect(await screen.findByText(/LAYOUT:picked=true\/side=true\/focus=false/)).toBeTruthy()
+    expect(await screen.findByText(/LAYOUT:picked=true\/side=true\/immersive=false/)).toBeTruthy()
     const props = h.layout.mock.calls.at(-1)![0]
     expect(props.picked).toEqual({
       subpath: '1-尽职调查/报告.pdf',

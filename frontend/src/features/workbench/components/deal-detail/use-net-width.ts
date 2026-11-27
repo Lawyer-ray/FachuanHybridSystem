@@ -1,7 +1,5 @@
 import { useEffect, useReducer } from 'react'
 
-import { useMediaQuery } from '@/hooks/use-media'
-
 /**
  * 页面「净宽」：`100vw − AI 助手宽度`（54 号原型与正式前端共用的口径）。
  *
@@ -31,9 +29,4 @@ export function useNetWidth(): number {
   const raw = getComputedStyle(document.documentElement).getPropertyValue('--copilot-w-app').trim()
   const helper = raw.endsWith('px') ? Number.parseFloat(raw) || 0 : 0
   return window.innerWidth - helper
-}
-
-/** 宽屏判定（≥1280）：详情页在此宽度下助手恒并排让位 */
-export function useDockedViewport(): boolean {
-  return useMediaQuery('(min-width: 1280px)')
 }

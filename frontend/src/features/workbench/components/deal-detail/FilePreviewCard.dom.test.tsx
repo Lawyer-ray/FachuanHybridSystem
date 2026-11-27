@@ -135,6 +135,23 @@ describe('FilePreviewCard', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('沉浸开关：传了回调才出现（不传说明该页没这档），点击透传', () => {
+    expect(screen.queryByRole('button', { name: '沉浸编辑' })).toBeNull()
+
+    const onToggleImmersive = vi.fn()
+    setup({ onToggleImmersive })
+    fireEvent.click(screen.getByRole('button', { name: '沉浸编辑' }))
+    expect(onToggleImmersive).toHaveBeenCalledTimes(1)
+  })
+
+  it('沉浸态下开关文案反过来（同一个按钮，不新开一档）', () => {
+    const onToggleImmersive = vi.fn()
+    setup({ immersive: true, onToggleImmersive })
+    expect(screen.queryByRole('button', { name: '沉浸编辑' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '退出沉浸' }))
+    expect(onToggleImmersive).toHaveBeenCalledTimes(1)
+  })
+
   it('非 docx 不给保存/另存为（改完存不回去，别给假按钮）', () => {
     setup({ file: { subpath: 'a.pdf', name: '发票.pdf' } })
     expect(screen.getByTestId('office-view').getAttribute('data-mode')).toBe('view')

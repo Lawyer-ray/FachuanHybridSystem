@@ -15,6 +15,7 @@ export function ResizeHandle({
   onKeyAdjust,
   label = '调整宽度',
   hidden = false,
+  className,
 }: {
   dragging: boolean
   /**
@@ -29,6 +30,15 @@ export function ResizeHandle({
   /** 键盘调整：传 ±1 表示放大/缩小一档 */
   onKeyAdjust?: (direction: 1 | -1) => void
   label?: string
+  /**
+   * 调用方补的类名。
+   *
+   * `hidden` 是**断点内**隐藏（`max-[1100px]:hidden`），给「窄屏上下堆叠」用；
+   * 而 DealDocLayout 的三种文档态需要按状态整体隐藏（文档不在右侧时可拖区域
+   * 没有意义）。那种隐藏不能靠「条件渲染」——分隔条一旦从兄弟序列里消失，
+   * 后面的文档列就换了位次，OnlyOffice 画布会整份重开（见 DealDocLayout 注释）。
+   */
+  className?: string
 }) {
   return (
     <div
@@ -58,6 +68,7 @@ export function ResizeHandle({
         'h-full min-h-[520px]',
         hidden && 'max-[1100px]:hidden',
         'focus:outline-none',
+        className,
       )}
       title="拖动调整宽度（也可用 ← → 键）"
     >

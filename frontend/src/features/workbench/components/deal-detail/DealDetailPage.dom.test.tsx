@@ -463,7 +463,62 @@ describe('DealDetailPage 程序链与案件节', () => {
     await screen.findByText('收到上诉状')
   })
 
-  it('点案件文件夹里的文件 → 右栏 OnlyOffice 预览（不再 window.open 下载）；AI 审查不出现（流水线只吃合同文件）', async () => {
+  it('点案件文件夹里的文件 → 文档栏 OnlyOffice 预览（不再 window.open 下载）；AI 审查不出现（流水线只吃合同文件）', async () => {
+    mockCaseFolder()
+    setupUi()
+    await openCaseDoc()
+
+    // 取文件走案件通道（后端 OnlyOffice 域注册表按 /cases/ 前缀分发）
+    const view = screen.getByTestId('office-view')
+    expect(view.getAttribute('data-mode')).toBe('edit')
+    expect(view.getAttribute('data-url')).toBe(
+      '/api/v1/cases/1/folder-file?subpath=%E8%B5%B7%E8%AF%89%E7%8A%B6.docx',
+    )
+    // 案件文件不给 AI 审查入口（审查流水线从合同文件夹取文件）。精确匹配
+    // 预览卡头部按钮：右栏合同树的 hover 按钮名是「AI 审查此文件」，不在本断言范围
+    expect(screen.queryByRole('button', { name: /^AI 审查$/ })).toBeNull()
+  })
+
+  it('文档是新开的一栏，不再长在档案卡里（档案卡不会被撑宽）', async () => {
+    mockCaseFolder()
+    setupUi()
+    await openCaseDoc()
+    const view = screen.getByTestId('office-view')
+    // 档案卡（右栏那张 section）的子树里没有画布——以前它就在卡里面，为了放下
+    // A4 只能把整张卡拉到 720–780px，期限/当事人被摊成一排空行
+    const railCard = screen.getByText('合同文件夹').closest('section')!
+    expect(railCard.contains(view)).toBe(false)
+    // jsdom 净宽 1024 → 走③：文档占满整宽、排到内容之上
+    expect(view.closest('.order-first')).not.toBeNull()
+  })
+
+  it('沉浸编辑：文档占满整宽且画布不重开；关掉文档后沉浸态复位', async () => {
+    mockCaseFolder()
+    setupUi()
+    await openCaseDoc()
+    const view = screen.getByTestId('office-view')
+
+    fireEvent.click(screen.getByRole('button', { name: '沉浸编辑' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '退出沉浸' })).toBeTruthy())
+    // 画布仍是同一个 DOM 节点：换父节点会让 DS 实例销毁重建，未保存的编辑直接丢
+    expect(screen.getByTestId('office-view')).toBe(view)
+    expect(view.closest('.order-first')).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: '退出沉浸' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '沉浸编辑' })).toBeTruthy())
+
+    // 关掉文档 → 沉浸态跟着清掉（下一份打开时不该直接全屏）
+    fireEvent.click(screen.getByRole('button', { name: '沉浸编辑' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '退出沉浸' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: '收起' }))
+    await waitFor(() => expect(screen.queryByTestId('office-view')).toBeNull())
+
+    await openCaseDoc()
+    expect(screen.getByRole('button', { name: '沉浸编辑' })).toBeTruthy()
+  })
+
+  /** case-1 绑定一个只有起诉状.docx 的文件夹（案件卡文件夹视图 → 文档栏的入口） */
+  function mockCaseFolder() {
     bindingMock.mockResolvedValue({
       id: 1, case_id: 1, folder_path: '/Users/x/新工作/案件', folder_path_display: '/Users/x/新工作/案件',
       storage_type: 'local', is_accessible: true,
@@ -473,25 +528,21 @@ describe('DealDetailPage 程序链与案件节', () => {
       folders: [],
       files: [{ name: '起诉状.docx', subpath: '起诉状.docx', size: 2048, modified_at: '2026-09-29T10:00:00' }],
     })
-    setupUi()
-    // 等案件卡的文件夹视图渲染出来（binding + 目录条目都是异步的，会出现多轮重渲）
-    const sec1 = await waitFor(() => {
+  }
+
+  /**
+   * 点 case-1 文件夹里的起诉状.docx。
+   *
+   * binding + 目录条目都是异步的，会出现多轮重渲：先等文件行真的渲染出来再点。
+   */
+  async function openCaseDoc() {
+    await waitFor(() => {
       const el = document.getElementById('case-1')
       if (!el || !within(el).queryByText('起诉状.docx')) throw new Error('case-1 folder view not ready')
-      return el
     })
-    fireEvent.click(within(sec1).getByText('起诉状.docx'))
-
-    // 预览画布出现在右栏，取文件走案件通道（后端 OnlyOffice 域注册表按 /cases/ 前缀分发）
-    const view = await screen.findByTestId('office-view')
-    expect(view.getAttribute('data-mode')).toBe('edit')
-    expect(view.getAttribute('data-url')).toBe(
-      '/api/v1/cases/1/folder-file?subpath=%E8%B5%B7%E8%AF%89%E7%8A%B6.docx',
-    )
-    // 案件文件不给 AI 审查入口（审查流水线从合同文件夹取文件）。精确匹配
-    // 预览卡头部按钮：右栏合同树的 hover 按钮名是「AI 审查此文件」，不在本断言范围
-    expect(screen.queryByRole('button', { name: /^AI 审查$/ })).toBeNull()
-  })
+    fireEvent.click(within(document.getElementById('case-1')!).getByText('起诉状.docx'))
+    await screen.findByTestId('office-view')
+  }
 
   it('stepper 点击滚到对应案件节', async () => {
     setupUi()

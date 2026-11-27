@@ -5,7 +5,6 @@ import { Navigate, useParams } from 'react-router'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { DraftDialog } from '@/features/doc-generation'
 import { CaseVerifyCard } from '@/features/material-prep'
-import { useMediaQuery } from '@/hooks/use-media'
 
 import { ambiguousStages, chainSteps, chainSummary } from './detail-domain'
 import { CaseSection, NextStageRow } from './CaseSection'
@@ -13,10 +12,9 @@ import { ChainStepper } from './ChainStepper'
 
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
-import { FilePreviewCard } from './FilePreviewCard'
 import { ContractFileOverlays } from './ContractFileOverlays'
-import { ResizeHandle } from './ResizeHandle'
-import { useResizablePanel } from './use-resizable-panel'
+import { DealDocLayout, DOC_SIDE_BY_SIDE_MIN } from './DealDocLayout'
+import { useNetWidth } from './use-net-width'
 import { useDraftDialog } from './use-draft-dialog'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { PaymentDialog } from './PaymentDialog'
@@ -81,32 +79,26 @@ export function DealDetailPage() {
       setPicked({ ...f, kind: 'case', ownerId: caseId })
     }
 
-  /** 预览栏宽度：可拖拽、记住偏好（与非诉页同一套 hook，各记各的 key） */
-  const panel = useResizablePanel({
-    storageKey: 'fachuan:deal:preview-width',
-    defaultWidth: 720,
-    min: 360,
-    maxRatio: 0.78,
-  })
-  const {
-    effectiveWidth: panelEffectiveWidth,
-    stacked: panelStacked,
-    dragging: panelDragging,
-    containerRef: panelContainerRef,
-    onPointerDown: panelPointerDown,
-    setWidth: panelSetWidth,
-  } = panel
+  /**
+   * 文档栏形态（与非诉页同一套判定，见 DealDocLayout 的四态表）：
+   * 净宽够 → 文档在右（可拖宽）；净宽不够的宽屏 → 文档通栏置顶。
+   * 判定用**净宽**而不是视口：并排 AI 助手会吃掉数百像素，问视口等于没问。
+   */
+  const netWidth = useNetWidth()
+  const docSideBySide = Boolean(picked) && netWidth >= DOC_SIDE_BY_SIDE_MIN
+
+  /**
+   * 沉浸态（DealDocLayout 的 ④）：文档占满整宽与一屏高，案件链与档案排到其下。
+   * 状态放在页面这一层：关掉文档时要一起复位，否则下一份文件打开就是全屏。
+   */
+  const [immersive, setImmersive] = useState(false)
+  const closePreview = useCallback(() => {
+    setImmersive(false)
+    setPicked(null)
+  }, [])
 
   const steps = useMemo(() => chainSteps(plan), [plan])
   const ambiguous = useMemo(() => ambiguousStages(plan), [plan])
-
-  /**
-   * 「文档对照」形态（与非诉页同一判定，详见 NonLitDetailPage 同名注释）：
-   * 合同预览与并排 AI 助手同开、净宽不足时，右栏只留「预览 + 合同文件夹」，
-   * 期限/当事人/…/合同要素等档案节整体隐藏，且文档列提前到最前紧贴助手。
-   */
-  const dockableViewport = useMediaQuery('(min-width: 1280px)')
-  const focusDoc = Boolean(picked) && panelStacked && dockableViewport
 
   /* 创建类动作：记日志 / 新增期限 / 新建下一程序案件仍占位；记收款已接真实表单 */
   const soon = useCallback((what: string) => soonToast(what), [])
@@ -155,7 +147,7 @@ export function DealDetailPage() {
     return <DetailError error={d.error ?? '委托不存在'} onRetry={() => d.refetch()} />
   }
   return (
-    <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
+    <main className="app-page-enter @container mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
       <DetailHeader
         deal={deal}
         onAddDue={onAddDue}
@@ -166,57 +158,41 @@ export function DealDetailPage() {
 
       {/* AI 助手入口只在导航栏（全局侧边栏 CopilotPanel，⌘J 同效）：页面内既不挂
           对话区、页头也不放按钮，避免与导航栏入口重复 */}
-      {/* 与诉讼页一致：一旦在预览合同就扩宽右栏，让 OnlyOffice 有足够宽度
-          渲染 A4 正文（窄栏里只看得到半行字，等于没预览）。
-          有预览时用 flex + 可拖分隔条，宽度交给用户，写死断点只能猜折中值。
-          横/竖排由 panelStacked（容器净宽）决定而非视口媒体查询——并排 AI 助手
-          会让位掉数百像素净宽，视口量不到它（详见「文档对照」注释）。 */}
-      <div
-        ref={panelContainerRef}
-        className={
-          picked
-            ? panelStacked
-              ? 'flex flex-col gap-[18px]'
-              : 'flex items-start gap-[8px]'
-            : panelStacked
-              ? 'grid grid-cols-1 items-start gap-[18px]'
-              : 'grid items-start gap-[18px] grid-cols-[minmax(0,1fr)_400px] min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]'
+      {/* 文档单独成栏（四态见 DealDocLayout）。要点是**档案卡不再跟着文档变宽**：
+          此前预览长在档案卡里，为了塞下 A4 只能把整张卡拉到 720–780px，期限/
+          当事人/收费被摊成一排空行，看着像侧栏被人硬拽开；而卡里那点高度
+          （70vh 再扣 DS 工具栏）连一页都放不下。
+          横/竖排与文档宽度归 DealDocLayout；这里只负责「案件链写在左列」。 */}
+      <DealDocLayout
+        kind={picked?.kind ?? 'contract'}
+        picked={picked}
+        docSideBySide={docSideBySide}
+        ownerId={picked?.ownerId ?? deal.id}
+        widthStorageKey="fachuan:deal:preview-width"
+        immersive={immersive}
+        onToggleImmersive={() => setImmersive((v) => !v)}
+        onClose={closePreview}
+        onSaved={() => void d.refetch()}
+        onReview={picked?.kind === 'contract' ? (f) => setReviewTarget(f) : undefined}
+        rail={
+          <DetailRail
+            deadlines={deadlines}
+            today={d.today}
+            contactGroups={contacts}
+            team={deal.team}
+            deal={deal}
+            moneyRows={money}
+            onAddDue={onAddDue}
+            onAddPayment={onAddPayment}
+            onOpenInvoices={onOpenInvoices}
+            onMoneyChanged={onMoneyChanged}
+            onOpenFile={openContractFile}
+            onReviewFile={(f) => setReviewTarget(f)}
+            folderSelectedSubpath={picked?.subpath ?? null}
+          />
         }
       >
-        {/* 文档对照形态：文档列（右栏卡里的预览）提前到最前，案件程序链沉底 */}
-        {focusDoc && picked && (
-          <div className="min-w-0">
-            <DetailRail
-              deadlines={deadlines}
-              today={d.today}
-              contactGroups={contacts}
-              team={deal.team}
-              deal={deal}
-              moneyRows={money}
-              onAddDue={onAddDue}
-              onAddPayment={onAddPayment}
-              onOpenInvoices={onOpenInvoices}
-              onMoneyChanged={onMoneyChanged}
-              onOpenFile={openContractFile}
-              onReviewFile={(f) => setReviewTarget(f)}
-              factsHidden
-              folderPreview={
-                <div className="mb-2.5 flex h-[min(70vh,720px)] min-h-[420px] flex-col">
-                  <FilePreviewCard
-                    kind={picked.kind}
-                    ownerId={picked.ownerId}
-                    file={picked}
-                    onClose={() => setPicked(null)}
-                    onSaved={() => void d.refetch()}
-                    onReview={picked.kind === 'contract' ? (f) => setReviewTarget(f) : undefined}
-                  />
-                </div>
-              }
-            />
-          </div>
-        )}
-
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0">
           {d.casesError ? (
             /* 案件列表错不能当空列表：律师会读成「本案没有程序」 */
             <ErrorBlock
@@ -237,7 +213,7 @@ export function DealDetailPage() {
             <div
               className={
                 'space-y-[18px] ' +
-                (ordered.length >= 2
+                (ordered.length >= 2 && !docSideBySide
                   ? 'min-[1900px]:columns-2 min-[1900px]:gap-[18px] min-[1900px]:space-y-0'
                   : '')
               }
@@ -267,53 +243,7 @@ export function DealDetailPage() {
             </div>
           )}
         </div>
-
-        {picked && !focusDoc && (
-          <ResizeHandle
-            dragging={panelDragging}
-            hidden={panelStacked}
-            onPointerDown={panelPointerDown}
-            onKeyAdjust={(dir) => panelSetWidth((w) => Math.max(320, w + dir * 40))}
-            label="调整预览栏宽度"
-          />
-        )}
-
-        {!focusDoc && (
-          <div
-            className="min-w-0"
-            style={picked && panelEffectiveWidth ? { width: panelEffectiveWidth, flex: 'none' } : undefined}
-          >
-            <DetailRail
-              deadlines={deadlines}
-              today={d.today}
-              contactGroups={contacts}
-              team={deal.team}
-              deal={deal}
-              moneyRows={money}
-              onAddDue={onAddDue}
-              onAddPayment={onAddPayment}
-              onOpenInvoices={onOpenInvoices}
-              onMoneyChanged={onMoneyChanged}
-              onOpenFile={openContractFile}
-              onReviewFile={(f) => setReviewTarget(f)}
-              folderPreview={
-                picked ? (
-                  <div className="mb-2.5 flex h-[min(70vh,720px)] min-h-[420px] flex-col">
-                    <FilePreviewCard
-                      kind={picked.kind}
-                      ownerId={picked.ownerId}
-                      file={picked}
-                      onClose={() => setPicked(null)}
-                      onSaved={() => void d.refetch()}
-                      onReview={picked.kind === 'contract' ? (f) => setReviewTarget(f) : undefined}
-                      />
-                  </div>
-                ) : null
-              }
-            />
-          </div>
-        )}
-      </div>
+      </DealDocLayout>
 
       <ContractFileOverlays
         ownerId={deal.id}
