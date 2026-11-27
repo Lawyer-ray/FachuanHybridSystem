@@ -66,6 +66,7 @@ import { GitCompare, ChevronDown } from 'lucide-react'
 import { DEFAULT_AGENT_KIND, MAX_ANSWERS } from '../domain'
 import type { AgentBackendOption } from '../types'
 import { findBackend } from '../store/backends'
+import { registerQoderByok } from '../api'
 import { AgentLoginDialog } from './AgentLoginDialog'
 import { AgentRow } from './AgentRow'
 
@@ -207,6 +208,17 @@ export function AnswerAgentMenu({
                 setOpen(false)
                 setLoginKind(kind)
               }}
+              // 「接入我的模型」= 把 AI 平台里的网关注册成 qoder 的 BYOK provider，
+              // 之后模型清单里会出现 <provider>/<model> 这一批（要重拉清单才看得到）
+              onRegisterPlatform={
+                option.kind === 'qoder'
+                  ? () => {
+                      void registerQoderByok()
+                        .then(() => onRefreshBackends?.())
+                        .catch(() => onRefreshBackends?.())
+                    }
+                  : undefined
+              }
             />
           ))}
           <p className="px-2 py-1 text-[11px] text-muted-foreground">

@@ -26,12 +26,13 @@ import logging
 import os
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from ninja import Router
 
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..backends import qoder_accounts, qoder_login
-from ..schemas.qoder_auth_schemas import QoderAccountOut, QoderAuthOut, QoderLoginIn, QoderLoginOut
+from ..backends import qoder_accounts, qoder_byok, qoder_login
+from ..schemas.qoder_auth_schemas import QoderAccountOut, QoderAuthOut, QoderByokOut, QoderLoginIn, QoderLoginOut
 from ._helpers import _user_id
 
 logger = logging.getLogger(__name__)
@@ -120,3 +121,67 @@ def qoder_account_remove(request: Any, account_id: str) -> QoderAuthOut:
     qoder_login.logout(account_id)
     logger.info("qoder 账号已移除 user=%s account=%s", _user_id(request), account_id)
     return qoder_auth(request)
+
+
+@router.get("/qoder/byok", response=QoderByokOut)
+def qoder_byok_state(request: Any) -> QoderByokOut:
+    """平台模型（LLMProvider）有没有接进 qoder（BYOK 自定义 provider）。
+
+    只读 ``settings.json``（BYOK 配置就存在那儿），不起进程。
+    """
+    from ..backends.qoder_accounts import LEGACY_ACCOUNT_ID, account_config_dir
+
+    config_dir = account_config_dir(LEGACY_ACCOUNT_ID)
+    try:
+        import json
+
+        raw = (config_dir / "settings.json").read_text(encoding="utf-8")
+        providers = json.loads(raw).get("providers") or {}
+    except (OSError, ValueError):
+        providers = {}
+    entry = providers.get(qoder_byok.PLATFORM_PROVIDER_ID) if isinstance(providers, dict) else None
+    return QoderByokOut(
+        registered=bool(entry),
+        provider_id=qoder_byok.PLATFORM_PROVIDER_ID,
+        display_name=qoder_byok.PLATFORM_DISPLAY_NAME,
+        base_url=str((entry or {}).get("baseUrl") or ""),
+    )
+
+
+@router.post("/qoder/byok/platform", response=QoderByokOut)
+async def qoder_byok_register(request: Any) -> QoderByokOut:
+    """把「AI 平台」里配的网关注册成 qoder 的自定义 provider（一键接自己的模型）。
+
+    Raises:
+        HttpError 400: 平台没配（没有 base_url / key）。
+        HttpError 502: Qoder 侧拒绝（例如账号没开通自定义模型）。
+    """
+    from ninja.errors import HttpError
+
+    from ..backends.gateway_cache import get_gateway_settings, resolve_gateway_target
+    from ..backends.qoder_accounts import LEGACY_ACCOUNT_ID, account_config_dir
+
+    settings = await sync_to_async(get_gateway_settings, thread_sensitive=True)(None)
+    target = resolve_gateway_target(settings, None)
+    if settings is None or target is None:
+        raise HttpError(400, "还没有可用的 AI 平台（base_url / api_key），请先在后台配置 LLMProvider")
+    from qoder_agent_sdk._errors import QoderSDKError
+
+    try:
+        await qoder_byok.register_platform(account_config_dir(LEGACY_ACCOUNT_ID), settings, target=target)
+    except (QoderSDKError, OSError) as exc:
+        # Qoder 侧拒绝（账号没开通 / 目录不可写）→ 502 带原文，别让 500 把原因吞掉
+        logger.warning("qoder BYOK 注册失败 user=%s: %s", _user_id(request), exc, exc_info=True)
+        raise HttpError(502, f"Qoder 侧拒绝注册自有模型：{exc}") from exc
+    logger.info("qoder BYOK 已注册平台网关 user=%s", _user_id(request))
+    return qoder_byok_state(request)
+
+
+@router.delete("/qoder/byok/platform", response=QoderByokOut)
+async def qoder_byok_unregister(request: Any) -> QoderByokOut:
+    """取消接入（把 qoder 的 settings.json 里那条 provider 删掉）。"""
+    from ..backends.qoder_accounts import LEGACY_ACCOUNT_ID, account_config_dir
+
+    await qoder_byok.unregister(account_config_dir(LEGACY_ACCOUNT_ID))
+    logger.info("qoder BYOK 已取消接入 user=%s", _user_id(request))
+    return qoder_byok_state(request)

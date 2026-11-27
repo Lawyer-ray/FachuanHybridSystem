@@ -30,6 +30,7 @@ export function AgentModelPicker({
   disabled,
   disabledHint,
   onChange,
+  onRegisterPlatform,
 }: {
   /** 可选模型清单（后端 `models` 字段；空数组 = 不渲染本控件） */
   models: string[]
@@ -44,6 +45,11 @@ export function AgentModelPicker({
   /** 置灰原因（悬停提示） */
   disabledHint: string
   onChange: (model: string) => void
+  /**
+   * 有它就在列表底部渲染「接入我的模型」：qoder 的自家模型必须先用 BYOK 把 provider
+   * 注册进去才会出现在清单里，没有这个入口用户只能看到 17 个它自己的模型。
+   */
+  onRegisterPlatform?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -91,6 +97,19 @@ export function AgentModelPicker({
           aria-label={`${label} 的模型`}
           className="absolute top-full right-0 z-[130] mt-0.5 max-h-64 w-56 overflow-y-auto rounded-[10px] border border-border bg-popover p-1 shadow-md"
         >
+          {onRegisterPlatform && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                onRegisterPlatform()
+              }}
+              className="mt-0.5 block w-full rounded-[7px] border-t border-border px-1.5 py-1 text-left text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
+              title="把「AI 平台」里配的网关接成 Qoder 的自定义模型（BYOK）"
+            >
+              ＋ 接入我的模型（平台网关）
+            </button>
+          )}
           {models.map((model) => (
             <button
               key={model}

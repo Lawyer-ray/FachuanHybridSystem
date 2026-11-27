@@ -12498,6 +12498,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agent/qoder/byok": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Qoder Byok State
+         * @description 平台模型（LLMProvider）有没有接进 qoder（BYOK 自定义 provider）。
+         *
+         *     只读 ``settings.json``（BYOK 配置就存在那儿），不起进程。
+         */
+        get: operations["apps_agent_api_qoder_auth_api_qoder_byok_state"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/qoder/byok/platform": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Qoder Byok Register
+         * @description 把「AI 平台」里配的网关注册成 qoder 的自定义 provider（一键接自己的模型）。
+         *
+         *     Raises:
+         *         HttpError 400: 平台没配（没有 base_url / key）。
+         *         HttpError 502: Qoder 侧拒绝（例如账号没开通自定义模型）。
+         */
+        post: operations["apps_agent_api_qoder_auth_api_qoder_byok_register"];
+        /**
+         * Qoder Byok Unregister
+         * @description 取消接入（把 qoder 的 settings.json 里那条 provider 删掉）。
+         */
+        delete: operations["apps_agent_api_qoder_auth_api_qoder_byok_unregister"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agent/memory": {
         parameters: {
             query?: never;
@@ -27993,6 +28043,30 @@ export interface components {
              * @default
              */
             account_id: string;
+        };
+        /**
+         * QoderByokOut
+         * @description 「平台模型（LLMProvider）」有没有接进 qoder。
+         *
+         *     BYOK 是把自家模型接进去的**唯一**官方通道（CLI 是 ``/model`` → Custom 向导，
+         *     SDK 是 ``Daemon.create_byok_config``）；接进来之后 qoder 的模型清单里会多出
+         *     ``<providerId>/<model>`` 这一批，选它就是走你的网关。
+         */
+        QoderByokOut: {
+            /** Registered */
+            registered: boolean;
+            /** Provider Id */
+            provider_id: string;
+            /**
+             * Display Name
+             * @default
+             */
+            display_name: string;
+            /**
+             * Base Url
+             * @default
+             */
+            base_url: string;
         };
         /** MemoryOut */
         MemoryOut: {
@@ -44819,6 +44893,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QoderAuthOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_qoder_auth_api_qoder_byok_state: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QoderByokOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_qoder_auth_api_qoder_byok_register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QoderByokOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_qoder_auth_api_qoder_byok_unregister: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QoderByokOut"];
                 };
             };
         };

@@ -453,6 +453,13 @@ def build_env(*, config_dir: Path | None, direct: bool = False) -> dict[str, str
         "QODER_DISABLE_TELEMETRY": "1",
         "DISABLE_TELEMETRY": "1",
         "DISABLE_ERROR_REPORTING": "1",
+        # **BYOK 自定义模型必需**：SDK 起 CLI 时会带 ``QODER_AGENT_SDK_ENTRYPOINT=sdk-py``，
+        # 该模式下 CLI **不加载** ``settings.json`` 里的 ``providers``（BYOK 注册的
+        # provider 就在那儿），除非打开这个开关。症状极具误导性：
+        # ``You do not have access to this model service`` / ``The request could not be
+        # completed``，而同一个模型用 CLI 直跑却正常。
+        # 出处：agentscope-ai/QwenPaw#8077（第三方接入的实测结论）+ 本仓库 2026-11-27 复现验证。
+        "QODER_SDK_CUSTOM_BASE_URL_BYOK": "1",
     }
     if config_dir is not None:
         env["QODER_CONFIG_DIR"] = os.fspath(config_dir)

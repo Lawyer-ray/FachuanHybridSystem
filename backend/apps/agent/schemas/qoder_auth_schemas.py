@@ -66,3 +66,21 @@ class QoderLoginOut(Schema):
     account: str = ""
     #: 这次登录落到哪个账号上（前端据此提示「已添加账号」还是「已更新账号」）。
     account_id: str = ""
+
+
+class QoderByokOut(Schema):
+    """「平台模型（LLMProvider）」有没有接进 qoder。
+
+    BYOK 是把自家模型接进去的**唯一**官方通道（CLI 是 ``/model`` → Custom 向导，
+    SDK 是 ``Daemon.create_byok_config``）；接进来之后 qoder 的模型清单里会多出
+    ``<providerId>/<model>`` 这一批，选它就是走你的网关。
+    """
+
+    #: 是否已注册（读 ``settings.json`` 的 providers）
+    registered: bool
+    #: 我们用的 provider id（模型 id 的前缀）
+    provider_id: str
+    #: 显示名
+    display_name: str = ""
+    #: 已注册的 base_url（空 = 未注册）
+    base_url: str = ""

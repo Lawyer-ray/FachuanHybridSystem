@@ -43,6 +43,7 @@ export function AgentRow({
   onToggle,
   onSelectModel,
   onLogin,
+  onRegisterPlatform,
 }: {
   option: AgentBackendOption
   /** 这一行是否已勾选 */
@@ -57,6 +58,8 @@ export function AgentRow({
   onSelectModel: (kind: string, model: string) => void
   /** 这一行需要登录时（`option.action === 'login'`）点「登录」的回调 */
   onLogin?: (kind: string) => void
+  /** 模型列表底部的「接入我的模型」（目前只有 qoder 用得到） */
+  onRegisterPlatform?: () => void
 }) {
   const blocked = !option.available || blockedByLimit
   // 徽标会被这个 aria-label 盖掉，所以「默认」必须并进无障碍名，不能只靠视力
@@ -134,6 +137,7 @@ export function AgentRow({
           disabled={!option.available}
           disabledHint={option.reason || '该后端当前不可用'}
           onChange={(next) => onSelectModel(option.kind, next)}
+          onRegisterPlatform={onRegisterPlatform}
         />
       )}
     </div>

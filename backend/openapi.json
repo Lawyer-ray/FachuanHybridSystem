@@ -28877,6 +28877,88 @@
         ]
       }
     },
+    "/api/v1/agent/qoder/byok": {
+      "get": {
+        "operationId": "apps_agent_api_qoder_auth_api_qoder_byok_state",
+        "summary": "Qoder Byok State",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QoderByokOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "平台模型（LLMProvider）有没有接进 qoder（BYOK 自定义 provider）。\n\n只读 ``settings.json``（BYOK 配置就存在那儿），不起进程。",
+        "tags": [
+          "Agent 后端登录"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/qoder/byok/platform": {
+      "post": {
+        "operationId": "apps_agent_api_qoder_auth_api_qoder_byok_register",
+        "summary": "Qoder Byok Register",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QoderByokOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "把「AI 平台」里配的网关注册成 qoder 的自定义 provider（一键接自己的模型）。\n\nRaises:\n    HttpError 400: 平台没配（没有 base_url / key）。\n    HttpError 502: Qoder 侧拒绝（例如账号没开通自定义模型）。",
+        "tags": [
+          "Agent 后端登录"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "apps_agent_api_qoder_auth_api_qoder_byok_unregister",
+        "summary": "Qoder Byok Unregister",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QoderByokOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "取消接入（把 qoder 的 settings.json 里那条 provider 删掉）。",
+        "tags": [
+          "Agent 后端登录"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/agent/memory": {
       "get": {
         "operationId": "apps_agent_api_memory_api_list_memories",
@@ -61392,6 +61474,35 @@
           }
         },
         "title": "QoderLoginIn",
+        "type": "object"
+      },
+      "QoderByokOut": {
+        "description": "「平台模型（LLMProvider）」有没有接进 qoder。\n\nBYOK 是把自家模型接进去的**唯一**官方通道（CLI 是 ``/model`` → Custom 向导，\nSDK 是 ``Daemon.create_byok_config``）；接进来之后 qoder 的模型清单里会多出\n``<providerId>/<model>`` 这一批，选它就是走你的网关。",
+        "properties": {
+          "registered": {
+            "title": "Registered",
+            "type": "boolean"
+          },
+          "provider_id": {
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "display_name": {
+            "default": "",
+            "title": "Display Name",
+            "type": "string"
+          },
+          "base_url": {
+            "default": "",
+            "title": "Base Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "registered",
+          "provider_id"
+        ],
+        "title": "QoderByokOut",
         "type": "object"
       },
       "MemoryOut": {
