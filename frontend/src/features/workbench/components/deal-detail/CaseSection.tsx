@@ -143,7 +143,7 @@ export function CaseSection({
             </span>
           )}
           {view === 'logs' && (
-            <ActionButton sm onClick={onAddLog}>
+            <ActionButton sm onClick={onAddLog} title="即将支持：记日志的接口还没上线">
               ＋ 记日志
             </ActionButton>
           )}
@@ -244,11 +244,7 @@ export function CaseSection({
                   {(e.who || e.n > 1) && (
                     <span className="mt-0.5 block text-[11.5px] text-muted-foreground/80 tabular-nums">
                       {e.who}
-                      {e.n > 1 && (
-                        <span className="ml-2" title={'相同内容的日志已合并（共 ' + e.n + ' 条）'}>
-                          ×{e.n}
-                        </span>
-                      )}
+                      {e.n > 1 && <MergedTimes dates={e.dates} />}
                     </span>
                   )}
                   {e.atts.length > 0 && (
@@ -289,6 +285,34 @@ export function CaseSection({
   )
 }
 
+/**
+ * 合并日志的「×N」：点开看每次发生的日期。
+ *
+ * 合并行显示的是最新一次，`×N` 只说明次数——律师要的往往是**第一次**是什么时候
+ * （比如「对方已经催了三次」的起点），所以把日期清单挂在 ×N 上，点一下展开。
+ */
+function MergedTimes({ dates }: { dates: string[] }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <span className="ml-2">
+      <button
+        type="button"
+        className="cursor-pointer underline decoration-dotted underline-offset-2 hover:text-foreground"
+        title={open ? '收起每次日期' : '相同内容的日志已合并，点开看每次日期'}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        ×{dates.length}
+      </button>
+      {open && (
+        <span className="mt-0.5 block text-[11px] text-muted-foreground/70">
+          各次：{dates.join('、')}
+        </span>
+      )}
+    </span>
+  )
+}
+
 /** 「下一步」行：合同勾选、紧接最后一个已启动阶段之后、还没立案的那个程序 */
 export function NextStageRow({ stage, onCreate }: { stage: string; onCreate: () => void }) {
   return (
@@ -297,7 +321,7 @@ export function NextStageRow({ stage, onCreate }: { stage: string; onCreate: () 
       <span className="text-sm font-[620] text-muted-foreground">{stage}</span>
       <span className="text-[12.5px] text-muted-foreground/70">未启动 · 合同已勾选的下一程序</span>
       <span className="ml-auto max-[680px]:ml-0">
-        <ActionButton onClick={onCreate} title={'新建' + stage + '案件'}>
+        <ActionButton onClick={onCreate} title={'新建' + stage + '案件（即将支持）'}>
           ＋ 新建{stage}案件
         </ActionButton>
       </span>

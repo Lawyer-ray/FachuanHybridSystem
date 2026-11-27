@@ -396,6 +396,29 @@ describe('只有一笔收款时自动关联待归属发票', () => {
 })
 
 describe('关闭', () => {
+  it('误触遮罩 / Esc 且已填过东西：先问一句，别把刚粘的凭据清空', async () => {
+    const onClose = vi.fn()
+    setup({ onClose })
+    fillForm()
+
+    // Radix 的遮罩关闭与 Esc 都走 onOpenChange(false)
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(await screen.findByText('放弃这条收款？')).toBeTruthy()
+    expect(onClose).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: '继续填写' }))
+    await waitFor(() => expect(screen.queryByText('放弃这条收款？')).toBeNull())
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('什么都没填时点遮罩/Esc 直接关（不做无意义的确认）', async () => {
+    const onClose = vi.fn()
+    setup({ onClose })
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+  })
+
   it('保存前「取消」直接关', () => {
     const { onClose } = setup()
     fireEvent.click(screen.getByRole('button', { name: '取消' }))

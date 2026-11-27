@@ -2,8 +2,9 @@
 /**
  * folder-tree-ui 的 EntryInput 测试。
  *
- * 关键不变量：Enter 且非空才提交、空串按取消处理、Esc 取消、失焦取消。
- * 这些分支直接决定「重命名/新建」会不会误提交空名。
+ * 关键不变量：Enter 且非空才提交、空串按取消处理、Esc 取消、
+ * **失焦有改动即提交**（触屏没有 Enter 可依赖，点一下别处不该白敲一遍）、
+ * ✓ / ✕ 两个显式出口，且一次输入只收尾一次。
  */
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
@@ -51,11 +52,44 @@ describe('EntryInput', () => {
     unmount()
   })
 
-  it('失焦：取消不提交（无歧义动作不做弹窗）', () => {
-    const { input, onConfirm, onCancel, unmount } = renderInput({ initial: '改了' })
+  it('失焦且有改动：提交（触屏没有 Enter 可用，点别处不该白敲）', () => {
+    const { input, onConfirm, onCancel, unmount } = renderInput({ initial: '旧名字' })
+    fireEvent.change(input, { target: { value: '新名字' } })
     fireEvent.blur(input)
-    expect(onCancel).toHaveBeenCalled()
+    expect(onConfirm).toHaveBeenCalledWith('新名字')
+    expect(onCancel).not.toHaveBeenCalled()
+    unmount()
+  })
+
+  it('失焦但没改：取消，不发一个同名的无意义重命名', () => {
+    const { input, onConfirm, onCancel, unmount } = renderInput({ initial: '旧名字' })
+    fireEvent.blur(input)
     expect(onConfirm).not.toHaveBeenCalled()
+    expect(onCancel).toHaveBeenCalled()
+    unmount()
+  })
+
+  it('✓ 提交 / ✕ 取消，且不会因为先失焦而把「取消」变成「提交」', () => {
+    const ok = renderInput()
+    fireEvent.change(ok.input, { target: { value: '新名' } })
+    fireEvent.pointerDown(screen.getByRole('button', { name: '确认' }))
+    expect(ok.onConfirm).toHaveBeenCalledWith('新名')
+    ok.unmount()
+
+    const no = renderInput({ initial: '旧名字' })
+    fireEvent.change(no.input, { target: { value: '新名' } })
+    fireEvent.pointerDown(screen.getByRole('button', { name: '取消' }))
+    expect(no.onConfirm).not.toHaveBeenCalled()
+    expect(no.onCancel).toHaveBeenCalled()
+    no.unmount()
+  })
+
+  it('同一输入只收尾一次（Enter 后再失焦不重复提交）', () => {
+    const { input, onConfirm, unmount } = renderInput({ initial: '旧名字' })
+    fireEvent.change(input, { target: { value: '新名' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.blur(input)
+    expect(onConfirm).toHaveBeenCalledTimes(1)
     unmount()
   })
 

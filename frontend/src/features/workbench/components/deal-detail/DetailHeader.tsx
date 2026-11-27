@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 
+import { projectEdit } from '@/app/paths'
+
 import type { WorkbenchDeal } from '../../types'
 import { crumbName, headerMetaParts } from './detail-domain'
 import { ProjectMemoryDrawer } from './ProjectMemoryDrawer'
@@ -48,11 +50,20 @@ export function DetailHeader({
           />
         </div>
         <div className="ml-auto flex flex-wrap gap-2 pt-1.5 max-[680px]:ml-0 max-[680px]:pt-0">
+          {/* 放在最左：它是一次**导航**，不是本页的创建动作——所以渲染成真锚点
+              （可中键开新标签）。页头主按钮位留给真能完成的事，不再给占位动作 */}
+          <ActionButton title="改项目名称 / 案型 / 状态 / 服务期 / 收费 / 代理阶段" to={projectEdit(deal.id)}>
+            编辑
+          </ActionButton>
           <ActionButton title="本项目所有 AI 笔记（同团队可见）" onClick={() => setMemoryOpen(true)}>
             AI 上下文
           </ActionButton>
-          <ActionButton onClick={onAddDue}>＋ 新增期限</ActionButton>
-          <ActionButton dark onClick={onAddLog}>
+          {/* 这两个动作后端还没上线：保留入口与点击后的解释，但不再用深色主按钮
+              冒充「这里能做」——页头的主操作位应该留给真能完成的事 */}
+          <ActionButton onClick={onAddDue} title="即将支持：新增期限的接口还没上线">
+            ＋ 新增期限
+          </ActionButton>
+          <ActionButton onClick={onAddLog} title="即将支持：记项目日志的接口还没上线">
             ＋ 记项目日志
           </ActionButton>
         </div>

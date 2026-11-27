@@ -58,6 +58,46 @@ export type UiToolErrorCode =
 /** 一次动作执行的结果；失败必带码与给律师看的中文说明 */
 export type UiToolOutcome = { ok: true; detail?: string } | { ok: false; code: UiToolErrorCode; message: string }
 
+/** 结算结局：取值与后端 `ui_action_results` 的 `outcome` 一一对应（改一处必须改两端） */
+export type UiActionOutcome = 'ok' | 'error' | 'aborted'
+
+/**
+ * 界面动作的**结算事实**：只有执行方（浏览器这一侧）知道的那部分。
+ *
+ * 为什么不复用 `UiToolOutcome`：那个是执行层的内部结果（`ok` 带 detail、失败带
+ * 中文 message），而回执要走网络契约（字段名 `call_id` / `code` / `detail`）。两件事
+ * 各有一个类型，字段一改在编译期就能看出哪一层没跟上。
+ */
+export interface UiActionResultSettlement {
+  call_id: string
+  outcome: UiActionOutcome
+  /** 仅 `outcome === 'error'` 时给：让模型知道「换个参数重试」还是「这条路根本不通」 */
+  code?: UiToolErrorCode
+  /** 给模型看的一句话（≤200 字，由 ui-tools/ack.ts 截断） */
+  detail?: string
+}
+
+/**
+ * 结算回执的请求体（`POST /agent/ui-action-results` 的冻结契约）。
+ *
+ * `observed_location` 由前端补：执行**之后**浏览器里的真实地址，是「页面真的变了」
+ * 唯一自证（模型给的目标地址不算证据）。
+ */
+export interface UiActionResultAck extends UiActionResultSettlement {
+  observed_location: string
+}
+
+/**
+ * 回执的响应体。
+ *
+ * `success=false` **不是失败**：等待方（≤2s 的快路径）已经超时、回执落到后端的
+ * pending 表里等模型下次 poll；调用方不得据此重试或报错。
+ */
+export interface UiActionResultReceipt {
+  accepted: boolean
+  success: boolean
+}
+
 /**
  * 事件 → store 的入参。`action` 是 `string` 而不是 `UiToolName`：
  * 未知动作必须能流到这里被判成 `unknown_action`，窄化成闭集联合就等于把

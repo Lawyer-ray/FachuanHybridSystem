@@ -118,6 +118,8 @@ describe('案件节', () => {
     expect(merged.atts.map((a) => a.id)).toEqual([41, 51])
     expect(merged.attN).toBe(2)
     expect(merged.key).toBe('L4')
+    // 合并行只显示最新日期，但每次的日期都留着：×N 点开就是它们
+    expect(merged.dates).toEqual(['2026-09-02', '2026-09-03'])
   })
 
   it('timelineEntries：单条待合并日志自带两个同名附件时不得重复计入', () => {

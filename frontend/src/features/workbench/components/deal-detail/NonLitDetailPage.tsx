@@ -359,7 +359,6 @@ export function NonLitDetailPage() {
         client={deal.parties?.client}
         reviewTarget={reviewTarget}
         onReviewClose={() => setReviewTarget(null)}
-        onReviewStart={(f) => setReviewTarget(f)}
       />
 
       <PaymentDialog

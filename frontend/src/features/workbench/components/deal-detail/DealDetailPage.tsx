@@ -305,7 +305,6 @@ export function DealDetailPage() {
         client={deal.parties?.client}
         reviewTarget={reviewTarget}
         onReviewClose={() => setReviewTarget(null)}
-        onReviewStart={(f) => setReviewTarget(f)}
       />
 
       {/* 记收款：粘贴到账短信 / 拖发票。保存后刷新合同，右栏收费节即时更新 */}
