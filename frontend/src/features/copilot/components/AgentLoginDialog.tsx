@@ -43,7 +43,7 @@ const POLL_INTERVAL_MS = 2000
  * 组件本身（文案、轮询、复制）不需要改。
  */
 const LOGIN_FLOWS: Record<string, { start: () => Promise<QoderLoginState>; status: (loginId: string) => Promise<QoderLoginState> }> = {
-  qoder: { start: startQoderLogin, status: fetchQoderLoginStatus },
+  qoder: { start: () => startQoderLogin(), status: fetchQoderLoginStatus },
 }
 
 type Phase = 'starting' | 'waiting' | 'success' | 'failed'
@@ -239,6 +239,16 @@ export function AgentLoginDialog({
         </div>
 
         <div className="mt-3 flex justify-end gap-2">
+          {phase === 'success' && flow && (
+            <button
+              type="button"
+              onClick={() => void start()}
+              className="rounded-[8px] border border-border px-3 py-1.5 text-[12px] hover:bg-secondary"
+              title="额度是账号级的：再加一个账号，长任务跑到限额时可自动换号重跑"
+            >
+              再添加一个账号
+            </button>
+          )}
           {phase === 'failed' && flow && (
             <button
               type="button"

@@ -282,6 +282,8 @@ async def stream_chat(
     # 后端按会话的 ``agent_kind`` 选（模型字段已在 AgentSession 上，历史数据回填为
     # ``pi``）。未设置 / 未识别时回落到 ``pi``：引入多后端前只有一个后端在跑，
     # 空串必须等价于引入前的行为。
+    # 会话级兜底保持 pi：已有会话的 agent_kind 是历史事实，不能因为「默认后端」改了
+    # 就换脑子（换了上下文就断，而且是静默的）。新会话的默认见 session_service。
     backend = get_backend(agent_kind or getattr(session, "agent_kind", "") or "pi")
 
     prep_started = time.perf_counter()

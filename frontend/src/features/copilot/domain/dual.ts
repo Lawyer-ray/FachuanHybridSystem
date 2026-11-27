@@ -28,7 +28,14 @@ export interface AnswerGroup {
   answers: ChatMessage[]
 }
 
-/** 空串 / 未标注一律当 pi：引入多答之前本系统只有 pi 在跑（见后端字段注释） */
+/**
+ * **历史数据**的归属：空串 / 未标注 `agent` 一律当 pi。
+ *
+ * 与「部署默认后端」（`backends[0]`，见 `store/backends.ts`）是两件事，别合并：
+ * 引入多后端之前只有 pi 在跑，那些事件的正文必须归到 pi；而新会话归属由后端
+ * `default_agent_kind()` 决定（当前 qoder，清单第一项）。
+ * 把两者并成一个，症状是「旧会话的回答突然显示成 qoder 栏」。
+ */
 export const DEFAULT_AGENT_KIND = 'pi'
 
 /**

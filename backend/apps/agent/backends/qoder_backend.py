@@ -70,6 +70,7 @@ from asgiref.sync import sync_to_async
 
 from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, StreamFrame
 from .gateway_cache import GatewaySettings, get_gateway_settings, resolve_gateway_target
+from .qoder_accounts import account_config_dir, mark_error, mark_ok, mark_used, pick_account, usable_accounts
 from .qoder_login import config_dir as login_config_dir
 from .qoder_login import is_authenticated
 from .ticks import with_ticks
@@ -171,6 +172,12 @@ BLOCKED_TOOL_NAMES: frozenset[str] = frozenset({"delete_case"})
 
 #: ``result_for`` 最多保留多少轮的收尾事实。后端是单例，只增不删会随运行轮数无限增长。
 MAX_KEPT_RESULTS = 256
+
+#: 换账号重跑就能解决的两类错误（额度 / 鉴权）。其余错误换账号没有意义：模型不存在、
+#: 上下文超长、内容被拒——那些是**这次请求**的问题，不是账号的问题。
+ROTATABLE_KINDS: frozenset[BackendErrorKind] = frozenset(
+    {BackendErrorKind.BUSY, BackendErrorKind.RATE_LIMITED, BackendErrorKind.AUTH}
+)
 
 #: qoder 的错误码 → （分类，给人看的一句话）。来源：官方 SDK 文档 + 二进制字符串。
 #:
@@ -579,9 +586,22 @@ class QoderBackend:
     # ── 主流程 ──────────────────────────────────────────────────────────
 
     async def _stream(self, ctx: RunContext) -> AsyncGenerator[StreamFrame, None]:
-        # 延迟 import：SDK 未安装时本模块仍可被注册表 import（见 builtin 的说明）。
-        from qoder_agent_sdk import HookMatcher, QoderAgentOptions, QoderSDKClient
+        """跑一轮：**账号池轮转**包在真正的一轮外面。
 
+        ## 为什么在这一层轮转而不是编排层
+
+        「额度用尽」对用户是一次失败，对系统只是「换一个额度容器重跑」。编排层看到
+        的应当是**一个**正常的流（或一个真正无法解决的错误），而不是「这一栏挂了、
+        请你自己再点一次」。所以：同一个会话、同一条提问、同一套工具面，仅换账号。
+
+        ## 三条不许轮转的情形
+
+        1. **已经吐过帧**：正文都露出去了，再换账号重跑会让用户看到两份回答；
+        2. **不是额度/鉴权类错误**：模型不存在、上下文超长、提示词被拒——换账号没用；
+        3. **配了显式令牌**：那条路不走账号池（令牌是部署级凭据，只有一个）。
+
+        失败账号进冷却（默认 10 分钟，见 ``qoder_accounts``），下一轮自动回到候选。
+        """
         self._results.pop(ctx.run_id, None)
         state = _RunState()
         self._states[ctx.run_id] = state
@@ -590,95 +610,53 @@ class QoderBackend:
         #: 本轮临时配置目录（配了显式凭据时才有）。**只删它，不删共享登录目录**——
         #: 后者装着 qoder 的登录凭据，删一次全所都要重新授权。
         temp_config_dir: Path | None = None
-        config_dir: Path | None = None
         resolved_model = ""
+        tried: set[str] = set()
+        last_error: BackendError | None = None
+        emitted = False
 
         try:
             # 未登录时先秒级报 AUTH（否则要等 SDK 的 60s 控制请求超时，见 ensure_logged_in）。
             await ensure_logged_in()
             target = await self._resolve_gateway_target(ctx)
             resolved_model = target.model if target is not None else ""
-            # 配了显式凭据 → 本轮临时目录（执业数据不落盘）；否则用**共享登录目录**
-            # （前端按钮写下的凭据就在那里面，换台 worker 也读得到）。
             temp_config_dir = make_config_dir() if has_explicit_auth() else None
-            config_dir = temp_config_dir or login_config_dir()
-            mcp_servers = self._mcp_servers(ctx)
+            attempts = 1 if temp_config_dir is not None else max(1, len(usable_accounts()))
 
-            options = QoderAgentOptions(
-                cwd=work_dir(),
-                env=build_env(config_dir=config_dir),
-                auth=qoder_auth(),
-                cli_path=resolve_cli_path(),
-                proxy=resolve_proxy(),
-                # 模型来源=Qoder 时**不传 model**：由 CLI 按账号能力选，跑完再把
-                # 真实模型回写会话（见 ``result_for``）。把网关模型名传给 qoder 云
-                # 必然 404，而「静默换模型」又会污染成本口径，所以两条路都不走。
-                model=target.model if target is not None else None,
-                max_turns=max_turns,
-                # ── 工具面：内置工具全关，业务工具只来自共享 MCP（四件套）──
-                tools=[],
-                skills=[],
-                setting_sources=[],
-                allowed_tools=[],
-                disallowed_tools=disallowed_tools(),
-                mcp_servers=mcp_servers,
-                # 只允许我们自己那个 MCP server：否则用户级 settings 里配的第三方
-                # MCP 也会被挂上（``setting_sources=[]`` 已挡一层，这里再锁一次）。
-                allowed_mcp_server_names=[SERVER_NAME] if mcp_servers else [],
-                strict_mcp_config=bool(mcp_servers),
-                permission_mode=_HARDENED_PERMISSION_MODE,
-                system_prompt=_system_prompt(ctx),
-                # 逐 token 增量：不开只有「整段 assistant 消息」一种粒度，
-                # 前端表现为长时间空白后突然出现一大段。
-                include_partial_messages=True,
-                # CLI 的 stderr 只进本轮状态（用于把「初始化超时」翻译成人话），不落库、
-                # 不进日志正文：里面可能含账号邮箱等标识。
-                stderr=_bind_stderr(state),
-                # 本轮 ctx 由闭包绑定：SDK 回调的参数不携带任何业务上下文。
-                can_use_tool=_bind_can_use_tool(ctx),
-                hooks={
-                    "PreToolUse": [
-                        HookMatcher(matcher=None, hooks=[_bind_pre_tool_use(ctx)]),
-                    ]
-                },
-                resolve_model=_bind_resolve_model(target),
-                on_auth_expired=_on_auth_expired,
-            )
-
-            async with QoderSDKClient(options=options) as client:
-                await client.query(ctx.prompt)
-                async for msg in with_ticks(client.receive_response()):
-                    if msg is None:
-                        # 本 tick 无新消息：让出一帧，编排层借它把审批事件推进来。
-                        yield None
-                        continue
-                    for frame in self._translate(msg, ctx.run_id):
-                        yield {**frame, "agent": self.kind, "run_id": ctx.run_id}
-
-                    result_msg = _result_message(msg)
-                    if result_msg is None:
-                        continue
-                    failure = self._result_failure(result_msg, max_turns=max_turns)
-                    # 失败的一轮同样产生了费用：用量帧照发，再报错。
-                    usage = self._usage_frame(result_msg, state)
-                    if usage is not None:
-                        yield {**usage, "agent": self.kind, "run_id": ctx.run_id}
-                    if failure is not None:
-                        raise failure
-                    credits = float(getattr(result_msg, "total_credits", None) or 0.0)
-                    if credits:
-                        # Credits 是**另一种货币**，不进 AgentRun 的 token 口径（混进去
-                        # 会让 ``/usage/by-model`` 的汇总失去意义），但完全丢掉就再也没
-                        # 有任何地方能回答「这一栏花了多少额度」。所以落一条 info。
-                        logger.info("qoder 本轮消耗 credits=%.4f session=%s run=%s", credits, session_id, ctx.run_id)
-                    self._remember_result(
-                        ctx.run_id,
-                        QoderRunResult(
-                            model=state.model or _model_from_result(result_msg) or resolved_model,
-                            credits=credits,
-                        ),
-                    )
+            for _ in range(attempts):
+                account = None if temp_config_dir is not None else pick_account(exclude=tried)
+                if temp_config_dir is None and account is None:
                     break
+                if account is not None:
+                    tried.add(account.id)
+                    mark_used(account.id)
+                    config_dir = account_config_dir(account.id)
+                else:
+                    config_dir = temp_config_dir or login_config_dir()
+                # 重试前清掉上一次的翻译状态：半截的 tool_call 不能带到下一次尝试里
+                state.saw_stream_text = False
+                state.blocks.clear()
+                state.tool_names.clear()
+                try:
+                    async for frame in self._stream_once(
+                        ctx, state=state, config_dir=config_dir, target=target, max_turns=max_turns
+                    ):
+                        emitted = emitted or frame is not None
+                        yield frame
+                    if account is not None:
+                        mark_ok(account.id)
+                    return
+                except BackendError as exc:
+                    if account is None or emitted or exc.kind not in ROTATABLE_KINDS:
+                        raise
+                    mark_error(account.id, message=exc.message)
+                    last_error = exc
+                    logger.info("qoder 账号不可用，换下一个 account=%s kind=%s", account.id, exc.kind)
+                    continue
+
+            if last_error is not None:
+                raise last_error
+            raise BackendError(BackendErrorKind.AUTH, LOGIN_HINT)
         except BackendError:
             raise
         except BaseException as exc:
@@ -698,6 +676,98 @@ class QoderBackend:
                 # 取消 / 出错也要留一条事实：模型名至少能回写会话，``AgentRun``
                 # 不至于记成「不知道用了什么模型」（与 pi 的截断兜底同口径）。
                 self._remember_result(ctx.run_id, QoderRunResult(model=state.model or resolved_model))
+
+    async def _stream_once(
+        self,
+        ctx: RunContext,
+        *,
+        state: _RunState,
+        config_dir: Path,
+        target: Any | None,
+        max_turns: int,
+    ) -> AsyncGenerator[StreamFrame, None]:
+        """真正的一轮（一个子进程、一个账号的配置目录）。账号轮转在 :meth:`_stream`。"""
+        from qoder_agent_sdk import HookMatcher, QoderAgentOptions, QoderSDKClient
+
+        session_id = str(ctx.session.session_id)
+        mcp_servers = self._mcp_servers(ctx)
+        resolved_model = target.model if target is not None else ""
+
+        options = QoderAgentOptions(
+            cwd=work_dir(),
+            env=build_env(config_dir=config_dir),
+            auth=qoder_auth(),
+            cli_path=resolve_cli_path(),
+            proxy=resolve_proxy(),
+            # 模型：gateway 模式用平台模型；否则用**用户选的 Qoder 模型**（清单来自
+            # ``qoder_models``），没选就让 CLI 用它的默认（``Auto``）。跑完仍以
+            # ``result_for`` 回报的真实模型为准（CLI 可能按账号能力做替换）。
+            model=target.model if target is not None else (ctx.model or None),
+            max_turns=max_turns,
+            # ── 工具面：内置工具全关，业务工具只来自共享 MCP（四件套）──
+            tools=[],
+            skills=[],
+            setting_sources=[],
+            allowed_tools=[],
+            disallowed_tools=disallowed_tools(),
+            mcp_servers=mcp_servers,
+            # 只允许我们自己那个 MCP server：否则用户级 settings 里配的第三方
+            # MCP 也会被挂上（``setting_sources=[]`` 已挡一层，这里再锁一次）。
+            allowed_mcp_server_names=[SERVER_NAME] if mcp_servers else [],
+            strict_mcp_config=bool(mcp_servers),
+            permission_mode=_HARDENED_PERMISSION_MODE,
+            system_prompt=_system_prompt(ctx),
+            # 逐 token 增量：不开只有「整段 assistant 消息」一种粒度，
+            # 前端表现为长时间空白后突然出现一大段。
+            include_partial_messages=True,
+            # CLI 的 stderr 只进本轮状态（用于把「初始化超时」翻译成人话），不落库、
+            # 不进日志正文：里面可能含账号邮箱等标识。
+            stderr=_bind_stderr(state),
+            # 本轮 ctx 由闭包绑定：SDK 回调的参数不携带任何业务上下文。
+            can_use_tool=_bind_can_use_tool(ctx),
+            hooks={
+                "PreToolUse": [
+                    HookMatcher(matcher=None, hooks=[_bind_pre_tool_use(ctx)]),
+                ]
+            },
+            resolve_model=_bind_resolve_model(target),
+            on_auth_expired=_on_auth_expired,
+        )
+
+        async with QoderSDKClient(options=options) as client:
+            await client.query(ctx.prompt)
+            async for msg in with_ticks(client.receive_response()):
+                if msg is None:
+                    # 本 tick 无新消息：让出一帧，编排层借它把审批事件推进来。
+                    yield None
+                    continue
+                for frame in self._translate(msg, ctx.run_id):
+                    yield {**frame, "agent": self.kind, "run_id": ctx.run_id}
+
+                result_msg = _result_message(msg)
+                if result_msg is None:
+                    continue
+                failure = self._result_failure(result_msg, max_turns=max_turns)
+                # 失败的一轮同样产生了费用：用量帧照发，再报错。
+                usage = self._usage_frame(result_msg, state)
+                if usage is not None:
+                    yield {**usage, "agent": self.kind, "run_id": ctx.run_id}
+                if failure is not None:
+                    raise failure
+                credits = float(getattr(result_msg, "total_credits", None) or 0.0)
+                if credits:
+                    # Credits 是**另一种货币**，不进 AgentRun 的 token 口径（混进去
+                    # 会让 ``/usage/by-model`` 的汇总失去意义），但完全丢掉就再也没
+                    # 有任何地方能回答「这一栏花了多少额度」。所以落一条 info。
+                    logger.info("qoder 本轮消耗 credits=%.4f session=%s run=%s", credits, session_id, ctx.run_id)
+                self._remember_result(
+                    ctx.run_id,
+                    QoderRunResult(
+                        model=state.model or _model_from_result(result_msg) or resolved_model,
+                        credits=credits,
+                    ),
+                )
+                break
 
     async def _resolve_gateway_target(self, ctx: RunContext) -> Any | None:
         """``MODEL_SOURCE=gateway`` 时解析律所网关；``qoder`` 模式下恒为 ``None``。

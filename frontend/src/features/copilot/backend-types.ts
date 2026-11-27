@@ -46,15 +46,32 @@ export interface AgentBackendOption {
   action_label?: string
 }
 
-/** `GET /agent/qoder/auth`：qoder 当前登录态 */
+/** 池子里的一个 qoder 账号（额度容器） */
+export interface QoderAccount {
+  id: string
+  /** 显示名（服务端从凭据里取；取不到时编号成「账号 N」） */
+  name: string
+  /** 现在能不能用（有凭据 且 不在冷却期） */
+  usable: boolean
+  /** 最近一次失败的人话（额度耗尽 / 登录失效）；空串 = 没出过错 */
+  last_error?: string
+}
+
+/**
+ * `GET /agent/qoder/auth`：qoder 当前登录态。
+ *
+ * `accounts` 是**额度容器池**：额度是账号级的，权限是律师级的（工具带律师本人令牌），
+ * 所以池子里可以有多个账号、一轮用一个（见后端 `qoder_accounts`）。
+ */
 export interface QoderAuthState {
   authenticated: boolean
-  /** 已登录账号显示名（空串 = 取不到；不是令牌/邮箱） */
+  /** 第一个账号的显示名（空串 = 取不到） */
   account: string
   /** `token`（环境变量令牌/SA 密钥）/ `login`（前端授权）/ `none` */
   mode: string
   /** 未登录时的下一步提示；已登录为空串 */
   message: string
+  accounts?: QoderAccount[]
 }
 
 /** `POST /agent/qoder/login` 与轮询共用：一次授权尝试的状态 */
@@ -66,6 +83,8 @@ export interface QoderLoginState {
   url: string
   message: string
   account: string
+  /** 这次登录落到哪个账号（空 = 老后端/未知） */
+  account_id?: string
 }
 
 /**

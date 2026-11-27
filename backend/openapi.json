@@ -28777,6 +28777,23 @@
         "tags": [
           "Agent 后端登录"
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/QoderLoginIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "required": false
+        },
         "security": [
           {
             "JWTOrSessionAuth": []
@@ -28812,6 +28829,44 @@
           }
         },
         "description": "轮询某次授权的状态（未知 id 返回 ``state=expired``，不抛 404）。",
+        "tags": [
+          "Agent 后端登录"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/qoder/accounts/{account_id}": {
+      "delete": {
+        "operationId": "apps_agent_api_qoder_auth_api_qoder_account_remove",
+        "summary": "Qoder Account Remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QoderAuthOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "把一个账号从池子里移除（凭据 + CLI 配置目录一起删）。\n\n为什么要能删：账号池是「额度容器」，加了新号之后旧号（离职、换套餐）留着只会\n让轮转把请求分给一个没额度的账号——每次都要多试一轮才落到能用的那个。",
         "tags": [
           "Agent 后端登录"
         ],
@@ -51463,11 +51518,6 @@
             "title": "Contract Type",
             "type": "string"
           },
-          "jurisdiction": {
-            "default": "CN",
-            "title": "Jurisdiction",
-            "type": "string"
-          },
           "playbook_id": {
             "anyOf": [
               {
@@ -51656,11 +51706,6 @@
           },
           "contract_type": {
             "title": "Contract Type",
-            "type": "string"
-          },
-          "jurisdiction": {
-            "default": "CN",
-            "title": "Jurisdiction",
             "type": "string"
           },
           "status": {
@@ -61222,6 +61267,35 @@
         "title": "UsageByAgentOut",
         "type": "object"
       },
+      "QoderAccountOut": {
+        "description": "池子里的一个 qoder 账号（额度容器）。",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "usable": {
+            "title": "Usable",
+            "type": "boolean"
+          },
+          "last_error": {
+            "default": "",
+            "title": "Last Error",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "usable"
+        ],
+        "title": "QoderAccountOut",
+        "type": "object"
+      },
       "QoderAuthOut": {
         "description": "当前登录态（``GET /agent/qoder/auth``）。",
         "properties": {
@@ -61243,6 +61317,14 @@
             "default": "",
             "title": "Message",
             "type": "string"
+          },
+          "accounts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/QoderAccountOut"
+            },
+            "title": "Accounts",
+            "type": "array"
           }
         },
         "required": [
@@ -61276,6 +61358,11 @@
             "default": "",
             "title": "Account",
             "type": "string"
+          },
+          "account_id": {
+            "default": "",
+            "title": "Account Id",
+            "type": "string"
           }
         },
         "required": [
@@ -61283,6 +61370,18 @@
           "state"
         ],
         "title": "QoderLoginOut",
+        "type": "object"
+      },
+      "QoderLoginIn": {
+        "description": "发起一次授权。\n\n``account_id`` 空 = **新增一个账号**（点一次登录往池子里加一个额度容器）；\n非空 = 给那个账号换令牌（登录失效后重登用）。",
+        "properties": {
+          "account_id": {
+            "default": "",
+            "title": "Account Id",
+            "type": "string"
+          }
+        },
+        "title": "QoderLoginIn",
         "type": "object"
       },
       "MemoryOut": {
