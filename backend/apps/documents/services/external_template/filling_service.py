@@ -14,6 +14,7 @@ import asyncio
 import logging
 import uuid
 import zipfile
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -242,23 +243,87 @@ class FillingService:
         """
         from docx import Document
 
-        from apps.documents.models.external_template import ExternalTemplate, ExternalTemplateFieldMapping
-        from apps.documents.models.fill_record import FillRecord
-
-        template: ExternalTemplate = ExternalTemplate.objects.get(id=template_id)
-        mappings = ExternalTemplateFieldMapping.objects.filter(
-            template_id=template_id,
-        ).order_by("sort_order", "id")
+        # 0. 查询模板与其字段映射
+        template, mappings = self._load_template_and_mappings(template_id)
 
         # 1. 获取占位符值 + 合并自定义值
         placeholder_values: dict[str, str] = self._get_placeholder_values(case_id, party_id)
         merged_custom: dict[str, str] = custom_values or {}
 
         # 2. 打开模板 .docx 副本
-        template_path: Path = Path(settings.MEDIA_ROOT) / template.file_path
-        doc: DocumentType = Document(str(template_path))
+        doc: DocumentType = Document(str(Path(settings.MEDIA_ROOT) / template.file_path))
 
         # 3. 逐一写入
+        filled_count, skipped_count, manual_needed, errors = self._apply_mappings(
+            doc,
+            mappings,
+            placeholder_values,
+            merged_custom,
+            template_id=template_id,
+        )
+
+        # 4. 保存生成文件（输出文件名一并生成）
+        output_relative, output_name = self._save_filled_document(doc, template, case_id, party_id)
+
+        # 5. 构建填充报告并创建 FillRecord
+        report: dict[str, Any] = {
+            "total_fields": len(list(mappings)),
+            "filled_count": filled_count,
+            "skipped_count": skipped_count,
+            "manual_needed": manual_needed,
+            "errors": errors,
+        }
+
+        record = self._persist_fill_record(
+            case_id=case_id,
+            template=template,
+            party_id=party_id,
+            filled_by=filled_by,
+            output_relative=output_relative,
+            output_name=output_name,
+            report=report,
+            merged_custom=merged_custom,
+        )
+
+        logger.info(
+            "填充完成: record_id=%d, template_id=%d, case_id=%d, filled=%d, skipped=%d, errors=%d",
+            record.id,
+            template_id,
+            case_id,
+            filled_count,
+            skipped_count,
+            len(errors),
+        )
+        return record
+
+    def _load_template_and_mappings(self, template_id: int) -> tuple[Any, Any]:
+        """查模板与其字段映射（按 ``sort_order``, ``id`` 排序）。
+
+        Returns:
+            ``(模板, 字段映射序列)``；映射尚未求值，由调用方决定何时遍历。
+        """
+        from apps.documents.models.external_template import ExternalTemplate, ExternalTemplateFieldMapping
+
+        template: ExternalTemplate = ExternalTemplate.objects.get(id=template_id)
+        mappings = ExternalTemplateFieldMapping.objects.filter(
+            template_id=template_id,
+        ).order_by("sort_order", "id")
+        return template, mappings
+
+    def _apply_mappings(
+        self,
+        doc: Any,
+        mappings: Iterable[Any],
+        placeholder_values: dict[str, str],
+        merged_custom: dict[str, str],
+        *,
+        template_id: int,
+    ) -> tuple[int, int, list[str], list[str]]:
+        """把值逐条写进文档，不知道写哪儿/写不进去的都记进报告。
+
+        Returns:
+            ``(filled_count, skipped_count, manual_needed, errors)``。
+        """
         filled_count: int = 0
         skipped_count: int = 0
         manual_needed: list[str] = []
@@ -310,8 +375,20 @@ class FillingService:
             else:
                 skipped_count += 1
                 errors.append(str("位置 %(label)s 写入未成功" % {"label": mapping.semantic_label}))
+        return filled_count, skipped_count, manual_needed, errors
 
-        # 4. 保存生成文件
+    def _save_filled_document(
+        self,
+        doc: Any,
+        template: Any,
+        case_id: int,
+        party_id: int | None,
+    ) -> tuple[str, str]:
+        """保存填充后的文档到 media 目录，并算出下载用的输出文件名。
+
+        Returns:
+            ``(相对 MEDIA_ROOT 的路径, 输出文件名)``。
+        """
         output_dir: Path = Path(settings.MEDIA_ROOT) / "documents" / "external_filled" / str(case_id)
         output_dir.mkdir(parents=True, exist_ok=True)
         output_uuid: str = str(uuid.uuid4())
@@ -320,7 +397,6 @@ class FillingService:
 
         output_relative: str = str(Path("documents") / "external_filled" / str(case_id) / f"{output_uuid}.docx")
 
-        # 5. 生成输出文件名
         party_name: str | None = None
         if party_id is not None:
             try:
@@ -331,16 +407,23 @@ class FillingService:
                 logger.warning("获取当事人名称失败: party_id=%d", party_id)
 
         output_name: str = self._generate_output_filename(template.name, party_name)
-        # 6. 构建填充报告
-        report: dict[str, Any] = {
-            "total_fields": len(list(mappings)),
-            "filled_count": filled_count,
-            "skipped_count": skipped_count,
-            "manual_needed": manual_needed,
-            "errors": errors,
-        }
+        return output_relative, output_name
 
-        # 7. 创建 FillRecord
+    def _persist_fill_record(
+        self,
+        *,
+        case_id: int,
+        template: Any,
+        party_id: int | None,
+        filled_by: Any,
+        output_relative: str,
+        output_name: str,
+        report: dict[str, Any],
+        merged_custom: dict[str, str],
+    ) -> Any:
+        """落库一条 FillRecord（报告与自定义值一并留存，便于回溯）。"""
+        from apps.documents.models.fill_record import FillRecord
+
         record: FillRecord = FillRecord.objects.create(
             case_id=case_id,
             template=template,
@@ -350,16 +433,6 @@ class FillingService:
             original_output_name=output_name,
             report_json=report,
             custom_values=merged_custom,
-        )
-
-        logger.info(
-            "填充完成: record_id=%d, template_id=%d, case_id=%d, filled=%d, skipped=%d, errors=%d",
-            record.id,
-            template_id,
-            case_id,
-            filled_count,
-            skipped_count,
-            len(errors),
         )
         return record
 
