@@ -13,7 +13,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DealDetailPageLazy,
+  EditProjectPageLazy,
   preloadDealDetailPage,
+  preloadEditProjectPage,
   preloadWorkbenchPage,
   WorkbenchPageLazy,
 } from './index'
@@ -42,6 +44,17 @@ describe('workbench/index 出口', () => {
   it('DealDetailPageLazy 是合法的 React.lazy 组件', () => {
     expect(DealDetailPageLazy).toBeTruthy()
     expect((DealDetailPageLazy as unknown as { $$typeof?: symbol }).$$typeof).toBeTypeOf('symbol')
+  })
+
+  it('preloadEditProjectPage 返回 Promise 并能取到 ProjectEditPage', async () => {
+    const p = preloadEditProjectPage()
+    expect(typeof p.then).toBe('function')
+    const mod = await p
+    expect(typeof mod.ProjectEditPage).toBe('function')
+  })
+
+  it('EditProjectPageLazy 是合法的 React.lazy 组件', () => {
+    expect((EditProjectPageLazy as unknown as { $$typeof?: symbol }).$$typeof).toBeTypeOf('symbol')
   })
 
   it('两个加载器复用同一 import()（模块缓存只下载一次）', async () => {

@@ -57,3 +57,12 @@ export const NonLitDetailPageLazy = lazy(() =>
 export const ProjectDetailPageLazy = lazy(() =>
   import('./components/deal-detail/ProjectDetailPage').then((m) => ({ default: m.ProjectDetailPage })),
 )
+
+/** 项目编辑页：合同事实 / 收费 / 代理阶段（`/projects/:id/edit`） */
+export function preloadEditProjectPage() {
+  return import('./components/project-edit/ProjectEditPage')
+}
+
+export const EditProjectPageLazy = lazy(() =>
+  preloadEditProjectPage().then((m) => ({ default: m.ProjectEditPage })),
+)

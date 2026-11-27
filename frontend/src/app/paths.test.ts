@@ -15,6 +15,7 @@ import {
   materialPrep,
   materialPrepDetail,
   projectDetail,
+  projectEdit,
   projectList,
   projectReview,
   publicUpload,
@@ -34,6 +35,17 @@ describe('paths：项目类路径', () => {
   it('projectDetail 缺 id 时回落到项目列表，而不是拼出 /projects/undefined', () => {
     expect(projectDetail(undefined)).toBe('/projects')
     expect(projectDetail(null)).toBe('/projects')
+  })
+
+  it('projectEdit 拼出编辑页路径（:id 为委托合同 id）', () => {
+    expect(ROUTES.projectEdit).toBe('/projects/:id/edit')
+    expect(projectEdit(393)).toBe('/projects/393/edit')
+  })
+
+  it('projectEdit 缺 id 时回落到项目列表，而不是 /projects/undefined/edit', () => {
+    expect(projectEdit(undefined)).toBe('/projects')
+    expect(projectEdit(null)).toBe('/projects')
+    expect(projectEdit('')).toBe('/projects')
   })
 
   it('projectList 就是项目列表路由', () => {

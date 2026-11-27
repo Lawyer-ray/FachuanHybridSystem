@@ -24,12 +24,21 @@ export function UnsavedChangesDialog({
   open,
   onStay,
   onLeave,
+  title = '文档里还有未保存的修改',
+  description = '现在离开会丢掉这些修改。要保留的话，先点「继续编辑」，在文档里按 ⌘S（或点右上角「保存」）写回原文件后再关。',
+  stayLabel = '继续编辑',
+  leaveLabel = '放弃修改',
 }: {
   open: boolean
   /** 继续编辑（什么都不做，留在文档里） */
   onStay: () => void
   /** 放弃这次未保存的修改，继续原本的动作（关文档 / 换文件） */
   onLeave: () => void
+  /** 文案可换：项目编辑页复用它，说的是「表单」而不是「画布」 */
+  title?: string
+  description?: string
+  stayLabel?: string
+  leaveLabel?: string
 }) {
   return (
     <AlertDialog
@@ -40,14 +49,12 @@ export function UnsavedChangesDialog({
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>文档里还有未保存的修改</AlertDialogTitle>
-          <AlertDialogDescription>
-            现在离开会丢掉这些修改。要保留的话，先点「继续编辑」，在文档里按 ⌘S（或点右上角「保存」）写回原文件后再关。
-          </AlertDialogDescription>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onStay}>继续编辑</AlertDialogCancel>
-          <AlertDialogAction onClick={onLeave}>放弃修改</AlertDialogAction>
+          <AlertDialogCancel onClick={onStay}>{stayLabel}</AlertDialogCancel>
+          <AlertDialogAction onClick={onLeave}>{leaveLabel}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

@@ -23,25 +23,36 @@ export function ActionButton({
   sm,
   title,
   onClick,
+  to,
   children,
 }: {
   dark?: boolean
   sm?: boolean
   title?: string
-  onClick: () => void
+  onClick?: () => void
+  /**
+   * 传了就渲染成**真锚点**（`<Link>`）而不是按钮。
+   *
+   * 这类「跳到另一个页面」的动作必须是链接：能中键开新标签、能被 `getByRole('link')`
+   * 命中、浏览器状态栏也能预告去向。按钮 + `navigate()` 三样都做不到。
+   */
+  to?: string
   children: ReactNode
 }) {
   const size = sm ? 'h-[27px] px-2.5 text-[11.5px] ' : 'h-[31px] px-[13px] text-[12.5px] '
   const tone = dark
     ? 'border-foreground bg-foreground font-semibold text-background hover:opacity-85'
     : 'border-border bg-card font-[550] text-secondary-foreground hover:border-input hover:bg-secondary'
+  const cls = 'inline-flex flex-none items-center rounded-[8px] border whitespace-nowrap transition-all ' + size + tone
+  if (to) {
+    return (
+      <Link to={to} title={title} className={cls}>
+        {children}
+      </Link>
+    )
+  }
   return (
-    <button
-      type="button"
-      title={title}
-      className={'inline-flex flex-none items-center rounded-[8px] border whitespace-nowrap transition-all ' + size + tone}
-      onClick={onClick}
-    >
+    <button type="button" title={title} className={cls} onClick={onClick}>
       {children}
     </button>
   )

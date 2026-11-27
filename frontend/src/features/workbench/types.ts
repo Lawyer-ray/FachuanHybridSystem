@@ -43,6 +43,27 @@ export type ContractListItem = Omit<
   id: number
 }
 
+/**
+ * 合同更新请求体（`PUT /contracts/{id}` 的 `payload`）。
+ *
+ * 只列项目编辑页会发的键：`parties` 与 `assigned_lawyer` 虽然是生成物里的字段，
+ * 但后端更新链路把它们 `setattr` 到一个不存在的属性上（实测不落库），所以不收。
+ */
+export interface ContractUpdatePayload {
+  name?: string
+  case_type?: string
+  status?: string
+  specified_date?: string
+  start_date?: string | null
+  end_date?: string | null
+  is_filed?: boolean
+  fee_mode?: string
+  fixed_amount?: number | null
+  risk_rate?: number | null
+  custom_terms?: string
+  representation_stages?: string[]
+}
+
 /* ============ 后端投影：/api/v1/cases/cases ============ */
 
 export type CaseNumberOut = Schemas['CaseNumberOut']

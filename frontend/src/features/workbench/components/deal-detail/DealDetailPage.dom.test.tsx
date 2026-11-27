@@ -587,6 +587,12 @@ describe('DealDetailPage 程序链与案件节', () => {
     await waitFor(() => expect(screen.queryByTestId('office-view')).toBeNull())
   })
 
+  it('页头有「编辑」入口，指向 /projects/:id/edit（真锚点：可中键开新标签）', async () => {
+    setupUi()
+    const link = await screen.findByRole('link', { name: '编辑' })
+    expect(link.getAttribute('href')).toBe('/projects/7/edit')
+  })
+
   it('stepper 点击滚到对应案件节', async () => {
     setupUi()
     const jump = await screen.findByTitle('跳到 二审')

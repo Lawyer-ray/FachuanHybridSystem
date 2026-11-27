@@ -36,6 +36,7 @@ const seen = vi.hoisted(() => ({ caseIds: [] as Array<number | null> }))
 
 vi.mock('./preload', () => ({
   AssistantPageLazy: () => <AssistantParams />,
+  EditProjectPageLazy: () => <ProjectEditParams />,
   HomePageLazy: () => <div data-testid="home">首页</div>,
   ClientUploadPageLazy: () => <div data-testid="upload">上传页</div>,
   DeskPageLazy: () => <div data-testid="desk">预处理页</div>,
@@ -81,6 +82,17 @@ function AssistantParams() {
   return <div data-testid="assistant">{sessionId ?? '(无会话)'}</div>
 }
 
+/**
+ * 项目编辑页桩：把路由给的 `:id` 打出来。
+ *
+ * 编辑页与详情页共用 `/projects/:id` 前缀，只多一段静态 `edit`——这条用例就是
+ * 钉住「静态段不会被 `:id` 抢走」。
+ */
+function ProjectEditParams() {
+  const { id } = useParams()
+  return <div data-testid="project-edit">{id ?? '(无 id)'}</div>
+}
+
 import { ROUTES, assistantSession } from './paths'
 import { AppRouter } from './router'
 
@@ -121,6 +133,13 @@ describe('AI 助手独立页路由', () => {
 })
 
 describe('LegacyBindingsRedirect', () => {
+  it('ROUTES.projectEdit 渲染编辑页，并把 :id 交给它（静态段不被 :id 抢走）', () => {
+    renderAt('/projects/7/edit')
+    expect(screen.getByTestId('project-edit').textContent).toBe('7')
+    // 详情页不应该同时渲染
+    expect(screen.queryByTestId('project')).toBeNull()
+  })
+
   it('保留 query 前转到 /settings（bound=1 丢了就不弹绑定成功提示）', () => {
     renderAt('/settings/bindings?bound=1')
     // 断言最终 location 而不是「有没有调用 navigate」：query 是否保留是用户

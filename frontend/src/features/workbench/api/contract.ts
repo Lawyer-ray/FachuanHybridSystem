@@ -2,6 +2,7 @@ import type {
   CaseListItem,
   ContractListItem,
   ContractPageResponse,
+  ContractUpdatePayload,
   LawyerListItem,
   ReminderOut,
 } from '../types'
@@ -48,6 +49,30 @@ export async function listCasesByContract(contractId: number): Promise<CaseListI
  */
 export async function getContract(contractId: number): Promise<ContractListItem> {
   return contractsApi.get('contracts/' + contractId).json<ContractListItem>()
+}
+
+/**
+ * 更新合同（项目编辑页）。
+ *
+ * 两个必须知道的口径（都是实测过的）：
+ * - 请求体要包一层 `{ payload }`，裸字段直接 422；
+ * - 后端 `exclude_unset`：**不传的键不动，传 null 是真的清空**（且若干列 not null，
+ *   传 null 会 500）——所以调用方只能发脏字段，别把整份表单原样丢过来。
+ * - 财务四字段（fee_mode/fixed_amount/risk_rate/custom_terms）只要出现在 payload
+ *   里，就必须带 `confirm_finance=true`，否则 400「关键财务操作需二次确认」；
+ *   即便带了，非管理员仍是 403。
+ */
+export async function updateContract(
+  contractId: number,
+  payload: ContractUpdatePayload,
+  opts: { confirmFinance?: boolean } = {},
+): Promise<ContractListItem> {
+  return contractsApi
+    .put('contracts/' + contractId, {
+      searchParams: opts.confirmFinance ? { confirm_finance: 'true' } : {},
+      json: { payload },
+    })
+    .json<ContractListItem>()
 }
 
 /**

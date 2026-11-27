@@ -8,6 +8,7 @@ import { LoginPage, SocialCallbackPage } from '@/features/auth'
 import { AppShell } from './shell/AppShell'
 import {
   AssistantPageLazy,
+  EditProjectPageLazy,
   BankLitigationPageLazy,
   ClientUploadPageLazy,
   DeskPageLazy,
@@ -123,6 +124,8 @@ export function AppRouter() {
           {/* 项目详情：一条 URL（:id = 委托合同 id），按 deal.lit 分流左栏——
               诉讼走案件程序链、非诉走合同文件夹。不再用 /nonlit 后缀暴露分类词。 */}
           <Route path={ROUTES.projectDetail} element={<ProjectDetailPageLazy />} />
+        {/* 静态段 `edit` 比 `:id` 更具体，react-router 按分段优先匹配，不会抢详情页 */}
+        <Route path={ROUTES.projectEdit} element={<EditProjectPageLazy />} />
           {/* 银行批量诉讼（场景 2）：列表与立案工作台共用同一页组件，
               `:id` 有值时打开指定案件的工作台。两者必须同一条组件 ——
               工作台内的四个分区（起诉条件/要素式转换/OA/一张网）都依赖
