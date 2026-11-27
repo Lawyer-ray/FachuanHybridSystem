@@ -91,9 +91,23 @@ export default defineConfig([
         {
           patterns: [
             {
-              // copilot/launch 是唯一被架构决策放行的深路径（全局拉起 copilot 的公共事件口），
-              // 用 patterns 的取反语法 `!` 豁免，避免为它开第二个 block。
-              group: ['@/features/*/*', '!@/features/copilot/launch'],
+              // copilot 域有两条被架构决策放行的深路径，用 patterns 的取反语法 `!` 豁免，
+              // 避免为它们各开一个 block：
+              // - copilot/launch：全局拉起 copilot 的公共事件口；
+              // - copilot/ui-tools/contract：**页面侧的轻契约面**（页面状态登记 / 挂起队列 /
+              //   两个 hook / 动作类型）。它刻意不引 ui-tools 的桶——桶 → registry →
+              //   discover 的 eager `import.meta.glob` 会把使用方页面连同自己 feature 的
+              //   ui-actions.ts 拉成「页面 → copilot → 本 feature」的回头路，页面 chunk 因此暴涨。
+              // 注意 glob 语义：父目录被排除时子路径的取反**不生效**，所以要先放行 ui-tools
+              // 目录本身、再把目录内容禁回去、最后才放行 contract（实测：只加
+              // `!@/features/copilot/ui-tools/contract` 一行是无效的，contract 仍被拦）。
+              group: [
+                '@/features/*/*',
+                '!@/features/copilot/launch',
+                '!@/features/copilot/ui-tools',
+                '@/features/copilot/ui-tools/*',
+                '!@/features/copilot/ui-tools/contract',
+              ],
               message:
                 '跨 feature 禁止直接 import 其他 feature 的内部文件，请走该 feature 的桶出口 `@/features/<name>`（在其 index.ts re-export）；若两块都要用，应上提到 components/shared 或 lib。',
             },
