@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { DraftDialog } from '@/features/doc-generation'
@@ -13,16 +12,17 @@ import { ChainStepper } from './ChainStepper'
 
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
+import { stageLabelsToCodes } from '../../contract-enums'
+import { AddCaseDialog } from './AddCaseDialog'
 import { AddDeadlineDialog } from './AddDeadlineDialog'
 import { AddLogDialog } from './AddLogDialog'
 import { ContractFileOverlays } from './ContractFileOverlays'
-import { DealDocLayout, DOC_SIDE_BY_SIDE_MIN } from './DealDocLayout'
+import { DealDocLayout } from './DealDocLayout'
 import type { FolderEntryMutation } from './folder-tree-types'
 import { UnsavedChangesDialog } from './UnsavedChangesDialog'
-import { useDocDirtyGuard } from './use-doc-dirty-guard'
-import { useNetWidth } from './use-net-width'
+import { useDocPreview } from './use-doc-preview'
 import { useDraftDialog } from './use-draft-dialog'
-import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
+import { useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { PaymentDialog } from './PaymentDialog'
 import { refetchContractAndCases } from './refetch-contract'
 import { InvoicePoolDialog } from './InvoicePoolDialog'
@@ -61,65 +61,34 @@ export function DealDetailPage() {
   /** stepper 跳转后的短暂高亮环（案件 id） */
   const [hl, setHl] = useState<number | null>(null)
   /**
-   * 正在预览的文件（null = 未选中）。
-   *
-   * 预览在右栏就地展开（案件文件夹的树在左栏案件卡里）：律师核对原文时要
-   * 对照同一栏的期限/当事人，跳走或弹窗都会让对照失效。合同文件与案件文件
-   * 共用这块画布（见 PickedFile 注释），AI 审查入口只对合同文件开放——审查
-   * 流水线从合同文件夹取文件。
+   * 「树里这一条是不是正在预览的那份」——诉讼页按当前选中文件的 kind/ownerId 比，
+   * 所以案件文件夹与合同文件夹共用同一个判定。
    */
-  const [picked, setPicked] = useState<PickedFile | null>(null)
+  const pickedStillMine = useCallback(
+    (ev: FolderEntryMutation, cur: PickedFile) => cur.kind === ev.kind && cur.ownerId === ev.ownerId,
+    [],
+  )
 
-  /**
-   * 画布里有未保存的改动时，关文档 / 换文件先拦一下。
-   *
-   * 三个入口都能弄丢编辑：卡片右上角的 X、点文件夹树里的另一份、从案件卡打开
-   * 别的文书。确认因此挂在页面这一层（见 useDocDirtyGuard 的注释）。
-   */
-  const doc = useDocDirtyGuard()
+  const {
+    picked,
+    setPicked,
+    immersive,
+    setImmersive,
+    closePreview,
+    onFolderMutated,
+    docSideBySide,
+    doc,
+  } = useDocPreview<PickedFile>({ isStale: pickedStillMine })
   const guardDirty = doc.guard
   const markDirty = doc.markDirty
-
-  /**
-   * 当前预览路径的实时快照。
-   *
-   * 文件夹树里改名/删除成功后要立刻判断「被弄掉的是不是正在看的那份」，
-   * 而回调是事件式的、读 state 会读到上一轮渲染的值。
-   */
-  const pickedRef = useRef<PickedFile | null>(null)
-  useEffect(() => {
-    pickedRef.current = picked
-  }, [picked])
-
-  /**
-   * 树里改名 / 删除后，把还在指着旧路径的画布关掉。
-   *
-   * 不处理的话：标题还是旧名字、高亮消失、画布仍可编辑，⌘S 打到一个不存在的
-   * 文件上——律师看到的是「保存成功」，而内容根本没写进去。
-   */
-  const onFolderMutated = useCallback(
-    (ev: FolderEntryMutation) => {
-      const cur = pickedRef.current
-      if (!cur || cur.kind !== ev.kind || cur.ownerId !== ev.ownerId) return
-      const hit =
-        ev.type === 'delete'
-          ? cur.subpath === ev.subpath || cur.subpath.startsWith(ev.subpath + '/')
-          : cur.subpath === ev.from || cur.subpath.startsWith(ev.from + '/')
-      if (!hit) return
-      setImmersive(false)
-      setPicked(null)
-      markDirty(false)
-      toast.info(ev.type === 'delete' ? '正在预览的文件已被删除，预览已关闭' : '文件已改名，预览已关闭')
-    },
-    [markDirty],
-  )
 
   /** 合同文件夹的文件 → 预览（右栏合同文件夹树） */
   const openContractFile = useCallback(
     (f: { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number }) => {
       guardDirty(() => setPicked({ ...f, kind: 'contract', ownerId: deal?.id ?? 0 }))
     },
-    [deal?.id, guardDirty],
+    // setPicked 是 useState 的 dispatcher（引用恒定），列进依赖只为满足 exhaustive-deps
+    [deal?.id, guardDirty, setPicked],
   )
   /** 案件文件夹的文件 → 预览（左栏案件卡；ownerId 是案件 id）。柯里化：案件 id 在 map 里 */
   const openCaseFile =
@@ -132,37 +101,32 @@ export function DealDetailPage() {
   const draft = useDraftDialog((f) => guardDirty(() => setPicked(f)))
 
   /**
-   * 文档栏形态（与非诉页同一套判定，见 DealDocLayout 的四态表）：
-   * 净宽够 → 文档在右（可拖宽）；净宽不够的宽屏 → 文档通栏置顶。
-   * 判定用**净宽**而不是视口：并排 AI 助手会吃掉数百像素，问视口等于没问。
+   * 新案件的默认名称。有双方当事人就拼「甲诉乙+案由」（律师的习惯写法），
+   * 否则退回「合同名·阶段」——一律给可改的默认值，不让律师从空框开始打字。
    */
-  const netWidth = useNetWidth()
-  const docSideBySide = Boolean(picked) && netWidth >= DOC_SIDE_BY_SIDE_MIN
-
-  /**
-   * 沉浸态（DealDocLayout 的 ④）：文档占满整宽与一屏高，案件链与档案排到其下。
-   * 状态放在页面这一层：关掉文档时要一起复位，否则下一份文件打开就是全屏。
-   */
-  const [immersive, setImmersive] = useState(false)
-  const closePreview = useCallback(() => {
-    guardDirty(() => {
-      setImmersive(false)
-      setPicked(null)
-    })
-  }, [guardDirty, setImmersive, setPicked])
+  const defaultCaseName = useMemo(() => {
+    const cause = ordered.at(-1)?.cause ?? ''
+    const a = deal?.parties?.client
+    const b = deal?.parties?.other
+    if (a && b) return `${a}诉${b}${cause}`
+    return `${deal?.client ?? ''}·${next ?? ''}`
+  }, [deal?.parties?.client, deal?.parties?.other, deal?.client, ordered, next])
 
   const steps = useMemo(() => chainSteps(plan), [plan])
   const ambiguous = useMemo(() => ambiguousStages(plan), [plan])
 
-  /* 记日志 / 新增期限已接真实表单（见 AddLogDialog / AddDeadlineDialog）；只剩
-     「新建下一程序案件」仍是占位 */
-  const soon = useCallback((what: string) => soonToast(what), [])
-  const onCreateNext = useCallback(() => soon('新建' + (next ?? '') + '案件'), [soon, next])
+  /* 三个创建动作都接了真实表单：记日志 / 新增期限 / 新建下一程序案件
+     （见 AddLogDialog / AddDeadlineDialog / AddCaseDialog） */
+  const onCreateNext = useCallback(() => setCaseOpen(true), [])
 
   /** 正在记日志的案件（null = 弹窗关闭）。日志归属**具体案件**，所以带 id + 程序名 */
   const [logTarget, setLogTarget] = useState<{ id: number; label: string } | null>(null)
   /** 新增期限弹窗（右栏「期限」节的 ＋ 新增） */
   const [deadlineOpen, setDeadlineOpen] = useState(false)
+  /** 新建下一程序案件弹窗 */
+  const [caseOpen, setCaseOpen] = useState(false)
+  /** 刚建好的案件 id：等它出现在 ordered 里再滚过去高亮（列表刷新是异步的） */
+  const [newCaseId, setNewCaseId] = useState<number | null>(null)
   /**
    * 期限/日志写完后要刷的三处：合同（合同直挂期限）、案件（时间轴里的日志与日志级
    * 期限）、案件直挂提醒（开庭这类）——缺一处就会出现「记了但列表里没有」。
@@ -199,6 +163,17 @@ export function DealDetailPage() {
     document.getElementById('case-' + caseId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     setHl(caseId)
   }, [])
+
+  /**
+   * 建案成功后滚过去。建完立刻 scrollIntoView 是找不到节点的（案件列表还在重取），
+   * 所以以「新 id 真的出现在 ordered 里」为触发条件，出现一次即用掉这次意图。
+   */
+  useEffect(() => {
+    if (newCaseId == null) return
+    if (!ordered.some((c) => c.id === newCaseId)) return
+    jump(newCaseId)
+    setNewCaseId(null)
+  }, [newCaseId, ordered, jump])
   useEffect(() => {
     if (hl == null) return
     const t = window.setTimeout(() => setHl(null), 1800)
@@ -332,6 +307,27 @@ export function DealDetailPage() {
 
       {/* 先开票后付款：票挂合同名下；关闭即失效未关联缓存，右栏计数同步 */}
       <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
+
+      {/* 新建下一程序案件：阶段固定为合同勾选、尚未立案的那个程序 */}
+      <AddCaseDialog
+        open={caseOpen}
+        contractId={contractId}
+        stage={next ?? ''}
+        stageCode={stageLabelsToCodes([next ?? ''])[0] ?? ''}
+        caseType={deal.caseType}
+        defaults={{
+          name: defaultCaseName,
+          cause: ordered.at(-1)?.cause ?? '',
+          amount: deal.amountNum != null ? String(deal.amountNum) : '',
+          court: ordered.at(-1)?.auth ?? '',
+        }}
+        onClose={() => setCaseOpen(false)}
+        onSaved={(caseId) => {
+          // 建完先刷合同+案件；滚动由上面的 effect 在「id 出现」时接手
+          refetchContractAndCases(queryClient, contractId)
+          setNewCaseId(caseId)
+        }}
+      />
 
       {/* 记日志：归属就是点它的那张案件卡；「同时设期限」走同一次请求 */}
       <AddLogDialog

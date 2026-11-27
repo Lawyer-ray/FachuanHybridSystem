@@ -1,13 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
-import { toast } from 'sonner'
 
 import { calendarKeys, fetchCalendarMonth } from '../api'
-import type { CalendarEvent } from '../api'
-import { eventReminderIds, formatCN, formatWeekdayCN, parseKey } from '../domain'
-import { useCompleteReminder } from '../hooks/use-complete-reminder'
-import { useDeleteReminder } from '../hooks/use-delete-reminder'
+import { formatCN, formatWeekdayCN, parseKey } from '../domain'
+import { useEventActions } from '../hooks/use-event-actions'
 import { CalendarPanel, type CalendarView } from './CalendarPanel'
 import { EventContextMenu } from './EventContextMenu'
 import { EventDetailDialog } from './EventDetailDialog'
@@ -100,67 +97,10 @@ export function HomePage() {
     void queryClient.invalidateQueries({ queryKey: calendarKeys.all })
   }, [queryClient])
 
-  /* 事件详情弹窗：日历格（桌面）、手机当日抽屉、今日卡三个入口共用一个。
-     以前只挂在 CalendarPanel 内部，手机端根本进不了日历格的事件行（只有圆点），
-     抽屉里点事项又只是 toast——窄屏上详情 / 勾完成 / 删除全都够不着。 */
-  const [detail, setDetail] = useState<CalendarEvent | null>(null)
-  // 快照保鲜：勾选 / 删除后 invalidate 重取，eventsByDay 换新对象时用同 id 的
-  // 新事件替换 detail 里的旧快照——否则弹窗停留在勾选前的完成态（网格刷新了、弹窗没跟上）
-  useEffect(() => {
-    setDetail((prev) => {
-      if (!prev) return prev
-      const fresh = (viewEventsByDay[prev.day] ?? []).find((e) => e.id === prev.id)
-      return fresh && fresh !== prev ? fresh : prev
-    })
-  }, [viewEventsByDay])
-  const handleOpenEvent = useCallback((e: CalendarEvent) => setDetail(e), [])
-  // 详情弹窗里的「打开案件」：案件详情页尚未实现，先给提示（按钮在无 case_id 时自身已禁用）
-  const handleOpenCase = useCallback((e: CalendarEvent) => {
-    toast.info(e.case_id ? `打开案件 #${e.case_id}：${e.title}` : '这条安排还没关联案件，可到「案件台账」里查看')
-  }, [])
-
-  /* 勾选完成：合并事件要带全部 member_ids 下发（eventReminderIds 保证口径）。
-     依赖取 mutate（useMutation 里引用稳定），别依赖整个 mutation 结果对象——
-     它每次渲染都换新引用，会让 useCallback 白做、连带击穿日历格的 memo */
-  const completeMutation = useCompleteReminder()
-  const { mutate: completeMutate } = completeMutation
-  const handleToggleComplete = useCallback(
-    (e: CalendarEvent) => {
-      completeMutate({ ids: eventReminderIds(e), completed: !e.is_completed })
-    },
-    [completeMutate],
-  )
-
-  /* 删除：同样全量下发 member_ids；入口按后端 can_delete 显隐（谁创建谁删）。
-     先关弹窗再下发——乐观移除 + 失败回滚由 hook 负责，弹窗停留会让已消失的事件看起来还"开着" */
-  const deleteMutation = useDeleteReminder()
-  const { mutate: deleteMutate } = deleteMutation
-  const handleDeleteEvent = useCallback(
-    (e: CalendarEvent) => {
-      setDetail(null)
-      deleteMutate({ ids: eventReminderIds(e) })
-    },
-    [deleteMutate],
-  )
-
-  /* 右键事件行的快捷菜单（标记完成 / 直接删除）：删除走同一个 mutation，
-     详情弹窗没开时 setDetail(null) 是 no-op */
-  const [ctxMenu, setCtxMenu] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null)
-  const handleEventContextMenu = useCallback((event: CalendarEvent, pos: { x: number; y: number }) => {
-    setCtxMenu({ event, ...pos })
-  }, [])
-
-  /* 事件级动作整包（详情 / 勾完成 / 右键菜单）：日历三层只传这一个对象。
-     必须 useMemo 固化引用——CalendarPanel → DayCell → DayEventRow 都套了 memo，
-     对象每次重建就等于没 memo。 */
-  const eventActions = useMemo(
-    () => ({
-      onOpenEvent: handleOpenEvent,
-      onToggleComplete: handleToggleComplete,
-      onEventContextMenu: handleEventContextMenu,
-    }),
-    [handleOpenEvent, handleToggleComplete, handleEventContextMenu],
-  )
+  /* 事件级动作整包（详情弹窗 / 勾完成 / 删除 / 右键菜单）：见 hooks/use-event-actions.ts。
+     传 viewEventsByDay 进去做快照保鲜用——**不是**再查一次日历，页面已经查过了。 */
+  const { detail, closeDetail, ctxMenu, closeCtxMenu, openEvent, openCase, toggleComplete, deleteEvent, eventActions } =
+    useEventActions(viewEventsByDay)
 
   const openAddDialog = useCallback(
     (day: string) => {
@@ -297,8 +237,8 @@ export function HomePage() {
               loading={todayQuery.isLoading}
               error={todayQuery.isError ? errMessage(todayQuery.error, '今日安排加载失败') : null}
               onRetry={() => void todayQuery.refetch()}
-              onOpenEvent={handleOpenEvent}
-              onToggleComplete={handleToggleComplete}
+              onOpenEvent={openEvent}
+              onToggleComplete={toggleComplete}
             />
             {/* 待认领（款项 + 发票）：财务给我发了东西、等我确认，比消息优先级高，放收件箱之上。
 
@@ -325,8 +265,8 @@ export function HomePage() {
         today={today}
         events={sheetDay ? (viewEventsByDay[sheetDay] ?? []) : []}
         onClose={() => setSheetDay(null)}
-        onOpenEvent={handleOpenEvent}
-        onToggleComplete={handleToggleComplete}
+        onOpenEvent={openEvent}
+        onToggleComplete={toggleComplete}
         onAdd={() => sheetDay && openAddDialog(sheetDay)}
       />
 
@@ -342,19 +282,19 @@ export function HomePage() {
           编辑保存后 invalidate 重取日历（事件可能挪了日子 / 月份） */}
       <EventDetailDialog
         event={detail}
-        onClose={() => setDetail(null)}
+        onClose={closeDetail}
         onSaved={invalidateCalendar}
-        onOpenCase={handleOpenCase}
-        onToggleComplete={handleToggleComplete}
-        onDelete={handleDeleteEvent}
+        onOpenCase={openCase}
+        onToggleComplete={toggleComplete}
+        onDelete={deleteEvent}
       />
 
       {/* 日历事件右键快捷菜单（标记完成 / 删除） */}
       <EventContextMenu
         target={ctxMenu}
-        onClose={() => setCtxMenu(null)}
-        onToggleComplete={handleToggleComplete}
-        onDelete={handleDeleteEvent}
+        onClose={closeCtxMenu}
+        onToggleComplete={toggleComplete}
+        onDelete={deleteEvent}
       />
     </>
   )

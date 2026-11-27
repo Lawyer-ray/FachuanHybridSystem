@@ -18,7 +18,8 @@ import { copyAllDocFiles } from './copy-files'
 import { SMS_STATUS_LABEL, stagesFor } from './stages'
 import { SmsSuccessBody } from './SmsSuccessBody'
 import { useDateCapture } from './use-date-capture'
-import { stageForDisplay, type UseCourtSmsResult } from './use-court-sms'
+import { stageForDisplay } from './stage-display'
+import type { UseCourtSmsResult } from './types'
 
 /** phase/outcome → 弹窗基调 */
 function toneOf(flow: UseCourtSmsResult): FlowTone {

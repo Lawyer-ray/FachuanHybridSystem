@@ -27,7 +27,6 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { errMessage } from '@/lib/errors'
-import { cn } from '@/lib/utils'
 import {
   decideBatch,
   decideRun,
@@ -35,9 +34,10 @@ import {
   listUnverified,
   type DecisionAction,
   type DecisionBatchOut,
-  type FindingOut,
   type VerifyRunOut,
 } from './api'
+import { coverageTextOf, pageCoverageOf } from './run-coverage'
+import { FindingLine } from './run-display'
 
 /** 每件最多摊开几条发现项：三条足够判断「这份到底改了什么」，再多就把清单变成一篇报告。 */
 const FINDINGS_SHOWN = 3
@@ -83,98 +83,6 @@ function withToggled(prev: ReadonlySet<number>, id: number, next: boolean): Read
 /** 待裁决清单的 query key（裁决成功后按它失效重拉）。 */
 function unverifiedKey(caseId: number | undefined) {
   return ['doc-verify-unverified', caseId ?? 'all'] as const
-}
-
-interface SeverityStyle {
-  /** 给律师看的档位名，与后端 `domain/contracts.py` 的 Severity 一一对应 */
-  label: string
-  chip: string
-  title: string
-}
-
-const SEVERITY_RED: SeverityStyle = {
-  label: '红线',
-  chip: 'bg-red-50 text-red-700 ring-red-200',
-  title: 'text-red-700',
-}
-const SEVERITY_YELLOW: SeverityStyle = {
-  label: '疑似',
-  chip: 'bg-amber-50 text-amber-700 ring-amber-200',
-  title: 'text-amber-800',
-}
-const SEVERITY_GRAY: SeverityStyle = {
-  label: '无法核对',
-  chip: 'bg-zinc-100 text-zinc-600 ring-zinc-200',
-  title: 'text-zinc-600',
-}
-
-/**
- * severity → 展示样式。三档是三种处置（红线不得放行 / 疑似待确认 / 无法核对），
- * 不是三种装饰。未知值按 gray 渲染：把不认识的档位画成红线会制造假警报。
- */
-function severityStyle(severity: string): SeverityStyle {
-  if (severity === 'red') return SEVERITY_RED
-  if (severity === 'yellow') return SEVERITY_YELLOW
-  return SEVERITY_GRAY
-}
-
-/** 覆盖度（后端 `domain/compare.py` 写、`services/verify/query.py` 原样回传；缺键按「不知道」处理）。 */
-interface PageCoverage {
-  total: number | null
-  withText: number | null
-  noText: number
-}
-
-function countOf(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
-function pageCoverageOf(coverage: VerifyRunOut['coverage']): PageCoverage {
-  const total = countOf(coverage.pages_total)
-  const noText = countOf(coverage.pages_no_text)
-  return {
-    total,
-    // 后端总会给 pages_with_text；缺的时候按总页数减缺文本页推，总页数也没有就承认不知道
-    withText: countOf(coverage.pages_with_text) ?? (total != null && noText != null ? total - noText : null),
-    noText: noText ?? 0,
-  }
-}
-
-/**
- * 覆盖率一句话。
- *
- * `pages_no_text > 0` 必须显式写出来：那几页是图片/无文本层，比对根本没看到内容，
- * 只写「覆盖率 8/10 页」会让律师以为是随便抽了 8 页看看。
- */
-function coverageTextOf(page: PageCoverage): string {
-  if (page.total == null || page.withText == null) return '覆盖度：未知'
-  const base = `覆盖率 ${page.withText}/${page.total} 页`
-  return page.noText > 0 ? `${base} · ${page.noText} 页无文本层，未核对` : base
-}
-
-/** 一条发现项：档位徽标 + 标题 + `expected → actual`（后端为空串时不渲染箭头）。 */
-function FindingLine({ finding }: { finding: FindingOut }) {
-  const style = severityStyle(finding.severity)
-  const pair =
-    finding.expected || finding.actual
-      ? `${finding.expected || '（空）'} → ${finding.actual || '（空）'}`
-      : ''
-  return (
-    <div className="flex items-start gap-1.5 text-[11.5px] leading-relaxed">
-      <span
-        className={cn(
-          'mt-px flex-none rounded px-1 text-[10px] leading-4 ring-1 ring-inset',
-          style.chip,
-        )}
-      >
-        {style.label}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className={cn('font-medium', style.title)}>{finding.title}</span>
-        {pair && <span className="ml-1 text-muted-foreground">{pair}</span>}
-      </span>
-    </div>
-  )
 }
 
 interface RunRowProps {

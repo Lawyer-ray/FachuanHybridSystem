@@ -32,7 +32,8 @@ import { toast } from 'sonner'
 
 import type { CourtSmsDetail } from '../../../api'
 import { CourtSmsFlowDialog } from './CourtSmsFlowDialog'
-import { stageForDisplay, type UseCourtSmsResult } from './use-court-sms'
+import { stageForDisplay } from './stage-display'
+import type { UseCourtSmsResult } from './types'
 
 function detail(over: Partial<CourtSmsDetail> = {}): CourtSmsDetail {
   return {

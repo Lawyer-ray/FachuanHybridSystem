@@ -305,6 +305,23 @@ describe('保存', () => {
     await waitFor(() => expect(screen.getByTestId('paste-zone').getAttribute('data-disabled')).toBe('true'))
     expect((screen.getByPlaceholderText('9000') as HTMLInputElement).disabled).toBe(true)
   })
+
+  // paymentId 存在 use-payment-save 里，关闭路径必须把它清掉：否则再开一次弹窗
+  // 字段还是锁的、页脚还写着「完成」，等于记不了第二笔
+  it('保存后点「完成」关闭再打开：字段重新可编辑、页脚回到「保存收款」', async () => {
+    savePaymentMock.mockResolvedValue({ id: 55, invoices: [] })
+    const { rerender } = setup()
+    fillForm()
+    fireEvent.click(screen.getByRole('button', { name: /保存收款/ }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '完成' })).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: '完成' }))
+    rerender(<PaymentDialog open={false} contractId={7} fixedAmount={100000} receivedAmount={20000} onClose={vi.fn()} onSaved={vi.fn()} />)
+    rerender(<PaymentDialog open contractId={7} fixedAmount={100000} receivedAmount={20000} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: /保存收款/ })).toBeTruthy()
+    expect((screen.getByPlaceholderText('9000') as HTMLInputElement).disabled).toBe(false)
+  })
 })
 
 describe('只有一笔收款时自动关联待归属发票', () => {

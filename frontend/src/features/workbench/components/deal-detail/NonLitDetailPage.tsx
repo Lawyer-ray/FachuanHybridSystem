@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 
 import { toast } from 'sonner'
 
+import { stageLabelsToCodes } from '../../contract-enums'
+import { AddCaseDialog } from './AddCaseDialog'
 import { AddDeadlineDialog } from './AddDeadlineDialog'
-import { DealDocLayout, DOC_SIDE_BY_SIDE_MIN, type PickedFile } from './DealDocLayout'
+import { DealDocLayout, type PickedFile } from './DealDocLayout'
 import type { FolderEntryMutation } from './folder-tree-types'
 import { UnsavedChangesDialog } from './UnsavedChangesDialog'
-import { useDocDirtyGuard } from './use-doc-dirty-guard'
+import { useDocPreview } from './use-doc-preview'
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
 import { ContractFileOverlays } from './ContractFileOverlays'
@@ -27,7 +29,6 @@ import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-
 import { refetchContractAndCases } from './refetch-contract'
 import { addDeliverable } from './special-phase-crud'
 import { flattenTree, patchPhase, type PhaseNode } from './special-phase-tree'
-import { useNetWidth } from './use-net-width'
 import { Card, DetailError, RailSection } from './ui'
 
 /**
@@ -74,6 +75,8 @@ export function NonLitDetailPage() {
   const [payOpen, setPayOpen] = useState(false)
   /** 新增期限弹窗（非诉没有案件卡，期限一律挂合同） */
   const [deadlineOpen, setDeadlineOpen] = useState(false)
+  /** 新建下一程序案件（非诉项目通常没有阶段，只有数据漂移时才会出现这一行） */
+  const [caseOpen, setCaseOpen] = useState(false)
   const onScheduleChanged = useCallback(() => {
     const id = deal?.id
     if (id == null) return
@@ -83,24 +86,28 @@ export function NonLitDetailPage() {
   const [invoiceOpen, setInvoiceOpen] = useState(false)
   /** 正在发起审查的文件（null = 抽屉关闭） */
   const [reviewTarget, setReviewTarget] = useState<{ subpath: string; name: string } | null>(null)
-  /** 右栏页内预览的文件（null = 未选中）；高频「看一眼」不写 URL、不堆历史 */
-  const [picked, setPicked] = useState<PickedFile | null>(null)
-  /** 沉浸态（DealDocLayout 的 ④）：关掉文档时一并复位，否则下一份打开就是全屏 */
-  const [immersive, setImmersive] = useState(false)
-  /** 画布有未保存改动时，关文档 / 换文件先拦一下（见 useDocDirtyGuard） */
-  const doc = useDocDirtyGuard()
-  const guardDirty = doc.guard
-  const markDirty = doc.markDirty
-  const closePreview = useCallback(() => {
-    guardDirty(() => {
-      setImmersive(false)
-      setPicked(null)
-    })
-  }, [guardDirty, setImmersive, setPicked])
+  /**
+   * 非诉页的预览只有合同文件夹这一个来源，所以「是否同一份」只认 contract + 本项目 id
+   * （诉讼页按选中文件的 kind/ownerId 比，见 use-doc-preview 的说明）。
+   * 必须在 hook 之前定义：hook 会把它收进 onFolderMutated 的依赖里。
+   */
+  const contractFileStale = useCallback(
+    (ev: FolderEntryMutation, _cur: PickedFile) => ev.kind === 'contract' && ev.ownerId === deal?.id,
+    [deal?.id],
+  )
 
-  /** 净宽（100vw − 助手宽度）：决定「文档在右」还是「文档通栏」（见 use-net-width） */
-  const netWidth = useNetWidth()
-  const docSideBySide = Boolean(picked) && netWidth >= DOC_SIDE_BY_SIDE_MIN
+  const {
+    picked,
+    setPicked,
+    immersive,
+    setImmersive,
+    openPreview,
+    closePreview,
+    onFolderMutated,
+    docSideBySide,
+    doc,
+  } = useDocPreview<PickedFile>({ isStale: contractFileStale })
+  const markDirty = doc.markDirty
 
   const svc = useServiceItems('contract', deal?.id ?? null, { sourceSubpath: manualSource })
   const serviceItems = svc.items
@@ -118,32 +125,6 @@ export function NonLitDetailPage() {
    * 后者是阶段与交付物）。没有这一层，泰国租赁项目会落到「设计阶段 / 校验交付物」卡上。
    */
   const isCrossBorder = isSpecial && (deal?.client ?? '').includes('合同审查')
-
-  const openPreview = useCallback((f: PickedFile) => guardDirty(() => setPicked(f)), [guardDirty])
-
-  /** 预览路径的实时快照（树里改名/删除回调要读「现在开着哪份」） */
-  const pickedRef = useRef<PickedFile | null>(null)
-  useEffect(() => {
-    pickedRef.current = picked
-  }, [picked])
-
-  /** 树里改名/删除后，把还指着旧路径的画布关掉（否则 ⌘S 打到不存在的文件上） */
-  const onFolderMutated = useCallback(
-    (ev: FolderEntryMutation) => {
-      const cur = pickedRef.current
-      if (!cur || ev.kind !== 'contract' || ev.ownerId !== deal?.id) return
-      const hit =
-        ev.type === 'delete'
-          ? cur.subpath === ev.subpath || cur.subpath.startsWith(ev.subpath + '/')
-          : cur.subpath === ev.from || cur.subpath.startsWith(ev.from + '/')
-      if (!hit) return
-      setImmersive(false)
-      setPicked(null)
-      markDirty(false)
-      toast.info(ev.type === 'delete' ? '正在预览的文件已被删除，预览已关闭' : '文件已改名，预览已关闭')
-    },
-    [deal?.id, markDirty],
-  )
 
   useDealCopilotContext(deal, '非诉项目详情')
 
@@ -353,7 +334,7 @@ export function NonLitDetailPage() {
                 <button
                   type="button"
                   className="ml-3 cursor-pointer underline underline-offset-3 transition-colors hover:text-foreground"
-                  onClick={() => soonToast('新建' + next)}
+                  onClick={() => setCaseOpen(true)}
                 >
                   新建{next}
                 </button>
@@ -380,6 +361,17 @@ export function NonLitDetailPage() {
       />
 
       <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
+
+      <AddCaseDialog
+        open={caseOpen}
+        contractId={deal.id}
+        stage={next ?? ''}
+        stageCode={stageLabelsToCodes([next ?? ''])[0] ?? ''}
+        caseType={deal.caseType}
+        defaults={{ name: `${deal.client}·${next ?? ''}`, cause: '', amount: '', court: '' }}
+        onClose={() => setCaseOpen(false)}
+        onSaved={() => refetchContractAndCases(qc, deal.id)}
+      />
 
       <AddDeadlineDialog
         open={deadlineOpen}
