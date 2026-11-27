@@ -279,112 +279,35 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
         return response
 
     def _submit_to_sms_view(self, request: HttpRequest, pk: int) -> Any:  # pragma: no cover
-        """将收件箱消息的附件提交到短信处理流程"""
-        import re
-
+        """将收件箱消息的附件提交到短信处理流程（薄壳，业务在 InboxSmsBridgeService）"""
         from django.contrib import messages
         from django.shortcuts import redirect
         from django.urls import reverse
 
-        from apps.automation.models import CourtSMS, CourtSMSStatus
-        from apps.core.tasking import submit_task
+        from apps.core.exceptions import ValidationException
+        from apps.message_hub.services.inbox_sms_bridge import InboxSmsBridgeService
 
         msg = InboxMessage.objects.filter(pk=pk).first()
         if msg is None:
             messages.error(request, "消息不存在")
             return redirect("admin:message_hub_inboxmessage_changelist")
 
-        # 收集附件本地路径；本地文件缺失时按需重新下载兜底（与预览/下载一致）
-        from apps.message_hub.services import get_fetcher
-        from apps.message_hub.services.base import resolve_media_attachment_path as _resolve_local_attachment_path
-
-        fetcher = get_fetcher(msg.source.source_type)
-        attachment_paths: list[str] = []
-        missing_count = 0
-        if isinstance(msg.attachments_meta, list):
-            for att in msg.attachments_meta:
-                part_index = int(att.get("part_index", -1))
-                resolved = _resolve_local_attachment_path(str(att.get("local_path", "")))
-                if resolved is None or not resolved.exists():
-                    try:
-                        fetcher.download_attachment(msg.source, msg.message_id, part_index)
-                    except Exception as e:
-                        logger.warning(
-                            "收件箱提交到短信-重新下载附件失败: inbox_pk=%s part_index=%s, error=%s",
-                            pk,
-                            part_index,
-                            e,
-                        )
-                    resolved = _resolve_local_attachment_path(str(att.get("local_path", "")))
-                if resolved is not None and resolved.exists():
-                    attachment_paths.append(str(resolved))
-                else:
-                    missing_count += 1
-
-        if not attachment_paths:
-            messages.error(request, "该消息没有可处理的附件文件")
+        try:
+            result = InboxSmsBridgeService().submit(msg)
+        except ValidationException as exc:
+            # 无附件是现场最常见的一条，沿用原来那句人话；其余 code 直接透出原因
+            text = "该消息没有可处理的附件文件" if exc.code == "NO_ATTACHMENTS" else str(exc.message)
+            messages.error(request, text)
             return redirect("admin:message_hub_inboxmessage_change", pk)
 
-        # 构造短信内容（用于记录来源）
-        content = f"[来自收件箱] {msg.subject or '(无主题)'}\n发件人: {msg.sender}\n消息ID: {msg.message_id}"
-
-        # 幂等去重：同一收件箱消息重复点击提交时返回既有短信记录，不重复处理
-        from apps.automation.services.sms.court_sms_delivery_dedup import build_delivery_event_key, build_lookup_keys
-
-        duplicate_sms = (
-            CourtSMS.objects.filter(delivery_event_key__in=build_lookup_keys(content, msg.received_at))
-            .order_by("id")
-            .first()
-        )
-        if duplicate_sms is not None:
-            messages.info(request, f"该消息已提交过短信处理（SMS #{duplicate_sms.id}），已跳过重复提交")
-            return redirect(reverse("admin:automation_courtsms_change", args=[duplicate_sms.id]))
-
-        # 从主题提取案号（全角/半角括号）
-        case_numbers: list[str] = []
-        if msg.subject:
-            pattern = r"[（(](\d{4})[）)][^）)]*?号"
-            matches = re.findall(pattern, msg.subject)
-            for year in matches:
-                # 提取完整案号
-                full_pattern = rf"[（(]{year}[）)].*?号"
-                full_match = re.search(full_pattern, msg.subject)
-                if full_match:
-                    case_numbers.append(full_match.group())
-
-        # 创建 CourtSMS 记录，直接进入匹配阶段
-        sms = CourtSMS.objects.create(
-            content=content,
-            received_at=msg.received_at,
-            status=CourtSMSStatus.MATCHING,
-            document_file_paths=attachment_paths,
-            case_numbers=case_numbers,
-            delivery_event_key=build_delivery_event_key(content, msg.received_at),
-        )
-
-        logger.info(
-            "收件箱消息提交到短信处理: inbox_pk=%s, sms_id=%s, attachments=%d, redownload_missing=%d, case_numbers=%s",
-            pk,
-            sms.id,
-            len(attachment_paths),
-            missing_count,
-            case_numbers,
-        )
-
-        # 提交异步任务，从匹配阶段开始处理
-        submit_task(
-            "apps.automation.workers.court_sms_tasks.process_sms_from_matching",
-            sms.id,
-            task_name=f"court_sms_from_inbox_{pk}",
-        )
-
-        messages.success(
-            request,
-            f"已提交到短信处理（SMS #{sms.id}），共 {len(attachment_paths)} 个附件，正在后台处理...",
-        )
-
-        # 跳转到 CourtSMS 详情页
-        return redirect(reverse("admin:automation_courtsms_change", args=[sms.id]))
+        if not result.created:
+            messages.info(request, f"该消息已提交过短信处理（SMS #{result.sms.id}），已跳过重复提交")
+        else:
+            messages.success(
+                request,
+                f"已提交到短信处理（SMS #{result.sms.id}），共 {result.attachment_count} 个附件，正在后台处理...",
+            )
+        return redirect(reverse("admin:automation_courtsms_change", args=[result.sms.id]))
 
     @admin.display(description="来源")
     def source_badge(self, obj: InboxMessage) -> SafeString:  # pragma: no cover

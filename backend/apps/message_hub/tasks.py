@@ -7,6 +7,7 @@ import socket
 from datetime import datetime, timedelta
 
 from django.core.cache import cache
+from django.db import DatabaseError
 from django.utils import timezone
 
 logger = logging.getLogger("apps.message_hub")
@@ -73,6 +74,17 @@ def sync_source_by_id(source_id: int, window_days: int | None = None) -> None:
     fetcher = get_fetcher(source.source_type)
     count = fetcher.fetch_new_messages(source, window_days=window_days)
     logger.info("同步完成: source=%s, 新消息=%d, window_days=%s", source.display_name, count, window_days)
+
+    # 自动通道只能挂在这里：一张网 fetcher 用 bulk_create 建消息，post_save 信号
+    # 根本不会触发；手动同步与定时同步又都汇聚到本函数。桥接失败绝不能让同步失败，
+    # 所以整段兜住——但只兜具名异常族（CLAUDE.md 新代码不许新增宽 except）。
+    try:
+        from apps.core.exceptions import ValidationException
+        from apps.message_hub.services.inbox_sms_bridge import auto_submit_for_source
+
+        auto_submit_for_source(source)
+    except (ValidationException, DatabaseError, OSError, RuntimeError, ValueError) as exc:
+        logger.warning("收件箱自动提交短信流程失败（不影响本轮同步）: source=%s error=%s", source.display_name, exc)
 
 
 def _is_source_due(*, poll_interval_minutes: int, last_sync_at: datetime | None, now: datetime) -> bool:

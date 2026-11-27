@@ -38,6 +38,21 @@ class MessageRenameOut(MessageAckOut):
     subject: str
 
 
+class SubmitToSmsOut(Schema):
+    """收件箱消息提交到法院短信流程的结果。
+
+    ``created=False`` 表示命中幂等，``sms_id`` 是既有那条记录；
+    ``skipped`` 是取不回的附件（``[{"name": ..., "reason": ...}]``），
+    非空但记录已建成时前端只需提示，不需要重试。
+    """
+
+    success: bool = True
+    sms_id: int
+    created: bool
+    attachment_count: int
+    skipped: list[dict[str, str]] = []
+
+
 class InboxMessageOut(SchemaMixin, Schema):
     """收件箱消息列表项。"""
 

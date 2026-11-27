@@ -1,4 +1,4 @@
-import { Download, Eye, Loader2, PackagePlus, ArrowRight, ExternalLink } from 'lucide-react'
+import { Download, Eye, Loader2, PackagePlus, ArrowRight, ExternalLink, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
 
@@ -7,7 +7,7 @@ import { errMessage } from '@/lib/errors'
 import { formatBytes } from '@/lib/format'
 import { getInboxMessage } from '../api'
 import { attachmentDisplayName, attachmentPagesLabel } from '../domain'
-import { useConvertToPack } from '../hooks/use-inbox'
+import { useConvertToPack, useSubmitToSms } from '../hooks/use-inbox'
 import { useAttachmentOpener } from '../hooks/use-attachment-opener'
 import { useAttachmentPreview } from '../hooks/use-attachment-preview'
 import { canConvert, isPackSource, packIdOf, type InboxDetail, type PackJudgement } from '../types'
@@ -43,13 +43,23 @@ export function MessageContent({
   onConverted,
   /** 已存在可打开的材料包时点「打开」 */
   onOpenPack,
+  onSubmittedToSms,
 }: {
   row: MessageContentRow
   /** 转成材料包后回调；不传则不给「转材料包」按钮（调用方自己决定跳转） */
   onConverted?: (packId: number) => void
   onOpenPack?: (packId: number) => void
+  /**
+   * 提交短信流程成功后的回调（可选，纯通知）。
+   *
+   * 与 `onConverted` 不同，**不传也照常给按钮**：提交的结果（新建/已提交过）
+   * 完全由按钮自己的 toast 传达，回调只是给外层补动作（关抽屉、打点之类）。
+   * 若把按钮判存挂在回调上，首页就地展开与抽屉两处调用方（都不传）就永远看不到它。
+   */
+  onSubmittedToSms?: () => void
 }) {
   const convert = useConvertToPack()
+  const submitToSms = useSubmitToSms()
   const packId = packIdOf(row)
   const packSource = isPackSource(row)
 
@@ -75,7 +85,7 @@ export function MessageContent({
           材料包本身就是项目的产物，反向匹配没有意义。 */}
       {row.source_type === 'imap' && detail.data && <ContractMatchPanel messageId={detail.data.id} />}
 
-      {/* 动作区：材料包 → 打开；可转 → 转材料包；其余说明为什么没有动作 */}
+      {/* 动作区：材料包 → 打开；可转 → 转材料包；一张网送达 → 提交短信流程；其余说明为什么没有动作 */}
       <div className="flex items-center gap-2 border-t border-border/60 pt-2.5">
         {packId != null && onOpenPack && (
           <button
@@ -101,6 +111,19 @@ export function MessageContent({
           >
             {convert.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <PackagePlus className="h-3 w-3" />}
             转材料包并打开
+          </button>
+        )}
+        {/* 一张网送达 → 法院短信流程：与「转材料包」并列的第二条去处。
+            只在有附件时给：短信流程要靠附件做文书识别，没附件进去只会建一条空记录。 */}
+        {row.source_type === 'court_inbox' && row.has_attachments && (
+          <button
+            type="button"
+            onClick={() => submitToSms.mutate(row.id, { onSuccess: () => onSubmittedToSms?.() })}
+            disabled={submitToSms.isPending}
+            className="flex h-[28px] items-center gap-1.5 rounded-[7px] bg-secondary px-2.5 text-[12px] font-semibold text-foreground transition-colors hover:bg-secondary/70 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {submitToSms.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+            提交短信流程
           </button>
         )}
         {packId == null && !canConvert(row) && (

@@ -42,6 +42,12 @@ class MessageSource(models.Model):
     is_enabled = models.BooleanField(default=True, verbose_name="启用")
     poll_interval_minutes = models.PositiveIntegerField(default=30, verbose_name="轮询间隔（分钟）")
     sync_since = models.DateTimeField(verbose_name="同步起始时间", help_text="只拉取此时间之后的消息")
+    auto_sms_since = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="自动提交短信流程起始时间",
+        help_text="收到时间不早于该时刻的收件箱消息会自动提交到法院短信处理流程；留空=不自动",
+    )
 
     # IMAP 专用：主机名（覆盖从 credential.url 推断的值）和最后同步 UID
     imap_host = models.CharField(
