@@ -192,3 +192,61 @@ export function storeAnswerAgents(sessionId: string | null, kinds: string[]): vo
     /* 无 localStorage 环境忽略 */
   }
 }
+
+/**
+ * 新会话建档时，把「新对话」里勾的 AI 与选的模型搬到这个会话名下。
+ *
+ * ## 为什么必须有这一步（2026-11-27 用户报「刷新后已选 0 个」的根因）
+ *
+ * 写盘用 `get().sessionId`：律师在**新对话**里勾选时它还是 null，于是落在
+ * `copilot:agents:new`；发出第一条消息才建会话、`sessionId` 才变成真 id。
+ * 而 `hydrateAnswerSelection(真 id)` 读的是 `copilot:agents:<真 id>` ——
+ * 键不同 → 读到空 → **当场把刚勾的选择清成 0**，刷新之后照样是 0。
+ * 读侧本身没错，缺的就是这一次搬家。
+ *
+ * ## 两个刻意的选择
+ *
+ * 1. **只搬不删**：`copilot:agents:new` 留着，它语义是「下一条新对话的初值」，
+ *    律师连续开几个新对话时不必每次重勾。
+ * 2. **只补空位**：目标会话已经有自己的选择就一律不覆盖——否则把 A 会话的偏好
+ *    带进一个已经调过的会话，比不记住更让人意外。
+ *
+ * @returns 实际搬了哪几类（供调用方记日志/测试断言）
+ */
+export function seedAnswerSelectionFromNew(
+  sessionId: string,
+): { agents: boolean; models: boolean } {
+  const moved = { agents: false, models: false }
+  if (!sessionId) return moved
+  try {
+    const agents = localStorage.getItem(answerAgentsKey(null))
+    if (agents && localStorage.getItem(answerAgentsKey(sessionId)) === null) {
+      localStorage.setItem(answerAgentsKey(sessionId), agents)
+      moved.agents = true
+    }
+    const models = localStorage.getItem(answerModelsKey(null))
+    if (models && localStorage.getItem(answerModelsKey(sessionId)) === null) {
+      localStorage.setItem(answerModelsKey(sessionId), models)
+      moved.models = true
+    }
+  } catch {
+    /* 无 localStorage 环境忽略 */
+  }
+  return moved
+}
+
+/**
+ * 清掉「新对话」那对键（登出 / 401 刷新失败时调）。
+ *
+ * 不清的后果不是丢数据，是**串账号**：`reset()` 把 sessionId 置回 null 之后，
+ * hydrate 会读 `copilot:agents:new`，于是上一个账号勾过的 AI 出现在下一个账号
+ * 的输入区里。（模型那条同理。）
+ */
+export function clearNewAnswerSelection(): void {
+  try {
+    localStorage.removeItem(answerAgentsKey(null))
+    localStorage.removeItem(answerModelsKey(null))
+  } catch {
+    /* 无 localStorage 环境忽略 */
+  }
+}

@@ -30,7 +30,14 @@ vi.mock('../api', () => ({
   uploadAttachment: vi.fn(),
 }))
 
+import * as copilotApi from '../api'
+import {
+  readStoredAnswerAgents,
+  readStoredAnswerModels,
+  seedAnswerSelectionFromNew,
+} from '../persistence'
 import { useCopilot } from './index'
+import { ensureSession } from './turn-send'
 
 /** 最小 localStorage（node 环境可能没有；持久化层对缺失静默降级，这里要验有值的情况） */
 function installLocalStorage(): void {
@@ -132,5 +139,81 @@ describe('勾选的后端也按会话记住', () => {
     useCopilot.getState().hydrateAnswerSelection('s1')
     expect(useCopilot.getState().answerAgents).toEqual(['pi'])
     expect(useCopilot.getState().answerModels).toEqual({ pi: 'kimi-2.6' })
+  })
+})
+
+/**
+ * 2026-11-27 用户报「刷新后已选 0 个」的回归测试。
+ *
+ * 真实链路的问题不在「按会话存」这个设计，而在**写键与读键不是同一个**：
+ * 律师在**新对话**里勾选时 `sessionId` 还是 null，写盘落在 `copilot:agents:new`；
+ * 发出第一条消息才建会话、`sessionId` 变成真 id，随后 `hydrateAnswerSelection(真 id)`
+ * 读 `copilot:agents:<真 id>` —— 空 → 当场清成 0，刷新照样 0。
+ *
+ * 所以这一组用例必须让「写盘时的 id ≠ hydrate 时的 id」，上一版的用例全是同一个
+ * id 先写后读，结构上测不到这条。
+ */
+describe('新建会话时「新对话」的勾选要跟着搬家（v27.27.2 回归）', () => {
+  it('新对话里勾完再发第一条消息：勾选与模型进会话，刷新后仍在', () => {
+    // ① 新对话：sessionId 为空，写盘落在 copilot:agents:new / copilot:models:new
+    useCopilot.setState({ sessionId: null, answerAgents: [], answerModels: {} })
+    useCopilot.getState().toggleAnswerAgent('qoder')
+    useCopilot.getState().setAnswerModel('qoder', 'fachuan-gw/kimi-2.6')
+
+    // ② 建会话（ensureSession 里的那一步：先搬家，再 set sessionId）
+    seedAnswerSelectionFromNew('s-new')
+    useCopilot.setState({ sessionId: 's-new' })
+
+    // ③ 模拟刷新：内存清空，只留 localStorage，再按真 id 装回
+    useCopilot.setState({ answerAgents: [], answerModels: {} })
+    useCopilot.getState().hydrateAnswerSelection('s-new')
+
+    expect(useCopilot.getState().answerAgents).toEqual(['qoder'])
+    expect(useCopilot.getState().answerModels).toEqual({ qoder: 'fachuan-gw/kimi-2.6' })
+  })
+
+  it('目标会话已有自己的选择时绝不覆盖（只补空位）', () => {
+    localStorage.setItem('copilot:agents:new', JSON.stringify(['qoder']))
+    localStorage.setItem('copilot:models:new', JSON.stringify({ qoder: 'q-model' }))
+    localStorage.setItem('copilot:agents:s1', JSON.stringify(['pi']))
+    localStorage.setItem('copilot:models:s1', JSON.stringify({ pi: 'pi-model' }))
+
+    seedAnswerSelectionFromNew('s1')
+
+    expect(readStoredAnswerAgents('s1')).toEqual(['pi'])
+    expect(readStoredAnswerModels('s1')).toEqual({ pi: 'pi-model' })
+  })
+
+  it('搬完不删 new 键：下一个新对话仍按上次的偏好起手', () => {
+    localStorage.setItem('copilot:agents:new', JSON.stringify(['qoder']))
+    seedAnswerSelectionFromNew('s2')
+    expect(readStoredAnswerAgents('s2')).toEqual(['qoder'])
+    expect(localStorage.getItem('copilot:agents:new')).toBe(JSON.stringify(['qoder']))
+  })
+
+  it('登出/401 的 reset 要清掉 new 键，否则串账号', () => {
+    useCopilot.setState({ sessionId: null, answerAgents: [], answerModels: {} })
+    useCopilot.getState().toggleAnswerAgent('qoder')
+    useCopilot.getState().setAnswerModel('qoder', 'q-model')
+    expect(localStorage.getItem('copilot:agents:new')).not.toBeNull()
+
+    useCopilot.getState().reset()
+
+    expect(localStorage.getItem('copilot:agents:new')).toBeNull()
+    expect(localStorage.getItem('copilot:models:new')).toBeNull()
+  })
+
+  it('端到端：ensureSession 建完会话后，新 id 名下已经有这次的勾选', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue({ session_id: 's-e2e' } as never)
+    useCopilot.setState({ sessionId: null, answerAgents: [], answerModels: {} })
+    useCopilot.getState().toggleAnswerAgent('qoder')
+
+    const id = await ensureSession('qoder', null, useCopilot.getState, useCopilot.setState)
+
+    expect(id).toBe('s-e2e')
+    expect(readStoredAnswerAgents('s-e2e')).toEqual(['qoder'])
+    // 紧接着 hydrate（真实链路由 use-active-session 的 effect 触发）不能把它清掉
+    useCopilot.getState().hydrateAnswerSelection('s-e2e')
+    expect(useCopilot.getState().answerAgents).toEqual(['qoder'])
   })
 })
