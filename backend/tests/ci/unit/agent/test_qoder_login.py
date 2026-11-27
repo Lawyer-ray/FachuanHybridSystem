@@ -201,7 +201,8 @@ def test_ensure_logged_in_passes_when_credential_present(_isolated_home: Path) -
     import asyncio
 
     _write_credential({"name": "法穿"})
-    asyncio.run(ensure_logged_in())  # 不抛
+    # 凭据在 → 静默放行：既不抛 AUTH，也不返回任何「去登录」动作（返回契约为 None）
+    assert asyncio.run(ensure_logged_in()) is None
 
 
 # ── 9. 账号池：轮转、冷却、增删 ────────────────────────────────────────
