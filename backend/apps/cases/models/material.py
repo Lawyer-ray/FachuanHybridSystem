@@ -98,6 +98,18 @@ class CaseMaterial(models.Model):
     source_message_id = models.PositiveIntegerField(null=True, blank=True, verbose_name="来源材料包消息ID")
     source_segment_ref = models.CharField(max_length=64, blank=True, default="", verbose_name="来源分段标识")
     source_file_hash = models.CharField(max_length=64, blank=True, default="", verbose_name="绑定附件SHA-256")
+    parsing_task = models.ForeignKey(
+        "document_parsing.DocumentParsingTask",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="case_materials",
+        verbose_name="解析任务",
+        help_text=(
+            "归案时登记的那次解析。起草取材料摘录时**优先按这条 FK** 精确取，"
+            "取不到才退回按文件名匹配——文件名会撞，撞了就等于把别的案子的正文喂给模型"
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
 
     class Meta:
