@@ -154,3 +154,41 @@ export function storeAnswerModels(sessionId: string | null, models: Record<strin
     /* 无 localStorage 环境忽略 */
   }
 }
+
+/** 会话 id → 勾选后端的存储键（与模型同一套「按会话」口径） */
+function answerAgentsKey(sessionId: string | null): string {
+  return `copilot:agents:${sessionId || 'new'}`
+}
+
+/**
+ * 读「这个会话上次勾了哪几个 AI」（本轮参与方）。
+ *
+ * 与模型同理：勾选只活在前端内存里的话，刷新一次就退回「不勾＝只跑会话默认」，
+ * 多答用户每开一次都要重勾。**顺序有意义**（第一栏决定新会话归属），所以存数组
+ * 而不是集合。
+ */
+export function readStoredAnswerAgents(sessionId: string | null): string[] {
+  try {
+    const raw = localStorage.getItem(answerAgentsKey(sessionId))
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    // 只信字符串，去重保序（上限由 store 再按 MAX_ANSWERS 截断——这里不知道那个常量）
+    const out: string[] = []
+    for (const item of parsed) {
+      if (typeof item === 'string' && item && !out.includes(item)) out.push(item)
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
+export function storeAnswerAgents(sessionId: string | null, kinds: string[]): void {
+  try {
+    if (kinds.length === 0) localStorage.removeItem(answerAgentsKey(sessionId))
+    else localStorage.setItem(answerAgentsKey(sessionId), JSON.stringify(kinds))
+  } catch {
+    /* 无 localStorage 环境忽略 */
+  }
+}

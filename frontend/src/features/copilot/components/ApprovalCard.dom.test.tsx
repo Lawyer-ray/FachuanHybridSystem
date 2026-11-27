@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const storeMock = vi.hoisted(() => ({
   // 模型记忆：切会话时装回本地选择、用服务端 llm_model 兜底（见 store/answers.ts）
-  hydrateAnswerModels: vi.fn(),
+  hydrateAnswerSelection: vi.fn(),
   seedAnswerModel: vi.fn(), decide: vi.fn() }))
 vi.mock('../store', () => ({
   useCopilot: (sel: (s: typeof storeMock) => unknown) => sel(storeMock),

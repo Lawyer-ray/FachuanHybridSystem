@@ -24,7 +24,12 @@
  * 否则请求会在后端 400，而那时用户已经敲了回车。
  */
 
-import { readStoredAnswerModels, storeAnswerModels } from '../persistence'
+import {
+  readStoredAnswerAgents,
+  readStoredAnswerModels,
+  storeAnswerAgents,
+  storeAnswerModels,
+} from '../persistence'
 import { MAX_ANSWERS } from '../domain'
 import type { CopilotState } from '../types'
 import type { Slice } from './slice'
@@ -35,7 +40,7 @@ export type AnswersSlice = Pick<
   | 'toggleAnswerAgent'
   | 'answerModels'
   | 'setAnswerModel'
-  | 'hydrateAnswerModels'
+  | 'hydrateAnswerSelection'
   | 'seedAnswerModel'
 >
 
@@ -47,12 +52,16 @@ export const createAnswersSlice: Slice<AnswersSlice> = (set, get) => ({
     const current = get().answerAgents
     if (current.includes(kind)) {
       // 取消：从清单移除即回到「未选择」（`[]` = 用会话默认后端单跑）
-      set({ answerAgents: current.filter((k) => k !== kind) })
+      const next = current.filter((k) => k !== kind)
+      set({ answerAgents: next })
+      storeAnswerAgents(get().sessionId, next)
       return
     }
     // 到顶后忽略新增（UI 已置灰；键盘/程序路径也不该放行，否则后端 400）
     if (current.length >= MAX_ANSWERS) return
-    set({ answerAgents: [...current, kind] })
+    const next = [...current, kind]
+    set({ answerAgents: next })
+    storeAnswerAgents(get().sessionId, next)
   },
 
   setAnswerModel: (kind, model) => {
@@ -69,13 +78,15 @@ export const createAnswersSlice: Slice<AnswersSlice> = (set, get) => ({
   },
 
   /**
-   * 切会话时把该会话上次选的模型装回来。
+   * 切会话时把该会话上次的**本轮选择**装回来：勾了哪几个 AI + 各用什么模型。
    *
-   * 空对象 = 这个会话还没选过 → 交给 {@link seedAnswerModel} 用服务端的
-   * `llm_model`（最近一轮**实际**用过的）兜底。
+   * 两件事一起装：只装模型不装勾选，会出现「模型记着 qoder、这一轮却只跑会话默认」
+   * 这种自相矛盾的界面。模型为空 = 还没选过 → 交给 {@link seedAnswerModel} 用
+   * 服务端的 `llm_model`（最近一轮**实际**用过的）兜底。
    */
-  hydrateAnswerModels: (sessionId) => {
-    set({ answerModels: readStoredAnswerModels(sessionId) })
+  hydrateAnswerSelection: (sessionId) => {
+    const agents = readStoredAnswerAgents(sessionId).slice(0, MAX_ANSWERS)
+    set({ answerAgents: agents, answerModels: readStoredAnswerModels(sessionId) })
   },
 
   /**

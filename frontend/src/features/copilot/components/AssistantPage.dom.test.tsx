@@ -17,7 +17,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const storeMock = vi.hoisted(() => ({
   // 模型记忆：切会话时装回本地选择、用服务端 llm_model 兜底（见 store/answers.ts）
-  hydrateAnswerModels: vi.fn(),
+  hydrateAnswerSelection: vi.fn(),
   seedAnswerModel: vi.fn(),
   /** 当前会话（同步的另一半）：null = 新对话 */
   sessionId: null as string | null,

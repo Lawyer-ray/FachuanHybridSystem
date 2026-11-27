@@ -43,7 +43,7 @@ export function useActiveSession(): ActiveSessionInfo {
   const loadBackends = useCopilot((s) => s.loadBackends)
   const backends = useCopilot((s) => s.backends)
   const selectedAgentKind = useCopilot((s) => s.selectedAgentKind)
-  const hydrateAnswerModels = useCopilot((s) => s.hydrateAnswerModels)
+  const hydrateAnswerSelection = useCopilot((s) => s.hydrateAnswerSelection)
   const seedAnswerModel = useCopilot((s) => s.seedAnswerModel)
   const queryClient = useQueryClient()
 
@@ -106,11 +106,12 @@ export function useActiveSession(): ActiveSessionInfo {
   // 本来就没有已定的后端，选谁在输入区的 AnswerAgentMenu。
   const currentAgentKind = currentSession?.agent_kind ?? null
 
-  // 切会话 / 首次打开：先把**这个会话上次选的模型**装回来（localStorage）。
-  // 不做这一步，刷新一次模型就回到默认——律师的期待是「这个会话继续用它」。
+  // 切会话 / 首次打开：把**这个会话上次的本轮选择**（勾了哪几个 AI + 各用什么模型）
+  // 一起装回来。不做这一步，刷新一次就退回「不勾 + 默认模型」——多答用户每开一次
+  // 都要重勾重选。
   useEffect(() => {
-    hydrateAnswerModels(sessionId)
-  }, [sessionId, hydrateAnswerModels])
+    hydrateAnswerSelection(sessionId)
+  }, [sessionId, hydrateAnswerSelection])
 
   // 本地没选过时，用服务端记录的「上一轮实际用的模型」兜底（`AgentSession.llm_model`
   // 由 stream 层回写）。这条让**换浏览器/换设备**也能续上，而 localStorage 只管

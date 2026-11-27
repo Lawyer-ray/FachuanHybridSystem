@@ -3,7 +3,7 @@
  *
  * 用户报的问题很具体：**刷新一次，模型选择就没了**。修复由两段组成，两条都必须成立：
  *
- * 1. **本地按会话记住**（`setAnswerModel` → localStorage，`hydrateAnswerModels` 装回）：
+ * 1. **本地按会话记住**（`setAnswerModel` → localStorage，`hydrateAnswerSelection` 装回）：
  *    管「刚选还没跑」的那一小段；
  * 2. **服务端兜底**（`seedAnswerModel` ← `AgentSession.llm_model`）：管跨浏览器/换设备。
  *
@@ -59,11 +59,11 @@ describe('模型选择的记忆', () => {
     expect(useCopilot.getState().answerModels).toEqual({ qoder: 'fachuan-gw/kimi-2.6' })
 
     // 切到 s2：它没选过 → 空
-    useCopilot.getState().hydrateAnswerModels('s2')
+    useCopilot.getState().hydrateAnswerSelection('s2')
     expect(useCopilot.getState().answerModels).toEqual({})
 
     // 切回 s1：装回来
-    useCopilot.getState().hydrateAnswerModels('s1')
+    useCopilot.getState().hydrateAnswerSelection('s1')
     expect(useCopilot.getState().answerModels).toEqual({ qoder: 'fachuan-gw/kimi-2.6' })
   })
 
@@ -71,7 +71,7 @@ describe('模型选择的记忆', () => {
     useCopilot.setState({ sessionId: 's1', answerModels: {} })
     useCopilot.getState().setAnswerModel('qoder', 'Auto')
     useCopilot.getState().setAnswerModel('qoder', '')
-    useCopilot.getState().hydrateAnswerModels('s1')
+    useCopilot.getState().hydrateAnswerSelection('s1')
     expect(useCopilot.getState().answerModels).toEqual({})
   })
 
@@ -88,7 +88,49 @@ describe('模型选择的记忆', () => {
   it('新对话用固定键：还没建会话时选中也要记住', () => {
     useCopilot.setState({ sessionId: null, answerModels: {} })
     useCopilot.getState().setAnswerModel('pi', 'kimi-2.6')
-    useCopilot.getState().hydrateAnswerModels(null)
+    useCopilot.getState().hydrateAnswerSelection(null)
+    expect(useCopilot.getState().answerModels).toEqual({ pi: 'kimi-2.6' })
+  })
+})
+
+describe('勾选的后端也按会话记住', () => {
+  it('勾完落盘，切走再切回来还在（顺序也保住）', () => {
+    useCopilot.setState({ sessionId: 's1', answerAgents: [], answerModels: {} })
+    useCopilot.getState().toggleAnswerAgent('qoder')
+    useCopilot.getState().toggleAnswerAgent('pi')
+    useCopilot.getState().toggleAnswerAgent('dsh')
+    expect(useCopilot.getState().answerAgents).toEqual(['qoder', 'pi', 'dsh'])
+
+    useCopilot.getState().hydrateAnswerSelection('s2')
+    expect(useCopilot.getState().answerAgents).toEqual([])
+
+    useCopilot.getState().hydrateAnswerSelection('s1')
+    // 顺序有意义：第一栏决定新会话归属
+    expect(useCopilot.getState().answerAgents).toEqual(['qoder', 'pi', 'dsh'])
+  })
+
+  it('取消勾选同样落盘（不会下次又冒出来）', () => {
+    useCopilot.setState({ sessionId: 's1', answerAgents: [], answerModels: {} })
+    useCopilot.getState().toggleAnswerAgent('qoder')
+    useCopilot.getState().toggleAnswerAgent('qoder')
+    useCopilot.getState().hydrateAnswerSelection('s1')
+    expect(useCopilot.getState().answerAgents).toEqual([])
+  })
+
+  it('落盘的数据超上限时截断（旧版本可能存过更多）', async () => {
+    const { MAX_ANSWERS } = await import('../domain')
+    const tooMany = Array.from({ length: MAX_ANSWERS + 3 }, (_, i) => `k${i}`)
+    localStorage.setItem('copilot:agents:s9', JSON.stringify(tooMany))
+    useCopilot.getState().hydrateAnswerSelection('s9')
+    expect(useCopilot.getState().answerAgents).toHaveLength(MAX_ANSWERS)
+  })
+
+  it('模型与勾选一起装回：不会出现「记着模型却没勾」的自相矛盾界面', () => {
+    useCopilot.setState({ sessionId: 's1', answerAgents: [], answerModels: {} })
+    useCopilot.getState().toggleAnswerAgent('pi')
+    useCopilot.getState().setAnswerModel('pi', 'kimi-2.6')
+    useCopilot.getState().hydrateAnswerSelection('s1')
+    expect(useCopilot.getState().answerAgents).toEqual(['pi'])
     expect(useCopilot.getState().answerModels).toEqual({ pi: 'kimi-2.6' })
   })
 })
