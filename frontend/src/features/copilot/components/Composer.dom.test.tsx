@@ -55,6 +55,10 @@ vi.mock('../store', () => ({
 /** 技能清单 mock：菜单数据源（避免真实网络请求） */
 const skillsMock = vi.hoisted(() => vi.fn())
 vi.mock('../api', () => ({
+  // 登录/接入模型入口（AnswerAgentMenu 的 qoder 行会调）
+  startQoderLogin: vi.fn(),
+  fetchQoderLoginStatus: vi.fn(),
+  registerQoderByok: vi.fn(),
   fetchAgentSkills: skillsMock,
 }))
 

@@ -17,6 +17,9 @@ const apiMock = vi.hoisted(() => ({
   getUsageSummary: vi.fn(),
 }))
 const storeMock = vi.hoisted(() => ({
+  // 模型记忆：切会话时装回本地选择、用服务端 llm_model 兜底（见 store/answers.ts）
+  hydrateAnswerModels: vi.fn(),
+  seedAnswerModel: vi.fn(),
   sessionId: 's-2' as string | null,
   context: null as { origin: 'case' | 'contract'; refId: number; title: string } | null,
   switchSession: vi.fn(),

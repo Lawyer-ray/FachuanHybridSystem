@@ -43,6 +43,8 @@ export function useActiveSession(): ActiveSessionInfo {
   const loadBackends = useCopilot((s) => s.loadBackends)
   const backends = useCopilot((s) => s.backends)
   const selectedAgentKind = useCopilot((s) => s.selectedAgentKind)
+  const hydrateAnswerModels = useCopilot((s) => s.hydrateAnswerModels)
+  const seedAnswerModel = useCopilot((s) => s.seedAnswerModel)
   const queryClient = useQueryClient()
 
   // 恢复上次会话的历史（StrictMode 双挂载幂等：同 id 重拉无害）
@@ -103,6 +105,21 @@ export function useActiveSession(): ActiveSessionInfo {
   // store/turn.ts）。缓存未到 / 新对话时为 null，header 因此不画后端后缀——新对话
   // 本来就没有已定的后端，选谁在输入区的 AnswerAgentMenu。
   const currentAgentKind = currentSession?.agent_kind ?? null
+
+  // 切会话 / 首次打开：先把**这个会话上次选的模型**装回来（localStorage）。
+  // 不做这一步，刷新一次模型就回到默认——律师的期待是「这个会话继续用它」。
+  useEffect(() => {
+    hydrateAnswerModels(sessionId)
+  }, [sessionId, hydrateAnswerModels])
+
+  // 本地没选过时，用服务端记录的「上一轮实际用的模型」兜底（`AgentSession.llm_model`
+  // 由 stream 层回写）。这条让**换浏览器/换设备**也能续上，而 localStorage 只管
+  // 「刚选还没跑」的那一小段。
+  useEffect(() => {
+    const kind = currentSession?.agent_kind
+    const model = currentSession?.llm_model
+    if (kind && model) seedAnswerModel(kind, model)
+  }, [currentSession?.agent_kind, currentSession?.llm_model, seedAnswerModel])
 
   // 每轮流结束后刷新会话列表：首条消息会自动生成标题，标题要能浮上来
   useEffect(() => {

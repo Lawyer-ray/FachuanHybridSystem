@@ -116,3 +116,41 @@ export function storeRailOpen(open: boolean): void {
     /* 无 localStorage 环境忽略 */
   }
 }
+
+/** 会话 id → 持久化的存储键（新对话用固定键：还没 id 时也要记住） */
+function answerModelsKey(sessionId: string | null): string {
+  return `copilot:models:${sessionId || 'new'}`
+}
+
+/**
+ * 读「这个会话上次各栏选的模型」（`kind → model`）。
+ *
+ * 为什么按会话存：模型是**本轮**参数，但律师的真实期待是「这个会话就继续用它」——
+ * 刷新一次就回到默认模型，等于每次都要重挑（截图里 `MiniMax-M3.1-Fla…` 就是这么
+ * 丢的）。服务端另有 `AgentSession.llm_model`（最近一轮**实际**用过的），两条一起
+ * 用：本地这条保住「刚选还没跑」，服务端那条跨设备、跨浏览器也能续上。
+ */
+export function readStoredAnswerModels(sessionId: string | null): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(answerModelsKey(sessionId))
+    if (!raw) return {}
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return {}
+    const out: Record<string, string> = {}
+    for (const [kind, model] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof model === 'string' && model) out[kind] = model
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+export function storeAnswerModels(sessionId: string | null, models: Record<string, string>): void {
+  try {
+    if (Object.keys(models).length === 0) localStorage.removeItem(answerModelsKey(sessionId))
+    else localStorage.setItem(answerModelsKey(sessionId), JSON.stringify(models))
+  } catch {
+    /* 无 localStorage 环境忽略 */
+  }
+}
