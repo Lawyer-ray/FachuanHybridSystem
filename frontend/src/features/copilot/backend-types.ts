@@ -35,6 +35,37 @@ export interface AgentBackendOption {
   models?: string[]
   /** 未显式指定时用的模型（UI 预填；`null`/缺省 = 不知道，不预填） */
   default_model?: string | null
+  /**
+   * 这一行需要用户**点一下**才能用（空串/缺省 = 不需要）。当前只有 `login`。
+   *
+   * 为什么不在前端写 `if (kind === 'qoder')`：接入下一个需要登录的运行时，
+   * 漏改一处就会变成一个「点不动也没有解释」的置灰行。
+   */
+  action?: string
+  /** 那个按钮的文字（`action` 为空时忽略） */
+  action_label?: string
+}
+
+/** `GET /agent/qoder/auth`：qoder 当前登录态 */
+export interface QoderAuthState {
+  authenticated: boolean
+  /** 已登录账号显示名（空串 = 取不到；不是令牌/邮箱） */
+  account: string
+  /** `token`（环境变量令牌/SA 密钥）/ `login`（前端授权）/ `none` */
+  mode: string
+  /** 未登录时的下一步提示；已登录为空串 */
+  message: string
+}
+
+/** `POST /agent/qoder/login` 与轮询共用：一次授权尝试的状态 */
+export interface QoderLoginState {
+  login_id: string
+  /** `waiting` / `success` / `failed` / `expired` */
+  state: string
+  /** 浏览器授权链接（前端渲染成按钮，**不要截断**） */
+  url: string
+  message: string
+  account: string
 }
 
 /**

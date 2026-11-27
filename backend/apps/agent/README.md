@@ -599,11 +599,14 @@ POST /tasks {message, title?, case_id?}
    模块级只 import 4 个 `mcp.types` 符号、`mcp.server.Server` 只在建进程内 SDK MCP
    server 时才 import（我们只用外部 HTTP MCP）。护栏是
    `test_qoder_backend.py::test_sdk_import_surface`——mcp 升到删名版本时当场红。
-2. **未登录会表现成「转圈 60 秒 + 未知错误」**：CLI 未登录时立刻退出，但 SDK 的
-   `initialize` 控制请求要等到 `control_request_timeout_ms`（默认 60s）才抛超时。
-   所以后端在拉起真会话前先跑一次 `qodercli --list-models`（仅在**没配显式凭据**时），
-   看到 `Not logged in` 就秒级报 `AUTH` 并给出「去 `qodercli login` / 配令牌」的动作。
-   超时或网络失败一律**不拦**（交给 SDK 报真实原因）。
+2. **登录在前端，判据在磁盘**：`qodercli login` 是浏览器设备授权（打印一个
+   `https://qoder.com/device/...` 链接等人确认），律师没有服务器 shell，所以入口在
+   「选择 AI」菜单里——那一行带 `action=login`，点开弹窗拿到链接、轮询结果、成功后
+   自动刷新清单（`api/qoder_auth_api.py` + `components/AgentLoginDialog.tsx`）。
+   凭据落 `<FACHUAN_AGENT_HOME>/qoder/config/.auth/user`（共享目录，多 worker 都读得到），
+   `qoder_login.is_authenticated()` **只看这个文件**，不起进程、不联网。未登录时
+   `stream()` 秒级报 `AUTH`——不这么做的话，CLI 静默退出、SDK 的 `initialize` 要等
+   60s 才超时，用户看到的是「转圈一分钟 + 未知错误」。
 3. **内置工具必须翻成 `--tools ""`**：`tools=[]` 经 SDK 变成 `--tools ""`（CLI 文档：
    `""` to disable all），写成「不传 `--tools`」等于**全量内置工具**（读文件 / 跑
    shell 直通 RCE）。三道闸：`disallowed_tools`（MCP 全名硬拒）→ `PreToolUse` hook

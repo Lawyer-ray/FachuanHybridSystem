@@ -14,7 +14,7 @@
 
 import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
-import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, PendingQuestionItem, QuestionAnswerItem, QuestionAnswerReceipt, UsageSummary } from './types'
+import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, PendingQuestionItem, QuestionAnswerItem, QuestionAnswerReceipt, QoderAuthState, QoderLoginState, UsageSummary } from './types'
 
 /** scope → 创建会话的请求体字段（origin + case_id/contract_id） */
 function scopePayload(scope?: CopilotScope): Record<string, string | number> {
@@ -256,4 +256,24 @@ export function fetchSessionStats(sessionId: string): Promise<AgentSessionStats>
 /** 手动压缩会话上下文：总结历史释放空间，返回压缩后水位 */
 export function compactSession(sessionId: string): Promise<AgentCompactReceipt> {
   return api.post(`agent/sessions/${sessionId}/compact`).json<AgentCompactReceipt>()
+}
+
+/**
+ * qoder 登录态（`GET /agent/qoder/auth`）：只读服务端磁盘上的凭据文件，秒回。
+ *
+ * 为什么不复用 `fetchBackends()`：登录是一条**有状态流程**（点按钮 → 拿链接 →
+ * 轮询结果），清单接口承载不了那个状态机（见后端 `qoder_auth_api` 的说明）。
+ */
+export function fetchQoderAuth(): Promise<QoderAuthState> {
+  return api.get('agent/qoder/auth').json<QoderAuthState>()
+}
+
+/** 发起一次 qoder 浏览器授权，返回授权链接（后端起 `qodercli login`）。 */
+export function startQoderLogin(): Promise<QoderLoginState> {
+  return api.post('agent/qoder/login').json<QoderLoginState>()
+}
+
+/** 轮询某次授权的状态；未知 id 返回 `state=expired`（后端不抛 404）。 */
+export function fetchQoderLoginStatus(loginId: string): Promise<QoderLoginState> {
+  return api.get(`agent/qoder/login/${loginId}`).json<QoderLoginState>()
 }

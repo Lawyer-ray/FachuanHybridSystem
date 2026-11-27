@@ -57,6 +57,8 @@ def _backend_option(
     available: bool,
     reason: str,
     models: list[str] | None = None,
+    action: str = "",
+    action_label: str = "",
 ) -> BackendOptionOut:
     """按缺省标签表拼一条选项（未登记的 kind 用 kind 自身当名字）。
 
@@ -75,6 +77,8 @@ def _backend_option(
         capabilities=capabilities,
         models=model_names,
         default_model=model_names[0] if model_names else None,
+        action=action,
+        action_label=action_label,
     )
 
 
@@ -163,25 +167,35 @@ def _cline_probe() -> tuple[bool, str]:
     return True, ""
 
 
-def _qoder_probe() -> tuple[bool, str]:
-    """qoder 后端现在能不能用：SDK 装了 + （走网关时）平台配好了。
+def _qoder_probe() -> tuple[bool, str, str]:
+    """qoder 后端能不能用 + 需要用户做什么：``(available, reason, action)``。
 
-    为什么不在这里探测登录态：``qodercli`` 的登录检查要起进程 + 联网（秒级），
-    而切换器每次打开都会调本端点。没登录时第一轮会拿到 ``AUTH`` 分类的可读报错
-    （见 ``qoder_backend._wrap_error``），代价是一轮。
+    三档：
 
-    ``gateway`` 模式是个例外：那种模式**确定**要读 ``LLMProvider``，没配就一定跑
-    不起来，所以在这里提前拦掉——比让用户建完会话才发现便宜。
+    | 情况 | available | action |
+    |:--|:--|:--|
+    | SDK 没装 | ``False`` | ``""``（装包是运维的事，给律师一个按钮只会误导） |
+    | 装了但未登录 | ``False`` | ``login``（前端渲染「登录 Qoder」，点开走浏览器授权） |
+    | 已登录（或配了令牌/密钥） | ``True`` | ``""`` |
+
+    登录判据是**磁盘上的凭据文件**（``qoder_login.is_authenticated``），不起进程、
+    不联网——切换器每次打开都会调本端点。
+
+    ``gateway`` 模式另加一道：那种模式**确定**要读 ``LLMProvider``，没配就一定跑
+    不起来，所以提前拦掉（比让用户建完会话才发现便宜）。
     """
+    from ..backends import qoder_login
     from ..backends.qoder_backend import MODEL_SOURCE_GATEWAY, is_available, model_source
 
     if not is_available():
-        return False, "未安装 qoder-agent-sdk（qoder-agent-sdk==1.0.17）"
+        return False, "未安装 qoder-agent-sdk（qoder-agent-sdk==1.0.17）", ""
+    if not qoder_login.is_authenticated():
+        return False, "未登录 Qoder：点右侧「登录 Qoder」，用浏览器授权一次即可（全所共用这一个账号）。", "login"
     if model_source() == MODEL_SOURCE_GATEWAY:
         provider_reason = _no_llm_provider_reason()
         if provider_reason:
-            return False, f"qoder 已配成走律所网关，但{provider_reason}"
-    return True, ""
+            return False, f"qoder 已配成走律所网关，但{provider_reason}", ""
+    return True, "", ""
 
 
 def _models_for_kind(kind: str, models: list[str]) -> list[str]:
@@ -222,6 +236,7 @@ def _collect_backend_options() -> list[BackendOptionOut]:
     models = _available_models()
     options: list[BackendOptionOut] = []
     for kind in registered:
+        action, action_label = "", ""
         if kind == "dsh":
             available, reason = _dsh_probe()
         elif kind == "opencode":
@@ -231,9 +246,13 @@ def _collect_backend_options() -> list[BackendOptionOut]:
         elif kind == "cline":
             available, reason = _cline_probe()
         elif kind == "qoder":
-            available, reason = _qoder_probe()
+            available, reason, qoder_action = _qoder_probe()
         else:
             available, reason = True, ""
+        if kind == "qoder":
+            # 「登录」这个动作属于 qoder，但**支付方式由契约表达**（action），
+            # 前端不按 kind 分支——接第四个需要登录的运行时不需要改前端。
+            action, action_label = ("login", "登录 Qoder") if qoder_action == "login" else ("", "")
         options.append(
             _backend_option(
                 kind,
@@ -241,6 +260,8 @@ def _collect_backend_options() -> list[BackendOptionOut]:
                 available=available,
                 reason=reason,
                 models=_models_for_kind(kind, models),
+                action=action,
+                action_label=action_label,
             )
         )
     # dsh 未注册（缺 SDK / 未接好）时仍列出，置灰并说明原因：直接不出现会让用户

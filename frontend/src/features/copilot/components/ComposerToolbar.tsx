@@ -29,6 +29,7 @@ export function ComposerToolbar({
   defaultAgentKind,
   onToggleAnswerAgent,
   onSelectAnswerModel,
+  onRefreshBackends,
   answerDisabled,
   answerHint,
   attachDisabled,
@@ -54,6 +55,8 @@ export function ComposerToolbar({
   onToggleAnswerAgent: (kind: string) => void
   /** 给某一栏指定模型（空串 = 取消指定） */
   onSelectAnswerModel: (kind: string, model: string) => void
+  /** 某一行登录成功后重新拉后端清单 */
+  onRefreshBackends?: () => void
   /** 流式中 / 发送中：本轮已开流，改了只会让按钮与已发出的那一轮对不上 */
   answerDisabled: boolean
   /** 禁用原因（悬停提示；空串表示无补充） */
@@ -103,6 +106,7 @@ export function ComposerToolbar({
         hint={answerHint}
         onToggle={onToggleAnswerAgent}
         onSelectModel={onSelectAnswerModel}
+        onRefreshBackends={onRefreshBackends}
       />
       <button
         type="button"
