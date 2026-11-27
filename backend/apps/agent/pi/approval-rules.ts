@@ -192,6 +192,11 @@ export const WRITE_PREFIXES: readonly string[] = [
   // ``review_folder_file`` POST /doc-workspace/review/runs 会落库并触发模型调用，
   // 但不动律师文件 → MEDIUM（静默放行 + 审计留痕），与 generate_/verify_ 同档。
   "review_",
+  // 立案前判断（与 Python WRITE_PREFIXES 同步）：``assess_draft_readiness``
+  // POST /doc-workspace/draft/assess，**不落盘**但会调一次模型（要约 20~40 秒与额度）。
+  // 不补这侧就只能判 LOW（readOnlyHint 且无留痕），模型可以静默烧额度；
+  // 与 ``review_`` 同档（MEDIUM：静默放行 + 审计留痕）。
+  "assess_",
 ];
 
 /**
