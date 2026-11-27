@@ -177,6 +177,11 @@ class TestInboundScenarios:
         assert run.state == VerifyState.CHANGED
         assert "PAGE_COUNT_MISMATCH" in _codes(run)
 
+    # 这一条是**真跑 OCR** 的重活：本机实测 setup 44.6s + call 25.1s，而 CI 的全局预算是
+    # 单例 60s（pytest-timeout 2.x 把 fixture setup 也算在内）→ CI 上必然超时被掐。
+    # 仓库里同类重活已有先例（test_doc_verify_ocr_e2e 的 240/900、test_scan_archive_e2e 的 600），
+    # 这里按同口径单独给它 180s，不动全局预算。
+    @pytest.mark.timeout(180)
     def test_scan_free_tier_is_gray_then_auto_ocr_upgrades_in_place(self, artifact: OutboundArtifact) -> None:
         """扫描件的两条事实都要锁住。
 
