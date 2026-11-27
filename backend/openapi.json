@@ -27762,6 +27762,36 @@
               "type": "integer"
             },
             "required": false
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "schema": {
+              "default": "",
+              "title": "Action",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "schema": {
+              "default": "",
+              "title": "Outcome",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "risk",
+            "schema": {
+              "default": "",
+              "title": "Risk",
+              "type": "string"
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -27769,7 +27799,7 @@
             "description": "OK"
           }
         },
-        "description": "当前用户的 UI 动作审计历史（仅 ``confirm`` / ``guarded`` 档，见 ``audit``）。\n\n只给**自己的**行：动作历史不是会话共享资产，同一会话被转交后新负责人也不该看见\n前任按过哪些高危按钮。也就因此不经 ``_rejection_reason``：读的不是某个请求的回执。\n\nReturns:\n    ``{\"items\": [...], \"count\": n}``；未登录返回空列表 + ``error``（与同文件其余\n    端点的「未登录不报 401、给空结果」口径一致）。",
+        "description": "当前用户的 UI 动作审计历史（仅 ``confirm`` / ``guarded`` 档，见 ``audit``）。\n\n只给**自己的**行：动作历史不是会话共享资产，同一会话被转交后新负责人也不该看见\n前任按过哪些高危按钮。也就因此不经 ``_rejection_reason``：读的不是某个请求的回执。\n\n``action`` / ``outcome`` / ``risk`` 是精确匹配的过滤条件，**空串 = 不过滤**（默认全给）。\n为什么是这三个：它们恰好对应事后最常问的三句话——「这个动作我批过几次」（action）、\n「哪些最后没执行成」（outcome 含 ``denied`` / ``expired``）、「高危档里我拒过什么」（risk）。\n过滤在库里做，不在 API 层过滤：后者会先把整页拉进内存再筛，分页一上就是错的。\n\nReturns:\n    ``{\"items\": [...], \"count\": n}``；未登录返回空列表 + ``error``（与同文件其余\n    端点的「未登录不报 401、给空结果」口径一致）。每项含 ``decision`` / ``decided_at`` /\n    ``verified`` / ``verify_note`` / ``batch_id``（字段口径见 ``audit.list_recent_for_user``）。",
         "tags": [
           "Agent UI 动作"
         ],
@@ -35377,6 +35407,18 @@
               }
             ],
             "title": "Contract Id"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
           }
         },
         "required": [
@@ -38642,7 +38684,7 @@
         "type": "object"
       },
       "ContractListPageOut": {
-        "description": "合同分页列表输出 Schema（GET /contracts/contracts 实际返回形状）。\n\n与 ContractPaginatedOut 不同：本 Schema 按 list_contracts_page 服务返回定形\n（facets 计数而非 total_pages）；items 在 slim=true 时剔除 finalized_materials\n（由端点 exclude_unset=True 实现，此处声明保持全集）。",
+        "description": "合同分页列表输出 Schema（GET /contracts/contracts 实际返回形状）。\n\n与 ContractPaginatedOut 不同：本 Schema 按 list_contracts_page 服务返回定形\n（facets 计数而非 total_pages）；slim=true 时不再查/构建 finalized_materials，\n但该键仍以 [] 出现在响应里（端点 exclude_unset=True 实测无键可剔，见\n`_serialize_contract` 注释）——判 slim 请看请求参数，不要看键是否存在。",
         "properties": {
           "items": {
             "items": {
@@ -60563,7 +60605,7 @@
         "type": "object"
       },
       "UiSnapshotIn": {
-        "description": "前端回传的一次页面状态快照（``POST /agent/ui-snapshots/{request_id}``）。\n\n``state`` 会被**原样拼进模型上下文**、也会进日志，所以与 ``detail`` 同口径按不可信\n输入处理：先脱敏（密钥类字段遮成 ``***``）再限量。\n\n**``state`` 超限直接拒、不截断**：截断后的结构体会缺键，而模型会把缺的键当成「页面上确实\n没有这个字段」——比拒绝更误导。拒绝时把实际字数与上限写进错误，页面作者据此收窄\n自己声明的字段（模型拿到的仍是「没问到」，不会变成假的空页面）。\n\n**``available_actions`` 相反：名字可以截断**（去控制字符 → strip → 截 64 字 → 丢空串\n→ 去重 → 最多 10 条，超出只截断，不拒收）。两者口径不同是因为坏处的形状不同：名字是\n**查表用的不透明标识**，截短后匹配不到任何动作，模型也就不会（也无法）调它——失败方向是\n「少了一个提示」，**不构成假事实**；而截断状态会凭空造出「页面上没有这个字段」。所以前者\n容错、后者拒收。",
+        "description": "前端回传的一次页面状态快照（``POST /agent/ui-snapshots/{request_id}``）。\n\n``state`` 会被**原样拼进模型上下文**、也会进日志，所以与 ``detail`` 同口径按不可信\n输入处理：先脱敏（密钥类字段遮成 ``***``）再限量。\n\n**``state`` 超限直接拒、不截断**：截断后的结构体会缺键，而模型会把缺的键当成「页面上确实\n没有这个字段」——比拒绝更误导。拒绝时把实际字数与上限写进错误，页面作者据此收窄\n自己声明的字段（模型拿到的仍是「没问到」，不会变成假的空页面）。\n\n**``available_actions`` 相反：名字可以截断**（去控制字符 → strip → 截 64 字 → 丢空串\n→ 去重 → 最多 10 条，超出只截断，不拒收）。两者口径不同是因为坏处的形状不同：名字是\n**查表用的不透明标识**，截短后匹配不到任何动作，模型也就不会（也无法）调它——失败方向是\n「少了一个提示」，**不构成假事实**；而截断状态会凭空造出「页面上没有这个字段」。所以前者\n容错、后者拒收。\n\n**``blocked_actions`` 同 ``available_actions`` 的口径**（清洗 + 截断 + 限量，不拒收）：它\n也是「查表用的标识 + 一句解释」，坏一条只少一条提示。但比名字多一条硬要求——``name`` 必须\n像真名（:data:`_ACTION_NAME_RE`），``reason`` 必须非空：一条「没有原因」的 blocked 项对模型\n等于「这条不许用」，它只会照此放弃，而律师看到的是 AI 莫名其妙不做。所以形状不对的项整条\n丢掉，而不是留个半句。",
         "properties": {
           "state": {
             "additionalProperties": true,
@@ -60585,6 +60627,14 @@
               "type": "string"
             },
             "title": "Available Actions",
+            "type": "array"
+          },
+          "blocked_actions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Blocked Actions",
             "type": "array"
           }
         },

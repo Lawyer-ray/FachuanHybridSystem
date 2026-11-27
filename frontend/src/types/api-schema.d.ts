@@ -11997,9 +11997,15 @@ export interface paths {
          *     只给**自己的**行：动作历史不是会话共享资产，同一会话被转交后新负责人也不该看见
          *     前任按过哪些高危按钮。也就因此不经 ``_rejection_reason``：读的不是某个请求的回执。
          *
+         *     ``action`` / ``outcome`` / ``risk`` 是精确匹配的过滤条件，**空串 = 不过滤**（默认全给）。
+         *     为什么是这三个：它们恰好对应事后最常问的三句话——「这个动作我批过几次」（action）、
+         *     「哪些最后没执行成」（outcome 含 ``denied`` / ``expired``）、「高危档里我拒过什么」（risk）。
+         *     过滤在库里做，不在 API 层过滤：后者会先把整页拉进内存再筛，分页一上就是错的。
+         *
          *     Returns:
          *         ``{"items": [...], "count": n}``；未登录返回空列表 + ``error``（与同文件其余
-         *         端点的「未登录不报 401、给空结果」口径一致）。
+         *         端点的「未登录不报 401、给空结果」口径一致）。每项含 ``decision`` / ``decided_at`` /
+         *         ``verified`` / ``verify_note`` / ``batch_id``（字段口径见 ``audit.list_recent_for_user``）。
          */
         get: operations["apps_agent_api_ui_api_list_ui_actions"];
         put?: never;
@@ -15228,6 +15234,8 @@ export interface components {
             specified_date?: string | null;
             /** Contract Id */
             contract_id?: number | null;
+            /** Start Date */
+            start_date?: string | null;
         };
         /** CaseAssignmentCreate */
         CaseAssignmentCreate: {
@@ -16496,8 +16504,9 @@ export interface components {
          * @description 合同分页列表输出 Schema（GET /contracts/contracts 实际返回形状）。
          *
          *     与 ContractPaginatedOut 不同：本 Schema 按 list_contracts_page 服务返回定形
-         *     （facets 计数而非 total_pages）；items 在 slim=true 时剔除 finalized_materials
-         *     （由端点 exclude_unset=True 实现，此处声明保持全集）。
+         *     （facets 计数而非 total_pages）；slim=true 时不再查/构建 finalized_materials，
+         *     但该键仍以 [] 出现在响应里（端点 exclude_unset=True 实测无键可剔，见
+         *     `_serialize_contract` 注释）——判 slim 请看请求参数，不要看键是否存在。
          */
         ContractListPageOut: {
             /** Items */
@@ -27554,6 +27563,12 @@ export interface components {
          *     **查表用的不透明标识**，截短后匹配不到任何动作，模型也就不会（也无法）调它——失败方向是
          *     「少了一个提示」，**不构成假事实**；而截断状态会凭空造出「页面上没有这个字段」。所以前者
          *     容错、后者拒收。
+         *
+         *     **``blocked_actions`` 同 ``available_actions`` 的口径**（清洗 + 截断 + 限量，不拒收）：它
+         *     也是「查表用的标识 + 一句解释」，坏一条只少一条提示。但比名字多一条硬要求——``name`` 必须
+         *     像真名（:data:`_ACTION_NAME_RE`），``reason`` 必须非空：一条「没有原因」的 blocked 项对模型
+         *     等于「这条不许用」，它只会照此放弃，而律师看到的是 AI 莫名其妙不做。所以形状不对的项整条
+         *     丢掉，而不是留个半句。
          */
         UiSnapshotIn: {
             /** State */
@@ -27572,6 +27587,10 @@ export interface components {
             note: string;
             /** Available Actions */
             available_actions?: string[];
+            /** Blocked Actions */
+            blocked_actions?: {
+                [key: string]: unknown;
+            }[];
         };
         /**
          * ReviewOptions
@@ -44539,6 +44558,9 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                action?: string;
+                outcome?: string;
+                risk?: string;
             };
             header?: never;
             path?: never;
