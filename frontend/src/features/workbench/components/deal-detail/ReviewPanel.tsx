@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Loader2, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
@@ -18,7 +18,9 @@ import { cn } from '@/lib/utils'
 
 import type { FolderOwnerKind } from '../../api'
 import { FindingRow } from './FindingRow'
+import { JurisdictionSelect } from './JurisdictionSelect'
 import {
+  JURISDICTION_CN,
   REJECT_REASONS,
   SEVERITY_LABEL,
   STAGE_LABEL,
@@ -108,6 +110,9 @@ export function ReviewPanel({
   const [bulk, setBulk] = useState<Severity | 'all' | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [groupMode, setGroupMode] = useState<GroupMode>('severity')
+  // 法域默认中国法；切过一次之后跟随最近一轮的记忆值，免得「上次按泰国法审过，这次悄悄按中国法重审」
+  const [jurisdiction, setJurisdiction] = useState<string>(JURISDICTION_CN)
+  const [jurisdictionTouched, setJurisdictionTouched] = useState(false)
 
   const latestKey = ['doc-review', 'latest', kind, ownerId, subpath] as const
 
@@ -122,11 +127,15 @@ export function ReviewPanel({
   })
 
   const run: ReviewRunPayload | undefined = latest.data
+  useEffect(() => {
+    if (jurisdictionTouched) return
+    if (run?.jurisdiction) setJurisdiction(run.jurisdiction)
+  }, [run?.jurisdiction, jurisdictionTouched])
   const activeRunId = runId ?? run?.id ?? null
   const running = run?.status === 'queued' || run?.status === 'running'
 
   const start = useMutation({
-    mutationFn: () => startReview(kind, ownerId, subpath),
+    mutationFn: () => startReview(kind, ownerId, subpath, { jurisdiction }),
     onSuccess: (data) => {
       setRunId(data.run_id)
       if (!data.queued && data.hint) toast.warning(data.hint)
@@ -224,6 +233,14 @@ export function ReviewPanel({
           </span>
         )}
         <div className="flex-1" />
+        <JurisdictionSelect
+          value={jurisdiction}
+          disabled={running}
+          onChange={(next) => {
+            setJurisdictionTouched(true)
+            setJurisdiction(next)
+          }}
+        />
         <button
           type="button"
           onClick={() => start.mutate()}

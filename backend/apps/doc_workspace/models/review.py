@@ -111,6 +111,49 @@ class Stance(models.TextChoices):
     NEUTRAL = "neutral", "中立复核"
 
 
+class Jurisdiction(models.TextChoices):
+    """审查依据的**法域**（不是当事人国籍，也不是合同语言）。
+
+    为什么必须有这一维：标准库的每条检查项都带 `legal_basis`（`《民法典》第470条`）。
+    拿一套中国法标准去审一份泰国土地租赁合同，产出的是**双重错误**：
+
+    1. 漏判——泰国法真正的硬约束（Land Code 第 86 条禁止外国人持地、
+       CCC 第 540 条不动产租赁上限 30 年）不在标准库里，一条都不会报；
+    2. 错判——按中国法口径要求「统一社会信用代码」「不动产登记」这类中国特有的
+       形式要件，给出一堆在泰国根本不成立的结论，律师还得逐条删除。
+
+    法域是**独立于 `contract_type`** 的维度：同一份不动产租赁，中国法与泰国法
+    是两套完全不同的强制规则；同一法域下买卖/租赁/服务又是不同的条款集合。
+    挤进 `contract_type`（如「泰国土地租赁」）会让路由退化成字符串匹配，
+    而「按法域查域外法条文」这件事就没地方挂了。
+
+    取值与 BARLC（西南政法大学东盟域外法查明库）的国别一致，
+    映射表见 `services/foreign_law.py` 的 `BARLC_COUNTRY_CODE`。
+
+    **东帝汶（TL）在 BARLC 里没有可用数据**，也没有标准库分册：选中它只会跑
+    「引用完整性」那三条规则。这是刻意的——给一套「看着像」的标准，比明说
+    「本国无标准库」危险得多。
+    """
+
+    CN = "CN", "中国"
+    TH = "TH", "泰国"
+    VN = "VN", "越南"
+    MY = "MY", "马来西亚"
+    SG = "SG", "新加坡"
+    ID = "ID", "印度尼西亚"
+    PH = "PH", "菲律宾"
+    LA = "LA", "老挝"
+    KH = "KH", "柬埔寨"
+    MM = "MM", "缅甸"
+    BN = "BN", "文莱"
+    TL = "TL", "东帝汶"
+
+    @classmethod
+    def oversea_values(cls) -> list[str]:
+        """需要域外法查明的法域（除中国外，都是 BARLC 可查的东盟国家）。"""
+        return [value for value in cls.values if value != cls.CN]
+
+
 class RuleClass(models.TextChoices):
     """规则的**类别**——决定「违反之后会怎样」，也就决定律师必须做什么。
 
@@ -219,6 +262,14 @@ class ReviewRun(models.Model):
     base_snapshot_seq: Any = models.IntegerField("起始快照号", null=True, blank=True)
 
     contract_type: Any = models.CharField("合同类型（决定用哪套标准）", max_length=64, blank=True, default="")
+    jurisdiction: Any = models.CharField(
+        "审查法域",
+        max_length=8,
+        choices=Jurisdiction.choices,
+        default=Jurisdiction.CN,
+        db_index=True,
+        help_text="决定用哪国法作标准；非中国法域会触发域外法查明（BARLC）",
+    )
     stance: Any = models.CharField("立场", max_length=16, choices=Stance.choices, default=Stance.NEUTRAL)
     playbook_key: Any = models.CharField("采用的标准库", max_length=120, blank=True, default="")
     playbook_version: Any = models.IntegerField("标准库版本", null=True, blank=True)

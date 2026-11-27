@@ -56,6 +56,15 @@ def review_folder_file(
         str, Field(description="我方立场：party_a（代表甲方）/ party_b（代表乙方）/ neutral（中立复核）")
     ] = "neutral",
     contract_type: Annotated[str, Field(description="合同类型（买卖/租赁/服务/劳动…）；留空用通用标准")] = "",
+    jurisdiction: Annotated[
+        str,
+        Field(
+            description=(
+                "审查法域：CN（中国）/ TH（泰国）/ VN / MY / SG / ID / PH / LA / KH / MM / BN。"
+                "非 CN 会切到该国标准库，并触发域外法查明（BARLC）逐条核对合同引用的外国法"
+            )
+        ),
+    ] = "CN",
 ) -> dict[str, Any]:
     """按标准条款库审查一份合同，结论**挂在原文件上**（不产生第二份 docx）。
 
@@ -67,6 +76,8 @@ def review_folder_file(
         contract_id / case_id: 二选一。
         stance: 立场。同一份合同代表甲/乙方，结论方向相反，**必须问清楚**。
         contract_type: 决定用哪套标准库。
+        jurisdiction: 法域。跨境合同必须传（如泰国 `TH`）——传错会用错标准库，
+            且合同里的外国法引用不会被查明。
 
     Returns:
         `{"run_id": 12, "status": "queued"}`；跑完用 `list_document_findings` 取结果。
@@ -74,7 +85,14 @@ def review_folder_file(
     kind, owner_id = _owner(contract_id, case_id)
     result: dict[str, Any] = client.post(
         "/doc-workspace/review/runs",
-        json={"kind": kind, "owner_id": owner_id, "subpath": subpath.strip(), "stance": stance, "contract_type": contract_type},
+        json={
+            "kind": kind,
+            "owner_id": owner_id,
+            "subpath": subpath.strip(),
+            "stance": stance,
+            "contract_type": contract_type,
+            "jurisdiction": jurisdiction,
+        },
     )
     return result
 
