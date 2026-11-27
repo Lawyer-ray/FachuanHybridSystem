@@ -119,6 +119,42 @@ function latestRun(runs: Record<string, UiToolRun>): UiToolRun | null {
   return latest
 }
 
+/**
+ * 三行实测输出的**跨导航持久化**。
+ *
+ * 为什么需要：允许类动作会把地址带离本页（未登录时被 `RequireAuth` 前转到 `/login`），
+ * 而 `probe-run` 存在 copilot store 里——SPA 内前进后退还在，**整页刷新就没了**。
+ * 手测的人若用地址栏回到本页（最自然的动作），会看到「尚未执行」，误以为动作没跑。
+ *
+ * 存 `sessionStorage` 而不是 `localStorage`：只活在这个标签页，关掉即清，
+ * 不会把上次手测的结论带到下一次会话里骗人。
+ */
+const PROBE_STORE_KEY = 'fachuan:ui-action-probe'
+
+interface ProbePersisted {
+  run: string
+  launch: string
+  errors: string
+}
+
+const NO_ERRORS = '（无）'
+
+function readPersisted(): ProbePersisted {
+  const empty: ProbePersisted = { run: '（尚未执行）', launch: '（尚未收到 copilot:launch）', errors: NO_ERRORS }
+  try {
+    const raw = sessionStorage.getItem(PROBE_STORE_KEY)
+    if (!raw) return empty
+    const parsed = JSON.parse(raw) as Partial<ProbePersisted>
+    return {
+      run: parsed.run || empty.run,
+      launch: parsed.launch || empty.launch,
+      errors: parsed.errors || empty.errors,
+    }
+  } catch {
+    return empty
+  }
+}
+
 /** 一次运行记录的可读形态（state 必显，code 只在失败时有） */
 function describeRun(run: UiToolRun | null): string {
   if (run === null) return '（尚未执行）'
@@ -128,7 +164,18 @@ function describeRun(run: UiToolRun | null): string {
 export default function UiActionProbe() {
   const location = useLocation()
   const runs = useCopilot((s) => s.uiToolRuns)
-  const [lastLaunch, setLastLaunch] = useState('（尚未收到 copilot:launch）')
+  // 首帧从 sessionStorage 恢复：地址栏回到本页时仍能看到上一次的结论（理由见 PROBE_STORE_KEY）。
+  // 用 useState 的惰性初始化而不是 useRef：渲染期读 ref 会被 react-hooks/refs 拦
+  // （而它拦得对——ref 变化不会触发重渲染，恢复值只该算一次）。
+  const [restored] = useState<ProbePersisted>(() => readPersisted())
+  const [lastLaunch, setLastLaunch] = useState(restored.launch)
+  /**
+   * 未捕获异常/拒绝的自捕获：手测第 8 步要求「控制台无红色报错」，但 Web Inspector
+   * 的 AX 树在自动化里读不到（它是独立 webview）。把错误顺手抄到页面上，
+   * 第 8 步就变成**可机读**的一行，而不是靠人肉看控制台。
+   * 只捕获本页生命周期内冒到 window 的错误——够用，且不改变产品代码行为。
+   */
+  const [caughtErrors, setCaughtErrors] = useState(restored.errors)
 
   // `ui_copilot_open` 的真实效果是派发启动事件（`launch.ts` 的既定模式）。本页不在
   // AppShell 里、没有面板订阅它，所以自己接一下把 payload 显示出来——否则「打开了助手」
@@ -140,6 +187,36 @@ export default function UiActionProbe() {
     }
     window.addEventListener(COPILOT_LAUNCH_EVENT, onLaunch)
     return () => window.removeEventListener(COPILOT_LAUNCH_EVENT, onLaunch)
+  }, [])
+
+  const runText = describeRun(latestRun(runs))
+  // 展示值 = 本次内存里的结论优先；没有（整页刷新后还没点）才退回持久化的那次
+  const shownRun = latestRun(runs) === null ? restored.run : runText
+  const shownLaunch = lastLaunch === '（尚未收到 copilot:launch）' ? restored.launch : lastLaunch
+
+  // 每次结论变化都落一次 sessionStorage：页面被导航带走的瞬间也已经是新值
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(PROBE_STORE_KEY, JSON.stringify({ run: shownRun, launch: shownLaunch, errors: caughtErrors }))
+    } catch {
+      // 隐私窗口 / 禁用存储：持久化只是便利，失败不影响本次手测
+    }
+  }, [shownRun, shownLaunch, caughtErrors])
+
+  useEffect(() => {
+    const onError = (event: ErrorEvent): void => {
+      setCaughtErrors(`window.onerror: ${event.message}`)
+    }
+    const onRejection = (event: PromiseRejectionEvent): void => {
+      const reason = event.reason as { message?: string } | undefined
+      setCaughtErrors(`unhandledrejection: ${reason?.message ?? String(event.reason)}`)
+    }
+    window.addEventListener('error', onError)
+    window.addEventListener('unhandledrejection', onRejection)
+    return () => {
+      window.removeEventListener('error', onError)
+      window.removeEventListener('unhandledrejection', onRejection)
+    }
   }, [])
 
   const fire = (item: ProbeCase): void => {
@@ -184,8 +261,11 @@ export default function UiActionProbe() {
 
       <section className="flex flex-col gap-1 rounded-[9px] border border-border bg-card p-2.5 font-mono text-[12px]">
         <div data-testid="probe-loc">probe-loc：{location.pathname + location.search}</div>
-        <div data-testid="probe-run">probe-run：{describeRun(latestRun(runs))}</div>
-        <div data-testid="probe-launch">probe-launch：{lastLaunch}</div>
+        <div data-testid="probe-run">probe-run：{shownRun}</div>
+        <div data-testid="probe-launch">probe-launch：{shownLaunch}</div>
+        <div data-testid="probe-errors" className={caughtErrors === NO_ERRORS ? '' : 'text-red-600 dark:text-red-400'}>
+          probe-errors：{caughtErrors}
+        </div>
       </section>
     </div>
   )
