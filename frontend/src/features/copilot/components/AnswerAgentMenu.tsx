@@ -45,8 +45,14 @@
  * - 勾 2 个以上 → 并排对比，会话归属第一个（顺序 = 栏的左右顺序）；
  * - 未勾 → 会话默认后端（下面的「默认」徽标）。
  *
- * 这条规则必须在菜单里说出来（底部那行）：它决定的不只是这一轮，而是整个会话
- * 的后端——建完不可换。
+ * 这条规则决定的不仅是这一轮，而是整个会话的后端（建完不可换）。它现在只写在
+ * 触发器的 `title` 里，**不再占用菜单底部一行**：2026-11-27 用户反馈「文案太多太乱，
+ * 解释说明都可以删」，那两行（归属规则 + 已选 N 个 · 最多 M 个）把菜单底部占
+ * 得与列表一样重。视觉上只留一个极简计数 `已选 N/M`，规则靠悬停可达。
+ *
+ * 代价是「勾 2 个会归到第一个」在触屏上不可见。之所以能接受：勾了第 2 个时
+ * 第 1 个本来就排在前面（顺序即栏序），而展现在多答界面上的会话归属会当场
+ * 显示在顶栏——不是发现不了的隐性规则。
  *
  * ## 未选 = 单跑会话默认后端（此时触发按钮只剩图标）
  *
@@ -145,7 +151,9 @@ export function AnswerAgentMenu({
   const defaultLabel = findBackend(backends, fallbackKind)?.label ?? fallbackKind
   const active = selected.length > 1 || (selected.length === 1 && selected[0] !== defaultKind)
   const full = selected.length >= MAX_ANSWERS
-  const usageTitle = `选择这一轮问哪几个 AI（最多 ${MAX_ANSWERS} 个）以及各自用哪个模型。每多选一个就多跑一轮，token 与耗时随之增加。`
+  // 两句缩成一句：归属规则搬到这里（菜单里那行已删），但仍保留「最多 N 个」——
+  // 它是产品上限，不是解释
+  const usageTitle = `本轮问哪几个 AI（最多 ${MAX_ANSWERS} 个）。勾 1 个＝只问它、新会话也归它；勾多个＝并排对比、归属第一个。`
 
   const loginOption = loginKind ? findBackend(backends, loginKind) : undefined
 
@@ -221,13 +229,9 @@ export function AnswerAgentMenu({
               }
             />
           ))}
-          <p className="px-2 py-1 text-[11px] text-muted-foreground">
-            已选 {selected.length} 个 · 最多 {MAX_ANSWERS} 个
-          </p>
-          {/* 归属规则：勾选不只决定这一轮，还决定新会话的 agent_kind（建完不可换），
-              所以要说在用户勾选的地方，而不是藏在「新对话」的 tooltip 里 */}
-          <p className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">
-            勾 1 个＝本轮只问它，新会话也归它；勾 2 个以上＝并排对比，会话归属第一个
+          {/* 只留计数：`已选 2/5` 一眼看完，不再写「个」与「最多」两个字 */}
+          <p className="px-2 py-1 text-[11px] tabular-nums text-muted-foreground">
+            已选 {selected.length}/{MAX_ANSWERS}
           </p>
         </div>
       )}
