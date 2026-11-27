@@ -277,6 +277,29 @@ describe('ReviewPanel', () => {
   })
 })
 
+describe('ReviewPanel 法域', () => {
+  it('默认按中国法发起审查（不能悄悄变成别的法域）', async () => {
+    api.startReview.mockResolvedValue({ run_id: 1, status: 'queued', queued: true, hint: '' })
+    render(withQuery(<ReviewPanel kind="contract" ownerId={393} subpath="1-合同/a.docx" selection="" onLocate={vi.fn()} />))
+
+    fireEvent.click(await screen.findByRole('button', { name: /AI 审查|重新审查/ }))
+
+    await waitFor(() => expect(api.startReview).toHaveBeenCalled())
+    expect(api.startReview.mock.calls[0]?.[3]).toEqual({ jurisdiction: 'CN' })
+  })
+
+  it('切成泰国法后，发起审查带的是 TH —— 否则泰国合同会用中国标准库去审', async () => {
+    api.startReview.mockResolvedValue({ run_id: 1, status: 'queued', queued: true, hint: '' })
+    render(withQuery(<ReviewPanel kind="contract" ownerId={393} subpath="1-合同/a.docx" selection="" onLocate={vi.fn()} />))
+
+    fireEvent.change(await screen.findByLabelText('审查依据的法域'), { target: { value: 'TH' } })
+    fireEvent.click(screen.getByRole('button', { name: /AI 审查|重新审查/ }))
+
+    await waitFor(() => expect(api.startReview).toHaveBeenCalled())
+    expect(api.startReview.mock.calls[0]?.[3]).toEqual({ jurisdiction: 'TH' })
+  })
+})
+
 describe('VersionHistoryPanel', () => {
   const snap = (seq: number, reason = 'editor_save'): SnapshotItem => ({
     seq,

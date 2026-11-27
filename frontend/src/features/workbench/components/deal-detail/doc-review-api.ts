@@ -70,6 +70,7 @@ export interface ReviewRunPayload {
   subpath: string
   stance: string
   contract_type: string
+  jurisdiction?: string
   status: RunStatus
   playbook_key: string
   playbook_version: number | null
@@ -158,6 +159,23 @@ export function labelOf(labels: Record<string, string>, value: string | null | u
   return labels[value] ?? value
 }
 
+/** 审查法域。取值与后端 `Jurisdiction` 枚举一致（BARLC 的东盟国别都在内）。 */
+export const JURISDICTION_OPTIONS = [
+  { value: 'CN', label: '中国法' },
+  { value: 'TH', label: '泰国法' },
+  { value: 'VN', label: '越南法' },
+  { value: 'MY', label: '马来西亚法' },
+  { value: 'SG', label: '新加坡法' },
+  { value: 'ID', label: '印度尼西亚法' },
+  { value: 'PH', label: '菲律宾法' },
+  { value: 'LA', label: '老挝法' },
+  { value: 'KH', label: '柬埔寨法' },
+  { value: 'MM', label: '缅甸法' },
+  { value: 'BN', label: '文莱法' },
+] as const
+
+export const JURISDICTION_CN = 'CN'
+
 function base(kind: FolderOwnerKind, ownerId: number, subpath: string) {
   return { kind, owner_id: ownerId, subpath }
 }
@@ -180,11 +198,17 @@ export async function startReview(
   kind: FolderOwnerKind,
   ownerId: number,
   subpath: string,
-  opts: { stance?: string; contract_type?: string } = {},
+  opts: { stance?: string; contract_type?: string; jurisdiction?: string } = {},
 ): Promise<{ run_id: number; status: RunStatus; queued: boolean; hint: string }> {
   return docApi()
     .post('review/runs', {
-      json: { ...base(kind, ownerId, subpath), stance: opts.stance ?? 'neutral', contract_type: opts.contract_type ?? '' },
+      json: {
+        ...base(kind, ownerId, subpath),
+        stance: opts.stance ?? 'neutral',
+        contract_type: opts.contract_type ?? '',
+        // 法域决定标准库与是否做域外法查明；漏传就是「用中国法审泰国合同」
+        jurisdiction: opts.jurisdiction ?? JURISDICTION_CN,
+      },
     })
     .json()
 }

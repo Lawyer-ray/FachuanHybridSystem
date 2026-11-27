@@ -52,7 +52,10 @@ vi.mock('sonner', () => ({
 
 // 右栏面板会去拉清单/版本：这里给「还没审过 + 没有历史版本」的最小回执，
 // 免得测试真去打网络（打不到就会一直停在 loading，断言无从下手）
-vi.mock('./doc-review-api', () => ({
+vi.mock('./doc-review-api', async (importOriginal) => ({
+  // 用 importOriginal 而不是全量替换：这个模块还有常量（法域选项等），
+  // 全量 mock 会让「新增一个常量导出」变成别人的测试挂掉（本次就是这样漏的）。
+  ...(await importOriginal<typeof import('./doc-review-api')>()),
   fetchLatestRun: vi.fn(async (kind: string, ownerId: number, subpath: string) => ({
     id: 0,
     owner_kind: kind,

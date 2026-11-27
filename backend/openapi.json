@@ -51518,6 +51518,11 @@
             "title": "Contract Type",
             "type": "string"
           },
+          "jurisdiction": {
+            "default": "CN",
+            "title": "Jurisdiction",
+            "type": "string"
+          },
           "playbook_id": {
             "anyOf": [
               {
@@ -51706,6 +51711,11 @@
           },
           "contract_type": {
             "title": "Contract Type",
+            "type": "string"
+          },
+          "jurisdiction": {
+            "default": "CN",
+            "title": "Jurisdiction",
             "type": "string"
           },
           "status": {

@@ -27,7 +27,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 
-from .review import Consequence, RuleClass, Severity, Stage, Stance
+from .review import Consequence, Jurisdiction, RuleClass, Severity, Stage, Stance
 
 
 class PlaybookStatus(models.TextChoices):
@@ -55,6 +55,14 @@ class Playbook(models.Model):
     id: int
 
     org_id: Any = models.IntegerField("律所 ID（多所隔离）", null=True, blank=True, db_index=True)
+    jurisdiction: Any = models.CharField(
+        "适用法域",
+        max_length=8,
+        choices=Jurisdiction.choices,
+        default=Jurisdiction.CN,
+        db_index=True,
+        help_text="中国法与泰国法是两套强制规则（如租赁上限 20 年 vs 30 年），不能共用一套标准",
+    )
     contract_type: Any = models.CharField("合同类型（如 买卖/租赁/服务/劳动）", max_length=64, blank=True, default="")
     stance: Any = models.CharField("适用立场", max_length=16, choices=Stance.choices, default=Stance.NEUTRAL)
     version: Any = models.IntegerField("版本号", default=1)
@@ -72,7 +80,7 @@ class Playbook(models.Model):
         ordering = ["-version", "-id"]
         constraints: ClassVar[list[Any]] = [
             models.UniqueConstraint(
-                fields=["org_id", "contract_type", "stance", "version"],
+                fields=["org_id", "jurisdiction", "contract_type", "stance", "version"],
                 name="uniq_playbook_version",
             )
         ]

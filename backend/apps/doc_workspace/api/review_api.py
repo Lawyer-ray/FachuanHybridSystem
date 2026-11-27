@@ -45,6 +45,8 @@ class DocStartReviewIn(Schema):
     subpath: str
     stance: str = Stance.NEUTRAL
     contract_type: str = ""
+    jurisdiction: str = "CN"
+    """审查法域（`CN`/`TH`/`VN`…）。非 `CN` 会切到对应法域的标准库并触发域外法查明。"""
     playbook_id: int | None = None
 
 
@@ -91,6 +93,7 @@ class DocReviewRunOut(Schema):
     subpath: str
     stance: str
     contract_type: str
+    jurisdiction: str = "CN"
     status: str
     playbook_key: str
     playbook_version: int | None = None
@@ -175,6 +178,7 @@ def _run_out(run: ReviewRun, *, with_findings: bool = True) -> DocReviewRunOut:
         subpath=run.subpath,
         stance=run.stance,
         contract_type=run.contract_type,
+        jurisdiction=str(run.jurisdiction or "CN"),
         status=run.status,
         playbook_key=run.playbook_key,
         playbook_version=run.playbook_version,
@@ -232,6 +236,7 @@ def start_review(request: HttpRequest, payload: DocStartReviewIn) -> Any:
         subpath=payload.subpath,
         stance=payload.stance,
         contract_type=payload.contract_type,
+        jurisdiction=payload.jurisdiction,
         playbook=playbook,
         user=user,
         org_access=getattr(user, "org_access", None),

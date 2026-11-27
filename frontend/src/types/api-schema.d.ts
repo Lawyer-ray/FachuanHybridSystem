@@ -22796,6 +22796,11 @@ export interface components {
              * @default
              */
             contract_type: string;
+            /**
+             * Jurisdiction
+             * @default CN
+             */
+            jurisdiction: string;
             /** Playbook Id */
             playbook_id?: number | null;
         };
@@ -22892,6 +22897,11 @@ export interface components {
             stance: string;
             /** Contract Type */
             contract_type: string;
+            /**
+             * Jurisdiction
+             * @default CN
+             */
+            jurisdiction: string;
             /** Status */
             status: string;
             /** Playbook Key */

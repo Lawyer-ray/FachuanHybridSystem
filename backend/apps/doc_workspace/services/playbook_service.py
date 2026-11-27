@@ -28,6 +28,7 @@ from django.db import transaction
 from ..models import (
     Beneficiary,
     Consequence,
+    Jurisdiction,
     Playbook,
     PlaybookRule,
     PlaybookStatus,
@@ -36,10 +37,22 @@ from ..models import (
     Stage,
     Stance,
 )
+from .playbook_asean import CITATION_RULES, JURISDICTION_LABEL, RULES_BY_JURISDICTION
 
 logger = logging.getLogger(__name__)
 
 BUILTIN_NAME = "内置通用审查标准"
+
+#: `PlaybookRule` 的**可写字段集**（不含主键与外键）。
+#:
+#: 标准库的规则字典里除了这些列，还带了 `verify_law` / `verify_section` 等机器字段，
+#: 那是给 `manage.py verify_playbook_citations` 用的。落库前必须按这张表过滤——
+#: 白名单而不是黑名单，是因为以后再加机器字段时不该再改一次这里。
+_RULE_FIELDS: set[str] = {
+    field.name
+    for field in PlaybookRule._meta.concrete_fields
+    if field.name not in {"id", "playbook", "playbook_id", "created_at", "updated_at"}
+}
 BUILTIN_VERSION = 2
 #
 # 2026-11-26 v2：按法务总的「四类规则」重写土地类强制规则（拆抵押/查封、拆两类优先购买权、
@@ -439,44 +452,107 @@ def _is_land_transfer(contract_type: str) -> bool:
     return any(key in probe for key in ("土地", "房地产", "建设用地", "不动产"))
 
 
-def rules_for(contract_type: str = "") -> list[dict[str, Any]]:
-    """按合同类型选内置规则集（土地/房地产类额外追加强制性与承继性规则）。"""
-    return [*BUILTIN_RULES, *LAND_TRANSFER_RULES] if _is_land_transfer(contract_type) else list(BUILTIN_RULES)
+def normalise_jurisdiction(value: str | None) -> str:
+    """把外部传来的法域规整成枚举值。**认不出就回落中国法**，不报错。
+
+    为什么宽容：法域来自前端下拉与 MCP 调用方，拼错（`th`/`THA`/`泰国`）比恶意多。
+    报 400 会让律师在「审查一份泰国合同」这件正事上卡住，而回落成中国法的行为
+    与改造前完全一致，不会更糟。
+    """
+    probe = str(value or "").strip()
+    if not probe:
+        return Jurisdiction.CN
+    upper = probe.upper()
+    if upper in Jurisdiction.values:
+        return upper
+    aliases = {"THA": Jurisdiction.TH, "泰国": Jurisdiction.TH, "CHN": Jurisdiction.CN, "PRC": Jurisdiction.CN}
+    return aliases.get(upper, aliases.get(probe, Jurisdiction.CN))
 
 
-def ensure_builtin(*, contract_type: str = "", stance: str = Stance.NEUTRAL) -> Playbook:
+def rules_for(contract_type: str = "", jurisdiction: str = Jurisdiction.CN) -> list[dict[str, Any]]:
+    """按法域 + 合同类型选内置规则集。
+
+    法域优先于合同类型：中国合同走中国库（土地/房地产类额外追加），
+    东盟十国各走自己的分册（见 `playbook_asean.RULES_BY_JURISDICTION`）。
+    **所有法域都追加引用完整性规则**——即使是中国法域，合同里引用了域外法
+    也必须能被核验。
+
+    没有分册的法域（如东帝汶）只返回引用完整性规则：明说「本国无标准库」，
+    绝不拿中国法或邻国法冒充。
+    """
+    code = normalise_jurisdiction(jurisdiction)
+    if code == Jurisdiction.CN:
+        base = [*BUILTIN_RULES, *LAND_TRANSFER_RULES] if _is_land_transfer(contract_type) else list(BUILTIN_RULES)
+        return [*base, *CITATION_RULES]
+    return [*RULES_BY_JURISDICTION.get(code, []), *CITATION_RULES]
+
+
+def ensure_builtin(
+    *, contract_type: str = "", stance: str = Stance.NEUTRAL, jurisdiction: str = Jurisdiction.CN
+) -> Playbook:
     """确保内置默认库存在（幂等）。"""
+    code = normalise_jurisdiction(jurisdiction)
     with transaction.atomic():
         playbook, created = Playbook.objects.get_or_create(
             org_id=None,
+            jurisdiction=code,
             contract_type=contract_type,
             stance=stance,
             version=BUILTIN_VERSION,
-            defaults={"name": BUILTIN_NAME, "status": PlaybookStatus.ACTIVE},
+            defaults={"name": builtin_name(code), "status": PlaybookStatus.ACTIVE},
         )
         if created or not playbook.rules.exists():
-            for ordinal, rule in enumerate(rules_for(contract_type)):
+            for ordinal, rule in enumerate(rules_for(contract_type, code)):
                 PlaybookRule.objects.get_or_create(
                     playbook=playbook,
                     rule_key=rule["rule_key"],
-                    defaults={**{k: v for k, v in rule.items() if k != "rule_key"}, "ordinal": ordinal},
+                    # 按**模型字段表**过滤：标准库里带了 `verify_law` / `verify_section`
+                    # 这类给核验命令用的机器字段（见 `playbook_asean._rule`），
+                    # 它们不是 PlaybookRule 的列，直接 `**rule` 会 TypeError。
+                    defaults={
+                        **{k: v for k, v in rule.items() if k in _RULE_FIELDS},
+                        "ordinal": ordinal,
+                    },
                 )
     return playbook
 
 
-def resolve(*, contract_type: str = "", stance: str = Stance.NEUTRAL, org_id: int | None = None) -> Playbook:
-    """按「先窄后宽」找最具体的那一套标准。"""
+def builtin_name(jurisdiction: str) -> str:
+    """内置库的展示名。法域必须体现在名字里——后台列表里十套库同名时，
+    律师无法判断哪套是泰国标准，而它们对「租赁上限」给出的结论完全相反。"""
+    if jurisdiction == Jurisdiction.CN:
+        return BUILTIN_NAME
+    label = JURISDICTION_LABEL.get(jurisdiction, jurisdiction)
+    if jurisdiction in RULES_BY_JURISDICTION:
+        return f"内置{label}法审查标准（BARLC 可核验）"
+    return f"内置审查标准（{label}：仅引用完整性）"
+
+
+def resolve(
+    *,
+    contract_type: str = "",
+    stance: str = Stance.NEUTRAL,
+    org_id: int | None = None,
+    jurisdiction: str = Jurisdiction.CN,
+) -> Playbook:
+    """按「先窄后宽」找最具体的那一套标准。
+
+    路由维度是 `(org, jurisdiction, contract_type, stance)`。**法域不参与回落**：
+    泰国合同找不到标准库时，不能回落成中国法标准——那会让「按中国法审泰国合同」
+    这件错事看起来像正常结果。因此每个法域都有自己的一套内置库。
+    """
+    code = normalise_jurisdiction(jurisdiction)
     candidates: list[dict[str, Any]] = [
-        {"org_id": org_id, "contract_type": contract_type, "stance": stance},
-        {"org_id": org_id, "contract_type": contract_type, "stance": Stance.NEUTRAL},
-        {"org_id": org_id, "contract_type": "", "stance": stance},
-        {"org_id": org_id, "contract_type": "", "stance": Stance.NEUTRAL},
+        {"org_id": org_id, "jurisdiction": code, "contract_type": contract_type, "stance": stance},
+        {"org_id": org_id, "jurisdiction": code, "contract_type": contract_type, "stance": Stance.NEUTRAL},
+        {"org_id": org_id, "jurisdiction": code, "contract_type": "", "stance": stance},
+        {"org_id": org_id, "jurisdiction": code, "contract_type": "", "stance": Stance.NEUTRAL},
     ]
     for spec in candidates:
         found = Playbook.objects.filter(**spec, status=PlaybookStatus.ACTIVE).order_by("-version", "-id").first()
         if found is not None:
             return found
-    return ensure_builtin(contract_type=contract_type, stance=stance)
+    return ensure_builtin(contract_type=contract_type, stance=stance, jurisdiction=code)
 
 
 def snapshot_rules(playbook: Playbook) -> list[dict[str, Any]]:
@@ -488,7 +564,10 @@ def bump_version(playbook: Playbook, *, note: str = "") -> Playbook:
     with transaction.atomic():
         latest = (
             Playbook.objects.filter(
-                org_id=playbook.org_id, contract_type=playbook.contract_type, stance=playbook.stance
+                org_id=playbook.org_id,
+                jurisdiction=playbook.jurisdiction,
+                contract_type=playbook.contract_type,
+                stance=playbook.stance,
             )
             .order_by("-version")
             .first()
@@ -496,6 +575,7 @@ def bump_version(playbook: Playbook, *, note: str = "") -> Playbook:
         new_version = (latest.version if latest else playbook.version) + 1
         new = Playbook.objects.create(
             org_id=playbook.org_id,
+            jurisdiction=playbook.jurisdiction,
             contract_type=playbook.contract_type,
             stance=playbook.stance,
             version=new_version,
@@ -503,17 +583,15 @@ def bump_version(playbook: Playbook, *, note: str = "") -> Playbook:
             name=playbook.name,
             note=note,
         )
+        # **逐字段搬，不靠白名单**：以前这里手写了一串字段，v27.25.8 新增
+        # `rule_class/stage/consequence` 后没人回来补，于是「改一版标准」会把
+        # 全部 mandatory 规则静默降级成 contractual（谈判项）——一次真实漏判。
+        # 现在从模型的可写字段集里取，新加字段不会再漏。
+        skipped = {"id", "playbook", "playbook_id", "created_at", "updated_at"}
+        fields = [f.name for f in PlaybookRule._meta.concrete_fields if f.name not in skipped]
         for rule in playbook.rules.order_by("ordinal", "id"):
             PlaybookRule.objects.create(
                 playbook=new,
-                rule_key=rule.rule_key,
-                ordinal=rule.ordinal,
-                clause_type=rule.clause_type,
-                standard_text=rule.standard_text,
-                acceptable_range=rule.acceptable_range,
-                legal_basis=rule.legal_basis,
-                beneficiary=rule.beneficiary,
-                severity_if_missing=rule.severity_if_missing,
-                required=rule.required,
+                **{name: getattr(rule, name) for name in fields if name != "playbook_id"},
             )
         return new

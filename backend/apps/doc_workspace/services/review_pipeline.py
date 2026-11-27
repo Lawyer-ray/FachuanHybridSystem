@@ -40,6 +40,7 @@ from ..models import (
     Delivery,
     Finding,
     FindingKind,
+    Jurisdiction,
     ReviewRun,
     RiskSource,
     RuleClass,
@@ -73,6 +74,43 @@ _STANCE_TEXT: dict[str, str] = {
     Stance.PARTY_B: "代表乙方（我方是乙方）",
     Stance.NEUTRAL: "中立复核（不代表任何一方，按法律风险给意见）",
 }
+
+#: 法域 → 提示词里的「你是谁、按什么法审」。
+#:
+#: 以前这一行写死「你是中国执业律师」。审一份泰国土地租赁合同时，这句话会让模型：
+#: ① 用中国法的形式要件（统一社会信用代码/不动产登记簿）去要求一份泰国合同；
+#: ② 把自己知道的中国法条当依据写进 `legal_basis`；
+#: ③ 完全不去想 Land Code / CCC 那几条真正的硬约束。
+_JURISDICTION_TEXT: dict[str, str] = {
+    Jurisdiction.CN: "你熟悉中国法，正在审查一份适用中国法的合同。",
+    Jurisdiction.TH: (
+        "你熟悉泰国法（Civil and Commercial Code / Land Code / Foreign Business Act / "
+        "Condominium Act / Labour Protection Act / Revenue Code），正在审查一份适用**泰国法**的合同。"
+    ),
+    Jurisdiction.VN: "你熟悉越南法，正在审查一份适用**越南法**的合同。",
+    Jurisdiction.MY: "你熟悉马来西亚法，正在审查一份适用**马来西亚法**的合同。",
+    Jurisdiction.SG: "你熟悉新加坡法，正在审查一份适用**新加坡法**的合同。",
+    Jurisdiction.ID: "你熟悉印度尼西亚法，正在审查一份适用**印度尼西亚法**的合同。",
+    Jurisdiction.PH: "你熟悉菲律宾法，正在审查一份适用**菲律宾法**的合同。",
+    Jurisdiction.LA: "你熟悉老挝法，正在审查一份适用**老挝法**的合同。",
+    Jurisdiction.KH: "你熟悉柬埔寨法，正在审查一份适用**柬埔寨法**的合同。",
+    Jurisdiction.MM: "你熟悉缅甸法，正在审查一份适用**缅甸法**的合同。",
+    Jurisdiction.BN: "你熟悉文莱法，正在审查一份适用**文莱法**的合同。",
+}
+
+#: 非中国法域的提示词硬约束。
+#:
+#: 「不许凭记忆引外国法」必须是**显式规则**而不是期望：模型对外国法的记忆错误率远高于
+#: 中国法，而错误的法条引用比不提法条更危险（看起来最专业）。
+_FOREIGN_LAW_RULES = (
+    "## 域外法硬约束（违反即整条结论作废）\n"
+    "1. **不许凭记忆引用外国法条文**。只能引用「域外法查明结果」一节里实际列出的法条；\n"
+    "2. 引用时必须写清「法名 + 条号」（如 `Civil and Commercial Code Section 540`），"
+    "不写「泰国法律规定」这种无法核验的表述；\n"
+    "3. 合同里出现的**查无此法 / 查无此条**引用，无论你觉得它多合理，都必须报出来；\n"
+    "4. 你不确定某条是否现行有效时，写 `risk_source=scenario` 并在 `reason` 里注明「待查明」，"
+    "不要编一个条号。\n\n"
+)
 
 
 #: 阶段/来源的中文文案（一页纸与前端各有一份，改文案只需改这里与前端标签表）
@@ -239,6 +277,8 @@ def build_prompt(
     contract_type: str,
     feedback: str = "",
     case_evidence: str = "",
+    jurisdiction: str = Jurisdiction.CN,
+    foreign_law_evidence: str = "",
 ) -> list[dict[str, str]]:
     """把标准库渲染成提示词。
 
@@ -266,8 +306,13 @@ def build_prompt(
         )
 
     fmt = (
-        "## 输出格式\n"
-        "仅返回一个 JSON 对象，不要任何解释文字。**顺序很重要：先画标的、再展开关系、最后逐条判定**。\n"
+        "## 输出格式（**先读这一节，它决定你的整份回答**）\n"
+        "**你的回答第一个字符必须是 `{`，最后一个字符必须是 `}`。**\n"
+        "禁止输出任何分析过程、思考过程、前言、结语、道歉或 Markdown 说明；"
+        "「Let me analyze…」「We need…」这类文字写出来就等于本次审查作废——"
+        "下游只解析 JSON，其余全部丢弃。\n"
+        "若需要先想清楚再写，也**只能想完直接输出 JSON**。\n"
+        "**顺序很重要：先画标的、再展开关系、最后逐条判定**。\n"
         "```\n"
         "{\n"
         '  "subject_profile": ["这个标的的特殊性，逐条列（如：工业用地/带产业监管/历史污染/设备与不动产混杂/需政府审批）"],\n'
@@ -288,11 +333,16 @@ def build_prompt(
         "- 若确实没有可报的问题，`findings` 返回空数组，但 `subject_profile` 与 "
         "`relations` 仍要填——它们本身就是交付内容。\n\n"
     )
+    persona = _JURISDICTION_TEXT.get(jurisdiction, _JURISDICTION_TEXT[Jurisdiction.CN])
+    foreign_block = _FOREIGN_LAW_RULES if jurisdiction != Jurisdiction.CN else ""
     system = (
-        "你是中国执业律师，正在审查一份合同。\n"
-        f"本次立场：{stance_text}。\n"
-        f"合同类型：{contract_type or '通用'}。\n\n"
-        "## 只报以下两类问题\n"
+        fmt
+        + persona
+        + "\n"
+        + f"本次立场：{stance_text}。\n"
+        + f"合同类型：{contract_type or '通用'}。\n\n"
+        + foreign_block
+        + "## 只报以下两类问题\n"
         "1. 会造成**经济损失**的（金额、违约金、赔偿、付款条件、结算方式）；\n"
         "2. 会造成**诉讼风险**的（管辖、仲裁、举证、解除、时效）。\n"
         "纯措辞优化、纯排版问题**不要报**。宁缺毋滥：漏报一条可接受的，"
@@ -322,9 +372,9 @@ def build_prompt(
         "- `inherited`（承继性）：义务随标的一起转过来，漏了就替前人背债；\n"
         "- `procedural`（程序性）：办不成事（过户被退、登记卡住）；\n"
         "- `contractual`（契约性）：可以谈，属于商业判断。\n\n"
-        + fmt
         + ("\n" + feedback if feedback else "")
         + ("\n" + case_evidence if case_evidence else "")
+        + ("\n" + foreign_law_evidence if foreign_law_evidence else "")
         + "## 审查标准库\n"
         + "\n".join(rule_lines)
     )
@@ -335,7 +385,21 @@ def build_prompt(
 def _default_llm_call(messages: list[dict[str, str]]) -> str:
     from apps.core.llm.service import LLMService
 
-    response = LLMService().chat(messages, temperature=0.2, max_tokens=16384, fallback=True)
+    response = LLMService().chat(
+        messages,
+        temperature=0.2,
+        # 16384 在「标准库 25 条 + 域外法条文原文」的提示词下不够：真机实测模型把
+        # 预算花在输出分析文字上，JSON 被截断在半句（`审查结果不是合法 JSON`）。
+        # 32k 给足余量；超时单独放到 300s——单条审查 2 分钟属正常。
+        max_tokens=32768,
+        fallback=True,
+        timeout_seconds=300,
+        # **审查是结构化抽取，不是思辨题**：必须关掉思考。
+        # 真机症状：kimi-2.6 开着思考审泰国合同，3 分钟全花在输出
+        # 「We need answer JSON only, first char { last }…」这类过程文字上，
+        # JSON 一个字符都没写出来 → 整轮审查零结论。
+        enable_thinking=False,
+    )
     content = getattr(response, "content", None)
     if content is None and isinstance(response, dict):
         content = response.get("content")
@@ -400,6 +464,13 @@ def parse_review_output(raw: str) -> ReviewOutput:
                 else [],
             )
 
+    # 截断抢救：模型把预算花在前面的口语分析上时，JSON 会被切在半句。
+    # 整份丢弃的代价是「AI 审了半天，清单空白」——比拿到 3 条不完整结论严重得多。
+    salvaged = _salvage_findings(text)
+    if salvaged:
+        logger.warning("审查输出被截断，已抢救出 %d 条结论", len(salvaged))
+        return ReviewOutput(findings=salvaged)
+
     # 退回老契约：裸数组
     match = _JSON_ARRAY_RE.search(text)
     if not match:
@@ -411,6 +482,63 @@ def parse_review_output(raw: str) -> ReviewOutput:
         logger.warning("审查结果不是合法 JSON，前 200 字：%s", text[:200])
         return ReviewOutput()
     return ReviewOutput(findings=[i for i in data if isinstance(i, dict)] if isinstance(data, list) else [])
+
+
+def _salvage_findings(text: str) -> list[dict[str, Any]]:
+    """从**被截断**的模型输出里捞出所有完整的 finding 对象。
+
+    只做一件事：从 `"findings"` 后面的 `[` 开始按括号配对扫，遇到配对完整的
+    `{...}` 就 `json.loads` 一次，遇到不完整的（被截断）就停。`subject_profile`
+    与 `relations` 在截断场景下一律放弃——结论优先，画像可以下一轮再拿。
+
+    刻意**不猜**：不补引号、不补逗号、不把半截对象当完整对象。捞不出来就返回空，
+    让上层走「零结论 + 失败提示」这条确定路径，而不是拿一份改过的 JSON 去写库。
+    """
+    start = text.find('"findings"')
+    if start < 0:
+        return []
+    array_start = text.find("[", start)
+    if array_start < 0:
+        return []
+
+    findings: list[dict[str, Any]] = []
+    depth = 0
+    obj_start: int | None = None
+    in_string = False
+    escaped = False
+    for index in range(array_start, len(text)):
+        char = text[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+            continue
+        if char == "{":
+            if depth == 0:
+                obj_start = index
+            depth += 1
+            continue
+        if char == "}":
+            depth -= 1
+            if depth == 0 and obj_start is not None:
+                chunk = text[obj_start : index + 1]
+                obj_start = None
+                try:
+                    parsed = json.loads(chunk)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(parsed, dict):
+                    findings.append(parsed)
+            continue
+        if char == "]" and depth == 0:
+            break
+    return findings
 
 
 def parse_findings(raw: str) -> list[dict[str, Any]]:
@@ -501,6 +629,7 @@ def create_run(
     subpath: str,
     stance: str = Stance.NEUTRAL,
     contract_type: str = "",
+    jurisdiction: str = Jurisdiction.CN,
     playbook: Any = None,
     user: Any = None,
     org_access: Any = None,
@@ -518,7 +647,8 @@ def create_run(
 
     from .docx.text import full_text
 
-    book = playbook or playbook_service.resolve(contract_type=contract_type, stance=stance)
+    code = playbook_service.normalise_jurisdiction(jurisdiction)
+    book = playbook or playbook_service.resolve(contract_type=contract_type, stance=stance, jurisdiction=code)
     rules = playbook_service.snapshot_rules(book)
 
     if raw_bytes is None:
@@ -532,9 +662,10 @@ def create_run(
         owner_id=owner_id,
         subpath=subpath,
         contract_type=contract_type,
+        jurisdiction=code,
         content_sha256=hashlib.sha256(raw_bytes).hexdigest(),
         stance=stance,
-        playbook_key=f"{book.org_id or 'builtin'}:{book.contract_type or 'general'}:{book.stance}",
+        playbook_key=f"{book.org_id or 'builtin'}:{book.jurisdiction or code}:{book.contract_type or 'general'}:{book.stance}",
         playbook_version=book.version,
         playbook_snapshot=rules,
         status=RunStatus.QUEUED,
@@ -545,9 +676,21 @@ def create_run(
     return run
 
 
-@transaction.atomic
 def execute_run(run: ReviewRun, *, caller: LLMCaller | None = None, text: str | None = None) -> ReviewRun:
-    """跑模型并落结论。可被同步调用（测试）或由后台任务调用。"""
+    """跑模型并落结论。可被同步调用（测试）或由后台任务调用。
+
+    ## 为什么这个函数**不**是 `@transaction.atomic`
+
+    它中间要等一次几十秒的模型调用 + 域外法查明（最坏 40s）。整段包在事务里，
+    进程就在「idle in transaction」——而本项目的连接参数带
+    `idle_in_transaction_session_timeout=60000`（`settings.DATABASES.OPTIONS`），
+    于是**模型慢于 60 秒时，落库那一刻连接已被 PG 掐掉**，表现为
+    `OperationalError: the connection is closed`，整轮审查作废。
+
+    真机实测：一份 8 千字的泰国合同（提示词带域外法条文原文）就撞上了这条线。
+    所以事务只包**真正的写库那一段**（删旧结论 → 写新结论 → 存 summary），
+    外部调用一律在事务外。
+    """
     from io import BytesIO
 
     from docx import Document
@@ -587,6 +730,12 @@ def execute_run(run: ReviewRun, *, caller: LLMCaller | None = None, text: str | 
             searcher=case_evidence.default_searcher(),
         )
 
+        # 域外法查明：第五个风险来源，且是**唯一能机械判死的那个**。
+        # 中国法域下也会跑（合同里可能引用外国法），但无引用时成本为 0。
+        from . import foreign_law
+
+        foreign = foreign_law.gather(text=text, jurisdiction=str(run.jurisdiction or Jurisdiction.CN))
+
         messages = build_prompt(
             rules=rules,
             contract_text=text,
@@ -594,6 +743,8 @@ def execute_run(run: ReviewRun, *, caller: LLMCaller | None = None, text: str | 
             contract_type=str(run.contract_type),
             feedback=feedback.describe(),
             case_evidence=evidence.to_prompt_block(),
+            jurisdiction=str(run.jurisdiction or Jurisdiction.CN),
+            foreign_law_evidence=foreign.to_prompt_block(),
         )
         raw = (caller or _default_llm_call)(messages)
         produced = parse_review_output(raw)
@@ -604,44 +755,24 @@ def execute_run(run: ReviewRun, *, caller: LLMCaller | None = None, text: str | 
             if x
         ]
         playbook_feedback.apply_to_items(items, feedback)
+        # 查明结论是**确定性事实**，不经 `_normalize_item`（它只管模型自创的 rule_key），
+        # 直接在闸门前注入：查无此法就是查无此法，不需要模型同意。
+        escalated = foreign_law.escalate_model_citations(items, foreign)
+        items = [*items, *foreign_law.deterministic_findings(foreign)]
         kept, report = enforce_gates(items)
 
-        Finding.objects.filter(run=run).delete()
-        for ordinal, item in enumerate(kept):
-            Finding.objects.create(
+        # 事务只包围写库这一段：外部调用（模型 / BARLC）已经全部完成。
+        with transaction.atomic():
+            _persist_findings(
                 run=run,
-                ordinal=ordinal,
-                verdict=item["verdict"],
-                severity=item["severity"],
-                kind=item["kind"],
-                clause_type=item["clause_type"],
-                rule_key=item["rule_key"],
-                rule_class=item["rule_class"],
-                stage=item["stage"],
-                risk_source=item["risk_source"],
-                source_weight=item["source_weight"],
-                consequence=item["consequence"],
-                case_ref=item["case_ref"],
-                legal_basis=item["legal_basis"],
-                quote=item["quote"],
-                title=item["title"],
-                reason=item["reason"],
-                suggestion_original=item["suggestion_original"],
-                suggestion_replacement=item["suggestion_replacement"],
-                suggestion_note=item["suggestion_note"],
-                delivery=item["delivery"],
+                kept=kept,
+                report=report,
+                feedback=feedback,
+                produced=produced,
+                evidence=evidence,
+                foreign=foreign,
+                escalated=escalated,
             )
-        run.summary = {
-            "gates": report.__dict__,
-            "feedback": {"suppressed": sorted(feedback.suppressed), "counts": feedback.rules},
-            # 标的画像与关系网本身就是交付内容：律师要看到「AI 认为这块地特殊在哪、
-            # 它扫了哪些关系方」。就算零结论，这两块也证明审查做了功。
-            "subject_profile": produced.subject_profile,
-            "relations": produced.relations,
-            "stages": review_model.stage_rollup(items=kept),
-            "case_evidence": evidence.to_summary(),
-        }
-        run.save(update_fields=["summary"])
         review_model.finish_run(run, status=RunStatus.DONE)
     except (RuntimeError, ValueError, TimeoutError, OSError, KeyError) as exc:
         # 模型侧的错误（超时/返回不可解析/后端 5xx）必须落成 failed，
@@ -651,6 +782,63 @@ def execute_run(run: ReviewRun, *, caller: LLMCaller | None = None, text: str | 
     return run
 
 
+def _persist_findings(
+    *,
+    run: ReviewRun,
+    kept: list[dict[str, Any]],
+    report: GateReport,
+    feedback: Any,
+    produced: ReviewOutput,
+    evidence: Any,
+    foreign: Any,
+    escalated: int,
+) -> None:
+    """把本轮结论与汇总写进库（事务内，**不含任何外部调用**）。
+
+    整段只有 DB 写，因此可以被一个短事务包住；模型调用与域外法查明都在外面——
+    见 `execute_run` docstring 里 `idle_in_transaction_session_timeout` 的坑。
+    """
+    Finding.objects.filter(run=run).delete()
+    for ordinal, item in enumerate(kept):
+        Finding.objects.create(
+            run=run,
+            ordinal=ordinal,
+            verdict=item["verdict"],
+            severity=item["severity"],
+            kind=item["kind"],
+            clause_type=item["clause_type"],
+            rule_key=item["rule_key"],
+            rule_class=item["rule_class"],
+            stage=item["stage"],
+            risk_source=item["risk_source"],
+            source_weight=item["source_weight"],
+            consequence=item["consequence"],
+            case_ref=item["case_ref"],
+            legal_basis=item["legal_basis"],
+            quote=item["quote"],
+            title=item["title"],
+            reason=item["reason"],
+            suggestion_original=item["suggestion_original"],
+            suggestion_replacement=item["suggestion_replacement"],
+            suggestion_note=item["suggestion_note"],
+            delivery=item["delivery"],
+        )
+    run.summary = {
+        "gates": report.__dict__,
+        "feedback": {"suppressed": sorted(feedback.suppressed), "counts": feedback.rules},
+        # 标的画像与关系网本身就是交付内容：律师要看到「AI 认为这块地特殊在哪、
+        # 它扫了哪些关系方」。就算零结论，这两块也证明审查做了功。
+        "subject_profile": produced.subject_profile,
+        "relations": produced.relations,
+        "stages": review_model.stage_rollup(items=kept),
+        "case_evidence": evidence.to_summary(),
+        # 域外法查明：律师要能看到「这份合同的哪几条法条被查过、结论是什么」。
+        # 一条引用都没查也算结论（「合同里没引外国法」本身就是有用的信息）。
+        "foreign_law": {**foreign.to_summary(), "escalated": escalated},
+    }
+    run.save(update_fields=["summary"])
+
+
 def run_review(
     *,
     kind: str,
@@ -658,6 +846,7 @@ def run_review(
     subpath: str,
     stance: str = Stance.NEUTRAL,
     contract_type: str = "",
+    jurisdiction: str = Jurisdiction.CN,
     playbook: Any = None,
     user: Any = None,
     org_access: Any = None,
@@ -673,6 +862,7 @@ def run_review(
         subpath=subpath,
         stance=stance,
         contract_type=contract_type,
+        jurisdiction=jurisdiction,
         playbook=playbook,
         user=user,
         org_access=org_access,
