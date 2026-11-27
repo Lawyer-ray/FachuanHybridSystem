@@ -14,6 +14,7 @@ type ToolCallEvent = Extract<AgentStreamEvent, { type: 'tool_call' }>
 type ToolResultEvent = Extract<AgentStreamEvent, { type: 'tool_result' }>
 type ApprovalEvent = Extract<AgentStreamEvent, { type: 'approval_request' }>
 type QuestionEvent = Extract<AgentStreamEvent, { type: 'question_request' }>
+type UiActionEvent = Extract<AgentStreamEvent, { type: 'ui_action' }>
 
 /**
  * usage 事件的归一化载荷。
@@ -74,6 +75,22 @@ export interface StreamHandlers {
    * services/question.py），由 domain/question.normalizeQuestions 宽容解析。
    */
   onQuestion?(event: QuestionEvent, origin: EventOrigin): void
+  /**
+   * 界面动作下发（`ui_action`）。
+   *
+   * **可选实现，但不实现就等于把动作丢掉**：后端不会因为前端没接住而报错或重发
+   * （T1 是单向指令），于是模型照旧对律师说「已帮你切过去」，页面一动不动，而日志
+   * 里连一条错误都没有。2026-11-27 今天就踩了这一次：`createUiActionHandler` 返回的
+   * 键名是事件名 `ui_action`，而这里的分发是写死的 `switch (event.type)`，没有
+   * `case 'ui_action'`，帧直接落进 `default: break`——**编译期不报错**（`turn-handlers`
+   * 用 spread 合并，TS 的 excess-property 检查对 spread 不生效）。
+   * 因此开关两侧必须成对改：本接口加成员 + switch 加 case + 回归用例
+   * `streaming.ui-action.test.ts` 钉死。
+   *
+   * 为什么带 `origin`：多栏并答时两栏都可能下发动动作，横幅要能标清「是哪一栏在动」
+   * （单栏时 handler 按 `columnCount` 决定是否显示来源）。
+   */
+  onUiAction?(event: UiActionEvent, origin: EventOrigin): void
   /**
    * 引用表增量（逐句溯源）。
    *
@@ -245,6 +262,12 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
           // （超时即按假设继续，前端仍可补答）
           h.onProgress()
           h.onQuestion?.(event, origin)
+          break
+        case 'ui_action':
+          // 界面动作不是工具结果：不进转录、不落 tool 行，只交给执行层就地生效
+          // （理由见 handlers/ui-action-handler.ts 文件头）。
+          h.onProgress()
+          h.onUiAction?.(event, origin)
           break
         case 'compaction':
           h.onCompaction(event.phase)

@@ -50,6 +50,7 @@ import os
 # 这里**不**自己改 ``sys.path``——那会让「能不能 import」取决于谁先执行，
 # 并掩盖真正的路径问题。``toolface`` 只依赖 stdlib，不拖 Django / pi 依赖树。
 from apps.agent.backends.toolface import SERVER_NAME, skill_prefix, tool_prefix
+from apps.agent.services.ui_action.manifest import CONFIRM_ACTION_NAMES, DIRECT_ACTION_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,10 @@ TOOL_TIERS_ENV = "FACHUAN_MCP_TOOL_TIERS"
 #:
 #: 刻意**不含** create_/update_ 这类写工具：它们低频且可经 tool_search 找到，
 #: 而律师对"AI 能改什么"的预期来自审批弹窗而不是工具清单。
+#:
+#: 末尾并入 UI 动作的 ``confirm`` 档（清单口径是「confirm 一律直连」）：
+#: ``DIRECT_PATTERNS`` 里的 ``delete_*`` **匹配不到** ``ui_material_prep_delete_pack``
+#: 这类名字（不以 ``delete_`` 开头），所以只能显式并，不能指望模式兜住。
 DIRECT_TOOLS: frozenset[str] = frozenset(
     {
         # --- 元信息：每轮几乎都会用到 ---
@@ -94,7 +99,7 @@ DIRECT_TOOLS: frozenset[str] = frozenset(
         # --- 汇总 ---
         "get_dashboard_stats",
     }
-)
+) | CONFIRM_ACTION_NAMES | DIRECT_ACTION_NAMES
 
 #: 破坏性工具一律直连（模式匹配，覆盖 41 个 delete_* 等）。
 #: 用模式而不是枚举：新增 delete_xxx 时自动纳入，不依赖有人记得改这里。

@@ -204,6 +204,27 @@ class QuestionRequestEvent(_RunScoped):
     timeout_seconds: int = 180
 
 
+class UiActionEvent(_RunScoped):
+    """前端动作下发帧（T1 单向通道）。
+
+    **它不是工具结果**，也没有对应的 ``tool_result``：后端发完即返回
+    ``observed: False``，执行结果不回传（理由见 ``services/ui_action`` 模块 docstring）。
+
+    ``call_id`` / ``sequence`` 是前端的两条防线：前者做幂等（模型重试 / 事件重放命中
+    LRU 直接跳过），后者让「跳号」可见（**只记 warning、不重排**——动作语义有先后，
+    重排会把「先归案再跳页」变成「先跳页再归案」）。
+    """
+
+    type: Literal["ui_action"]
+    call_id: str
+    action: str
+    arguments: dict[str, Any]
+    #: 期望路由前缀（清单里的 ``route``）；``None`` = 任意页面
+    route: str | None = None
+    #: 同会话内递增的动作序号。进程内计数，跨 worker 不保证连续。
+    sequence: int = 0
+
+
 class CitationRef(BaseModel):
     """一条**入站引用**（AI → 材料）——正文 `[K<cite_no>]` 角标指向的来源。
 
@@ -336,6 +357,7 @@ AgentStreamEvent = (
     | ApprovalRequestEvent
     | UsageEvent
     | QuestionRequestEvent
+    | UiActionEvent
     | CompactionEvent
     | CitationsEvent
     | ErrorEvent
@@ -355,6 +377,7 @@ EVENT_MODELS: list[type[BaseModel]] = [
     ApprovalRequestEvent,
     UsageEvent,
     QuestionRequestEvent,
+    UiActionEvent,
     CompactionEvent,
     CitationsEvent,
     ErrorEvent,

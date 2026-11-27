@@ -31,6 +31,10 @@ const storeMock = vi.hoisted(() => ({
   backends: [] as Array<{ kind: string; label: string; description: string; available: boolean; reason: string; capabilities: Record<string, boolean> }>,
   selectedAgentKind: '',
   selectAgentKind: vi.fn(),
+  // UiActionBanner 读这两个 selector（横幅已挂在助手页的消息区上方）
+  answerAgents: [] as string[],
+  uiToolRuns: {} as Record<string, unknown>,
+  abortUiActions: vi.fn(),
 }))
 
 const sessionMock = vi.hoisted(() => ({

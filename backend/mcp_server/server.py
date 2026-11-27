@@ -438,6 +438,7 @@ from mcp_server.tools import (
     warm_up_cache,
     web_search,
 )
+from mcp_server.tools.ui.register import _register_ui_tools
 
 #: 模块级 logger——下面四段条件导入就要用（它们失败时只能在这里说句话），
 #: 因此定义在所有 import 之后、工具注册常量之前。
@@ -1380,6 +1381,14 @@ def _builtin_tool_names() -> set[str]:
     ``_REGISTERED_TOOL_NAMES``）。返回副本：插件注册也走 ``_t``，不能让名单跟着变。
     """
     return set(_REGISTERED_TOOL_NAMES)
+
+
+# ---------------------------------------------------------------------------
+# UI 动作工具：从单源清单动态注册（名字/描述/schema/风险档全部来自 manifest）
+# ---------------------------------------------------------------------------
+# 位置有两个硬约束：必须在所有内置 ``_t(...)`` **之后**（撞名要以完整内置名单为基准），
+# 且在插件之前（``_t`` 记台账，插件那侧的 ``_builtin_tool_names()`` 也会把 ``ui_*`` 当已占用）。
+UI_TOOL_NAMES: list[str] = _register_ui_tools(_t, reserved_names=_builtin_tool_names())
 
 
 PLUGIN_TOOL_NAMES: list[str] = register_plugin_tools(_t, reserved_names=_builtin_tool_names())

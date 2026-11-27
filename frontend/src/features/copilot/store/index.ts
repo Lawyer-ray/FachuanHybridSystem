@@ -13,6 +13,7 @@
  * - approval.ts      审批卡（加载合并/决策/失效清理）
  * - attachment.ts    待发草稿（附件/文件夹引用/框选引用 chips，无网络）
  * - context-usage.ts 上下文水位与消息反馈
+ * - ui-tools.ts      界面动作（AI 操作页面）的执行态 / 幂等 / 打断
  * - session-epoch.ts 会话纪元守卫（跨 slice 共享的模块级计数器）
  * 领域细节在域根目录：streaming.ts（帧消费）、turn-handlers.ts（轮处理器）、
  * outgoing.ts（附件出站）、transitions.ts（视图过渡）、persistence.ts（会话
@@ -34,6 +35,7 @@ import { createQuestionSlice } from './question'
 import { createSessionSlice } from './session'
 import { bumpSessionEpoch } from './session-epoch'
 import { createTurnSlice, EMPTY_STATS } from './turn'
+import { createUiToolSlice } from './ui-tools'
 
 export const useCopilot = create<CopilotState>((set, get) => ({
   // ── state 初值 ──────────────────────────────────────────────────────
@@ -80,6 +82,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   ...createMentionSlice(set, get),
   ...createAttachmentSlice(set, get),
   ...createContextUsageSlice(set, get),
+  ...createUiToolSlice(set, get),
 
   /** 关闭错误提示（只清展示；错误本身已由调用方处理或无法处理） */
   clearError: () => {
@@ -114,6 +117,9 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       uploadingAttachments: false,
       sending: false,
       draggingFiles: false,
+      // 界面动作的运行态与打断标记：残留会让横幅挂着一个不存在的「AI 正在操作」
+      uiToolRuns: {},
+      abortedAt: null,
       answerAgents: [],
       // 换账号不得带着上一个账号「某栏跑哪个模型」的配置（清单保留，选择清空）
       answerModels: {},
