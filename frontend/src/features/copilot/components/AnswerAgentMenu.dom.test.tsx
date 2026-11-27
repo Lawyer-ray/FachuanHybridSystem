@@ -229,10 +229,49 @@ describe('AnswerAgentMenu', () => {
     expect(dsh.closest('[data-testid="agent-row-dsh"]')!.textContent).toContain('未安装 SDK')
   })
 
-  it('清单为空时菜单仍可打开并说明「本轮使用默认 AI」', () => {
-    renderMenu({ backends: [] })
+  it('清单真的为空时菜单仍可打开并说明「本轮使用默认 AI」', () => {
+    renderMenu({ backends: [], backendsState: 'ready' })
     openMenu()
-    expect(screen.getByText('后端清单暂不可用，本轮使用默认 AI。')).toBeTruthy()
+    expect(screen.getByText('后端清单为空，本轮使用默认 AI。')).toBeTruthy()
+  })
+
+  it('清单还在拉时说的是「正在拉取」，不误报成不可用', () => {
+    // 2026-11-27 现场：/agent/backends 因 qoder 模型探测卡了 15 秒，首屏打开菜单
+    // 看到「暂不可用」——用户合理地以为功能坏了。加载中必须与失败分开说。
+    renderMenu({ backends: [], backendsState: 'loading' })
+    openMenu()
+    expect(screen.getByText('正在拉取 AI 清单…')).toBeTruthy()
+    expect(screen.queryByText(/暂不可用|没拉到/)).toBeNull()
+  })
+
+  it('拉失败时给「重试」，点了才重拉（不是只能刷页面）', () => {
+    const onRefreshBackends = vi.fn()
+    renderMenu({ backends: [], backendsState: 'error', onRefreshBackends })
+    openMenu()
+
+    // 打开时已经自动重拉过（见下一条用例），这里只验「重试」按钮自己也能拉
+    onRefreshBackends.mockClear()
+    expect(screen.getByText(/AI 清单没拉到/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    expect(onRefreshBackends).toHaveBeenCalledTimes(1)
+  })
+
+  it('处于 error 状态时打开菜单会自动重拉一次（失败后不再死等刷新）', () => {
+    const onRefreshBackends = vi.fn()
+    renderMenu({ backends: [], backendsState: 'error', onRefreshBackends })
+
+    openMenu()
+
+    expect(onRefreshBackends).toHaveBeenCalledTimes(1)
+  })
+
+  it('已有清单时打开菜单不重拉（避免每次开菜单都打接口）', () => {
+    const onRefreshBackends = vi.fn()
+    renderMenu({ backendsState: 'ready', onRefreshBackends })
+
+    openMenu()
+
+    expect(onRefreshBackends).not.toHaveBeenCalled()
   })
 
   it('流式中禁用：按钮点不动，提示说清原因', () => {

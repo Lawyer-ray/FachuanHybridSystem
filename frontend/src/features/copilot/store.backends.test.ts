@@ -150,6 +150,28 @@ describe('copilot store：后端清单加载', () => {
     expect(s.backends.map((b) => b.kind)).toEqual(['pi', 'dsh'])
     expect(s.selectedAgentKind).toBe('dsh')
     expect(s.lastError).toBeNull()
+    // 但**不再完全静默**：状态位要能让切换器说出「没拉到 + 重试」，
+    // 而不是把「慢/失败」显示成「后端清单暂不可用」并永不重试（2026-11-27 现场）。
+    expect(s.backendsState).toBe('error')
+  })
+
+  it('拉取成功把状态置 ready（切换器据此不再显示加载中）', async () => {
+    useCopilot.setState({ backends: [], backendsState: 'idle' })
+    vi.mocked(copilotApi.fetchBackends).mockResolvedValue([option('pi')])
+
+    await useCopilot.getState().loadBackends()
+
+    expect(useCopilot.getState().backendsState).toBe('ready')
+  })
+
+  it('在飞时不重复发请求（菜单每次打开都可能触发重拉）', async () => {
+    useCopilot.setState({ backendsState: 'loading' })
+    const spy = vi.mocked(copilotApi.fetchBackends)
+    spy.mockClear()
+
+    await useCopilot.getState().loadBackends()
+
+    expect(spy).not.toHaveBeenCalled()
   })
 })
 

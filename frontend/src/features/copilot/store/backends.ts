@@ -25,7 +25,10 @@ import { readStoredAgentKind, storeAgentKind } from '../persistence'
 import type { AgentBackendOption, CopilotState } from '../types'
 import type { Slice } from './slice'
 
-export type BackendsSlice = Pick<CopilotState, 'backends' | 'selectedAgentKind' | 'loadBackends' | 'selectAgentKind'>
+export type BackendsSlice = Pick<
+  CopilotState,
+  'backends' | 'backendsState' | 'selectedAgentKind' | 'loadBackends' | 'selectAgentKind'
+>
 
 /** 在清单里找一个 kind 对应的选项（找不到返回 undefined）。 */
 export function findBackend(backends: AgentBackendOption[], kind: string): AgentBackendOption | undefined {
@@ -87,9 +90,13 @@ export function noApprovalWarn(option: AgentBackendOption | undefined): boolean 
 
 export const createBackendsSlice: Slice<BackendsSlice> = (set, get) => ({
   backends: [],
+  backendsState: 'idle',
   selectedAgentKind: readStoredAgentKind(),
 
   loadBackends: async () => {
+    // 在飞时不重复发（菜单每次打开都可能触发重拉，这里靠状态自身去重）
+    if (get().backendsState === 'loading') return
+    set({ backendsState: 'loading' })
     try {
       const backends = await copilotApi.fetchBackends()
       const selected = get().selectedAgentKind
@@ -97,10 +104,13 @@ export const createBackendsSlice: Slice<BackendsSlice> = (set, get) => ({
       // 发消息会撞上「选中项其实是灰的」这个自相矛盾的界面。
       const kept = findBackend(backends, selected)
       const next = kept?.available ? selected : defaultAgentKind(backends.filter((b) => b.available))
-      set({ backends, selectedAgentKind: next })
+      set({ backends, backendsState: 'ready', selectedAgentKind: next })
       storeAgentKind(next)
     } catch {
-      // 静默：切换器退化为纯展示，发消息仍走后端默认（pi）
+      // 不再静默：`backendsState='error'` 让切换器给出「重试」而不是一句「暂不可用」。
+      // 旧实现是 catch 里什么都不做，于是失败一次 = 整个页面生命周期都不会再拉，
+      // 用户只能刷新页面（2026-11-27：qoder 模型清单探测卡 15 秒 → 首屏菜单永久空）。
+      set({ backendsState: 'error' })
     }
   },
 

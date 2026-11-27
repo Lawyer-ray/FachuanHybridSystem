@@ -111,7 +111,17 @@ export interface AgentBackendSelection {
   selectedAgentKind: string
   /** 可选后端清单（切换器数据源；拉取失败时为空数组，切换器退化为纯展示） */
   backends: AgentBackendOption[]
-  /** 拉取可选后端清单（面板打开时调；失败静默保留上一次结果） */
+  /**
+   * 清单拉取状态（`idle` = 还没试过）。
+   *
+   * 为什么需要它：`backends` 为空有三种完全不同的原因——**正在拉**、**拉失败**、
+   * **真的一个都没有**。三者都渲染同一句「后端清单暂不可用」时，用户看到的是
+   * 「系统坏了」且**没有任何重试入口**（旧实现里失败后整个页面生命周期都不会再拉）。
+   * 2026-11-27 现场：`/agent/backends` 因 qoder 模型清单探测卡 15 秒，首屏就打开菜单
+   * 的职业会看到这句误报。
+   */
+  backendsState: 'idle' | 'loading' | 'ready' | 'error'
+  /** 拉取可选后端清单（面板打开时调；失败把 `backendsState` 置 `error`，不再静默） */
   loadBackends: () => Promise<void>
   /** 选择新建会话用的后端（不可用的选项直接忽略） */
   selectAgentKind: (kind: string) => void

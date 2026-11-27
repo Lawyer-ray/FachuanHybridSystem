@@ -87,6 +87,7 @@ export function AnswerAgentMenu({
   defaultKind,
   disabled,
   hint,
+  backendsState = 'ready',
   onToggle,
   onSelectModel,
   onRefreshBackends,
@@ -103,6 +104,15 @@ export function AnswerAgentMenu({
   disabled: boolean
   /** 禁用原因（悬停提示；空串表示无补充） */
   hint: string
+  /**
+   * 清单拉取状态（`store/backends.ts` 的 `backendsState`）。
+   *
+   * `backends` 为空有三种原因，必须分开说：**正在拉**（短暂，不要归坏）、
+   * **拉失败**（给重试）、**真的没有**。三者共用一个「暂不可用」时，用户看到的
+   * 只是「系统坏了」，而且旧实现失败后整个页面生命周期都不会再拉。
+   * 缺省 `ready`：只关心「有清单」的调用方（测试、只读宿主）不必关心这个状态。
+   */
+  backendsState?: 'idle' | 'loading' | 'ready' | 'error'
   onToggle: (kind: string) => void
   /** 给某一栏指定模型（空串 = 取消指定） */
   onSelectModel: (kind: string, model: string) => void
@@ -166,7 +176,14 @@ export function AnswerAgentMenu({
         className={`${TRIGGER_CLASS} ${
           active ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
         }`}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          // 空清单时顺手重拉一次：加载失败后旧实现永不重试，用户只能刷页。
+          // 只在 `idle`/`error` 时拉——`ready` 且空是真的没有后端，重拉没意义。
+          if (!open && backends.length === 0 && (backendsState === 'idle' || backendsState === 'error')) {
+            onRefreshBackends?.()
+          }
+          setOpen((v) => !v)
+        }}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -197,7 +214,24 @@ export function AnswerAgentMenu({
         >
           {backends.length === 0 && (
             <p className="px-2 py-1.5 text-[11.5px] leading-relaxed text-muted-foreground">
-              后端清单暂不可用，本轮使用默认 AI。
+              {backendsState === 'loading' ? (
+                '正在拉取 AI 清单…'
+              ) : backendsState === 'error' ? (
+                <>
+                  AI 清单没拉到
+                  {onRefreshBackends && (
+                    <button
+                      type="button"
+                      onClick={onRefreshBackends}
+                      className="ml-1 rounded-[5px] border border-border px-1.5 py-0.5 text-foreground hover:bg-secondary"
+                    >
+                      重试
+                    </button>
+                  )}
+                </>
+              ) : (
+                '后端清单为空，本轮使用默认 AI。'
+              )}
             </p>
           )}
           {backends.map((option) => (
