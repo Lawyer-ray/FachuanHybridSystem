@@ -433,7 +433,7 @@ def test_submit_uses_stable_hash_when_message_id_exceeds_field_width(
     try:
         assert result.created is True
         stored = result.sms.delivery_event_id or ""
-        assert stored.startswith("sha1:")
+        assert stored.startswith("sha256:")
         assert len(stored) <= DELIVERY_EVENT_ID_MAX_LENGTH
         # 同一条消息再提交仍然认得出来（跨轮次稳定）
         assert inbox_sms_bridge.InboxSmsBridgeService().submit(msg).created is False
