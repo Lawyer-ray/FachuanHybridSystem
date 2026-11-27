@@ -12,9 +12,11 @@
  *    （名字 / `N 个 AI`）——身份靠 `aria-label` 说清「会话默认（谁）」；
  * 5. **每行带模型下拉**（规格 4.1）：默认预填 `default_model`、未勾选置灰、
  *    清单为空时整枚下拉消失（降级）。
- * 6. **归属规则写在菜单里**：本菜单是新会话 `agent_kind` 的唯一入口（勾 1 个归它、
- *    勾多个归第一个），这条不能只活在代码注释里——用户看不到就会以为「选 2 个
- *    对比」不会把会话绑到第一家。
+ * 6. **归属规则放在触发器 title 里**（勾 1 个归它、勾多个归第一个）。它曾占着菜单
+ *    底部一整行，2026-11-27 按用户要求从视觉上去掉（「解释说明都可以删」），
+ *    但仍必须可达——这条用例就是防它变成只活在代码注释里的规则。
+ * 6b. **每家的一句介绍不再渲染**：八行各带一行说明会把菜单撑成一屏装不下；
+ *    只剩名字 + 徽标，说明去 `title`。「点不动的原因」是例外，必须还在。
  * 7. **关闭时机**：勾选**不**关（勾完还要给那一行选模型），只有点菜单外部空白、
  *    `Escape`（焦点还给触发器）、再点触发器这三种会关。
  */
@@ -27,12 +29,12 @@ import { MAX_ANSWERS } from '../domain'
 import type { AgentBackendOption } from '../types'
 import { AnswerAgentMenu } from './AnswerAgentMenu'
 
-/** 底部「已选 N 个 · 最多 M 个」的期望文案。
+/** 底部计数「已选 N/M」的期望文案。
  *
  * M **跟着 {@link MAX_ANSWERS} 算**，不写字面值：上限是产品常量（会随可用后端
  * 增减），把 `4` 写进断言就等于给它加了一颗地雷——常量一变，五条无关的用例
  * 一起红，而下一个人还以为是菜单坏了。 */
-const quota = (selected: number) => `已选 ${selected} 个 · 最多 ${MAX_ANSWERS} 个`
+const quota = (selected: number) => `已选 ${selected}/${MAX_ANSWERS}`
 
 function option(
   kind: string,
@@ -300,8 +302,8 @@ describe('AnswerAgentMenu：关闭时机（勾选不关，点外部空白 / Esca
     renderMenu()
     openMenu()
 
+    // 底部现在只剩计数一行（归属规则那行已删，见文件头 6）：点它仍不该关菜单
     fireEvent.pointerDown(screen.getByText(quota(0)))
-    fireEvent.pointerDown(screen.getByText(/新会话也归它/))
 
     expect(screen.getByRole('listbox', MULTI_LISTBOX)).toBeTruthy()
   })
@@ -400,13 +402,26 @@ describe('AnswerAgentMenu：每行的模型下拉（规格 4.1）', () => {
     expect(screen.getByText(quota(2))).toBeTruthy()
   })
 
-  it('底部一句说清归属规则：勾 1 个＝归它，勾多个＝归第一个', () => {
+  it('归属规则从菜单里消失，但仍能从触发器 title 看到', () => {
     renderMenu({ selected: ['pi', 'dsh'] })
     openMenu()
 
-    const rule = screen.getByText(/新会话也归它/)
-    expect(rule.textContent).toBe('勾 1 个＝本轮只问它，新会话也归它；勾 2 个以上＝并排对比，会话归属第一个')
-    // 数量/上限那行照旧，不被这条文案挤掉
+    // 菜单底部不再有那一行
+    expect(screen.queryByText(/新会话也归它/)).toBeNull()
+    // 规则本身没丢：悬停触发器即可见（触屏上靠多答界面顶栏的归属显示兑付）
+    fireEvent.mouseEnter(screen.getByLabelText(/本轮参与的 AI/))
+    expect(screen.getByLabelText(/本轮参与的 AI/).getAttribute('title')).toContain('新会话也归它')
     expect(screen.getByText(quota(2))).toBeTruthy()
+  })
+
+  it('可用行只渲染名字，不再拖一行产品介绍', () => {
+    renderMenu({ selected: [] })
+    openMenu()
+
+    expect(screen.queryByText('Pi 说明')).toBeNull()
+    // pi 是默认后端，无障碍名带「会话默认」后缀（见 AgentRow）
+    const pi = screen.getByRole('checkbox', { name: /^Pi/ })
+    // 介绍改到 title（悬停可达），不是彻底丢掉
+    expect(pi.getAttribute('title')).toBe('Pi 说明')
   })
 })

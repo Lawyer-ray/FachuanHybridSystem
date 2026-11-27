@@ -1,5 +1,14 @@
 /**
- * 多选菜单里的一行：`[☑/☐] 名字（默认徽标）+ 说明 | [模型 ▾]`。
+ * 多选菜单里的一行：`[☑/☐] 名字（默认徽标） | [模型 ▾]`。
+ *
+ * ## 不再显示每家的一句介绍（2026-11-27）
+ *
+ * 这里原本在名字下面拉一行产品说明（`AgentBackendOption.description`）。八个后端
+ * 叠在一张菜单里，那一行把行高翻倍、把菜单撑成一屏装不下的灰块，而且八句里有
+ * 六句对做选择没有帮助。现在只留名字 + 徽标，说明改到行的 `title` 里（悬停可看）。
+ *
+ * **例外：不可用的行仍然显示 `reason`**——那不是介绍，是「为什么点不动」，
+ * 藏起来只会让人以为功能坏了。
  *
  * 从 AnswerAgentMenu 拆出——行里同时有两件事（勾选、模型），加上不可用/满额两种
  * 置灰原因和默认徽标，塞回菜单外壳会把那个文件推过 350 行软红线，而它自己只剩
@@ -106,10 +115,12 @@ export function AgentRow({
             {/* 没有审批闸门必须在**勾选之前**就看到：勾上它等于放弃高危工具的人工确认 */}
             {noApprovalWarn(option) && <NoApprovalBadge className="ml-1" />}
           </span>
-          {/* 单行截断：两行说明会把 8 个后端撑成一屏装不下，而完整内容在 title 里 */}
-          <span className="block truncate text-[11px] leading-snug text-muted-foreground" title={title}>
-            {option.available ? option.description : option.reason}
-          </span>
+          {/* 只有「点不动」时才占第二行：介绍文案已取消（见文件头），原因必须留着 */}
+          {!option.available && option.reason && (
+            <span className="block truncate text-[11px] leading-snug text-muted-foreground" title={title}>
+              {option.reason}
+            </span>
+          )}
         </span>
       </button>
       {/* 需要登录的行给一个**真按得动**的入口：只置灰不给动作，用户唯一的结论是
