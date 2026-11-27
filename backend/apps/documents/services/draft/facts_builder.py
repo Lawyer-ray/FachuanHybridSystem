@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,35 @@ logger = logging.getLogger(__name__)
 
 #: 单份材料拼进事实的字符上限：整篇塞进去只会让模型在最不重要的段落上烧完上下文
 MATERIAL_EXCERPT_CHARS = 2000
+
+#: 摘录口径：**头部 + 关键条款行**。
+#: 真机（14 页土地分包合同）实测：只截前 2000 字时，模型看到的正好是合同首部与面积，
+#: 承包金 384,277、滞纳金 3‰、第九条解除/没收保证金全在截断之外 —— 成稿于是写成
+#: 「金额以合同约定为准」「合同名称以原件为准」这种空话，一份能用的起诉状变成模板。
+#: 关键词行的窗口各自带上下文，保证「条款 + 金额 + 期限」落在同一段里。
+MATERIAL_HEAD_CHARS = 600
+#: 关键词窗口前后各取多少字（够放下「条款号 + 内容」一整句）
+MATERIAL_WINDOW_CHARS = 220
+#: 最多收集多少个关键词窗口
+MATERIAL_KEYWORD_HITS = 14
+
+#: 起草真正要用的条款线索：费用与到期、违约与解除、保证金、管辖与送达
+MATERIAL_KEYWORDS: tuple[str, ...] = (
+    "承包金",
+    "租金",
+    "管理维护费",
+    "水费",
+    "保证金",
+    "押金",
+    "违约金",
+    "滞纳金",
+    "解除",
+    "终止",
+    "管辖",
+    "争议",
+    "送达",
+    "期限",
+)
 #: 一份文书最多拼几份材料，按材料在案件里的登记顺序取前 N 份
 MATERIAL_LIMIT = 3
 #: 材料摘要落在 facts 里的键：它不是骨架占位符，只作为模型素材
@@ -62,7 +92,46 @@ def build_facts(
         text = _text(value)
         if text:
             facts[str(key)] = text
-    return facts
+    return _reconcile_amounts(facts)
+
+
+#: 材料里「合计/共计/总计 … 元」的口径，用来跟案件登记的涉案金额对账
+_TOTAL_RE = re.compile(r"(?:合计|共计|总计)[^\d]{0,8}(?P<amount>\d[\d,，]*(?:\.\d+)?)\s*元")
+
+
+def _reconcile_amounts(facts: dict[str, str]) -> dict[str, str]:
+    """案件字段与材料合计不一致时，**不把两套数字并列喂给模型**。
+
+    真机（案卷 489）：案件登记的涉案金额是 440,000，律师函与合同算出来的欠款合计是
+    404,221。两个数字一起进提示词后，模型两次写成「欠付承包金本金 440,000 元」——
+    起诉状里出现一个材料里根本不存在的金额，是最危险的一类错。
+
+    处置：**去掉案件字段**（它只是登记值，不是诉请），改喂一条口径提示，让模型以材料为准，
+    并把差额留给律师核对。
+    """
+    material = facts.get(MATERIAL_FACTS_KEY, "")
+    registered = facts.get("涉案金额", "")
+    if not material or not registered:
+        return facts
+    totals = {_normalize_amount(m.group("amount")) for m in _TOTAL_RE.finditer(material)}
+    totals.discard("")
+    if not totals or _normalize_amount(registered) in totals:
+        return facts
+    reconciled = dict(facts)
+    reconciled.pop("涉案金额", None)
+    # **只摘掉，不补一句「以材料为准」**：真机试过把口径提示喂进去，模型转头把材料合计
+    # 当成又一个欠款项目，写出「合计 796,845 元，其中承包金 384,277 + 应付款 404,221」。
+    # 材料本身已经写清分项与合计，模型只要看不到第二个数就不会去凑。
+    logger.warning("口径冲突：案件登记涉案金额=%s 材料合计=%s，已不喂登记值", registered, sorted(totals))
+    return reconciled
+
+
+def _normalize_amount(value: Any) -> str:
+    text = str(value or "").replace(",", "").replace("，", "").strip()
+    try:
+        return str(Decimal(text).normalize())
+    except (InvalidOperation, ValueError):
+        return ""
 
 
 def _case_facts(case: Any) -> dict[str, str]:
@@ -141,12 +210,12 @@ def _material_markdown(case: Any) -> str:
     为空。只读 markdown 的写法会让这些材料**静默缺席**起草提示词，表现为「模型没看到合同」
     而没有任何报错（真机基线 D2，见 docs/analysis/legal-doc-generation-2026-11-26/07）。
     """
-    materials = getattr(case, "materials", None)
+    materials = _materials_of(case)
     if materials is None:
         return ""
     task_model = apps.get_model("document_parsing", "DocumentParsingTask")
     parts: list[str] = []
-    for material in materials.select_related("source_attachment", "parsing_task"):
+    for material in materials:
         excerpt = _linked_excerpt(material, task_model=task_model) or _filename_excerpt(material, task_model=task_model)
         if not excerpt:
             continue
@@ -154,6 +223,28 @@ def _material_markdown(case: Any) -> str:
         if len(parts) >= MATERIAL_LIMIT:
             break
     return "\n\n".join(parts)
+
+
+def _materials_of(case: Any) -> Any:
+    """材料的可迭代对象。
+
+    **为什么要按 id 回查**：起草链传进来的是 `CaseDTO`（带行级 ACL 的只读视图），
+    它按设计**不带材料**。只认 `case.materials` 的话，材料在库里也永远进不了提示词——
+    真机就是这么静默丢掉整份合同的（模型只看到案件字段，于是写「金额以合同约定为准」）。
+    """
+    materials = getattr(case, "materials", None)
+    if materials is not None:
+        return (
+            materials.select_related("source_attachment", "parsing_task")
+            if hasattr(materials, "select_related")
+            else materials
+        )
+    case_id = getattr(case, "id", None)
+    if not case_id:
+        return None
+    from apps.cases.models.material import CaseMaterial
+
+    return CaseMaterial.objects.filter(case_id=case_id).select_related("source_attachment", "parsing_task")
 
 
 def _linked_excerpt(material: Any, *, task_model: Any) -> str:
@@ -165,7 +256,7 @@ def _linked_excerpt(material: Any, *, task_model: Any) -> str:
     if not body:
         return ""
     name = _attachment_name(material) or task.file_name
-    return f"### {name}\n{body[:MATERIAL_EXCERPT_CHARS]}"
+    return f"### {name}\n{_excerpt(body)}"
 
 
 def _filename_excerpt(material: Any, *, task_model: Any) -> str:
@@ -184,7 +275,39 @@ def _filename_excerpt(material: Any, *, task_model: Any) -> str:
     body = _text(task.markdown) or _text(task.text)
     if not body:
         return ""
-    return f"### {name}\n{body[:MATERIAL_EXCERPT_CHARS]}"
+    return f"### {name}\n{_excerpt(body)}"
+
+
+def _excerpt(text: str) -> str:
+    """头部 + 关键条款窗口，拼成一份「能用来写文书」的摘录。
+
+    只截头部会漏掉全部条款（真机：承包金/滞纳金/解除条款都在 2000 字之后）；
+    全文塞进去又会让模型在最不重要的段落上烧完上下文。所以按**起草要用的线索**取窗口，
+    去重后按原文顺序拼接，总长仍受 `MATERIAL_EXCERPT_CHARS` 约束。
+    """
+    body = text or ""
+    if len(body) <= MATERIAL_EXCERPT_CHARS:
+        return body
+    head = body[:MATERIAL_HEAD_CHARS]
+    windows: list[str] = []
+    seen: set[int] = set()
+    for keyword in MATERIAL_KEYWORDS:
+        start = body.find(keyword, MATERIAL_HEAD_CHARS)
+        if start < 0:
+            continue
+        # 同一个位置被多个关键词命中时只取一次（「承包金管理维护费」这类连写）
+        bucket = start // MATERIAL_WINDOW_CHARS
+        if bucket in seen:
+            continue
+        seen.add(bucket)
+        left = max(MATERIAL_HEAD_CHARS, start - MATERIAL_WINDOW_CHARS)
+        windows.append(body[left : start + MATERIAL_WINDOW_CHARS])
+        if len(windows) >= MATERIAL_KEYWORD_HITS:
+            break
+    if not windows:
+        return body[:MATERIAL_EXCERPT_CHARS]
+    joined = head + "\n……\n" + "\n……\n".join(windows)
+    return joined[:MATERIAL_EXCERPT_CHARS]
 
 
 def _attachment_name(material: Any) -> str:

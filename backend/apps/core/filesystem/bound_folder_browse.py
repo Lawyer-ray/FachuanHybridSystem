@@ -346,6 +346,11 @@ class BoundFolderBrowseService:
         if src.is_dir():
             raise ValidationException(message="目标是文件夹，不能另存", errors={"subpath": subpath})
         target_dir = src.parent
+        # 目标目录可能是「文件夹模板声明了、但还没真正建出来」的槽位（新绑定的案件文件夹、
+        # 或从模板生成后又被手工删掉的目录）。起草落位就落在这里，目录不存在时**建它**，
+        # 而不是抛 FileNotFoundError —— 那会让「一句话起草」在一半的新案子上直接失败。
+        if not target_dir.exists():
+            target_dir.mkdir(parents=True, exist_ok=True)
         clean = self._validator.sanitize_file_name(self._clean_entry_name(name))
         if len(data) > self.MAX_UPLOAD_BYTES:
             raise ValidationException(

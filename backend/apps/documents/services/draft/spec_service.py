@@ -21,6 +21,8 @@ import logging
 from collections.abc import Callable, Iterable
 from typing import Any
 
+from pydantic import BaseModel
+
 from apps.core.exceptions import ValidationException
 from apps.core.llm.exceptions import LLMError
 from apps.core.llm.structured_output import StructuredValidationError
@@ -45,9 +47,17 @@ _FAMILY_SECTION_HINTS: dict[str, dict[str, tuple[str, ...]]] = {
 
 _SECTION_LABELS: dict[str, str] = {"claim": "请求事项", "facts": "事实与理由"}
 
+#: 请求段的材料摘录上限：它只需要金额/条款/期限，不需要整篇案情
+CLAIM_SECTION_EXCERPT_CHARS = 1200
+
 _SECTION_INSTRUCTIONS: dict[str, str] = {
-    "claim": "逐项列出请求事项，每项单独一行；不要写「请求事项」这类小标题，也不要解释理由。",
-    "facts": "分段陈述事实与理由，每段单独一行，按时间顺序或争议焦点组织；不要写小标题。",
+    "claim": "逐项列出请求事项，每项单独一行；不要写「请求事项」这类小标题，也不要解释理由、不要陈述事实。",
+    "facts": (
+        "分段陈述事实与理由，每段单独一行，按时间顺序或争议焦点组织；不要写小标题。"
+        # 真机：写作要点里带了「诉请六项结构」后，模型会在事实段末尾再列一遍「判令…」，
+        # 成稿出现两份诉请。这一段必须只陈述事实与理由。
+        "**不要复述诉讼请求、不要以「判令」开头、不要列请求清单**——诉请已经在上一节写过。"
+    ),
 }
 
 #: 判空口径与 `draft_service` 一致：模型很爱回「待定」「无」，写进文书就是坑
@@ -261,7 +271,7 @@ def _llm_write(
     warnings: list[str] | None = None,
 ) -> str:
     try:
-        raw = _answer(llm_caller(_build_messages(spec, section, material=material)))
+        raw = _answer(_write_body(_build_messages(spec, section, material=material), llm_caller=llm_caller))
     except (LLMError, TimeoutError, StructuredValidationError, ValueError, RuntimeError):
         # 模型超时/报错/输出不合 schema 不让整份起草失败：这一段转未决项，其余槽照常填。
         # 收窄到「模型侧故障」：LLMError/超时/schema 校验失败/ValueError，以及
@@ -284,6 +294,76 @@ def _llm_write(
     if warnings is not None:
         warnings.append(f"{_SECTION_LABELS.get(section, section)}：模型输出疑似思维链，已丢弃，该段转未决")
     return ""
+
+
+class _SectionBody(BaseModel):
+    """一次填槽的受控输出：只收正文本身。"""
+
+    body: str = ""
+
+
+#: 模型偶尔把「格式示例」当答案交回来：这些不是正文，必须当失败处理
+_PLACEHOLDER_BODIES = frozenset({"...", "…", "……", "正文", "本节正文", "（正文）", "<正文>"})
+
+
+def _write_body(messages: list[dict[str, str]], *, llm_caller: LLMCaller) -> str:
+    """取本节正文：优先受控 JSON，坏了再要一次，拿不到 JSON 就按纯文本处理。
+
+    真机（kimi-2.6）会把推理过程直接写在 `content` 里，而且**推理有时吃掉整个输出预算**，
+    正文根本没机会出现。所以：
+
+    - 第一次拿到的文本里**根本没有 `{`** → 当纯文本，交给洁净度闸判断（多数模型就是这样）；
+    - 有 `{` 但解析不出 `body` → 说明它在尝试 JSON 却写坏了，把错误反馈回去再要一次；
+    - 两次都拿不到 → 退回第二次的原文，仍由洁净度闸兜底。
+
+    这样「正常模型多花一次调用」不会发生，只有真的写坏 JSON 才付重试成本。
+    """
+    raw = llm_caller(messages)
+    body = _json_body(raw)
+    if body:
+        return "" if body in _PLACEHOLDER_BODIES else body
+    if "{" not in raw:
+        return raw
+    retry = llm_caller(
+        [
+            *messages,
+            {
+                "role": "user",
+                "content": (
+                    "上一次输出不是合法 JSON（或缺少 body）。只输出一个 JSON 对象，"
+                    '形如 {"body": "本节正文"}，不要在 JSON 前后写任何解释、不要写推理过程。'
+                ),
+            },
+        ]
+    )
+    body = _json_body(retry)
+    if body:
+        return "" if body in _PLACEHOLDER_BODIES else body
+    return retry
+
+
+#: 请求段只关心「欠什么、多少钱、按什么标准」——把这些行挑出来，而不是截前 N 个字
+_CLAIM_LINE_HINTS: tuple[str, ...] = ("元", "欠", "滞纳金", "违约金", "保证金", "合计", "共计", "每日", "每季度")
+
+
+def _claim_digest(excerpt: str, *, limit: int = CLAIM_SECTION_EXCERPT_CHARS) -> str:
+    """请求段的材料摘要：只保留带金额/标准的行。
+
+    真机教训：直接截前 1,200 字，截到的是合同首部与承包金条款，**欠款明细（管理费 16,694、
+    水费 3,250）被切在外面**，模型于是只诉了承包金一项、还把 3‰ 换成 LPR。请求段要的是
+    「欠什么、多少钱、按什么标准」，所以按行挑，而不是按位置切。
+    """
+    lines = [line.strip() for line in excerpt.splitlines() if line.strip()]
+    picked = [line for line in lines if any(hint in line for hint in _CLAIM_LINE_HINTS)]
+    # 先放「欠款汇总」那一行：律师函/对账里的分项与合计常常挤在同一段，被合同费率行挤掉
+    # 就只剩「按季度计」这种公式（真机第三次就这样把 16,694 / 3,250 写成"以实际为准"）。
+    priority = [line for line in picked if any(hint in line for hint in ("合计", "共计", "拖欠", "欠付"))]
+    rest = [line for line in picked if line not in priority]
+    digest = "\n".join([*priority, *rest])
+    if len(digest) < 200:
+        # 挑不出来（材料是纯叙述体）才退回截断，避免请求段拿到空材料
+        return excerpt[:limit]
+    return digest[:limit]
 
 
 def _json_body(raw: str) -> str:
@@ -325,7 +405,10 @@ def _build_messages(spec: DocumentSpec, section: str, *, material: dict[str, str
     excerpt = _answer(material.get(MATERIAL_FACTS_KEY))
     if excerpt:
         # 材料摘录单独成节：它是长文本，混在键值对里模型会当成某一条事实的值
-        parts.extend(["", "## 材料摘录", excerpt])
+        body = _claim_digest(excerpt) if section == "claim" else excerpt
+        parts.extend(["", "## 材料摘录", body])
+    # 请求段只要「金额 + 条款 + 期限」，给整段材料会让推理模型把输出预算烧在复述案情上
+    # （真机：同一份 3,219 字材料下，请求段有 3 次里 1 次整节写不出来）。事实段才需要全文。
     parts.extend(["", "## 本节要求", _SECTION_INSTRUCTIONS.get(section, "")])
 
     return [

@@ -138,7 +138,9 @@ def assess(
         判断结果。**本函数不抛异常**：模型缺失/超时/输出不合法一律 unknown。
     """
     # 案由常常只有一个大类（真机 case 489 是「合同纠纷」），用材料抬头补足档案选择
-    profile = pick_profile(cause_of_action, hint=material_summary[:500])
+    # 案由常只有大类（真机 case 489 是「合同纠纷」），用**整段材料**补足档案选择：
+    # 不能只看头部 500 字——合同的「承包金/土地」往往出现在第 2 页之后
+    profile = pick_profile(cause_of_action, hint=material_summary)
     warnings: list[str] = []
     material_excerpt, truncated = _material_excerpt(material_summary, materials=materials)
     if truncated:
