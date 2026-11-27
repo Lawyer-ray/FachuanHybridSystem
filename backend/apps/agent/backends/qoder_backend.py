@@ -635,7 +635,7 @@ class QoderBackend:
             # 未登录时先秒级报 AUTH（否则要等 SDK 的 60s 控制请求超时，见 ensure_logged_in）。
             await ensure_logged_in()
             target = await self._resolve_gateway_target(ctx)
-            resolved_model = target.model if target is not None else ""
+            resolved_model = _effective_model(ctx.model, target)
             temp_config_dir = make_config_dir() if has_explicit_auth() else None
             attempts = 1 if temp_config_dir is not None else max(1, len(usable_accounts()))
 
@@ -707,11 +707,15 @@ class QoderBackend:
 
         session_id = str(ctx.session.session_id)
         mcp_servers = self._mcp_servers(ctx)
-        resolved_model = target.model if target is not None else ""
+        # 没选模型时的落点：**律所网关模型**，不是 Qoder 云侧的 Auto
+        # （本所账号对 Auto 常常「无此模型服务权限」，见 qoder_models.default_model）。
+        resolved_model = _effective_model(ctx.model, target)
         # 打到内网网关时必须直连（见 build_env 的 direct 说明）。
         from .qoder_byok import is_byok_model, settings_payload
 
-        direct = target is not None or is_byok_model(ctx.model)
+        # direct / settings 必须按**实际要跑的模型**算：默认值也是 BYOK 模型时
+        # 不带 --settings 会把 provider 配置丢掉，那一轮必然失败。
+        direct = target is not None or is_byok_model(resolved_model)
         # BYOK 模型要用 ``--settings`` 带上 provider 配置（见 settings_payload 的实测说明）；
         # Qoder 自己的模型不带——那条路也不需要用户设置的任何东西。
         inline_settings = settings_payload(config_dir) if direct else ""
@@ -726,7 +730,7 @@ class QoderBackend:
             # 模型：gateway 模式用平台模型；否则用**用户选的 Qoder 模型**（清单来自
             # ``qoder_models``），没选就让 CLI 用它的默认（``Auto``）。跑完仍以
             # ``result_for`` 回报的真实模型为准（CLI 可能按账号能力做替换）。
-            model=target.model if target is not None else (ctx.model or None),
+            model=resolved_model or None,
             max_turns=max_turns,
             # ── 工具面：内置工具全关，业务工具只来自共享 MCP（四件套）──
             tools=[],
@@ -1304,6 +1308,34 @@ async def _pre_tool_use(ctx: RunContext, hook_input: Any) -> dict[str, Any]:
             }
         }
     return {}
+
+
+def _effective_model(ctx_model: str | None, target: Any | None) -> str:
+    """本轮到底用哪个模型（空串 = 交给 CLI）。
+
+    优先级：**gateway 的 target** → **律师手选** → **律所网关模型的默认**。
+
+    第三档是 2026-11-27 加的：原来没选就交给 CLI，落点是 Qoder 云侧的 ``Auto``，
+    而本所账号对它常常没有权限（实测报 ``You do not have access to this model
+    service``）。律师不选模型的真实意图是「和别处一样用律所自己的模型」，所以
+    兜到 ``fachuan-gw/*``（见 ``qoder_models.default_model``）。取不到（无缓存 /
+    没接 BYOK）才真的交回 CLI。
+    """
+    if target is not None:
+        return str(getattr(target, "model", "") or "")
+    return ctx_model or _default_qoder_model() or ""
+
+
+def _default_qoder_model() -> str | None:
+    """没选模型时该用哪个 —— 律所网关模型优先（``qoder_models.default_model``）。
+
+    只在 ``MODEL_SOURCE=qoder`` 模式下用到：``gateway`` 模式的模型由
+    ``_resolve_gateway_target`` 给的 ``target.model`` 决定。取不到（没登录 /
+    没接 BYOK）就返回 ``None``，让 CLI 用它的默认——与改动前一致。
+    """
+    from .qoder_models import cached_default_model
+
+    return cached_default_model()
 
 
 def _bind_resolve_model(target: Any | None) -> ModelPolicyProvider | None:
