@@ -89,6 +89,8 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
   const addAttachmentFiles = useCopilot((s) => s.addAttachmentFiles)
   // 本轮跑哪几个 AI（多答）：清单 + 已选 + 默认项，「选满 4 个」由菜单自己置灰
   const backends = useCopilot((s) => s.backends)
+  // 清单拉取状态：空清单要区分「正在拉 / 拉失败 / 真的没有」，别一律说「暂不可用」
+  const backendsState = useCopilot((s) => s.backendsState)
   const answerAgents = useCopilot((s) => s.answerAgents)
   // 各栏的模型（与勾选分存：勾选决定跑不跑，模型决定跑哪个）
   const answerModels = useCopilot((s) => s.answerModels)
@@ -282,6 +284,7 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
             onToggleBgMode={() => setBgMode((v) => !v)}
             bgToggleDisabled={streaming || hasPendingAttachments || sending}
             backends={backends}
+            backendsState={backendsState}
             answerAgents={answerAgents}
             answerModels={answerModels}
             defaultAgentKind={defaultKind}

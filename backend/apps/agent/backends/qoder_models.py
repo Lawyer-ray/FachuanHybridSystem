@@ -45,9 +45,13 @@ _HEADER = "model"
 #: ``显示名 (id)`` 的行（BYOK 自定义模型的输出形态）。
 _DISPLAY_WITH_ID_RE = re.compile(r"^.+?\s*\(([^()\s]+)\)$")
 
+#: 失败后的「别再的重试」窗口（秒）。见 `list_models` 里的说明。
+FAILURE_TTL_SECONDS = 60.0
+
 #: 缓存（模块级变量而不是 `dict[str, object]`：后者每处取值都要 cast，类型噪音大于收益）。
 _cached_models: list[str] = []
 _cached_at: float = 0.0
+_cached_failed_at: float = 0.0
 
 
 def _ttl() -> float:
@@ -63,8 +67,10 @@ def _ttl() -> float:
 
 def invalidate() -> None:
     """丢掉缓存（登录成功 / 账号增删后调）。"""
-    global _cached_at
+    global _cached_at, _cached_failed_at
     _cached_at = 0.0
+    # 失败窗口也必须清：刚登录成功就要允许立刻重试，否则用户得再等一分钟
+    _cached_failed_at = 0.0
 
 
 def _parse(output: str) -> list[str]:
@@ -118,25 +124,42 @@ def _run(config_dir: Path) -> list[str]:
 
 
 def list_models() -> list[str]:
-    """当前账号能用的模型 id（带缓存；取不到时返回上一次的结果）。"""
-    global _cached_models, _cached_at
+    """当前账号能用的模型 id（带缓存；取不到时返回上一次的结果）。
+
+    ## 失败也要缓存（2026-11-27 修）
+
+    原来只缓存**成功**：`--list-models` 一旦持续失败（账号权限不对、CLI 卡在
+    登录提示、网络不通），每次 `GET /agent/backends` 都要重跑子进程直到
+    ``TIMEOUT_SECONDS``——实测把切换器端点拖到 **15 秒**，而前端在首屏就打开
+    菜单，看到的是「后端清单暂不可用」这句误报。失败后应该很快退回上次结果。
+
+    窗口取 ``FAILURE_TTL_SECONDS``（60s）而不是 TTL 的 10 分钟：模型清单会随
+    账号套餐变，修好之后不该让人再等十分钟。成功缓存不动（仍是一个 TTL）。
+    """
+    global _cached_models, _cached_at, _cached_failed_at
 
     now = time.time()
     cached = list(_cached_models)
     if cached and now - _cached_at < _ttl():
+        return cached
+    # 刚失败过：不重启子进程，直接给上次结果（可能是空）
+    if _cached_failed_at and now - _cached_failed_at < FAILURE_TTL_SECONDS:
         return cached
 
     from .qoder_accounts import any_config_dir
 
     config_dir = any_config_dir()
     if config_dir is None:
+        _cached_failed_at = now
         return cached
 
     models = _run(config_dir)
     if models:
         _cached_models = models
         _cached_at = now
+        _cached_failed_at = 0.0
         return models
+    _cached_failed_at = now
     return cached
 
 
@@ -183,6 +206,7 @@ def for_display() -> tuple[list[str], str | None]:
 __all__ = [
     "CACHE_TTL_ENV",
     "DEFAULT_TTL_SECONDS",
+    "FAILURE_TTL_SECONDS",
     "TIMEOUT_SECONDS",
     "default_model",
     "for_display",

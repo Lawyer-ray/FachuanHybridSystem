@@ -24,6 +24,7 @@ export function ComposerToolbar({
   onToggleBgMode,
   bgToggleDisabled,
   backends,
+  backendsState,
   answerAgents,
   answerModels,
   defaultAgentKind,
@@ -45,6 +46,8 @@ export function ComposerToolbar({
   bgToggleDisabled: boolean
   /** 可选后端清单（多选菜单的数据源） */
   backends: AgentBackendOption[]
+  /** 清单拉取状态（空清单要区分加载中 / 失败 / 真的没有） */
+  backendsState: 'idle' | 'loading' | 'ready' | 'error'
   /** 本轮已选的 agent kind（空数组 = 用会话默认后端单跑） */
   answerAgents: string[]
   /** 各栏指定的模型（`kind → 模型名`；没有键 = 平台默认） */
@@ -99,6 +102,7 @@ export function ComposerToolbar({
       {/* 本轮跑哪几个 AI：默认只跑一个（未选 = 会话默认后端），多选即多栏并排对照 */}
       <AnswerAgentMenu
         backends={backends}
+        backendsState={backendsState}
         selected={answerAgents}
         models={answerModels}
         defaultKind={defaultAgentKind}
