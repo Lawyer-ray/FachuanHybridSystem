@@ -32,6 +32,7 @@ import os
 import re
 import subprocess
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -61,10 +62,22 @@ CACHE_FILE_NAME = "models.json"
 #: CLI，而新代码没有任何机会纠正它。
 CACHE_FORMAT = 2
 
-#: 缓存（模块级变量而不是 `dict[str, object]`：后者每处取值都要 cast，类型噪音大于收益）。
-_cached_models: list[str] = []
-_cached_at: float = 0.0
-_cached_failed_at: float = 0.0
+
+@dataclass
+class _Cache:
+    """模型清单的内存缓存。
+
+    合成**一个对象**而不是三个模块级变量：三者是同一个状态（清单 + 成功时刻 + 失败时刻），
+    而且分开写时每个函数都要 ``global`` 声明，CodeQL 的 ``py/unused-global-variable``
+    会把「只在本函数里写、读取发生在别处」的那几个报成 unused（note 级棘轮会记着它们）。
+    """
+
+    models: list[str] = field(default_factory=list)
+    at: float = 0.0
+    failed_at: float = 0.0
+
+
+_cache = _Cache()
 
 
 def _ttl() -> float:
@@ -80,10 +93,9 @@ def _ttl() -> float:
 
 def invalidate() -> None:
     """丢掉缓存（登录成功 / 账号增删后调）。"""
-    global _cached_at, _cached_failed_at
-    _cached_at = 0.0
+    _cache.at = 0.0
     # 失败窗口也必须清：刚登录成功就要允许立刻重试，否则用户得再等一分钟
-    _cached_failed_at = 0.0
+    _cache.failed_at = 0.0
 
 
 def _parse(output: str) -> list[str]:
@@ -208,16 +220,14 @@ def cached_models() -> list[str]:
     给「发言路径」用（``QoderBackend`` 决定默认模型）：那里不能为了一份模型清单
     等 5 秒子进程，拿不到就让 CLI 用自己的默认。
     """
-    global _cached_models, _cached_at
-
     now = time.time()
-    if _cached_models and now - _cached_at < _ttl():
-        return list(_cached_models)
+    if _cache.models and now - _cache.at < _ttl():
+        return list(_cache.models)
     models, at = _read_disk_cache()
     if models and now - at < _ttl():
-        _cached_models, _cached_at = models, at
+        _cache.models, _cache.at = models, at
         return list(models)
-    return list(_cached_models)
+    return list(_cache.models)
 
 
 def cached_default_model() -> str | None:
@@ -238,47 +248,49 @@ def list_models() -> list[str]:
     窗口取 ``FAILURE_TTL_SECONDS``（60s）而不是 TTL 的 10 分钟：模型清单会随
     账号套餐变，修好之后不该让人再等十分钟。成功缓存不动（仍是一个 TTL）。
     """
-    global _cached_models, _cached_at, _cached_failed_at
-
     now = time.time()
-    cached = list(_cached_models)
-    if cached and now - _cached_at < _ttl():
+    cached = list(_cache.models)
+    if cached and now - _cache.at < _ttl():
         return cached
     # 内存没有 → 看磁盘（跨 reload / 跨 worker 的同一份清单）
     disk_models, disk_at = _read_disk_cache()
     if disk_models and now - disk_at < _ttl():
-        _cached_models = disk_models
-        _cached_at = disk_at
+        _cache.models = disk_models
+        _cache.at = disk_at
         return list(disk_models)
     # 刚失败过：不重启子进程，直接给上次结果（可能是空）
-    if _cached_failed_at and now - _cached_failed_at < FAILURE_TTL_SECONDS:
+    if _cache.failed_at and now - _cache.failed_at < FAILURE_TTL_SECONDS:
         return disk_models or cached
 
     from .qoder_accounts import any_config_dir
 
     config_dir = any_config_dir()
     if config_dir is None:
-        _cached_failed_at = now
+        _cache.failed_at = now
         return disk_models or cached
 
     models = _run(config_dir)
     if models:
-        _cached_models = models
-        _cached_at = now
-        _cached_failed_at = 0.0
+        _cache.models = models
+        _cache.at = now
+        _cache.failed_at = 0.0
         _write_disk_cache(models, now)
         return models
-    _cached_failed_at = now
+    _cache.failed_at = now
     return disk_models or cached
+
+
+#: 律所网关 provider 的 id 前缀。**必须与 ``qoder_byok.PLATFORM_PROVIDER_ID`` 一致**
+#: （有测试锁）。这里不 import 它：`qoder_models → qoder_byok → qoder_backend →
+#: qoder_models` 会构成 import cycle，CodeQL 的 ``py/cyclic-import`` 会记一条 note。
+#: 它只是个字符串常量，复制一份 + 一条等值断言，比为一个常量拆新模块便宜。
+PLATFORM_PREFIX = "fachuan-gw/"
 
 
 def platform_models(models: list[str] | None = None) -> list[str]:
     """律所网关那批模型（id 形如 ``fachuan-gw/<model>``），保持清单原顺序。"""
-    from .qoder_byok import PLATFORM_PROVIDER_ID
-
-    prefix = f"{PLATFORM_PROVIDER_ID}/"
     source = list_models() if models is None else models
-    return [name for name in source if name.startswith(prefix)]
+    return [name for name in source if name.startswith(PLATFORM_PREFIX)]
 
 
 def default_model() -> str | None:
@@ -347,6 +359,7 @@ __all__ = [
     "CACHE_TTL_ENV",
     "DEFAULT_TTL_SECONDS",
     "FAILURE_TTL_SECONDS",
+    "PLATFORM_PREFIX",
     "TIMEOUT_SECONDS",
     "cached_default_model",
     "cached_models",

@@ -131,16 +131,21 @@ def _delivery_event_id(msg: InboxMessage) -> str | None:
 
     ``CourtSMS.delivery_event_id`` 只有 128 字符，而 ``InboxMessage.message_id``
     （IMAP 的 Message-ID）可以到 512。直接截断会让两条不同消息撞成同一个键、
-    把真消息当成重复跳过——比报错更危险。所以超长就换成 sha1 摘要：仍然一消息一键，
+    把真消息当成重复跳过——比报错更危险。所以超长就换成摘要：仍然一消息一键，
     不与其他消息相撞。
+
+    **用 sha256 而不是 sha1**：CodeQL 的 ``py/weak-sensitive-data-hashing`` 把任何
+    喂给 SHA1/MD5 的 id 判成 high severity（``Alerts gate`` 是 required check，
+    阈值 0）。这里是去重键不是密码学用途、碰撞也不是攻击面，但换成 sha256 零成本，
+    没有理由为它挂一条安全告警。
     """
     raw = (msg.message_id or "").strip()
     if not raw:
         return None
     if len(raw) <= DELIVERY_EVENT_ID_MAX_LENGTH:
         return raw
-    digest = hashlib.sha1(raw.encode("utf-8"), usedforsecurity=False).hexdigest()
-    return f"sha1:{digest}"
+    digest = hashlib.sha256(raw.encode("utf-8"), usedforsecurity=False).hexdigest()
+    return f"sha256:{digest}"
 
 
 def _extract_case_numbers(msg: InboxMessage) -> list[str]:

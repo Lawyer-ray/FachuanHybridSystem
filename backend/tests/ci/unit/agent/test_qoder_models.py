@@ -26,9 +26,7 @@ def _clean_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     **磁盘缓存也必须指到 tmp**：真机 `~/.fachuan-agent/qoder/models.json` 一旦存在，
     `list_models()` 会直接命中它、不再起子进程，用例就会变成「取决于我上次跑过什么」。
     """
-    monkeypatch.setattr(qoder_models, "_cached_models", [])
-    monkeypatch.setattr(qoder_models, "_cached_at", 0.0)
-    monkeypatch.setattr(qoder_models, "_cached_failed_at", 0.0)
+    monkeypatch.setattr(qoder_models, "_cache", qoder_models._Cache())
     monkeypatch.setattr(qoder_models, "_ttl", lambda: 600.0)
     monkeypatch.setattr("apps.agent.backends.qoder_accounts.qoder_home", lambda: tmp_path)
     # 配置目录存在（= 有账号可问），这样失败来自 _run 而不是「没有账号」
@@ -71,7 +69,7 @@ def test_failure_window_expires_and_retries(monkeypatch: pytest.MonkeyPatch) -> 
     assert len(calls) == 1
 
     # 把失败时刻挪到窗口之外（不 sleep，直接改时间戳）
-    monkeypatch.setattr(qoder_models, "_cached_failed_at", 1.0)
+    qoder_models._cache.failed_at = 1.0
 
     assert qoder_models.list_models() == ["Auto"]
     assert len(calls) == 2
@@ -83,8 +81,8 @@ def test_previous_list_survives_a_failure(monkeypatch: pytest.MonkeyPatch) -> No
     assert qoder_models.list_models() == ["Auto", "Ultimate"]
 
     # 让成功缓存过期，但失败窗口内仍有上次结果可用
-    monkeypatch.setattr(qoder_models, "_cached_at", 0.0)
-    monkeypatch.setattr(qoder_models, "_cached_failed_at", 0.0)
+    qoder_models._cache.at = 0.0
+    qoder_models._cache.failed_at = 0.0
 
     assert qoder_models.list_models() == ["Auto", "Ultimate"]
 
@@ -111,8 +109,7 @@ def test_disk_cache_lets_a_new_process_skip_the_subprocess(
     assert (tmp_path / qoder_models.CACHE_FILE_NAME).exists()
 
     # 模拟「新进程」：内存清空，磁盘还在
-    monkeypatch.setattr(qoder_models, "_cached_models", [])
-    monkeypatch.setattr(qoder_models, "_cached_at", 0.0)
+    monkeypatch.setattr(qoder_models, "_cache", qoder_models._Cache())
 
     assert qoder_models.list_models() == ["Auto", "fachuan-gw/kimi-2.6"]
     assert len(calls) == 1, "磁盘命中后不该再起子进程"
@@ -203,3 +200,14 @@ def test_old_cache_format_is_discarded(monkeypatch: pytest.MonkeyPatch, tmp_path
     assert len(calls) == 1
     payload = json.loads((tmp_path / qoder_models.CACHE_FILE_NAME).read_text(encoding="utf-8"))
     assert payload["v"] == qoder_models.CACHE_FORMAT
+
+
+def test_platform_prefix_matches_the_byok_provider_id() -> None:
+    """`qoder_models.PLATFORM_PREFIX` 是 `qoder_byok.PLATFORM_PROVIDER_ID` 的副本。
+
+    复制而不是 import 的原因见那边的注释（import cycle）。这条断言就是那份复制的代价：
+    两边一漂，这里立刻红。
+    """
+    from apps.agent.backends.qoder_byok import PLATFORM_PROVIDER_ID
+
+    assert f"{PLATFORM_PROVIDER_ID}/" == qoder_models.PLATFORM_PREFIX
