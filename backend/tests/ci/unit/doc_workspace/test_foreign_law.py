@@ -207,6 +207,23 @@ def test_gather_reports_skipped_when_plugin_unavailable(monkeypatch: pytest.Monk
     assert "未接入" in evidence.skipped
 
 
+def test_gather_survives_httpx_network_failure() -> None:
+    """断网必须退化成「查明不可用」，不能把整轮审查炸掉。
+
+    插件的 `_authed_post` 不吞 httpx 异常，所以网络故障会一路抛到这里；
+    异常面漏掉 `httpx.HTTPError` 时，症状是轮次永远停在 running。
+    """
+    import httpx
+
+    def _offline(citation: foreign_law.Citation, *, country_code: str) -> foreign_law.CitationEvidence:
+        raise httpx.ConnectError("connection refused")
+
+    evidence = foreign_law.gather(
+        text="依据《泰国商业租赁法》第42条。", jurisdiction=Jurisdiction.TH, verifier=_offline
+    )
+    assert [i.status for i in evidence.items] == [foreign_law.STATUS_UNAVAILABLE]
+
+
 def test_gather_keeps_going_when_one_citation_explodes() -> None:
     def _verifier(citation: foreign_law.Citation, *, country_code: str) -> foreign_law.CitationEvidence:
         if "崩" in citation.law_name:

@@ -58,6 +58,8 @@ from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
+import httpx
+
 from ..models import Consequence, Delivery, Jurisdiction, RiskSource, RuleClass, Severity, SourceWeight, Stage, Verdict
 
 logger = logging.getLogger(__name__)
@@ -87,6 +89,10 @@ def _upstream_errors() -> tuple[type[BaseException], ...]:
         BarlcError = ()
     return (
         BarlcError,
+        # 插件的 `_authed_post` **不吞** httpx 异常：网络中断/超时/连接被拒会直接
+        # 抛到这里。漏掉它，一次断网就会让整轮审查崩在 `execute_run` 之外
+        # （轮次永远停在 running），而不是退化成「本轮没有域外法依据」。
+        httpx.HTTPError,
         OSError,
         ValueError,
         TypeError,
