@@ -316,7 +316,8 @@ def _split_table_into_cells(
     | ② | 有几何、列数一致但**行数不同**（跨页逻辑表） | 只用本页可见的行 | ``grid`` |
     | ③ | 无几何（未量/量失败/列数对不上） | ``legacy_uniform`` 时旧均分，否则整表框 | ``cell`` / 空列表 |
 
-    正文不受影响：本函数**只**产出定位块，一行正文也不改（红线）。
+    正文不受影响：本函数**只**产出定位块，一行正文也不改（红线）。本函数只判定走哪条路：
+    ①② 交给 ``_cells_from_geometry``（量到的格子），③ 的回滚均分交给 ``_uniform_cells``。
 
     ## ①②：用**量到的**格子
 
@@ -335,42 +336,6 @@ def _split_table_into_cells(
     默认整表一个框（调用方保留真实 bbox），只有 ``legacy_uniform=True``（运维回滚开关）
     才走旧行为。
 
-    ## 为什么可以均分（旧实现的前提，仅 ``legacy_uniform`` 下仍适用）
-
-    MinerU 对表格只给**整表 bbox**，不给逐格坐标。但它在 ``table_body`` 里给了
-    完整的 HTML 结构（行列齐全）。等宽表格按行列数均分整表矩形，落点误差只在
-    半格以内 —— 律师要的是「点中这一格」而不是像素级精确，这个精度够用。
-
-    实测 p22：17 行 × 4 列全部对齐，bbox=[192,154,790,554]，均分后每格 0.15 × 0.02 页
-    （按 4:3 页面估约 149 × 24 px）。注：p22 自身因 17 行 > ``_TABLE_SPLIT_MAX_ROWS``
-    且不满足稀疏例外，最终是整表保留，不拆；这里引它只是为了说明**均分本身对得上**。
-
-    ## 为什么拆格而不是拆行
-
-    律师的痛点是「我要点在『*房产证编号』这一格上，不要框住整张表」。
-    只拆到行仍然要在一行四格里挑，还是点不准。拆到单元格才是真正可点击的粒度。
-
-    ## by_row_only：中等表格只拆到行
-
-    超过 ``_TABLE_CELL_SPLIT_MAX`` 格的中等表（几十行的表单/流水）逐格拆会把
-    块数撑爆（同卷宗上模拟「三道上限全拆掉」：1482 → 8311，5.6 倍），且单格本身
-    无点击价值。这类表按行合并成一个块，每行保留该行全部单元格的文字拼接——
-    律师点中「哪一行」就够用了。
-
-    ## 长表格不再拆（本次改造的核心）
-
-    均分的坐标是**编造的**：律师点中第 37 行、实际高亮第 35 行，越往后偏得越多。
-    行数超过 ``_TABLE_SPLIT_MAX_ROWS`` 时，这种误差已经不是「半格」而是「好几行」，
-    框不仅没用还会误导——所以直接返回空列表，让调用方保留整表真 bbox
-    （那个框是引擎真实返回的），并透出 ``table_rows``/``table_cols`` 告诉前端
-    「这是多大的一张表」。
-
-    例外：**稀疏表**（有字格占比 < ``_FILLED_CELL_RATIO_BYPASS``）行数超标仍然拆——
-    理由是稀疏表大量空格不承载内容、律师不会去点，列宽均等时均分误差不叠加。
-    ⚠️ 这条例外在 164 页备份卷宗上**从未触发**（27 个行数 >12 的表块有字率全 ≥0.30），
-    所以它目前没有经过真样本验证。p22 押品表**不是**稀疏表（68 个格位全部有字，有字率 1.000），
-    它就是被这条门槛挡在拆分之外的那一批。
-
     ## 返回空列表的条件（调用方保留原整块 → 整表框）
 
     - 行/列数算不出来
@@ -379,7 +344,7 @@ def _split_table_into_cells(
     - 几何不可用且 ``legacy_uniform=False``（默认路径：不再均分）
     - 框**不可信**（整页扫描件被当成表格、格子装的是图片、单行拆格、格子太大或太空）
       —— 判据见 ``_split_is_trustworthy``，几何路径同样要过
-    - **仅均分路径**：行数超过 ``_TABLE_SPLIT_MAX_ROWS`` 且不是稀疏表
+    - **仅均分路径**：行数超过 ``_TABLE_SPLIT_MAX_ROWS`` 且不是稀疏表（见 ``_uniform_cells``）
     """
     rows = _TR_RE.findall(html)
     if not rows:
@@ -413,90 +378,15 @@ def _split_table_into_cells(
         return []
 
     # 以下为回滚开关打开时的旧行为（行列均分），保留只为灰度对比/回退。
-    #
-    # 行数超标就整表保留：均分的前提是「每行等高」，而卷宗表格几乎都有标题/表头/
-    # 合并单元格，行高一旦不等误差就累积。
-    # 行数少时累计误差本身也就 1~2 行，可以接受，所以判据落在行数而非行高上。
-    # （这条在 164 页备份卷宗上拦下 25 个表块，是全卷拦截量最大的一道；
-    #   p22 押品表、p62 流水表都是在这里被挡住的。真实几何下它不再是必要的代理指标。）
-    if (
-        row_count > _TABLE_SPLIT_MAX_ROWS
-        and _filled_cell_ratio(grid=grid, row_count=row_count, col_count=col_count) >= _FILLED_CELL_RATIO_BYPASS
-    ):
-        return []
-    # 可信度判定放在**本函数内**而不是交给调用方：拆分入口只有一个，
-    # 任何新增调用方都不应该有机会绕开它去画错位的格子。
-    if not _split_is_trustworthy(
+    return _uniform_cells(
+        page_no=page_no,
         rect=rect,
         html=html,
         grid=grid,
         row_count=row_count,
         col_count=col_count,
         by_row_only=by_row_only,
-    ):
-        return []
-
-    x0, y0 = float(rect["x"]), float(rect["y"])
-    total_w, total_h = float(rect["w"]), float(rect["h"])
-    # 按**网格**均分，而不是按「每行 td 个数」均分。
-    #
-    # 两者的差别在合并单元格时才显现：p29 结婚证首行 2 个 td（其一 colspan=2），
-    # 第二行 2 个 td —— 「每行 td 数」求出 2 列，实际是 3 列；而「结婚申请…」那一格
-    # 横跨 2 列，按 1 列宽去画就短了一截。网格法用 colspan 累加出真实列位置。
-    cell_w = total_w / col_count
-    cell_h = total_h / row_count
-
-    out: list[dict[str, Any]] = []
-
-    if by_row_only:
-        # 长表（流水）：一行一个块，文字是该行各格拼起来的。
-        # 行矩形按 <tr> 数均分（rowspan 不改变行数，只是格子更高）。
-        by_row: dict[int, list[str]] = {}
-        for row_index, _col, _rs, _cs, text in grid:
-            if text:
-                by_row.setdefault(row_index, []).append(text)
-        for row_index in sorted(by_row):
-            out.append(
-                {
-                    "page": page_no,
-                    "type": "table_row",
-                    "text": " ".join(by_row[row_index]).strip(),
-                    "rect": {
-                        "x": round(x0, 4),
-                        "y": round(y0 + cell_h * row_index, 4),
-                        "w": round(total_w, 4),
-                        "h": round(cell_h * 0.92, 4),
-                        "approx": True,
-                        # 按行均分推算，不是量出来的：半格误差，仅限小表
-                        "precision": _PRECISION_CELL,
-                    },
-                }
-            )
-        return out
-
-    for row_index, col_index, rowspan, colspan, text in grid:
-        if not text:
-            continue
-        # 每格的宽高按 **span 累加**，不是固定单格尺寸：
-        #   colspan=2 的「结婚申请…」应为 2 个 cell_w 宽，画 1 个就短一截。
-        out.append(
-            {
-                "page": page_no,
-                "type": "table_cell",
-                "text": text,
-                "rect": {
-                    "x": round(x0 + cell_w * col_index, 4),
-                    "y": round(y0 + cell_h * row_index, 4),
-                    # 每格留 1px 级的缝：相邻格边框不重叠，律师看得出是两格
-                    "w": round(cell_w * colspan * 0.97, 4),
-                    "h": round(cell_h * rowspan * 0.94, 4),
-                    # 均分推算出来的，不是量出来的 —— 前端画虚线，不谎报精度
-                    "approx": True,
-                    "precision": _PRECISION_CELL,
-                },
-            }
-        )
-    return out
+    )
 
 
 def _cells_from_geometry(
@@ -603,6 +493,163 @@ def _merge_rect(current: dict[str, float] | None, rect: dict[str, float]) -> dic
     return {"x": left, "y": top, "w": right - left, "h": bottom - top}
 
 
+def _uniform_cells(
+    *,
+    page_no: int,
+    rect: dict[str, Any],
+    html: str,
+    grid: list[tuple[int, int, int, int, str]],
+    row_count: int,
+    col_count: int,
+    by_row_only: bool,
+) -> list[dict[str, Any]]:
+    """③ 降级：按行列**均分**整表矩形画框（坐标是编造的，仅 ``legacy_uniform`` 下走）。
+
+    ## 为什么可以均分（旧实现的前提，仅 ``legacy_uniform`` 下仍适用）
+
+    MinerU 对表格只给**整表 bbox**，不给逐格坐标。但它在 ``table_body`` 里给了
+    完整的 HTML 结构（行列齐全）。等宽表格按行列数均分整表矩形，落点误差只在
+    半格以内 —— 律师要的是「点中这一格」而不是像素级精确，这个精度够用。
+
+    实测 p22：17 行 × 4 列全部对齐，bbox=[192,154,790,554]，均分后每格 0.15 × 0.02 页
+    （按 4:3 页面估约 149 × 24 px）。注：p22 自身因 17 行 > ``_TABLE_SPLIT_MAX_ROWS``
+    且不满足稀疏例外，最终是整表保留，不拆；这里引它只是为了说明**均分本身对得上**。
+
+    ## 为什么拆格而不是拆行
+
+    律师的痛点是「我要点在『*房产证编号』这一格上，不要框住整张表」。
+    只拆到行仍然要在一行四格里挑，还是点不准。拆到单元格才是真正可点击的粒度。
+
+    ## 长表格不再拆（本次改造的核心）
+
+    均分的坐标是**编造的**：律师点中第 37 行、实际高亮第 35 行，越往后偏得越多。
+    行数超过 ``_TABLE_SPLIT_MAX_ROWS`` 时，这种误差已经不是「半格」而是「好几行」，
+    框不仅没用还会误导——所以直接返回空列表，让调用方保留整表真 bbox
+    （那个框是引擎真实返回的），并透出 ``table_rows``/``table_cols`` 告诉前端
+    「这是多大的一张表」。
+
+    例外：**稀疏表**（有字格占比 < ``_FILLED_CELL_RATIO_BYPASS``）行数超标仍然拆——
+    理由是稀疏表大量空格不承载内容、律师不会去点，列宽均等时均分误差不叠加。
+    ⚠️ 这条例外在 164 页备份卷宗上**从未触发**（27 个行数 >12 的表块有字率全 ≥0.30），
+    所以它目前没有经过真样本验证。p22 押品表**不是**稀疏表（68 个格位全部有字，有字率 1.000），
+    它就是被这条门槛挡在拆分之外的那一批。
+    """
+    # 行数超标就整表保留：均分的前提是「每行等高」，而卷宗表格几乎都有标题/表头/
+    # 合并单元格，行高一旦不等误差就累积。
+    # 行数少时累计误差本身也就 1~2 行，可以接受，所以判据落在行数而非行高上。
+    # （这条在 164 页备份卷宗上拦下 25 个表块，是全卷拦截量最大的一道；
+    #   p22 押品表、p62 流水表都是在这里被挡住的。真实几何下它不再是必要的代理指标。）
+    if (
+        row_count > _TABLE_SPLIT_MAX_ROWS
+        and _filled_cell_ratio(grid=grid, row_count=row_count, col_count=col_count) >= _FILLED_CELL_RATIO_BYPASS
+    ):
+        return []
+    # 可信度判定放在**拆分入口内**而不是交给调用方：拆分入口只有一个，
+    # 任何新增调用方都不应该有机会绕开它去画错位的格子。
+    if not _split_is_trustworthy(
+        rect=rect,
+        html=html,
+        grid=grid,
+        row_count=row_count,
+        col_count=col_count,
+        by_row_only=by_row_only,
+    ):
+        return []
+    if by_row_only:
+        return _uniform_row_cells(page_no=page_no, rect=rect, grid=grid, row_count=row_count)
+    return _uniform_grid_cells(page_no=page_no, rect=rect, grid=grid, row_count=row_count, col_count=col_count)
+
+
+def _uniform_row_cells(
+    *,
+    page_no: int,
+    rect: dict[str, Any],
+    grid: list[tuple[int, int, int, int, str]],
+    row_count: int,
+) -> list[dict[str, Any]]:
+    """均分路径的 ``by_row_only`` 分支：一行一个块。
+
+    ## by_row_only：中等表格只拆到行
+
+    超过 ``_TABLE_CELL_SPLIT_MAX`` 格的中等表（几十行的表单/流水）逐格拆会把
+    块数撑爆（同卷宗上模拟「三道上限全拆掉」：1482 → 8311，5.6 倍），且单格本身
+    无点击价值。这类表按行合并成一个块，每行保留该行全部单元格的文字拼接——
+    律师点中「哪一行」就够用了。
+    """
+    x0, y0 = float(rect["x"]), float(rect["y"])
+    total_w = float(rect["w"])
+    # 行矩形按 <tr> 数均分（rowspan 不改变行数，只是格子更高）。
+    cell_h = float(rect["h"]) / row_count
+    by_row: dict[int, list[str]] = {}
+    for row_index, _col, _rs, _cs, text in grid:
+        if text:
+            by_row.setdefault(row_index, []).append(text)
+    out: list[dict[str, Any]] = []
+    for row_index in sorted(by_row):
+        out.append(
+            {
+                "page": page_no,
+                "type": "table_row",
+                "text": " ".join(by_row[row_index]).strip(),
+                "rect": {
+                    "x": round(x0, 4),
+                    "y": round(y0 + cell_h * row_index, 4),
+                    "w": round(total_w, 4),
+                    "h": round(cell_h * 0.92, 4),
+                    "approx": True,
+                    # 按行均分推算，不是量出来的：半格误差，仅限小表
+                    "precision": _PRECISION_CELL,
+                },
+            }
+        )
+    return out
+
+
+def _uniform_grid_cells(
+    *,
+    page_no: int,
+    rect: dict[str, Any],
+    grid: list[tuple[int, int, int, int, str]],
+    row_count: int,
+    col_count: int,
+) -> list[dict[str, Any]]:
+    """均分路径的逐格分支：每个有字的格子一个块。
+
+    按**网格**均分，而不是按「每行 td 个数」均分。
+
+    两者的差别在合并单元格时才显现：p29 结婚证首行 2 个 td（其一 colspan=2），
+    第二行 2 个 td —— 「每行 td 数」求出 2 列，实际是 3 列；而「结婚申请…」那一格
+    横跨 2 列，按 1 列宽去画就短了一截。网格法用 colspan 累加出真实列位置。
+    """
+    x0, y0 = float(rect["x"]), float(rect["y"])
+    cell_w = float(rect["w"]) / col_count
+    cell_h = float(rect["h"]) / row_count
+    out: list[dict[str, Any]] = []
+    for row_index, col_index, rowspan, colspan, text in grid:
+        if not text:
+            continue
+        # 每格的宽高按 **span 累加**，不是固定单格尺寸：
+        #   colspan=2 的「结婚申请…」应为 2 个 cell_w 宽，画 1 个就短一截。
+        out.append(
+            {
+                "page": page_no,
+                "type": "table_cell",
+                "text": text,
+                "rect": {
+                    "x": round(x0 + cell_w * col_index, 4),
+                    "y": round(y0 + cell_h * row_index, 4),
+                    # 每格留 1px 级的缝：相邻格边框不重叠，律师看得出是两格
+                    "w": round(cell_w * colspan * 0.97, 4),
+                    "h": round(cell_h * rowspan * 0.94, 4),
+                    # 均分推算出来的，不是量出来的 —— 前端画虚线，不谎报精度
+                    "approx": True,
+                    "precision": _PRECISION_CELL,
+                },
+            }
+        )
+    return out
+
+
 def build_positioned_blocks(
     pages: list[PageDescriptor],
     *,
@@ -638,75 +685,144 @@ def build_positioned_blocks(
             continue
         geometry_by_block = geometry_by_page.get(page.page_no) or {}
         for block_index, block in enumerate(blocks):
-            if not isinstance(block, dict):
-                continue
-            block_type = str(block.get("type") or "").strip().lower()
-            text = str(block.get("text") or "").strip()
-            # MinerU 的跨页残片块（p11）``text`` 为空、HTML 在 ``block["html"]`` 里。
-            # 旧代码在下面那行“没 text 就丢”里把它整条丢弃，于是 p11 那页一个框都没有。
-            table_html = block_table_html(block) if block_type == "table" else ""
-            if block_type in _NOISE_TYPES or (not text and not table_html):
-                continue
-            rect = normalize_bbox(
-                block.get("bbox"),
-                unit=unit,
-                page_width=layout.get("width"),
-                page_height=layout.get("height"),
+            out.extend(
+                _positioned_blocks_for_block(
+                    block,
+                    page_no=page.page_no,
+                    layout=layout,
+                    unit=unit,
+                    geometry=geometry_by_block.get(block_index),
+                    legacy_uniform=legacy_uniform,
+                )
             )
-            if rect is None:
-                continue
-            if not text:
-                # 块正文为空但表格 HTML 有内容：定位信息只能从 HTML 提，不能给空标题的框
-                text = strip_html(table_html).strip()
-            # 大表格拆成逐格块：一个大框罩住十几行时，律师点不中具体某一格。
-            # 整表未拆（含矮到不值得拆 / 拆不了两种）：一个 table 块只有一个整表框，
-            # 它不是「某块字的位置」而是「整张表的外接框」——精度就是 page 级。
-            whole_table_kept = False
-            if table_html:
-                if float(rect["h"]) >= _TABLE_SPLIT_MIN_HEIGHT_RATIO:
-                    # 可否拆格由 ``_split_table_into_cells`` 自己判（含 <img> / 单行 /
-                    # 行数超标 / 单格过大或太空 → 返回空列表），这里只负责「拆不了就整块保留」。
-                    # 判据集中在拆分入口，避免两处各有一份「什么时候不能拆」的规则漂移。
-                    cells = _split_table_into_cells(
-                        page_no=page.page_no,
-                        rect=rect,
-                        html=table_html,
-                        unit=unit,
-                        by_row_only=_table_cell_count(table_html) > _TABLE_CELL_SPLIT_MAX,
-                        geometry=geometry_by_block.get(block_index),
-                        legacy_uniform=legacy_uniform,
-                    )
-                    if cells:
-                        out.extend(cells)
-                        continue
-                whole_table_kept = True
-
-            entry: dict[str, Any] = {
-                "page": page.page_no,
-                "type": block_type or "text",
-                "text": text,
-                "rect": {
-                    **rect,
-                    # ``approx`` 保留原语义，且必须与 precision 一致：老前端读 approx、
-                    # 新前端读 precision，两套视觉规则若给出不同答案会打架。
-                    # 整表未拆 → 整页近似；有真实 bbox 的普通块 → 沿用 normalize_bbox 的判定。
-                    "approx": True if whole_table_kept else bool(rect["approx"]),
-                    "precision": _PRECISION_PAGE if whole_table_kept else _PRECISION_EXACT,
-                },
-            }
-            # 整表未拆时透出结构信息：markdown 侧仍按行显示（HTML 拆行），
-            # 但定位只能高亮整表框——前端要能告诉律师「这是 52 行的表」。
-            # （164 页备份卷宗实测：1482 个可定位块中 57 个是这种整表框。）
-            if whole_table_kept:
-                entry["table_rows"] = _grid_row_count(table_html)
-                entry["table_cols"] = _grid_col_count(_parse_grid(table_html))
-            # Office 的结构定位（段落序 / 行列）一并透出：它对"定位"是确定的，
-            # 而矩形只是整页近似。两者不冲突，前端按需用。
-            locator = block.get("locator")
-            if isinstance(locator, dict):
-                entry["locator"] = locator
-            out.append(entry)
     return out
+
+
+def _positioned_blocks_for_block(
+    block: Any,
+    *,
+    page_no: int,
+    layout: dict[str, Any],
+    unit: str,
+    geometry: PageTableGeometry | None,
+    legacy_uniform: bool,
+) -> list[dict[str, Any]]:
+    """一个版面块 → 它的定位块（拆开的逐格/逐行块，或它自己那一个整块）。
+
+    返回空列表 = 这个块没有可用的定位（噪声块 / 既无文字又无表格 HTML /
+    坐标算不出来），与调用方的「整条丢弃」语义一致。
+    """
+    if not isinstance(block, dict):
+        return []
+    block_type = str(block.get("type") or "").strip().lower()
+    text = str(block.get("text") or "").strip()
+    # MinerU 的跨页残片块（p11）``text`` 为空、HTML 在 ``block["html"]`` 里。
+    # 旧代码在下面那行“没 text 就丢”里把它整条丢弃，于是 p11 那页一个框都没有。
+    table_html = block_table_html(block) if block_type == "table" else ""
+    if block_type in _NOISE_TYPES or (not text and not table_html):
+        return []
+    rect = normalize_bbox(
+        block.get("bbox"),
+        unit=unit,
+        page_width=layout.get("width"),
+        page_height=layout.get("height"),
+    )
+    if rect is None:
+        return []
+    if not text:
+        # 块正文为空但表格 HTML 有内容：定位信息只能从 HTML 提，不能给空标题的框
+        text = strip_html(table_html).strip()
+    # 大表格拆成逐格块：一个大框罩住十几行时，律师点不中具体某一格。
+    cells = _table_split_cells(
+        page_no=page_no,
+        rect=rect,
+        table_html=table_html,
+        unit=unit,
+        geometry=geometry,
+        legacy_uniform=legacy_uniform,
+    )
+    if cells:
+        return cells
+    # 整表未拆（含矮到不值得拆 / 拆不了两种）：一个 table 块只有一个整表框，
+    # 它不是「某块字的位置」而是「整张表的外接框」——精度就是 page 级。
+    return [
+        _positioned_entry(
+            block=block, page_no=page_no, block_type=block_type, text=text, rect=rect, table_html=table_html
+        )
+    ]
+
+
+def _table_split_cells(
+    *,
+    page_no: int,
+    rect: dict[str, Any],
+    table_html: str,
+    unit: str,
+    geometry: PageTableGeometry | None,
+    legacy_uniform: bool,
+) -> list[dict[str, Any]]:
+    """够高才试拆格；矮表格（< ``_TABLE_SPLIT_MIN_HEIGHT_RATIO``）不拆，返回空列表。
+
+    可否拆格由 ``_split_table_into_cells`` 自己判（含 <img> / 单行 / 行数超标 /
+    单格过大或太空 → 返回空列表），这里只负责「拆不了就整块保留」。
+    判据集中在拆分入口，避免两处各有一份「什么时候不能拆」的规则漂移。
+    """
+    if not table_html:
+        return []
+    if float(rect["h"]) < _TABLE_SPLIT_MIN_HEIGHT_RATIO:
+        return []
+    return _split_table_into_cells(
+        page_no=page_no,
+        rect=rect,
+        html=table_html,
+        unit=unit,
+        by_row_only=_table_cell_count(table_html) > _TABLE_CELL_SPLIT_MAX,
+        geometry=geometry,
+        legacy_uniform=legacy_uniform,
+    )
+
+
+def _positioned_entry(
+    *,
+    block: dict[str, Any],
+    page_no: int,
+    block_type: str,
+    text: str,
+    rect: dict[str, Any],
+    table_html: str,
+) -> dict[str, Any]:
+    """整块（未拆的表格 / 普通正文块）→ 一个定位块。
+
+    能走到这里且 ``table_html`` 非空，等价于「这张表拆不了」：调用方只在拆格返回空
+    列表时才回退到这里。整个函数体只用这个等价关系决定 ``precision`` 与是否透出
+    ``table_rows``/``table_cols``。
+    """
+    whole_table_kept = bool(table_html)
+    entry: dict[str, Any] = {
+        "page": page_no,
+        "type": block_type or "text",
+        "text": text,
+        "rect": {
+            **rect,
+            # ``approx`` 保留原语义，且必须与 precision 一致：老前端读 approx、
+            # 新前端读 precision，两套视觉规则若给出不同答案会打架。
+            # 整表未拆 → 整页近似；有真实 bbox 的普通块 → 沿用 normalize_bbox 的判定。
+            "approx": True if whole_table_kept else bool(rect["approx"]),
+            "precision": _PRECISION_PAGE if whole_table_kept else _PRECISION_EXACT,
+        },
+    }
+    # 整表未拆时透出结构信息：markdown 侧仍按行显示（HTML 拆行），
+    # 但定位只能高亮整表框——前端要能告诉律师「这是 52 行的表」。
+    # （164 页备份卷宗实测：1482 个可定位块中 57 个是这种整表框。）
+    if whole_table_kept:
+        entry["table_rows"] = _grid_row_count(table_html)
+        entry["table_cols"] = _grid_col_count(_parse_grid(table_html))
+    # Office 的结构定位（段落序 / 行列）一并透出：它对"定位"是确定的，
+    # 而矩形只是整页近似。两者不冲突，前端按需用。
+    locator = block.get("locator")
+    if isinstance(locator, dict):
+        entry["locator"] = locator
+    return entry
 
 
 def build_segment_markdown(title: str, pages: list[PageDescriptor]) -> str:
