@@ -42,6 +42,7 @@ export function AgentRow({
   model,
   onToggle,
   onSelectModel,
+  onLogin,
 }: {
   option: AgentBackendOption
   /** 这一行是否已勾选 */
@@ -54,6 +55,8 @@ export function AgentRow({
   model: string
   onToggle: (kind: string) => void
   onSelectModel: (kind: string, model: string) => void
+  /** 这一行需要登录时（`option.action === 'login'`）点「登录」的回调 */
+  onLogin?: (kind: string) => void
 }) {
   const blocked = !option.available || blockedByLimit
   // 徽标会被这个 aria-label 盖掉，所以「默认」必须并进无障碍名，不能只靠视力
@@ -105,6 +108,19 @@ export function AgentRow({
           </span>
         </span>
       </button>
+      {/* 需要登录的行给一个**真按得动**的入口：只置灰不给动作，用户唯一的结论是
+          「这个功能坏了」。按钮文案说清登的是哪一家（`action_label` 由后端给）。 */}
+      {option.action === 'login' && onLogin && (
+        <button
+          type="button"
+          onClick={() => onLogin(option.kind)}
+          data-testid={`agent-login-${option.kind}`}
+          className="flex-none rounded-[6px] border border-border px-1.5 py-0.5 text-[11px] text-foreground hover:bg-secondary"
+          title={option.action_label || `登录 ${option.label}`}
+        >
+          {option.action_label || `登录 ${option.label}`}
+        </button>
+      )}
       <AgentModelPicker
         models={option.models ?? []}
         value={model}

@@ -72,6 +72,8 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
   const [text, setText] = useDraft(useCopilot((s) => s.sessionId))
   const [bgMode, setBgMode] = useState(false)
   const streaming = useCopilot((s) => s.streaming)
+  // 后端登录成功后要重新拉清单：那一行从置灰变可选（见 AgentLoginDialog 的 onDone）
+  const loadBackends = useCopilot((s) => s.loadBackends)
   const queuedSteers = useCopilot((s) => s.queuedSteers)
   const pendingFiles = useCopilot((s) => s.pendingFiles)
   const pendingRefs = useCopilot((s) => s.pendingRefs)
@@ -285,6 +287,7 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
             defaultAgentKind={defaultKind}
             onToggleAnswerAgent={toggleAnswerAgent}
             onSelectAnswerModel={setAnswerModel}
+            onRefreshBackends={() => void loadBackends()}
             // 流式中不能改：本轮已开流，改了只会让按钮与已发出的那一轮对不上
             answerDisabled={streaming || sending}
             answerHint=""

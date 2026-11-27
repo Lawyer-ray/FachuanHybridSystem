@@ -66,6 +66,7 @@ import { GitCompare, ChevronDown } from 'lucide-react'
 import { DEFAULT_AGENT_KIND, MAX_ANSWERS } from '../domain'
 import type { AgentBackendOption } from '../types'
 import { findBackend } from '../store/backends'
+import { AgentLoginDialog } from './AgentLoginDialog'
 import { AgentRow } from './AgentRow'
 
 /** 触发按钮的统一外观（与 ComposerToolbar 的图标按钮同尺寸，但带文字） */
@@ -81,6 +82,7 @@ export function AnswerAgentMenu({
   hint,
   onToggle,
   onSelectModel,
+  onRefreshBackends,
 }: {
   /** 可选后端清单（`GET /agent/backends`；没拉到时为空数组） */
   backends: AgentBackendOption[]
@@ -97,8 +99,12 @@ export function AnswerAgentMenu({
   onToggle: (kind: string) => void
   /** 给某一栏指定模型（空串 = 取消指定） */
   onSelectModel: (kind: string, model: string) => void
+  /** 登录成功后重新拉一次清单（那一行从置灰变可选）；缺省 = 不刷新 */
+  onRefreshBackends?: () => void
 }) {
   const [open, setOpen] = useState(false)
+  /** 正在登录的后端 kind（null = 没有弹窗）。登录入口在行内，弹窗挂在本组件末尾。 */
+  const [loginKind, setLoginKind] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
@@ -140,7 +146,10 @@ export function AnswerAgentMenu({
   const full = selected.length >= MAX_ANSWERS
   const usageTitle = `选择这一轮问哪几个 AI（最多 ${MAX_ANSWERS} 个）以及各自用哪个模型。每多选一个就多跑一轮，token 与耗时随之增加。`
 
+  const loginOption = loginKind ? findBackend(backends, loginKind) : undefined
+
   return (
+    <>
     <div ref={rootRef} className="relative flex-none">
       <button
         ref={triggerRef}
@@ -193,6 +202,11 @@ export function AnswerAgentMenu({
               model={models[option.kind] ?? ''}
               onToggle={onToggle}
               onSelectModel={onSelectModel}
+              onLogin={(kind) => {
+                // 先收起菜单：弹窗要占屏，菜单还浮在上面会盖住授权按钮
+                setOpen(false)
+                setLoginKind(kind)
+              }}
             />
           ))}
           <p className="px-2 py-1 text-[11px] text-muted-foreground">
@@ -206,5 +220,17 @@ export function AnswerAgentMenu({
         </div>
       )}
     </div>
+    {loginKind && (
+      <AgentLoginDialog
+        kind={loginKind}
+        label={loginOption?.label ?? loginKind}
+        onClose={() => setLoginKind(null)}
+        onDone={() => {
+          setLoginKind(null)
+          onRefreshBackends?.()
+        }}
+      />
+    )}
+    </>
   )
 }

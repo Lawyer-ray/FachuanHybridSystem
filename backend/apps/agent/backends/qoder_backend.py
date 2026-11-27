@@ -70,6 +70,8 @@ from asgiref.sync import sync_to_async
 
 from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, StreamFrame
 from .gateway_cache import GatewaySettings, get_gateway_settings, resolve_gateway_target
+from .qoder_login import config_dir as login_config_dir
+from .qoder_login import is_authenticated
 from .ticks import with_ticks
 from .toolface import (
     SERVER_NAME,
@@ -128,7 +130,8 @@ PROXY_ENV = "FACHUAN_QODER_PROXY"
 #: 一轮内最多模型循环次数。与其它后端同值同因：超限的代价是**这一栏一个字都不产出**。
 MAX_TURNS = 24
 
-#: 登录态预检的超时（秒）。逻辑只在**没配显式凭据**时才跑（配了就不需要探测登录态）。
+#: 登录态预检的超时（秒）。现已改走磁盘凭据判据（见 ``qoder_login``），此常量仅供
+#: 兼容旧部署的环境变量保留解析入口。
 #:
 #: 为什么要有这一步：``qodercli`` 未登录时会**立刻退出**并打印
 #: ``Not logged in · Please run /login``，但 SDK 的 ``initialize`` 控制请求会一直等到
@@ -136,10 +139,15 @@ MAX_TURNS = 24
 #: 律师看到的是「转圈一分钟 + 未知错误」。预检把这两件事一起修掉：秒级、且能落到
 #: ``AUTH`` 分类并给出「去登录 / 配令牌」的具体动作。
 LOGIN_PROBE_ENV = "FACHUAN_QODER_LOGIN_PROBE_TIMEOUT"
-LOGIN_PROBE_TIMEOUT_SECONDS = 10.0
 
 #: 未登录时的人话（直接给可执行动作，不描述内部机制）。
-LOGIN_HINT = f"未登录 Qoder：请在运行服务的机器上执行 `qodercli login`（或配置 {ACCESS_TOKEN_ENV} / {SA_KEY_ENV}）"
+#:
+#: 动作给的是**前端入口**：律师没有服务器 shell，「去跑 qodercli login」对他们是
+#: 一句废话。运维/离线部署仍可配令牌，所以两个选项都写在后面。
+LOGIN_HINT = (
+    "未登录 Qoder：在输入框的「选择 AI」菜单里点「登录 Qoder」完成浏览器授权"
+    f"（或配置 {ACCESS_TOKEN_ENV} / {SA_KEY_ENV}）"
+)
 
 #: 判定「未登录」的输出特征（小写子串）。命中即 ``AUTH``。
 _LOGIN_MISSING_MARKERS: tuple[str, ...] = ("not logged in", "please run /login", "/login to", "login required")
@@ -375,70 +383,30 @@ def login_missing_reason(output: str) -> str | None:
     return text[:200]
 
 
-def login_probe_timeout() -> float:
-    """预检超时（秒）；配置错误时回落 :data:`LOGIN_PROBE_TIMEOUT_SECONDS`。"""
-    raw = os.environ.get(LOGIN_PROBE_ENV, "").strip()
-    if not raw:
-        return LOGIN_PROBE_TIMEOUT_SECONDS
-    try:
-        value = float(raw)
-    except ValueError:
-        return LOGIN_PROBE_TIMEOUT_SECONDS
-    return value if value > 0 else LOGIN_PROBE_TIMEOUT_SECONDS
-
-
 async def ensure_logged_in() -> None:
-    """没配显式凭据时先探一下本机登录态；**未登录就秒级报 ``AUTH``**。
+    """未登录就**秒级报 ``AUTH``**，并告诉用户去前端点「登录 Qoder」。
 
     ## 为什么必须在拉起真会话之前拦
 
     未登录时 ``qodercli`` 会立刻退出，但 SDK 的 ``initialize`` 控制请求会一直等到
     ``control_request_timeout_ms``（默认 60s）才抛 ``Control request timeout: initialize``
-    —— 用户体验是「转圈一分钟 + 未知错误」，而真实原因是一个 5 分钟就能修好的
+    —— 用户体验是「转圈一分钟 + 未知错误」，而真实原因是一个 30 秒能修好的
     「没登录」。
 
-    ## 为什么探测失败时**不拦**
+    ## 判据是磁盘上的凭据文件，不是跑 CLI 去问
 
-    只有明确看到「未登录」字样才报错。超时 / 网络炸 / CLI 路径错一律放行，交给
-    SDK 自己的错误路径（它的文案更准，且能区分「找不到二进制」与「连不上」）。
-    把「探测不到」当成「没登录」，会让离线部署被一句错误的提示卡死。
+    ``<config dir>/.auth/user`` 存在即已登录（实测判据，见 ``qoder_login`` 的说明）。
+    跑 ``qodercli`` 去问要起进程 + 联网（秒级，且联网失败与未登录难区分）；而登录
+    已经是**前端按钮**触发的，服务端只需看它写下的凭据。
+
+    配了显式凭据（令牌 / SA 密钥）时不看磁盘：那条路根本不读配置目录里的登录态。
 
     Raises:
-        BackendError: 明确未登录（``AUTH``，不可重试）。
+        BackendError: 未登录（``AUTH``，不可重试）。
     """
-    if has_explicit_auth():
+    if is_authenticated():
         return
-    binary = resolve_cli_binary()
-    if binary is None:
-        # 找不到 CLI 是另一种错（UNAVAILABLE），交给 SDK 报，文案带查找路径。
-        return
-
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            binary,
-            "--list-models",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-        )
-    except OSError as exc:
-        logger.warning("qoder 登录态预检未能启动 CLI（继续交给 SDK）: %s", exc)
-        return
-
-    try:
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=login_probe_timeout())
-    except TimeoutError:
-        # 慢网络 / 首次冷启动：不拦，让真正的会话去报错。
-        proc.kill()
-        with contextlib.suppress(Exception):
-            await proc.wait()
-        logger.info("qoder 登录态预检超时（继续交给 SDK）")
-        return
-
-    text = stdout.decode(errors="replace") if stdout else ""
-    reason = login_missing_reason(text)
-    if reason is None:
-        return
-    raise BackendError(BackendErrorKind.AUTH, f"{LOGIN_HINT}（CLI 输出：{reason}）")
+    raise BackendError(BackendErrorKind.AUTH, f"{LOGIN_HINT}（在输入框的「选择 AI」菜单里点「登录 Qoder」）")
 
 
 def work_dir() -> Path:
@@ -463,9 +431,9 @@ def work_dir() -> Path:
 def build_env(*, config_dir: Path | None) -> dict[str, str | None]:
     """给 ``qodercli`` 子进程的环境变量（**叠加**在宿主环境之上，见 SDK 的 ``env`` 语义）。
 
-    ``config_dir`` 为 ``None`` 时**不**设置 ``QODER_CONFIG_DIR``：那表示「复用本机
-    ``qodercli`` 登录态」，而登录态就存在默认配置目录（``~/.qoder``）里。把它指到
-    临时目录会让 CLI 认为没登录——这是最容易踩的一处，所以两条路径必须显式分开。
+    ``config_dir`` 必须与「登录凭据所在目录」**是同一个**：指到别处时 CLI 会认为没
+    登录（登录态就在 ``<config dir>/.auth/user``）。所以本函数只负责如实透传，由调用方
+    决定是本轮临时目录（配了显式凭据）还是共享登录目录（:func:`qoder_login.config_dir`）。
 
     ``env`` 的值写 ``None`` 在 SDK 里表示「从子进程环境里删掉该变量」。
     """
@@ -619,6 +587,9 @@ class QoderBackend:
         self._states[ctx.run_id] = state
         session_id = str(ctx.session.session_id)
         max_turns = ctx.max_turns if ctx.max_turns is not None else MAX_TURNS
+        #: 本轮临时配置目录（配了显式凭据时才有）。**只删它，不删共享登录目录**——
+        #: 后者装着 qoder 的登录凭据，删一次全所都要重新授权。
+        temp_config_dir: Path | None = None
         config_dir: Path | None = None
         resolved_model = ""
 
@@ -627,9 +598,10 @@ class QoderBackend:
             await ensure_logged_in()
             target = await self._resolve_gateway_target(ctx)
             resolved_model = target.model if target is not None else ""
-            # 只有「配了显式凭据」时才把配置目录临时化：登录态存在默认配置目录里，
-            # 临时目录看不到它（会变成「未登录」）。
-            config_dir = make_config_dir() if has_explicit_auth() else None
+            # 配了显式凭据 → 本轮临时目录（执业数据不落盘）；否则用**共享登录目录**
+            # （前端按钮写下的凭据就在那里面，换台 worker 也读得到）。
+            temp_config_dir = make_config_dir() if has_explicit_auth() else None
+            config_dir = temp_config_dir or login_config_dir()
             mcp_servers = self._mcp_servers(ctx)
 
             options = QoderAgentOptions(
@@ -720,7 +692,8 @@ class QoderBackend:
         finally:
             self._states.pop(ctx.run_id, None)
             # ``async with`` 已退出（子进程已关）后才删，CLI 不会再往里写。
-            remove_config_dir(config_dir)
+            # **只删本轮临时目录**（``temp_config_dir``）：共享登录目录里的凭据不能动。
+            remove_config_dir(temp_config_dir)
             if ctx.run_id not in self._results:
                 # 取消 / 出错也要留一条事实：模型名至少能回写会话，``AgentRun``
                 # 不至于记成「不知道用了什么模型」（与 pi 的截断兜底同口径）。
@@ -1313,7 +1286,6 @@ __all__ = [
     "KIND",
     "LOGIN_HINT",
     "LOGIN_PROBE_ENV",
-    "LOGIN_PROBE_TIMEOUT_SECONDS",
     "MAX_KEPT_RESULTS",
     "MODEL_SOURCE_ENV",
     "MODEL_SOURCE_GATEWAY",
@@ -1332,7 +1304,6 @@ __all__ = [
     "has_explicit_auth",
     "is_available",
     "login_missing_reason",
-    "login_probe_timeout",
     "make_config_dir",
     "model_source",
     "qoder_auth",

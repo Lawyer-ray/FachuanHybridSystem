@@ -12411,6 +12411,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agent/qoder/auth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Qoder Auth
+         * @description 当前 qoder 登录态（只读本地凭据文件，不起进程、不联网）。
+         */
+        get: operations["apps_agent_api_qoder_auth_api_qoder_auth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/qoder/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Qoder Login Start
+         * @description 发起一次浏览器授权，返回授权链接。
+         *
+         *     Raises:
+         *         HttpError 503: CLI 找不到 / 启动失败 / 30 秒内没给出链接（``BackendError``
+         *             会被 Ninja 转成 500，那样前端只能显示「服务器错误」，所以这里显式转 503）。
+         */
+        post: operations["apps_agent_api_qoder_auth_api_qoder_login_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/qoder/login/{login_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Qoder Login Status
+         * @description 轮询某次授权的状态（未知 id 返回 ``state=expired``，不抛 404）。
+         */
+        get: operations["apps_agent_api_qoder_auth_api_qoder_login_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agent/memory": {
         parameters: {
             query?: never;
@@ -22709,6 +22773,11 @@ export interface components {
              * @default
              */
             contract_type: string;
+            /**
+             * Jurisdiction
+             * @default CN
+             */
+            jurisdiction: string;
             /** Playbook Id */
             playbook_id?: number | null;
         };
@@ -22805,6 +22874,11 @@ export interface components {
             stance: string;
             /** Contract Type */
             contract_type: string;
+            /**
+             * Jurisdiction
+             * @default CN
+             */
+            jurisdiction: string;
             /** Status */
             status: string;
             /** Playbook Key */
@@ -26838,6 +26912,16 @@ export interface components {
             models: string[];
             /** Default Model */
             default_model?: string | null;
+            /**
+             * Action
+             * @default
+             */
+            action: string;
+            /**
+             * Action Label
+             * @default
+             */
+            action_label: string;
         };
         /** SessionOut */
         SessionOut: {
@@ -27797,6 +27881,54 @@ export interface components {
             failed_runs: number;
             /** Cancelled Runs */
             cancelled_runs: number;
+        };
+        /**
+         * QoderAuthOut
+         * @description 当前登录态（``GET /agent/qoder/auth``）。
+         */
+        QoderAuthOut: {
+            /** Authenticated */
+            authenticated: boolean;
+            /**
+             * Account
+             * @default
+             */
+            account: string;
+            /**
+             * Mode
+             * @default none
+             */
+            mode: string;
+            /**
+             * Message
+             * @default
+             */
+            message: string;
+        };
+        /**
+         * QoderLoginOut
+         * @description 一次登录尝试的状态（``POST /agent/qoder/login`` 与轮询共用）。
+         */
+        QoderLoginOut: {
+            /** Login Id */
+            login_id: string;
+            /** State */
+            state: string;
+            /**
+             * Url
+             * @default
+             */
+            url: string;
+            /**
+             * Message
+             * @default
+             */
+            message: string;
+            /**
+             * Account
+             * @default
+             */
+            account: string;
         };
         /** MemoryOut */
         MemoryOut: {
@@ -44535,6 +44667,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageByAgentOut"][];
+                };
+            };
+        };
+    };
+    apps_agent_api_qoder_auth_api_qoder_auth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QoderAuthOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_qoder_auth_api_qoder_login_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QoderLoginOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_qoder_auth_api_qoder_login_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                login_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QoderLoginOut"];
                 };
             };
         };

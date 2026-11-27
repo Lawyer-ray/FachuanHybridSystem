@@ -28728,6 +28728,100 @@
         ]
       }
     },
+    "/api/v1/agent/qoder/auth": {
+      "get": {
+        "operationId": "apps_agent_api_qoder_auth_api_qoder_auth",
+        "summary": "Qoder Auth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QoderAuthOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "当前 qoder 登录态（只读本地凭据文件，不起进程、不联网）。",
+        "tags": [
+          "Agent 后端登录"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/qoder/login": {
+      "post": {
+        "operationId": "apps_agent_api_qoder_auth_api_qoder_login_start",
+        "summary": "Qoder Login Start",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QoderLoginOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "发起一次浏览器授权，返回授权链接。\n\nRaises:\n    HttpError 503: CLI 找不到 / 启动失败 / 30 秒内没给出链接（``BackendError``\n        会被 Ninja 转成 500，那样前端只能显示「服务器错误」，所以这里显式转 503）。",
+        "tags": [
+          "Agent 后端登录"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/qoder/login/{login_id}": {
+      "get": {
+        "operationId": "apps_agent_api_qoder_auth_api_qoder_login_status",
+        "summary": "Qoder Login Status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "login_id",
+            "schema": {
+              "title": "Login Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QoderLoginOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "轮询某次授权的状态（未知 id 返回 ``state=expired``，不抛 404）。",
+        "tags": [
+          "Agent 后端登录"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/agent/memory": {
       "get": {
         "operationId": "apps_agent_api_memory_api_list_memories",
@@ -51369,6 +51463,11 @@
             "title": "Contract Type",
             "type": "string"
           },
+          "jurisdiction": {
+            "default": "CN",
+            "title": "Jurisdiction",
+            "type": "string"
+          },
           "playbook_id": {
             "anyOf": [
               {
@@ -51557,6 +51656,11 @@
           },
           "contract_type": {
             "title": "Contract Type",
+            "type": "string"
+          },
+          "jurisdiction": {
+            "default": "CN",
+            "title": "Jurisdiction",
             "type": "string"
           },
           "status": {
@@ -59429,6 +59533,16 @@
               }
             ],
             "title": "Default Model"
+          },
+          "action": {
+            "default": "",
+            "title": "Action",
+            "type": "string"
+          },
+          "action_label": {
+            "default": "",
+            "title": "Action Label",
+            "type": "string"
           }
         },
         "required": [
@@ -61106,6 +61220,69 @@
           "cancelled_runs"
         ],
         "title": "UsageByAgentOut",
+        "type": "object"
+      },
+      "QoderAuthOut": {
+        "description": "当前登录态（``GET /agent/qoder/auth``）。",
+        "properties": {
+          "authenticated": {
+            "title": "Authenticated",
+            "type": "boolean"
+          },
+          "account": {
+            "default": "",
+            "title": "Account",
+            "type": "string"
+          },
+          "mode": {
+            "default": "none",
+            "title": "Mode",
+            "type": "string"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authenticated"
+        ],
+        "title": "QoderAuthOut",
+        "type": "object"
+      },
+      "QoderLoginOut": {
+        "description": "一次登录尝试的状态（``POST /agent/qoder/login`` 与轮询共用）。",
+        "properties": {
+          "login_id": {
+            "title": "Login Id",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          },
+          "account": {
+            "default": "",
+            "title": "Account",
+            "type": "string"
+          }
+        },
+        "required": [
+          "login_id",
+          "state"
+        ],
+        "title": "QoderLoginOut",
         "type": "object"
       },
       "MemoryOut": {

@@ -11,6 +11,7 @@ from ninja import Router
 from .approval_api import router as approval_router
 from .attachment_api import router as attachment_router
 from .chat_api import router as chat_router
+from .qoder_auth_api import router as qoder_auth_router
 from .question_api import router as question_router
 from .review_api import router as review_router
 from .session_api import router as session_router
@@ -31,3 +32,4 @@ router.add_router("", synthesis_router)
 router.add_router("", attachment_router)
 router.add_router("", skill_router)
 router.add_router("", usage_router)
+router.add_router("", qoder_auth_router)
