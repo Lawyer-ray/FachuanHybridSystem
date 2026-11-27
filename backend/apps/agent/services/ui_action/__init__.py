@@ -1,20 +1,27 @@
-"""UI 动作下发（T1 单向通道）—— 让 AI 能操作页面，但**不假装看见结果**。
+"""UI 动作下发 + 回执（v2-A）—— 让 AI 能操作页面，并且把**结果**带回模型。
 
-## 与 ``ask_user`` 的根本差别：绝不 wait、绝不注册 waiter
+## v1 → v2 改了什么，以及为什么
 
-``question.py`` 会登记一个等待器并阻塞到律师回答（超时 180 s），因为它要的是**答案**，
-答案回来之前模型没法继续。UI 动作要的不是答案：动作是「手势」，下发即完成，
-页面在毫秒内自己执行完。
+v1 里 ``publish_ui_action`` 写死 ``observed: False``，理由是「跨请求回执要新表 + pending
+补拉 + 超时清理，这笔账不成立」。v2-A 把它拆开看清了：**注入点就是工具返回值本身**
+（工具调用发生在模型循环内部），所以回执既不需要表、也不需要再开一次请求，只需要
+① ``publish`` 之后 ``await`` 最多 2 秒；② 没等到就进进程内积压，由同一会话的下一次
+工具调用或 ``ui_action_results`` 取走（机制见 :mod:`.ack`）。
 
-于是本模块**不注册 waiter、不 ``await`` 任何回执**，理由有三条，每条都是本仓库的实测事实：
+v1 那条「不该知道的就别让它说」并没有被推翻，它约束的是**措辞**而不是**能力**：
+``observed`` 为真才允许断言页面变了；为假时 note 必须明确说「拿到回执前不要断言」。
 
-1. **占位**：pi 的进程池槽位是稀缺资源，一个动作等 8 s 就等于把律师的并发能力按动作数
-   打折（``question.py`` 的 180 s 阻塞已经因此被审计收紧过一轮）。
-2. **回执要建表**：跨请求回执（AG-UI 式）需要新表 + pending 补拉 + 超时清理，而它换来的
-   只是模型"知道页面变了"——这笔账在 P0/P1 里不成立（08 §3、§14.7）。
-3. **不该知道的就别让它说**：模型一旦"看到"执行成功，就会向律师断言"已切换到待处理"；
-   而真实失败（懒 chunk 没就绪、路由 404）只有前端知道。返回值里写死 ``observed: False``
-   是**刻意让模型无法断言结果**，比事后纠正一句假话便宜得多。
+## 为什么等 2 秒而不是像 ``ask_user`` 那样等 180 秒
+
+``question.py`` 敢阻塞，因为等的是**答案**——没有答案模型没法继续。这里等的是
+一次已经发生的页面跳转（实测 100~600ms），等更久只是白占 pi 的进程池槽位。
+窗口由 ``FACHUAN_UI_ACTION_ACK_WAIT`` 控制（默认 2.0，clamp 0~8，0 = 完全不等）。
+
+## 积压的历史结果放在哪个字段
+
+独立字段 ``earlier_results``（人类可读的字符串数组），不并进 ``note``：``note`` 只描述
+**本次**动作，混进别的动作的历史，模型很容易把上一次的「成功」当成这一次的结果——
+法律场景里说错一次「已完成」就是事故。字段名（earlier）把时序说清了。
 
 ## 失败一律用返回值表达，不抛异常
 
@@ -35,6 +42,7 @@ import os
 import uuid
 from typing import Any
 
+from . import ack
 from .manifest import UiAction
 from .schema import validate_arguments
 
@@ -93,11 +101,14 @@ async def publish_ui_action(
     arguments: dict[str, Any],
     session_id: str | None,
 ) -> dict[str, Any]:
-    """把动作推到会话的 SSE 通道；**不等待前端执行**。
+    """把动作推到会话的 SSE 通道，并等最多 ``ACK_WAIT`` 秒把执行结果带回来。
 
     Returns:
         ``{"status": "dispatched"|"dry_run"|"no_channel"|"disabled"|"invalid_args", ...}``
         ——返回值整个交给模型，状态本身就是它下一步的依据。
+        ``dispatched`` 有两种形态：``observed=true`` 附真实 ``outcome`` / ``code`` /
+        ``location``；``observed=false`` 附 ``pending=true``（稍后可用
+        ``ui_action_results`` 取）。详细的字段口径见 :func:`_dispatched_result`。
     """
     mode = ui_action_mode()
     if mode == MODE_OFF:
@@ -146,33 +157,186 @@ async def publish_ui_action(
     # 而不是"缓存后端是不是 Redis"——后者在生产恒为 True，会让 delivered 永远为真。
     has_remote = bool(await bus.has_subscribers(session_id)) or bool(await bus.remote_subscriber_count(session_id))
     call_id = uuid.uuid4().hex
-    published = await bus.publish(
+    wait_seconds = ack.ack_wait_seconds()
+    # 归属先落盘：前端拿到 call_id 后可能立刻回执，而那条 POST 是在**另一个进程**里
+    # 校验归属的，晚一步写就会让第一份回执被判成「未知 call_id」。
+    ack.mark_dispatch_session(call_id, session_id)
+    # 登记等待者必须在 publish **之前**（同 ``question.py:283`` 的踩坑记录）：顺序反了，
+    # 前端 200ms 内的回执会落在「没有等待者」上，然后一路走到超时——回执明明来了却拿不到。
+    # ``ACK_WAIT=0`` 时不登记：没人在等，登记只是留一个永不释放的等待对象。
+    if wait_seconds > 0:
+        await ack.register(call_id)
+    observed: dict[str, Any] | None = None
+    delivered = False
+    try:
+        published = await bus.publish(
+            session_id,
+            {
+                "type": "ui_action",
+                "call_id": call_id,
+                "action": action.name,
+                "arguments": arguments,
+                # 期望路由只作提示：真正决定去哪由前端 registry 的执行器算
+                "route": action.route,
+                "sequence": _next_sequence(session_id),
+            },
+        )
+        delivered = bool(published) or has_remote
+        _log_dispatch(session_id, action, delivered)
+        observed = await ack.wait(call_id, wait_seconds)
+    finally:
+        await ack.discard(call_id)
+    logger.info(
+        "ui_action ack session=%s action=%s call_id=%s observed=%s outcome=%s",
         session_id,
-        {
-            "type": "ui_action",
+        action.name,
+        call_id,
+        observed is not None,
+        (observed or {}).get("outcome", ""),
+    )
+    # drain 必须在 push 之前：当次动作还没进积压表，这里取到的天然只有「上一次及更早」
+    # 的积压，不会自己拼自己。两者都是同步函数，中间没有 await 点。
+    earlier = ack.drain_pending(session_id)
+    if observed is None:
+        ack.push_pending(session_id, {"call_id": call_id, "action": action.name})
+    result = _dispatched_result(
+        call_id=call_id,
+        delivered=delivered,
+        observed=observed,
+        wait_seconds=wait_seconds,
+    )
+    if earlier:
+        result["earlier_results"] = [_describe_pending(item) for item in earlier]
+    return result
+
+
+def _dispatched_result(
+    *,
+    call_id: str,
+    delivered: bool,
+    observed: dict[str, Any] | None,
+    wait_seconds: float,
+) -> dict[str, Any]:
+    """``status=dispatched`` 的两种形态（拿到回执 / 没拿到）。
+
+    分成一个函数而不是在 :func:`publish_ui_action` 里堆 if：这两组字段是**冻结契约**
+    （前端与模型两侧照抄），分开写才能一眼看出「``observed=true`` 时多了哪些键、
+    ``observed=false`` 时一个都不该有」。
+    """
+    if observed is None:
+        return {
+            "status": "dispatched",
             "call_id": call_id,
-            "action": action.name,
-            "arguments": arguments,
-            # 期望路由只作提示：真正决定去哪由前端 registry 的执行器算
-            "route": action.route,
-            "sequence": _next_sequence(session_id),
-        },
-    )
-    delivered = bool(published) or has_remote
-    _log_dispatch(session_id, action, delivered)
-    # note 是模型转述给律师的素材，必须和 ``delivered`` 一致：
-    # 「没人收听」时依旧说「已下发到当前页面」，模型就会向律师断言页面变了——
-    # 而事实上可能根本没人看到（评审 P2-4）。所以按 delivered 分叉两句。
-    note = (
-        "动作已下发到当前页面；执行结果不回传，不要断言页面已经变成什么样。"
-        if delivered
-        else "动作已发出，但当前没有页面在收听（律师可能没打开助手或已断开）；"
-        "不要断言页面已经变化，可以提醒他打开后重试。"
-    )
-    return {
+            "delivered": delivered,
+            "observed": False,
+            "pending": True,
+            "note": _unobserved_note(delivered=delivered, wait_seconds=wait_seconds),
+        }
+    outcome = str(observed.get("outcome") or "unknown")
+    result: dict[str, Any] = {
         "status": "dispatched",
         "call_id": call_id,
         "delivered": delivered,
-        "observed": False,
-        "note": note,
+        "observed": True,
+        "outcome": outcome,
+    }
+    # ``code`` 只对 error 有意义：别的 outcome 带着 code，模型会把「中止」误读成路由故障。
+    if outcome == "error":
+        code = str(observed.get("code") or "").strip()
+        if code:
+            result["code"] = code
+    location = str(observed.get("location") or "").strip()
+    if location:
+        result["location"] = location
+    # note 放最后：契约里它就是最后一项，读返回值的人从字段一路读到这句话。
+    result["note"] = _observed_note(outcome, observed)
+    return result
+
+
+def _unobserved_note(*, delivered: bool, wait_seconds: float) -> str:
+    """没拿到回执时的 note —— 三种情形文案必须不同，否则模型会替页面编结果。
+
+    ``delivered`` 判据沿用 v1 的评审结论（P2-4）：没人收听时若仍说「已下发到当前页面」，
+    模型就会向律师断言页面变了，而事实上可能根本没人看到。
+    """
+    if not delivered:
+        return (
+            "动作已发出，但当前没有页面在收听（律师可能没打开助手或已断开）；回执可能永远不会有。"
+            "不要断言页面已经变化，可以提醒他打开后重试。"
+        )
+    if wait_seconds <= 0:
+        return (
+            f"动作已下发，但服务端当前不等待回执（{ack.ACK_WAIT_ENV}=0）。"
+            "结果稍后可用 ui_action_results 取；拿到回执前不要断言页面已经变成什么样。"
+        )
+    return (
+        f"动作已下发，但 {wait_seconds:g} 秒内没有收到页面回执（页面可能在切换中或律师没在看）。"
+        "结果稍后可用 ui_action_results 取；拿到回执前不要断言页面已经变成什么样。"
+    )
+
+
+def _observed_note(outcome: str, observed: dict[str, Any]) -> str:
+    """拿到回执时的 note —— 按 outcome 分叉，三种结局对模型的下一步含义完全不同。"""
+    detail = str(observed.get("detail") or "").strip()
+    location = str(observed.get("location") or "").strip()
+    tail = f"（页面说明：{detail}）" if detail else ""
+    if outcome == "ok":
+        where = f"页面当前地址 {location}。" if location else ""
+        return f"页面已执行该动作并回传结果：成功。{where}{tail}这一点现在可以基于事实陈述。"
+    if outcome == "error":
+        code = str(observed.get("code") or "unknown").strip()
+        return f"页面执行该动作失败（{code}）。{tail}不要把这次动作说成已完成；可以据此换一条路或告诉律师没成功。"
+    return f"页面中止了该动作（律师可能离开页面或手动取消）。{tail}不要断言页面已经变成什么样。"
+
+
+def _describe_pending(item: dict[str, Any]) -> str:
+    """一条积压结果 → 一句话。模型读人话比读嵌套 JSON 更不容易读错。"""
+    action_name = str(item.get("action") or "未知动作")
+    outcome = str(item.get("outcome") or "unknown")
+    detail = str(item.get("detail") or "").strip()
+    tail = f"（{detail}）" if detail else ""
+    if outcome == "ok":
+        location = str(item.get("location") or "").strip()
+        return f"{action_name} 成功" + (f"，页面当前地址 {location}" if location else "")
+    if outcome == "error":
+        return f"{action_name} 失败（{item.get('code') or 'unknown'}）{tail}"
+    if outcome == "aborted":
+        return f"{action_name} 被页面中止{tail}"
+    return f"{action_name} 结果未知（页面始终没有回执）"
+
+
+async def collect_ui_action_results(session_id: str | None) -> dict[str, Any]:
+    """取走本会话积压的 UI 动作结果（``ui_action_results`` 工具的实现）。
+
+    为什么要有这个工具：``publish_ui_action`` 只等 ``ACK_WAIT`` 秒，超时后结果进积压；
+    而**模型是唯一能把它写进上下文的人**（Django 插不进 pi 的子进程会话）。所以必须
+    给模型一个主动取件的动作，否则积压只能在「下一次下发」时被动漏出来。
+
+    Returns:
+        ``{"status": "ok"|"no_session", "count": int, "results": [...], "note": str}``。
+        ``results[].outcome`` 为 ``unknown`` 表示页面始终没有回执——**不等于成功**。
+    """
+    if not session_id:
+        return {
+            "status": "no_session",
+            "count": 0,
+            "results": [],
+            "note": "当前工具调用没有会话上下文，取不到任何回执；不要据此判断页面有没有变化。",
+        }
+    results = ack.drain_pending(session_id)
+    if not results:
+        return {
+            "status": "ok",
+            "count": 0,
+            "results": [],
+            "note": "没有待取的回执（自上次取件以来没有下发过动作，或结果已被取走）。",
+        }
+    return {
+        "status": "ok",
+        "count": len(results),
+        "results": results,
+        "note": (
+            "每项的 outcome：ok / error / aborted 是页面回传的真实结果；"
+            "unknown 表示页面始终没有回执——不要把它当成功，也不要重复下发同一个动作。"
+        ),
     }

@@ -1,5 +1,5 @@
 /**
- * store slice：界面动作（`ui_action`）的执行态 —— 幂等 / 打断 / 失败落态。
+ * store slice：界面动作（`ui_action`）的执行态 —— 幂等 / 打断 / 失败落态 / 结算回执。
  *
  * ## 为什么 ui 动作不进转录消息
  *
@@ -18,15 +18,24 @@
  *
  * ## 为什么失败必须 toast
  *
- * 执行结果不回传模型（T1 单向指令，08 §3.1）：失败现场只剩前端。静默失败的后果是
- * AI 在对话里说「已经帮你打开了」，而页面一动不动、也没有任何解释。
+ * 结算会一并回执给后端（见 `ack`），但那条路是给**模型**看的、且尽力而为：它可能
+ * 两次都没发出去，也可能要等模型下一次 poll 才被读到。律师此刻看得见的只有页面，
+ * 静默失败的后果是 AI 在对话里说「已经帮你打开了」，而页面一动不动、也没有任何解释。
  *
  * 并发：本次只有 `safe` 动作（毫秒级、last-writer-wins），不做串行队列；`confirm` /
  * `guarded` 真正接入时必须在这里加「同一时刻只允许一个写动作在飞」的互斥（08 §4.2）。
  */
 
 import { UI_TOOL_SPECS, runUiTool, validateArgs } from '../ui-tools'
-import type { UiActionRequest, UiToolErrorCode, UiToolOutcome, UiToolPorts } from '../ui-tools'
+// 深引而不是走桶：`ui-tools/index.ts` 承诺零运行时依赖（回执要发 POST，会把 ky 拖进来）
+import { ackUiActionResult } from '../ui-tools/ack'
+import type {
+  UiActionRequest,
+  UiActionResultSettlement,
+  UiToolErrorCode,
+  UiToolOutcome,
+  UiToolPorts,
+} from '../ui-tools'
 import type { UiToolRun } from '../state-types'
 import type { CopilotState } from '../types'
 import type { Slice } from './slice'
@@ -132,20 +141,33 @@ export const createUiToolSlice: Slice<UiToolSlice> = (set, get) => {
     runUiAction: async (req: UiActionRequest) => {
       // 同一 callId 只执行一次：模型重试与事件重放都会再来一遍。重复导航只是白跳一下，
       // 重复执行一次写库动作就是事故，所以从第一档起就按最严的口径挡。
+      // 重复投递不回执：第一次投递已经发过，再发一遍只会让后端的 pending 表多一条假结算。
       if (rememberCallId(req.callId)) return
 
       const startedAt = Date.now()
       const base = { name: req.action, startedAt }
+      /**
+       * 结算回执：把真实结果送回后端那一跳（工具返回值是模型唯一的注入点）。
+       *
+       * 一律 `void`：回执是旁路证据，动作早在毫秒内落完了，等它只会让律师的点击看起来
+       * 卡住；`ackUiActionResult` 自身永不 reject（见 ui-tools/ack.ts）。
+       */
+      const ack = (settlement: Omit<UiActionResultSettlement, 'call_id'>): void => {
+        void ackUiActionResult({ call_id: req.callId, ...settlement })
+      }
       /** 落失败态并让律师看见（静默失败 = 「AI 说帮你开，页面一动不动」） */
       const fail = (code: UiToolErrorCode, message: string): void => {
         writeRun(req.callId, { ...base, state: 'error', code, endedAt: Date.now() })
         hostPorts?.toast(message)
+        ack({ outcome: 'error', code, detail: message })
       }
 
       // 「停下」之后的动作一律不执行：软打断只挡**后续**动作（08 §4.5），已发出的不追回
       // ——它们在毫秒内就落完了。
       if (get().abortedAt !== null) {
         writeRun(req.callId, { ...base, state: 'aborted', code: 'aborted', endedAt: startedAt })
+        // 打断了也要回执：不发，后端只能等到超时，模型会把「律师按了停下」误读成「页面没反应」
+        ack({ outcome: 'aborted' })
         return
       }
 
@@ -163,10 +185,12 @@ export const createUiToolSlice: Slice<UiToolSlice> = (set, get) => {
       if (!ports) {
         // 面板与助手页都没挂载：连 toast 都发不出去（提示本身就是端口），只留运行记录
         writeRun(req.callId, { ...base, state: 'error', code: 'executor_error', endedAt: startedAt })
+        ack({ outcome: 'error', code: 'executor_error', detail: '界面动作宿主（面板 / 助手页）未挂载' })
         return
       }
       // 非幂等动作的同参重试按 5 秒窗挡掉（08 §6）。命中就静默丢：它本来就是「同一次
       // 操作被重发」，再弹一次错误提示反而制造噪音。
+      // 也不回执：这一次**什么都没执行**，回 ok 是撒谎，而契约里没有「已去重」这个码。
       if (!spec.idempotent && !allowNonIdempotent(req.action, req.args, startedAt)) return
 
       // 不写 pending：从受理到调用执行器之间没有任何 await，pending 在真实链路里不可观察，
@@ -186,6 +210,7 @@ export const createUiToolSlice: Slice<UiToolSlice> = (set, get) => {
       }
       if (outcome.ok) {
         writeRun(req.callId, { ...base, state: 'ok', endedAt: Date.now() })
+        ack({ outcome: 'ok', detail: outcome.detail })
         return
       }
       fail(outcome.code, outcome.message)

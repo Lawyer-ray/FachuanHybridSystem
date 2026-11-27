@@ -15,6 +15,9 @@
 import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
 import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, PendingQuestionItem, QuestionAnswerItem, QuestionAnswerReceipt, QoderAuthState, QoderByokState, QoderLoginState, UsageSummary } from './types'
+// 回执的线上契约归执行层所有（与 `UiToolErrorCode` 同级的事实），这里只借用类型：
+// `import type` 编译期擦除，不会让 api.ts ↔ ui-tools/ack.ts 在运行时成环。
+import type { UiActionResultAck, UiActionResultReceipt } from './ui-tools/types'
 
 /** scope → 创建会话的请求体字段（origin + case_id/contract_id） */
 function scopePayload(scope?: CopilotScope): Record<string, string | number> {
@@ -106,6 +109,20 @@ export type { ProjectNoteReceipt } from './memory-api'
 /** 前端提交审批决定（同意/拒绝高危工具调用） */
 export function decideApproval(approvalId: string, approved: boolean, reason = ''): Promise<Record<string, unknown>> {
   return api.post(`agent/approval/${approvalId}/decide`, { json: { approved, reason } }).json<Record<string, unknown>>()
+}
+
+/**
+ * 界面动作的真实结果回执（`POST /agent/ui-action-results`，鉴权同 question）。
+ *
+ * 为什么需要这一跳：pi 后端的会话在子进程里，Django 无法在两跳之间往会话插
+ * 系统消息，**工具返回值本身就是注入点**——`publish_ui_action` / `ui_action_results`
+ * 的返回值里能不能写 `observed: true` 与真实 outcome，全看这条回执在 ≤2s 内到没到。
+ *
+ * `success=false` **不是失败**：等待方已超时，回执进了后端进程内的 pending 表，
+ * 等模型下次 poll 取走。传输层失败由 `ui-tools/ack.ts` 重试一次，调用方不要重试。
+ */
+export function submitUiActionResult(payload: UiActionResultAck): Promise<UiActionResultReceipt> {
+  return api.post('agent/ui-action-results', { json: payload }).json<UiActionResultReceipt>()
 }
 
 /**

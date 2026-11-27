@@ -1,12 +1,24 @@
 """UI 动作 → MCP 真名工具（按清单动态注册）。
 
-## 为什么一个工具名都不手写
+## 为什么清单里的动作名一个都不手写
 
 名字 / 描述 / 参数 schema / 风险档的唯一来源是 ``apps/agent/services/ui_action/manifest.py``。
 手写一份的漂移是**静默**的：清单加了动作、这里没跟上，模型调的工具根本不存在
 （``test_tool_registration`` 只对账 server.py 里写死的 ``_t(fn)``，对这种手写不动它）；
 反过来这里多写一条、前端没有执行器，则表现为「模型调完页面毫无反应、日志里连错误都没有」。
 所以 :func:`_register_ui_tools` 只做一件事：把 ``UI_ACTIONS`` 逐条注册。
+
+## 为什么只有 ``ui_action_results`` 手写
+
+它**不是** UI 动作：清单里的每一条都必须有前端执行器、风险档、撤销能力，而「取回执」
+这件事前端完全不参与——它读的是后端进程内的积压表（``services/ui_action/ack.py``）。
+塞进清单会让 ``--ts`` 生成器给前端造一条永远匹配不到执行器的动作，正好是本文开头
+那种静默失效。
+
+分层上它落在 **deferred** 层（``tool_tiers.DIRECT_TOOLS`` 里没有它）：只读、低频、
+不是每轮必用，而 ``direct`` 是每轮重发的固定 token 前缀。代价是模型要先 ``tool_search``
+找到它——所以 ``publish_ui_action`` 在没等到回执时直接在 note 里点出这个名字，
+模型因此知道该搜什么。
 
 ## 为什么签名是「真参数」而不是 ``**kwargs``
 
@@ -47,7 +59,7 @@ from typing import Annotated, Any, Literal
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
-from apps.agent.services.ui_action import publish_ui_action
+from apps.agent.services.ui_action import collect_ui_action_results, publish_ui_action
 from apps.agent.services.ui_action.manifest import UI_ACTIONS, UiAction
 from mcp_server.identity import current_session_id
 
@@ -137,6 +149,70 @@ def _tool_for(action: UiAction) -> Callable[..., Any]:
     return _call
 
 
+#: 唯一手写、也不在清单里的 UI 工具名（理由见模块 docstring）。
+RESULTS_TOOL_NAME = "ui_action_results"
+
+
+def _ui_action_results_tool() -> Callable[..., Any]:
+    """造 ``ui_action_results`` 的壳（真名 + 真 docstring），函数体只做一次取件。
+
+    为什么与清单动作一样走「壳 + 设 ``__name__``」而不是写成顶层
+    ``async def ui_action_results``：``tests/ci/unit/mcp_server/test_tool_registration.py``
+    把 ``mcp_server/tools/`` 下所有**顶层非下划线函数**当成「该在 ``server.py`` 里
+    ``_t(...)`` 注册的工具」，而本工具是 ``_register_ui_tools`` 动态注册的（不进
+    ``tools/__init__.py`` 的 ``__all__``、也不进分层清单），写成顶层函数会被那道门禁
+    判成「定义了却没注册」。壳与清单动作同一条路子：门禁与运行时看到的都是
+    「注册表里有 ``ui_action_results``」。
+    """
+
+    async def _call() -> dict[str, Any]:
+        """取回「已下发、但当时没等到回执」的 UI 动作结果（模型主动 poll）。
+
+        **什么时候该用**（两个场景）：
+
+        1. 律师问「刚才那几个动作成了吗 / 页面怎么没变」——用真实回执回答，而不是复述
+           「我已经下发了」；
+        2. **多步任务的第二跳之前**：上一个动作的落点决定下一步该点什么（先
+           ``ui_navigate`` 到材料页，再决定切哪个 stage）。
+
+        **什么时候不该用**：
+
+        - 刚下发完就立刻调——``publish_ui_action`` 的返回值里已经带了等待窗口内的回执，
+          那里没有就是没有，再调一次通常还是空；
+        - 律师没打开页面时（下发返回值里 ``delivered=false``）——回执永远不会来。
+
+        **返回**：``{"status", "count", "results"}``。``results[]`` 每项含 ``call_id`` /
+        ``action`` / ``outcome``（``ok`` / ``error`` / ``aborted`` / ``unknown``）/
+        ``code`` / ``detail`` / ``location``。``outcome=unknown`` 表示页面始终没有回执
+        ——**不要**当成成功，也不要重复下发同一个动作。
+        """
+        return await collect_ui_action_results(current_session_id() or None)
+
+    tool: Any = _call
+    # 工具真名 = ``__name__``：审批按 ``mcp__fachuan__<name>`` 全名匹配（同 ``_tool_for``）。
+    tool.__name__ = RESULTS_TOOL_NAME
+    tool.__qualname__ = RESULTS_TOOL_NAME
+    return _call
+
+
+def _register_results_tool(
+    register_tool: Callable[..., Any],
+    *,
+    reserved_names: Iterable[str],
+) -> list[str]:
+    """注册 ``ui_action_results``（模型主动取回积压回执）。
+
+    撞名直接抛（不静默跳过）：覆盖一个内置工具等于把审批与审计的基准对象换掉，
+    与 :func:`_register_actions` 同一口径。
+    """
+    if RESULTS_TOOL_NAME in set(reserved_names):
+        raise RuntimeError(f"UI 回执工具与既有工具撞名，拒绝注册: {RESULTS_TOOL_NAME}")
+    # 只读取进程内积压表 + Redis 里已存在的回执，没有外部副作用 → 只读注解。
+    register_tool(_ui_action_results_tool(), annotations=ToolAnnotations(read_only_hint=True))
+    logger.info("ui 回执工具已注册: %s", RESULTS_TOOL_NAME)
+    return [RESULTS_TOOL_NAME]
+
+
 def _register_actions(
     actions: Sequence[UiAction],
     register_tool: Callable[..., Any],
@@ -183,4 +259,8 @@ def _register_ui_tools(
     会被 ``test_tool_registration`` 当作「实现完整但从未注册的工具」。注册器不是工具，
     按该门禁 docstring 的约定用 ``_`` 命名，而不是往白名单里加一条逃生门。
     """
-    return _register_actions(UI_ACTIONS, register_tool, reserved_names=reserved_names)
+    registered = _register_actions(UI_ACTIONS, register_tool, reserved_names=reserved_names)
+    registered.extend(
+        _register_results_tool(register_tool, reserved_names=(*reserved_names, *registered)),
+    )
+    return registered

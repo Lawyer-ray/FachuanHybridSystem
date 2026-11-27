@@ -28,6 +28,9 @@ vi.mock('./api', () => ({
   uploadAttachment: vi.fn(),
   answerQuestion: vi.fn(),
   fetchPendingQuestions: vi.fn(),
+  // 结算回执（每个用例的 ok/error/aborted 都会发一次；回执本身的行为在
+  // store.ui-tools.ack.test.ts 里测）
+  submitUiActionResult: vi.fn(),
 }))
 
 /** 宿主端口的替身：执行器只能通过它碰到浏览器 */

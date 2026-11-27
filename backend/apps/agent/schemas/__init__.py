@@ -34,6 +34,7 @@ from .session_schemas import (
 )
 from .skill_schemas import SkillListOut, SkillOut, SkillToggleIn, SkillToggleOut
 from .task_schemas import TaskIn, TaskOut
+from .ui_schemas import UiActionResultIn
 from .usage_schemas import UsageOut
 
 __all__ = [
@@ -71,5 +72,6 @@ __all__ = [
     "SteerOut",
     "TaskIn",
     "TaskOut",
+    "UiActionResultIn",
     "UsageOut",
 ]

@@ -77,6 +77,9 @@ vi.mock('./api', () => ({
   fetchQoderByok: vi.fn(),
   registerQoderByok: vi.fn(),
   deleteQoderByok: vi.fn(),
+  // 结算回执（`POST agent/ui-action-results`）：动作落完之后 store 会发一条，
+  // 本文件只关心页面变化，所以只要它在清单里、能接到即可
+  submitUiActionResult: vi.fn(),
   adoptReview: vi.fn(),
   fetchReview: vi.fn(),
   fetchReviewAdoption: vi.fn(),

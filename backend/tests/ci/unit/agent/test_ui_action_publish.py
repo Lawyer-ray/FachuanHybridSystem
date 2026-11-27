@@ -6,9 +6,12 @@
 - ``invalid_args`` 被吞成异常 → 模型只能拿同一个错参数重试到死（它看不到哪一字段错）；
 - ``dry`` / ``off`` 漏掉 → 灰度观察期与一键回滚形同虚设。
 
-还有一条结构性断言：**下发绝不阻塞**。这是本通道与 ``ask_user`` 的唯一本质差别
-（后者要答案、要登记等待器；动作只是手势）。用 ``asyncio.wait_for`` 加一个远小于任何
-超时的时间上限来钉它——一旦有人给这里加上 "等一下前端回执"，本用例会先超时。
+还有一条结构性断言：**回执窗口关掉时下发绝不阻塞**（``FACHUAN_UI_ACTION_ACK_WAIT=0``）。
+等回执是 v2-A 才有的能力（默认窗口 2s），但窗口必须能被运维关掉——灰度、弱网、
+或确信没人看页面时，一个动作不该白占 2s 的 pi 执行位。用远小于任何超时的上限来钉它：
+一旦这个分支开始无条件等待，本用例会先超时。
+
+回执本身的语义（幂等/超时/积压）在 ``test_ui_action_ack.py``，本文件只管下发契约。
 """
 
 from __future__ import annotations
@@ -19,7 +22,7 @@ from typing import Any
 
 import pytest
 
-from apps.agent.services.ui_action import publish_ui_action
+from apps.agent.services.ui_action import ack, publish_ui_action
 from apps.agent.services.ui_action.manifest import UI_ACTIONS, UiAction
 
 NAVIGATE: UiAction = next(action for action in UI_ACTIONS if action.name == "ui_navigate")
@@ -57,8 +60,18 @@ def _install_bus(monkeypatch: pytest.MonkeyPatch, bus: _FakeBus) -> _FakeBus:
 
 @pytest.fixture(autouse=True)
 def _default_mode(monkeypatch: pytest.MonkeyPatch) -> None:
-    """默认走 ``on``：本机 shell 里若导出过 ``FACHUAN_UI_ACTION``，用例会随环境变色。"""
+    """默认走 ``on`` 且关掉回执窗口。
+
+    - ``FACHUAN_UI_ACTION``：本机 shell 里若导出过开关，用例会随环境变色；
+    - ``FACHUAN_UI_ACTION_ACK_WAIT=0``：本文件钓的是**下发契约**（事件字段、模式开关），
+      回执等待的语义在 ``test_ui_action_ack.py``；不关窗口每条用例都要白等 2s。
+
+    同时清空进程内积压表：没等到回执的动作会被登记进去，跨用例残留会让
+    ``earlier_results`` 随机出现在后面用例的返回值里。
+    """
     monkeypatch.delenv("FACHUAN_UI_ACTION", raising=False)
+    monkeypatch.setenv(ack.ACK_WAIT_ENV, "0")
+    ack._PENDING.clear()
 
 
 def _session_id() -> str:
@@ -143,7 +156,7 @@ async def test_dry_mode_logs_without_publish(monkeypatch: pytest.MonkeyPatch, ca
 
 @pytest.mark.asyncio
 async def test_dispatched_publishes_contract_without_blocking(monkeypatch: pytest.MonkeyPatch) -> None:
-    """正常下发：事件字段齐全、``observed=False``，且**不等前端**。"""
+    """正常下发：事件字段齐全、``observed=False``（窗口已关 → 直接走积压），且**不等前端**。"""
     bus = _install_bus(monkeypatch, _FakeBus())
     session_id = _session_id()
 
@@ -155,7 +168,8 @@ async def test_dispatched_publishes_contract_without_blocking(monkeypatch: pytes
 
     assert result["status"] == "dispatched"
     assert result["delivered"] is True
-    assert result["observed"] is False, "执行结果不回传，模型不该被允许断言页面已经变成什么样"
+    assert result["observed"] is False, "没拿到回执就不该允许模型断言页面已经变成什么样"
+    assert result["pending"] is True
     assert "不要断言" in result["note"]
     assert len(result["call_id"]) == 32
 

@@ -60,6 +60,9 @@ vi.mock('./api', () => ({
   fetchQoderByok: vi.fn(),
   registerQoderByok: vi.fn(),
   deleteQoderByok: vi.fn(),
+  // 结算回执（HTTP 边界的一项，理由见主文件同处）：失败/打断也要发，不接就会变成
+  // 一条 fetch 不到的静默 try——本文件断的正是「出事时」，必须让它真实接住
+  submitUiActionResult: vi.fn(),
   adoptReview: vi.fn(),
   fetchReview: vi.fn(),
   fetchReviewAdoption: vi.fn(),

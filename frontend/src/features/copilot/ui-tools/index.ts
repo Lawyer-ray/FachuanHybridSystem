@@ -14,7 +14,12 @@ export { UI_TOOL_BY_NAME, UI_TOOL_SPECS } from './generated'
 
 export type {
   PageUiAction,
+  UiActionOutcome,
   UiActionRequest,
+  // 结算回执的线上契约（`POST /agent/ui-action-results`）：只有类型，不带运行时依赖
+  UiActionResultAck,
+  UiActionResultReceipt,
+  UiActionResultSettlement,
   UiExecutor,
   UiToolErrorCode,
   UiToolOutcome,
