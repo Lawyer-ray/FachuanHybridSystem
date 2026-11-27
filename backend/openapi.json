@@ -27717,6 +27717,110 @@
         ]
       }
     },
+    "/api/v1/agent/ui-action-results": {
+      "post": {
+        "operationId": "apps_agent_api_ui_api_submit_ui_action_result",
+        "summary": "Submit Ui Action Result",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "前端提交一次 UI 动作的执行结果（仅会话所有者）。\n\n``success=False`` 不一定是错误：等待方可能已经超时（模型只等 2 秒）。前端应提示\n「结果已记录，但本轮已按超时继续」，而不是当成失败重试——重试也只会命中\n:func:`ack.resolve` 的幂等分支（第二次提交不生效）。",
+        "tags": [
+          "Agent UI 动作"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UiActionResultIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/ui-actions": {
+      "get": {
+        "operationId": "apps_agent_api_ui_api_list_ui_actions",
+        "summary": "List Ui Actions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "当前用户的 UI 动作审计历史（仅 ``confirm`` / ``guarded`` 档，见 ``audit``）。\n\n只给**自己的**行：动作历史不是会话共享资产，同一会话被转交后新负责人也不该看见\n前任按过哪些高危按钮。也就因此不经 ``_rejection_reason``：读的不是某个请求的回执。\n\nReturns:\n    ``{\"items\": [...], \"count\": n}``；未登录返回空列表 + ``error``（与同文件其余\n    端点的「未登录不报 401、给空结果」口径一致）。",
+        "tags": [
+          "Agent UI 动作"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/ui-snapshots/{request_id}": {
+      "post": {
+        "operationId": "apps_agent_api_ui_api_submit_ui_snapshot",
+        "summary": "Submit Ui Snapshot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "前端回传一次页面状态快照（仅会话所有者）。\n\n契约（脱敏、2000 字上限）在 ``UiSnapshotIn`` 里；本端点只做归属校验与转交。\n``success=False`` 不是失败：等待方（≤3s）可能已经超时，模型会按「没问到」继续。",
+        "tags": [
+          "Agent UI 动作"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UiSnapshotIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/agent/review/options": {
       "get": {
         "operationId": "apps_agent_api_review_api_review_options",
@@ -35154,6 +35258,7 @@
         "type": "object"
       },
       "CaseIn": {
+        "description": "建案入参。\n\n`contract_id` 必须显式声明：`Case.contract` 是 FK，但 ModelSchema 的 fields\n白名单里没有它，而 `CaseCommandService.create_case` 读的正是 `data[\"contract_id\"]`\n——既拿它做合同有效性校验，也拿它解析并校验代理阶段。漏了这一个字段，\nREST 建出来的案件会挂空合同（前端「新建下一程序案件」等于白建）。",
         "properties": {
           "name": {
             "maxLength": 255,
@@ -35261,6 +35366,17 @@
               }
             ],
             "title": "指定日期"
+          },
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
           }
         },
         "required": [
@@ -60405,6 +60521,74 @@
           "id"
         ],
         "title": "QuestionAnswerItem",
+        "type": "object"
+      },
+      "UiActionResultIn": {
+        "description": "前端提交一次 UI 动作的执行结果。\n\n``outcome`` 用 ``Literal`` 而不是自由字符串：它不是给人看的说明，而是模型据以\n决定下一步的**状态机输入**（``ok`` 才能说「已完成」）。多一个拼写变体就等于\n多一条没人测过的分支，还会静默落进积压表被当成 ``unknown`` 转述出去。",
+        "properties": {
+          "call_id": {
+            "title": "Call Id",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "ok",
+              "error",
+              "aborted"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "code": {
+            "default": "",
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "observed_location": {
+            "default": "",
+            "title": "Observed Location",
+            "type": "string"
+          }
+        },
+        "required": [
+          "call_id",
+          "outcome"
+        ],
+        "title": "UiActionResultIn",
+        "type": "object"
+      },
+      "UiSnapshotIn": {
+        "description": "前端回传的一次页面状态快照（``POST /agent/ui-snapshots/{request_id}``）。\n\n``state`` 会被**原样拼进模型上下文**、也会进日志，所以与 ``detail`` 同口径按不可信\n输入处理：先脱敏（密钥类字段遮成 ``***``）再限量。\n\n**``state`` 超限直接拒、不截断**：截断后的结构体会缺键，而模型会把缺的键当成「页面上确实\n没有这个字段」——比拒绝更误导。拒绝时把实际字数与上限写进错误，页面作者据此收窄\n自己声明的字段（模型拿到的仍是「没问到」，不会变成假的空页面）。\n\n**``available_actions`` 相反：名字可以截断**（去控制字符 → strip → 截 64 字 → 丢空串\n→ 去重 → 最多 10 条，超出只截断，不拒收）。两者口径不同是因为坏处的形状不同：名字是\n**查表用的不透明标识**，截短后匹配不到任何动作，模型也就不会（也无法）调它——失败方向是\n「少了一个提示」，**不构成假事实**；而截断状态会凭空造出「页面上没有这个字段」。所以前者\n容错、后者拒收。",
+        "properties": {
+          "state": {
+            "additionalProperties": true,
+            "title": "State",
+            "type": "object"
+          },
+          "route": {
+            "default": "",
+            "title": "Route",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "available_actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Available Actions",
+            "type": "array"
+          }
+        },
+        "title": "UiSnapshotIn",
         "type": "object"
       },
       "ReviewOptions": {

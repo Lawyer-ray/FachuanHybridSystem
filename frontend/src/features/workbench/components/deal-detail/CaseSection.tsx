@@ -322,7 +322,7 @@ export function NextStageRow({ stage, onCreate }: { stage: string; onCreate: () 
       <span className="text-sm font-[620] text-muted-foreground">{stage}</span>
       <span className="text-[12.5px] text-muted-foreground/70">未启动 · 合同已勾选的下一程序</span>
       <span className="ml-auto max-[680px]:ml-0">
-        <ActionButton onClick={onCreate} title={'新建' + stage + '案件（即将支持）'}>
+        <ActionButton onClick={onCreate} title={'在当前委托下新建一个' + stage + '案件'}>
           ＋ 新建{stage}案件
         </ActionButton>
       </span>

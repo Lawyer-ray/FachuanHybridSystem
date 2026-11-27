@@ -11959,6 +11959,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agent/ui-action-results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Ui Action Result
+         * @description 前端提交一次 UI 动作的执行结果（仅会话所有者）。
+         *
+         *     ``success=False`` 不一定是错误：等待方可能已经超时（模型只等 2 秒）。前端应提示
+         *     「结果已记录，但本轮已按超时继续」，而不是当成失败重试——重试也只会命中
+         *     :func:`ack.resolve` 的幂等分支（第二次提交不生效）。
+         */
+        post: operations["apps_agent_api_ui_api_submit_ui_action_result"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/ui-actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Ui Actions
+         * @description 当前用户的 UI 动作审计历史（仅 ``confirm`` / ``guarded`` 档，见 ``audit``）。
+         *
+         *     只给**自己的**行：动作历史不是会话共享资产，同一会话被转交后新负责人也不该看见
+         *     前任按过哪些高危按钮。也就因此不经 ``_rejection_reason``：读的不是某个请求的回执。
+         *
+         *     Returns:
+         *         ``{"items": [...], "count": n}``；未登录返回空列表 + ``error``（与同文件其余
+         *         端点的「未登录不报 401、给空结果」口径一致）。
+         */
+        get: operations["apps_agent_api_ui_api_list_ui_actions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/ui-snapshots/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Ui Snapshot
+         * @description 前端回传一次页面状态快照（仅会话所有者）。
+         *
+         *     契约（脱敏、2000 字上限）在 ``UiSnapshotIn`` 里；本端点只做归属校验与转交。
+         *     ``success=False`` 不是失败：等待方（≤3s）可能已经超时，模型会按「没问到」继续。
+         */
+        post: operations["apps_agent_api_ui_api_submit_ui_snapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agent/review/options": {
         parameters: {
             query?: never;
@@ -15107,7 +15181,15 @@ export interface components {
             /** Authority Type Display */
             authority_type_display: string | null;
         };
-        /** CaseIn */
+        /**
+         * CaseIn
+         * @description 建案入参。
+         *
+         *     `contract_id` 必须显式声明：`Case.contract` 是 FK，但 ModelSchema 的 fields
+         *     白名单里没有它，而 `CaseCommandService.create_case` 读的正是 `data["contract_id"]`
+         *     ——既拿它做合同有效性校验，也拿它解析并校验代理阶段。漏了这一个字段，
+         *     REST 建出来的案件会挂空合同（前端「新建下一程序案件」等于白建）。
+         */
         CaseIn: {
             /** 案件名称 */
             name: string;
@@ -15144,6 +15226,8 @@ export interface components {
             effective_date?: string | null;
             /** 指定日期 */
             specified_date?: string | null;
+            /** Contract Id */
+            contract_id?: number | null;
         };
         /** CaseAssignmentCreate */
         CaseAssignmentCreate: {
@@ -27421,6 +27505,73 @@ export interface components {
              * @default
              */
             comment: string;
+        };
+        /**
+         * UiActionResultIn
+         * @description 前端提交一次 UI 动作的执行结果。
+         *
+         *     ``outcome`` 用 ``Literal`` 而不是自由字符串：它不是给人看的说明，而是模型据以
+         *     决定下一步的**状态机输入**（``ok`` 才能说「已完成」）。多一个拼写变体就等于
+         *     多一条没人测过的分支，还会静默落进积压表被当成 ``unknown`` 转述出去。
+         */
+        UiActionResultIn: {
+            /** Call Id */
+            call_id: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "ok" | "error" | "aborted";
+            /**
+             * Code
+             * @default
+             */
+            code: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /**
+             * Observed Location
+             * @default
+             */
+            observed_location: string;
+        };
+        /**
+         * UiSnapshotIn
+         * @description 前端回传的一次页面状态快照（``POST /agent/ui-snapshots/{request_id}``）。
+         *
+         *     ``state`` 会被**原样拼进模型上下文**、也会进日志，所以与 ``detail`` 同口径按不可信
+         *     输入处理：先脱敏（密钥类字段遮成 ``***``）再限量。
+         *
+         *     **``state`` 超限直接拒、不截断**：截断后的结构体会缺键，而模型会把缺的键当成「页面上确实
+         *     没有这个字段」——比拒绝更误导。拒绝时把实际字数与上限写进错误，页面作者据此收窄
+         *     自己声明的字段（模型拿到的仍是「没问到」，不会变成假的空页面）。
+         *
+         *     **``available_actions`` 相反：名字可以截断**（去控制字符 → strip → 截 64 字 → 丢空串
+         *     → 去重 → 最多 10 条，超出只截断，不拒收）。两者口径不同是因为坏处的形状不同：名字是
+         *     **查表用的不透明标识**，截短后匹配不到任何动作，模型也就不会（也无法）调它——失败方向是
+         *     「少了一个提示」，**不构成假事实**；而截断状态会凭空造出「页面上没有这个字段」。所以前者
+         *     容错、后者拒收。
+         */
+        UiSnapshotIn: {
+            /** State */
+            state?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Route
+             * @default
+             */
+            route: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Available Actions */
+            available_actions?: string[];
         };
         /**
          * ReviewOptions
@@ -44359,6 +44510,72 @@ export interface operations {
                         [key: string]: unknown;
                     }[];
                 };
+            };
+        };
+    };
+    apps_agent_api_ui_api_submit_ui_action_result: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UiActionResultIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_ui_api_list_ui_actions: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_ui_api_submit_ui_snapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UiSnapshotIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

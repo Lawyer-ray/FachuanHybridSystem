@@ -27,6 +27,17 @@ except ImportError:
 
 
 class CaseIn(ModelSchema):
+    """
+    建案入参。
+
+    `contract_id` 必须显式声明：`Case.contract` 是 FK，但 ModelSchema 的 fields
+    白名单里没有它，而 `CaseCommandService.create_case` 读的正是 `data["contract_id"]`
+    ——既拿它做合同有效性校验，也拿它解析并校验代理阶段。漏了这一个字段，
+    REST 建出来的案件会挂空合同（前端「新建下一程序案件」等于白建）。
+    """
+
+    contract_id: int | None = None
+
     class Meta:
         model = Case
         fields: ClassVar = [

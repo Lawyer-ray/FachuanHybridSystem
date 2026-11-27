@@ -324,12 +324,13 @@ describe('NonLitDetailPage · 右栏与下一程序', () => {
     expect(screen.getByRole('option', { name: '整个委托（合同层面）' })).toBeTruthy()
   })
 
-  it('有 next 时渲染「下一程序」块，新建按钮也是占位', () => {
+  it('有 next 时渲染「下一程序」块，点「新建执行」打开建案弹窗', async () => {
     h.page = basePage({ next: '执行' })
     renderPage()
     expect(screen.getByText('下一程序')).toBeTruthy()
     fireEvent.click(screen.getByText('新建执行'))
-    expect(h.toast.info).toHaveBeenCalledWith('新建执行正在开发中')
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(screen.getByText('新建执行案件')).toBeTruthy()
   })
 
   it('没有 next 时不渲染「下一程序」', () => {

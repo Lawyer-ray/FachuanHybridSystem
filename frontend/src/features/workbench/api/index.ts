@@ -16,6 +16,7 @@
  * 同一测试里 `vimock('../../api/client')` 才能生效，mock 边界会被迫跟着改。
  */
 
+export * from './case-create'
 export * from './contract'
 export * from './folder'
 export * from './invoice'

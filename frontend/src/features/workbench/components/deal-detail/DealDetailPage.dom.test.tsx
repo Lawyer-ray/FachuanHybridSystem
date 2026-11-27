@@ -384,6 +384,17 @@ describe('DealDetailPage 程序链与案件节', () => {
     expect(screen.getByText('＋ 新建执行案件')).toBeTruthy()
   })
 
+  it('「＋ 新建执行案件」打开建案弹窗，阶段固定为「执行」、默认名带上一程的案由', async () => {
+    setupUi()
+    fireEvent.click(await screen.findByText('＋ 新建执行案件'))
+
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(screen.getByText('新建执行案件')).toBeTruthy()
+    // 名称默认值 = 甲方诉乙方 + 上一程的案由（可改）
+    const nameInput = screen.getByLabelText('案件名称') as HTMLInputElement
+    expect(nameInput.value).toContain('诉')
+  })
+
   it('322 号形态：合同按枚举序勾「一审、二审、劳动仲裁」，页面按程序序排 劳动仲裁 → 一审 → 二审；下一步=二审；没有执行', async () => {
     getContractMock.mockResolvedValueOnce(makeContract({ representation_stages: ['一审', '二审', '劳动仲裁'] }))
     casesMock.mockResolvedValueOnce([
