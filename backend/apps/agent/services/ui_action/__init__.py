@@ -12,6 +12,15 @@ M1 补的是另一件事：``confirm`` / ``guarded`` 档动作要留**审计台�
 见 :mod:`.audit`）。那张表不参与等待与补拉——它是「谁让 AI 干了什么、页面回了什么」的
 持久痕迹，写失败也照样下发、照样收回执。
 
+## 为什么「页面说成功」还要再核实一遍
+
+``outcome`` 的唯一来源是前端回执，而回执就是**页面自己说**的话。对服务端自己拥有数据的
+动作（如 ``ui_material_prep_judge`` 改的是 ``InboxMessage.draft_state``），这就等于让
+页面给库里的事实作证。所以拿到 ``ok`` 回执后，动作若在清单里声明了 ``verify``，
+本模块会跑一次 :mod:`.verify` 去看库里真的变了没有，并把 ``verified`` / ``verify_note``
+拼进**工具返回值**——那是模型唯一看得见的地方，文案在那里就定死了它能不能对律师说
+「已完成」。没声明 ``verify``、或没拿到回执时，返回值一个字段都不加。
+
 v1 那条「不该知道的就别让它说」并没有被推翻，它约束的是**措辞**而不是**能力**：
 ``observed`` 为真才允许断言页面变了；为假时 note 必须明确说「拿到回执前不要断言」。
 
@@ -47,7 +56,7 @@ import os
 import uuid
 from typing import Any
 
-from . import ack, audit
+from . import ack, audit, verify
 from .manifest import UiAction
 from .schema import validate_arguments
 
@@ -144,6 +153,8 @@ async def publish_ui_action(
         ``dispatched`` 有两种形态：``observed=true`` 附真实 ``outcome`` / ``code`` /
         ``location``；``observed=false`` 附 ``pending=true``（稍后可用
         ``ui_action_results`` 取）。详细的字段口径见 :func:`_dispatched_result`。
+        动作声明了 ``verify`` 且回执是 ``ok`` 时，``observed=true`` 那一形态还会多出
+        ``verified`` / ``verify_note``（见 :func:`_attach_verification`）。
     """
     mode = ui_action_mode()
     if mode == MODE_OFF:
@@ -233,6 +244,9 @@ async def publish_ui_action(
             risk=action.risk,
             session_id=session_id,
             delivered=delivered,
+            # 批次身份也进台账：审核「这一批 5 步」时要有东西能把它们串起来，
+            # 否则只能靠 created_at 相近去猜。单步动作传空串。
+            batch_id=batch_id or "",
         )
         observed = await ack.wait(call_id, wait_seconds)
     finally:
@@ -256,6 +270,10 @@ async def publish_ui_action(
         observed=observed,
         wait_seconds=wait_seconds,
     )
+    if observed is not None and str(observed.get("outcome") or "") == "ok" and action.verify:
+        # 只在「页面自称成功」时核实：先看页面说什么，再看库里是不是真长成了那样。
+        # 失败/中止的回执没什么好核实的（页面已经说了没成）。
+        result = await _attach_verification(result, call_id=call_id, action=action, arguments=arguments)
     if earlier:
         result["earlier_results"] = [_describe_pending(item) for item in earlier]
     return result
@@ -302,6 +320,57 @@ def _dispatched_result(
     # note 放最后：契约里它就是最后一项，读返回值的人从字段一路读到这句话。
     result["note"] = _observed_note(outcome, observed)
     return result
+
+
+async def _attach_verification(
+    result: dict[str, Any],
+    *,
+    call_id: str,
+    action: UiAction,
+    arguments: dict[str, Any],
+) -> dict[str, Any]:
+    """拿到 ``ok`` 回执且动作声明了核实器时，把服务端核实结果拼进返回值并落库。
+
+    **文案就是规格**：这是模型唯一能看到的信号。所以 ``note`` 必须把「已由服务端核实」
+    与「页面报成功但服务端核实不通过，不要对律师说已完成」分开说——只说「成功」
+    等于把前端的一句话当成事实转述给律师。
+
+    核实器没声明（``action.verify`` 为空）或核实器返回 ``None`` 时**一个字段都不加**：
+    既有返回值契约（前端与模型两侧照抄的冻结契约）逐字不变。
+    """
+    verification = await verify.run_verifier(action, arguments)
+    if verification is None:
+        return result
+    verified = verification.get("verified")
+    if not isinstance(verified, bool):
+        verified = None
+    verify_note = str(verification.get("note") or "")
+    result["verified"] = verified
+    result["verify_note"] = verify_note
+    result["note"] = _verified_note(str(result.get("note") or ""), verified, verify_note)
+    # 台账与返回值同源：两边各算一次核实就等于「模型看到的」与「事后查到的」可能不同。
+    await audit.apply_verification(call_id, verified=verified, note=verify_note)
+    logger.info(
+        "ui_action verify action=%s call_id=%s verified=%s note=%s", action.name, call_id, verified, verify_note
+    )
+    return result
+
+
+def _verified_note(observed_note: str, verified: bool | None, verify_note: str) -> str:
+    """服务端核实结论 → 给模型的那句话（三种结论三种措词，不能合并）。
+
+    ``verified=None`` 不能按 ``False`` 写：那时服务端**没看到**库，而不是看到了「没变」。
+    两种情形的共同底线是不许断言已完成，所以两段话都以「不要说已完成」收口。
+    """
+    detail = f"（{verify_note}）" if verify_note else ""
+    if verified is True:
+        return f"{observed_note}已由服务端核实{detail}，可以基于事实陈述。"
+    if verified is False:
+        return (
+            f"页面报成功，但服务端核实不通过{detail}。"
+            "不要对律师说已完成——只能说页面回执显示成功，而服务端没看到对应的变化。"
+        )
+    return f"{observed_note}但服务端无法核实是否真的生效{detail}。不要说已完成，只能说页面回执显示成功。"
 
 
 def _unobserved_note(*, delivered: bool, wait_seconds: float) -> str:

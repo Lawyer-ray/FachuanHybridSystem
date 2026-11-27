@@ -1,5 +1,6 @@
 /**
- * store slice：界面动作（`ui_action`）的执行态 —— 幂等 / 打断 / 失败落态 / 结算回执 / 批次排队。
+ * store slice：界面动作（`ui_action`）的执行态 —— 幂等 / 打断 / 失败落态 / 结算回执 /
+ * 批次排队 / 写动作互斥。
  *
  * ## 为什么 ui 动作不进转录消息
  *
@@ -28,13 +29,29 @@
  * 一次确认可以带 2~5 步，帧是连着到的，而每一步都要落运行记录、发回执。同批的语义
  * **有先后**（先跳页再切 stage ≠ 先切 stage 再跳页），并发执行会让审批卡上那句「将按
  * 顺序执行」变成假承诺。所以同 `batchId` 的后一条要等前一条**结算**（不是「已发起」）。
- * 不同批次互不阻塞——两个批次本来就是两件互不相干的事。
+ * 不同批次互不阻塞（两批本来就是两件互不相干的事），但跨批的**写**动作仍受写锁约束
+ * ——见下一节。
  *
  * 失败即中止：同批任一步失败、或律师按下「停下」，**后续步骤一律标 aborted 并回执**，
  * 不做「跳过它继续跑剩下的」——律师看到的是「一半动了」，而模型没法判断页面停在哪。
  *
- * 并发：单步动作仍不做互斥（毫秒级、last-writer-wins）；`confirm` / `guarded` 真正接入
- * 时必须在这里加「同一时刻只允许一个写动作在飞」的互斥（08 §4.2）。
+ * ## 为什么写动作必须互斥（`writeTail` —— 不是体验问题，是丢数据）
+ *
+ * `confirm` / `guarded` 的执行器最终是 **read-modify-write**：`ui_material_prep_judge`
+ * 走 `setPackStatusRemote` —— 先 `getPackDetail(id)` 取回整份 `draft_state`，再整体
+ * `saveDraft(id, {…draft, status})` 回写。两个写动作并发在飞时，后写的把先写的结果
+ * 整体覆盖（丢更新），而两条回执都报 `ok`：律师看到「都成功了」，库里只剩一半。
+ * JS 单线程挡不住这件事——丢掉的不是同步段的交错，而是两个 `await` 之间那段窗口。
+ * 所以同一时刻只允许一个 `risk !== 'safe'` 的动作在飞（08 §4.2 原文要求）。
+ * 这也是自建项：LangGraph / Temporal 的串行都是「一个 thread / Workflow 内天然如此」，
+ * 「多个标签页连同一个会话」两边都没有现成答案。
+ *
+ * `safe` 动作（跳页 / 开面板 / 切筛选）**不进**这把锁：它们毫秒级、高频，只改 URL 或
+ * 视图筛选，压根没有 read-modify-write；串起来只会让律师觉得「点了没反应」。
+ *
+ * 排队上限 `MAX_WRITE_QUEUE`：在飞的 1 个之外只再收 3 个。超限不是「再等等」，而是
+ * 模型在乱发写动作（或帧被重放）；既不执行也不悄悄丢——落失败记录 + 回执，否则后端
+ * 只能等到超时。
  */
 
 import { UI_TOOL_SPECS, runUiTool, validateArgs } from '../ui-tools'
@@ -62,6 +79,10 @@ const NON_IDEMPOTENT_WINDOW_MS = 5_000
 const RUN_LOG_LIMIT = 50
 /** 同一批最多几步（与后端 `MAX_BATCH_STEPS` 对齐）：等待队列的上限，超限说明契约已漂移 */
 const BATCH_LIMIT = 5
+/** 写动作的排队上限（在飞的 1 个之外还能有几个在等）：超限说明模型在乱发写动作 */
+const MAX_WRITE_QUEUE = 3
+/** 排队超限的回执文案：一句话说清「这一步没执行」，模型才知道不该原样重发 */
+const WRITE_QUEUE_FULL_DETAIL = '写动作太多，排队超限，这一步没有执行'
 
 /** 已受理过的 callId（LRU：Set 保持插入序，超限时删最旧的） */
 const seenCallIds = new Set<string>()
@@ -84,6 +105,19 @@ interface BatchGate {
 }
 /** 打开的批次。最后一条结算时删掉，否则长会话按批次数无限长大 */
 const batchGates = new Map<string, BatchGate>()
+
+/**
+ * 写动作互斥的队尾：`writeTail` 是「最后一个取了写锁的动作的结算时刻」，新的写动作
+ * await 它就实现了「同一时刻只有一个写动作在飞」（理由见文件头）。
+ *
+ * 与 `BatchGate.tail` 同一套写法，但管的是两件事：批次闸门管**同一批**的先后
+ * （业务顺序，审批卡上的承诺），写锁管**所有写动作**的互斥（丢更新）。
+ * 取锁顺序全局一致——**先批次闸门、后写锁**，且写锁的持有者此时不等待任何批次闸门
+ * （它只等执行器结账），所以两把锁不会互相死等。改顺序前先把这句话读一遍。
+ */
+let writeTail: Promise<void> = Promise.resolve()
+/** 已取写锁、还没 release 的写动作数（**含在飞的那 1 个**）—— 判排队上限用 */
+let writeHolders = 0
 
 /** 宿主端口；null = 面板与助手页都没挂载 */
 let hostPorts: UiToolPorts | null = null
@@ -156,6 +190,42 @@ function gateOf(batchId: string | null | undefined): BatchGate | null {
   const gate: BatchGate = { accepted: 0, stopped: false, tail: Promise.resolve() }
   batchGates.set(batchId, gate)
   return gate
+}
+
+/**
+ * 这条动作要不要占写锁：只有清单里明确写 `safe` 的才放行。
+ *
+ * 清单外的名字按写动作保守处理（它随后会在 `runOne` 里立刻落 `unknown_action`，多占
+ * 一次队位不影响结果）—— 反过来把「不认识的动作」当 safe，等于给版本漂移开一条绕过
+ * 互斥的口子。
+ */
+function isWriteAction(action: string): boolean {
+  return specOf(action)?.risk !== 'safe'
+}
+
+/**
+ * 取写锁：轮到自己时返回 `release`，排队超限返回 `null`（调用方据此落失败 + 回执）。
+ *
+ * 用「自己的结算 Promise 接到队尾」而不是信号量计数，与 `BatchGate.tail` 同一路子：
+ * 先到先得、不必维护「谁是当前持有者」。`release` 必须进 finally——少放一次整条队尾
+ * 就永远卡住，而表现只是「AI 之后的写动作全都没反应」。
+ */
+async function acquireWriteLock(): Promise<(() => void) | null> {
+  // 占用者**含在飞的那 1 个**，所以上限是 1 + MAX_WRITE_QUEUE。不把「在飞」与「排队」
+  // 分成两个计数器：同步连发时第一条还卡在微任务里，分开放会把它算成排队，凭空少一格。
+  if (writeHolders > MAX_WRITE_QUEUE) return null
+  const previous = writeTail
+  let resolveOwn: () => void = () => {}
+  const own = new Promise<void>((resolve) => {
+    resolveOwn = resolve
+  })
+  writeTail = own
+  writeHolders += 1
+  await previous
+  return () => {
+    writeHolders -= 1
+    resolveOwn()
+  }
 }
 
 /** 运行记录的公共字段：动作名、开始时刻、批次身份（单步动作的批次是 null / 0） */
@@ -263,6 +333,38 @@ export const createUiToolSlice: Slice<UiToolSlice> = (set, get) => {
     fail(outcome.code, outcome.message)
   }
 
+  /**
+   * 跑一步：写动作先取写锁再执行，`safe` 动作直接执行（理由见文件头）。
+   *
+   * 为什么单步与批次都走这里：单步路径本来没有任何排队（两条 `confirm` 各自到达、
+   * 各自开跑）；批次路径虽然串行同批步骤，但**跨批**的两步照样并飞，read-modify-write
+   * 一样会丢更新。写锁是唯一覆盖跨批的那道，也是同批的第二道保险。
+   *
+   * 排队超限：不执行、落失败、**回执**。不回执的话后端只能等到超时，模型那边看着
+   * 像「动作还在跑」，于是它多半会原样重发一遍——正是这层要拦的行为。
+   *
+   * 打断不在这里判：排在队里也要走 `runOne`，由它按 `abortedAt` 落 `aborted`——
+   * 排队不该成为绕过打断判定的路径（08 §4.5）。
+   */
+  const runWithWriteLock = async (req: UiActionRequest): Promise<void> => {
+    if (!isWriteAction(req.action)) {
+      await runOne(req)
+      return
+    }
+    const release = await acquireWriteLock()
+    if (!release) {
+      const now = Date.now()
+      writeRun(req.callId, { ...runMeta(req, now), state: 'error', code: 'executor_error', endedAt: now })
+      ackResult(req, { outcome: 'error', code: 'executor_error', detail: WRITE_QUEUE_FULL_DETAIL })
+      return
+    }
+    try {
+      await runOne(req)
+    } finally {
+      release()
+    }
+  }
+
   return {
     uiToolRuns: {},
     abortedAt: null,
@@ -277,7 +379,7 @@ export const createUiToolSlice: Slice<UiToolSlice> = (set, get) => {
       const batchId = req.batchId
       const gate = gateOf(batchId)
       if (!gate) {
-        await runOne(req)
+        await runWithWriteLock(req)
         return
       }
       if (gate.accepted >= BATCH_LIMIT) {
@@ -307,7 +409,8 @@ export const createUiToolSlice: Slice<UiToolSlice> = (set, get) => {
           markAborted(req, '同批已有步骤失败或被停下，这一步没有执行')
           return
         }
-        await runOne(req)
+        // 批次闸门已放行，再取写锁（顺序固定：先闸门、后写锁，见 writeTail 注释）
+        await runWithWriteLock(req)
       } finally {
         // 判据看运行记录而不是返回值：runOne 有多条 return，改一处就会漏一处。
         // 只有 `ok` 才算通过；没有记录 = 什么都没执行（同参去重），不算失败。

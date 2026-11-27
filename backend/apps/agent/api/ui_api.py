@@ -112,20 +112,32 @@ async def submit_ui_action_result(request: Any, payload: UiActionResultIn) -> di
 
 
 @router.get("/ui-actions")
-async def list_ui_actions(request: Any, limit: int = 50) -> dict[str, Any]:  # pragma: no cover
+async def list_ui_actions(
+    request: Any,
+    limit: int = 50,
+    action: str = "",
+    outcome: str = "",
+    risk: str = "",
+) -> dict[str, Any]:  # pragma: no cover
     """当前用户的 UI 动作审计历史（仅 ``confirm`` / ``guarded`` 档，见 ``audit``）。
 
     只给**自己的**行：动作历史不是会话共享资产，同一会话被转交后新负责人也不该看见
     前任按过哪些高危按钮。也就因此不经 ``_rejection_reason``：读的不是某个请求的回执。
 
+    ``action`` / ``outcome`` / ``risk`` 是精确匹配的过滤条件，**空串 = 不过滤**（默认全给）。
+    为什么是这三个：它们恰好对应事后最常问的三句话——「这个动作我批过几次」（action）、
+    「哪些最后没执行成」（outcome 含 ``denied`` / ``expired``）、「高危档里我拒过什么」（risk）。
+    过滤在库里做，不在 API 层过滤：后者会先把整页拉进内存再筛，分页一上就是错的。
+
     Returns:
         ``{"items": [...], "count": n}``；未登录返回空列表 + ``error``（与同文件其余
-        端点的「未登录不报 401、给空结果」口径一致）。
+        端点的「未登录不报 401、给空结果」口径一致）。每项含 ``decision`` / ``decided_at`` /
+        ``verified`` / ``verify_note`` / ``batch_id``（字段口径见 ``audit.list_recent_for_user``）。
     """
     user = _current_user(request)
     if user is None:
         return {"items": [], "count": 0, "error": "未登录"}
-    items = await audit.list_recent_for_user(user, limit=limit)
+    items = await audit.list_recent_for_user(user, limit=limit, action=action, outcome=outcome, risk=risk)
     return {"items": items, "count": len(items)}
 
 

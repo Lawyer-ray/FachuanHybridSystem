@@ -81,6 +81,12 @@ class UiAction:
     long_running: bool = False
     #: 同参数重复执行是否安全（决定前端能否重试：非幂等的写动作绝不自动重试）
     idempotent: bool = False
+    #: 服务端效果核实器的名字（``services/ui_action/verify.py`` 的注册键）；``None`` =
+    #: 这个动作的「成功」无法由服务端验证，下发后的返回值不附 ``verified``。
+    #: 这里只存**名字**不存函数：清单必须保持纯数据（无 Django），而核实器必然要摸模型。
+    #: 也**不**进 ``generated.ts``：核实是服务端与库之间的事，前端拿到它只能照着再写一份
+    #: 假核实。
+    verify: str | None = None
 
 
 #: ``ui_navigate`` 的参数。路径白名单**不在后端**：本仓库的路由表只存在于前端
@@ -234,6 +240,9 @@ UI_ACTIONS: tuple[UiAction, ...] = (
         side_effects=("write_db",),
         idempotent=False,
         long_running=False,
+        # 写的是 ``InboxMessage.draft_state["status"]``，服务端看得见 → 必须核实：
+        # 这是清单里第一条「页面说有、库里不一定有」的写动作，也是这套机制的样板。
+        verify="material_prep_status",
     ),
 )
 

@@ -13,6 +13,31 @@
 （「这个动作到底成了没有」）与动作历史列表。默认值定成 ``ok`` 等于把所有「没回执」
 在报表里写成「成功」——法律场景里这是最不能出的错。``unknown`` 才是唯一诚实的答案：
 我们发了，但我们不知道。
+
+## 为什么 ``decision`` 和 ``outcome`` 是两件事，不能合成一列
+
+两列回答的是**两个不同主体**的问题：
+
+- ``decision`` = **人**（或超时机制）对「要不要做」的判定：``approved`` / ``denied`` /
+  ``expired``；
+- ``outcome`` = **页面**对「做成了没有」的回报：``unknown`` / ``ok`` / ``error`` /
+  ``aborted`` / ``denied`` / ``expired``。
+
+合成一列的直接后果是「律师拒绝了」和「页面执行失败」在报表里长得一样，而这两件事
+的处理方式完全相反：前者是「他明确不要，别再问」，后者是「可以换个方式重试」。
+本表因此把「谁批的」与「做成了没有」分开记——只有 ``denied`` / ``expired`` 这两种
+**没有执行过**的结局会在两列里同时出现（``outcome`` 也要落一次，否则「拒绝了几个」
+这类查询就得先 join 一列可能为空的决策），但它们的语义仍然由 ``decision`` 定义。
+
+## 为什么 ``verified`` 允许为空（``None``）
+
+``verified`` 记的是**服务端**自己去看了一眼库之后的结论（见
+``services/ui_action/verify.py``）。把它做成 ``BooleanField(default=False)`` 是错的口径：
+「我核实了，库里没变」和「我根本没法核实」（材料包不存在、核实器没登记、核实过程里
+数据库报错）是两件完全不同的事。前者要求模型对律师说「没成功」，后者只允许说
+「页面回执说成功，但服务端没核实到」——而 ``False`` 会把后者也说成「假成功」，
+``True`` 会把前者说成真成功。两种都是法律场景里不能出的错，所以 ``None`` 必须
+作为一个**合法答案**存在，而不是被当成 ``False`` 的别名。
 """
 
 from __future__ import annotations
@@ -20,15 +45,24 @@ from __future__ import annotations
 from django.conf import settings
 from django.db import models
 
+from .approval import AgentApproval
 from .session import AgentSession
 
 
 class AgentUiAction(models.Model):
-    """一次 UI 动作的审计行（派发时写入，回执到达后就地更新）。
+    """一次 UI 动作的审计行（派发/被拒时写入，之后就地更新）。
 
-    写入方只有两处，都走 ``services/ui_action/audit.py``：下发成功时插一行
-    ``outcome="unknown"``，前端回执到达时按 ``call_id`` 就地更新。**没有第三种状态**——
-    行数 ≠ 执行次数，它只说明「系统发出了这个动作」，结局看 ``outcome``。
+    写入方只有三处，全部走 ``services/ui_action/audit.py``：
+
+    1. :func:`audit.record_dispatch` —— 下发成功时插一行 ``outcome="unknown"``；
+    2. :func:`audit.record_denial` —— 审批未通过时插一行（``outcome`` 与 ``decision``
+       都是 ``denied``）——被拒绝的审批也是一条必须留痕的事实：事后要能回答
+       「他明确拒绝过什么」；
+    3. :func:`audit.apply_receipt` / :func:`audit.apply_verification` —— 回执与核实结论
+       到达后按 ``call_id`` 就地更新，且**只能改一次**（终态不可变）。
+
+    行数 ≠ 执行次数，它只说明「系统发出了（或拦下了）这个动作」，结局看 ``outcome``
+    与 ``verified``。
     """
 
     #: 派发时生成的 32 位十六进制 id（``publish_ui_action`` 的 ``call_id``）。
@@ -53,8 +87,12 @@ class AgentUiAction(models.Model):
         verbose_name="所属用户",
     )
     action = models.CharField(max_length=64, verbose_name="动作名")
-    #: 下发给页面的参数原文（审批卡上律师看到的就是它，事后追责要能还原）。
+    #: 下发给页面的参数（写库前经 ``audit.sanitize_arguments`` 脱敏，与快照同口径）。
     arguments = models.JSONField(default=dict, blank=True, verbose_name="动作参数")
+    #: 批准的是哪一份参数（``audit.arguments_hash_of`` 的 sha256 hexdigest）。
+    #: 存在的理由只有一个：防「批 A 执行 B」——只记批准人与动作名时，同一个动作换个
+    #: 参数（改另一条记录、改另一个材料包）在台账上与批准过的那次长得一模一样。
+    arguments_hash = models.CharField(max_length=64, blank=True, default="", verbose_name="参数哈希")
     #: 风险档（``confirm`` / ``guarded``；``safe`` 不入库，见模块 docstring）。
     risk = models.CharField(max_length=16, verbose_name="风险档")
     #: 放行这次动作的审批人。best-effort 关联（见 ``audit.record_dispatch``）：
@@ -68,15 +106,42 @@ class AgentUiAction(models.Model):
         verbose_name="批准人",
     )
     approved_at = models.DateTimeField(null=True, blank=True, verbose_name="批准时间")
+    #: 放行/驳回这次动作的审批单（不是 best-effort 猜出来的那一条，而是按 approval_id
+    #: 精确关联的那张卡）。为空 = 这条动作没有对应的审批单（后台任务 / 免审批路径）。
+    approval = models.ForeignKey(
+        AgentApproval,
+        on_delete=models.SET_NULL,
+        related_name="ui_actions",
+        null=True,
+        blank=True,
+        verbose_name="关联审批单",
+    )
+    #: 人对「要不要做」的判定：``approved`` / ``denied`` / ``expired``，空串 = 还没判定。
+    #: 与 ``outcome`` 是两个主体的问题，见模块 docstring。
+    decision = models.CharField(max_length=16, blank=True, default="", verbose_name="审批决定")
+    #: 决定理由：律师写下的驳回理由，或系统给的原因（如「晚于回执窗口到达」）。
+    decision_note = models.CharField(max_length=300, blank=True, default="", verbose_name="决定理由")
+    decided_at = models.DateTimeField(null=True, blank=True, verbose_name="决定时间")
+    #: 回执窗口的截止时间（``audit.RECEIPT_TTL``）。过期后这一行的结果**不许**再被改写，
+    #: 迟到的回执只能把它落成 ``expired``（见 ``audit.apply_receipt``）。
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name="回执截止时间")
+    #: 批量下发（``services/ui_action/batch.py``）的批次身份；单步动作为空串。
+    batch_id = models.CharField(max_length=64, blank=True, default="", verbose_name="批次标识")
     #: 是否有页面在收听（``publish_ui_action`` 的 ``delivered`` 口径）。
     #: 与 ``outcome`` 分开记：没送达的动作也可能收到回执（律师刚好刷新打开了页面）。
     delivered = models.BooleanField(default=False, verbose_name="已送达")
-    #: 页面回执的真实结局（``ok`` / ``error`` / ``aborted``），默认 ``unknown``。
+    #: 页面回执的真实结局：``ok`` / ``error`` / ``aborted``（页面回传），``denied`` /
+    #: ``expired``（从未执行，由 ``decision`` 定义），默认 ``unknown``。
     outcome = models.CharField(max_length=16, default="unknown", verbose_name="执行结果")
     #: 失败原因码，只在 ``outcome="error"`` 时有值（别的结局带着它会被误读成故障）。
     error_code = models.CharField(max_length=32, blank=True, default="", verbose_name="失败原因码")
     #: 执行完成后页面的真实地址（``ok`` 时最能证明「页面到底在哪」）。
     observed_location = models.CharField(max_length=300, blank=True, default="", verbose_name="执行后地址")
+    #: 服务端核实结论：``True`` 真成功 / ``False`` 页面报成功但库里没变 / ``None`` 无法核实。
+    #: 三态而不是两态的理由见模块 docstring——「无法核实」是合法答案。
+    verified = models.BooleanField(null=True, blank=True, verbose_name="服务端核实")
+    #: 核实说明（核实器给的那句话：库里是什么、为什么核不了）。
+    verify_note = models.CharField(max_length=300, blank=True, default="", verbose_name="核实说明")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
 
     class Meta:

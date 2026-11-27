@@ -72,6 +72,10 @@ from apps.agent.services.approval import (
 )
 from apps.agent.services.approval.flow import approval_dedupe_key
 from apps.agent.services.approval.risk import short_tool_name
+
+# 审批被拒也要留台账（``AgentUiAction``）：之前这条路库里零记录，「他明确拒绝过什么」
+# 事后无法回答。audit 模块顶层只有 stdlib，导入它不会把 Django 拖进本文件。
+from apps.agent.services.ui_action.audit import record_denial
 from mcp_server.identity import current_session_id, request_authorization
 
 logger = logging.getLogger(__name__)
@@ -423,6 +427,16 @@ class ToolApprovalGateMiddleware:
                 level.value,
                 approval_id or "-",
                 reason,
+            )
+            # 多写一行台账，**不改审批判定**：record_denial 自己判「是不是清单里的
+            # confirm/guarded 动作」（不是就直接返回 False，不查库），且内部只 catch
+            # DatabaseError/ValueError，写不成也不影响下面这个拒绝结果。
+            await record_denial(
+                tool_name=tool_name,
+                tool_args=tool_args,
+                session_id=current_session_id() or None,
+                approval_id=approval_id,
+                reason=reason,
             )
             return _error_result(_denied_text(short_name, level, approval_id, reason))
         # 自己批下来的那张也要立即标消费：不然下一个人（或另一个 worker）
