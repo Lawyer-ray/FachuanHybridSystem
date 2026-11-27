@@ -435,12 +435,16 @@ def work_dir() -> Path:
     return path
 
 
-def build_env(*, config_dir: Path | None) -> dict[str, str | None]:
+def build_env(*, config_dir: Path | None, direct: bool = False) -> dict[str, str | None]:
     """给 ``qodercli`` 子进程的环境变量（**叠加**在宿主环境之上，见 SDK 的 ``env`` 语义）。
 
     ``config_dir`` 必须与「登录凭据所在目录」**是同一个**：指到别处时 CLI 会认为没
     登录（登录态就在 ``<config dir>/.auth/user``）。所以本函数只负责如实透传，由调用方
     决定是本轮临时目录（配了显式凭据）还是共享登录目录（:func:`qoder_login.config_dir`）。
+
+    ``direct=True``：**清掉全部代理变量**。实测（本机 Clash）：带着 ``HTTPS_PROXY``
+    访问律所内网网关（BYOK 自定义 provider）得到 ``502`` 且 body 为空，清掉代理立刻
+    200。所以「这一轮会打到内网网关」时不能沿用宿主代理。
 
     ``env`` 的值写 ``None`` 在 SDK 里表示「从子进程环境里删掉该变量」。
     """
@@ -452,6 +456,11 @@ def build_env(*, config_dir: Path | None) -> dict[str, str | None]:
     }
     if config_dir is not None:
         env["QODER_CONFIG_DIR"] = os.fspath(config_dir)
+    if direct:
+        for key in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+            env[key] = None
+        env["NO_PROXY"] = "127.0.0.1,localhost"
+        env["no_proxy"] = "127.0.0.1,localhost"
     return env
 
 
@@ -692,13 +701,21 @@ class QoderBackend:
         session_id = str(ctx.session.session_id)
         mcp_servers = self._mcp_servers(ctx)
         resolved_model = target.model if target is not None else ""
+        # 打到内网网关时必须直连（见 build_env 的 direct 说明）。
+        from .qoder_byok import is_byok_model, settings_payload
+
+        direct = target is not None or is_byok_model(ctx.model)
+        # BYOK 模型要用 ``--settings`` 带上 provider 配置（见 settings_payload 的实测说明）；
+        # Qoder 自己的模型不带——那条路也不需要用户设置的任何东西。
+        inline_settings = settings_payload(config_dir) if direct else ""
 
         options = QoderAgentOptions(
             cwd=work_dir(),
-            env=build_env(config_dir=config_dir),
+            env=build_env(config_dir=config_dir, direct=direct),
             auth=qoder_auth(),
             cli_path=resolve_cli_path(),
             proxy=resolve_proxy(),
+            settings=inline_settings or None,
             # 模型：gateway 模式用平台模型；否则用**用户选的 Qoder 模型**（清单来自
             # ``qoder_models``），没选就让 CLI 用它的默认（``Auto``）。跑完仍以
             # ``result_for`` 回报的真实模型为准（CLI 可能按账号能力做替换）。
@@ -1054,6 +1071,18 @@ class QoderBackend:
             error.__cause__ = exc
             return error
         text = (str(exc) or name).lower()
+
+        if "access to this model service" in text or "something went wrong" in text:
+            # 2026-11-27 实测：选中 BYOK 自定义模型（``fachuan-gw/kimi-2.6``）时 SDK 报这两句。
+            # CLI 直跑同一个模型是正常的——差别在 SDK 的 stream-json 通道，属于**未跑通**
+            # 的能力，不是用户配置错。归 UNAVAILABLE 并直说，别让人一直重试。
+            error = BackendError(
+                BackendErrorKind.UNAVAILABLE,
+                "Qoder 的 SDK 通道暂时用不了自定义（BYOK）模型：请在模型下拉里改回 Qoder 自己的模型"
+                "（Auto / Ultimate …），或等我们打通后再选「平台模型」",
+            )
+            error.__cause__ = exc
+            return error
 
         if "byok" in text and ("disabled" in text or "denied" in text):
             # 实测原文：「BYOK is disabled by your enterprise admin. Please contact them
