@@ -139,7 +139,7 @@ def draft_document(
         readiness = _assess(
             facts=merged, cause_of_action=_cause_of_action(case=case, contract=contract), instruction=instruction
         )
-        warnings.extend(readiness.get("warnings") or [])  # type: ignore[arg-type]
+        warnings.extend(readiness.get("warnings") or [])
         if readiness.get("verdict") == "blocked" and not force:
             return _rejected(
                 doc_type,
