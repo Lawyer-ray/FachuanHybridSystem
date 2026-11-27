@@ -1,5 +1,6 @@
 import { Suspense, useEffect, type CSSProperties } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
+import { Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { AppNavbar } from '@/components/shared/AppNavbar'
@@ -138,6 +139,36 @@ export function AppShell() {
           </Suspense>
         </PageErrorBoundary>
       </div>
+
+      {/*
+        移动端悬浮 AI 入口。
+        为什么不在导航栏里放个图标就够了：手机上的导航栏在屏幕最上沿，律师滑到
+        文书/材料列表第 20 条时它早滚出视线（sticky 也只是贴着顶部），而「问 AI」
+        是随时会想按的动作——固定右下、与拇指同侧才按得到。
+        桌面端不渲染同款：那里导航栏有带文字的常驻入口，再挂一个悬浮球纯属挡内容。
+        层级取 z-[75]：高于页面内容与吸顶导航（50），但**低于全屏阅读器（80）**——
+        阅读器是「专注看材料」的模式，右下角再压一个悬浮球会挡住它自己的底部浮条；
+        那里要看 AI，走阅读器内的选区问 AI。同样低于 copilot 遮罩/面板（90/100）
+        与弹窗（130），面板一开就被盖住（同时也用状态淡出，避免透出边缘）。
+      */}
+      {/* 名称与导航栏那个入口刻意不同：两者在 DOM 里同时存在（一显一隐由媒体查询
+          控制），而 jsdom 不跑媒体查询——同名会让 getByRole('button', {name:'AI 助手'})
+          命中两个，测试与读屏都会乱 */}
+      <button
+        type="button"
+        aria-label="打开 AI 助手"
+        title="AI 助手"
+        onClick={toggleCopilot}
+        className={
+          'fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[75] flex items-center gap-2 rounded-full bg-foreground py-3.5 pr-4 pl-3.5 text-background shadow-[0_12px_28px_rgba(0,0,0,0.28)] transition-all duration-200 min-[760px]:hidden ' +
+          (onAssistantPage || copilotOpen
+            ? 'pointer-events-none translate-y-3 opacity-0'
+            : 'translate-y-0 opacity-100 active:scale-95')
+        }
+      >
+        <Sparkles className="size-[18px]" />
+        <span className="text-[13px] font-[640] tracking-[0.01em]">AI</span>
+      </button>
     </div>
   )
 }

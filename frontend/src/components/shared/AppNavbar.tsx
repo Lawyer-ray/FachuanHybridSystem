@@ -193,12 +193,14 @@ export function AppNavbar({
           窄屏：检索与 AI 助手只留图标（文字与 ⌘K/⌘J 键帽收起），否则四个控件
           + 品牌标在 360px 上排不下 */}
       <div className="ml-auto flex flex-none items-center gap-1.5 max-[760px]:gap-1">
+        {/* 手机上的入口让位给右下角的悬浮球（见 AppShell）：导航栏在长列表里
+            早就滚出视线，而「问 AI」是随时会想按的动作。桌面端保持原位 */}
         {onToggleCopilot && (
           <button
             type="button"
             aria-label="AI 助手"
             title="AI 助手（⌘J）"
-            className="flex h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card max-[760px]:w-8 max-[760px]:justify-center max-[760px]:px-0"
+            className="hidden h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card min-[760px]:flex"
             onClick={onToggleCopilot}
           >
             <Sparkles className="h-[13px] w-[13px]" />
