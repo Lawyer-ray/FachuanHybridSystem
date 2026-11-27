@@ -317,6 +317,7 @@ class OpenAICompatibleBackend:
         *,
         stream: bool = False,
         provider: OpenAIProviderConfig | None = None,
+        enable_thinking: bool | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "model": model,
@@ -328,7 +329,7 @@ class OpenAICompatibleBackend:
         if stream:
             payload["stream"] = True
             payload["stream_options"] = {"include_usage": True}
-        extra = self._build_extra_body(model, provider)
+        extra = self._build_extra_body(model, provider, enable_thinking=enable_thinking)
         if extra:
             payload["extra_body"] = extra
         return payload
@@ -496,7 +497,11 @@ class OpenAICompatibleBackend:
     # ── thinking 模式控制 ────────────────────────────────────────────────────
 
     def _build_extra_body(
-        self, model: str | None = None, provider: OpenAIProviderConfig | None = None
+        self,
+        model: str | None = None,
+        provider: OpenAIProviderConfig | None = None,
+        *,
+        enable_thinking: bool | None = None,
     ) -> dict[str, Any] | None:
         """推理模型的思考模式字段（口径唯一来源：:mod:`apps.core.llm.gateway_profile`）。
 
@@ -517,9 +522,17 @@ class OpenAICompatibleBackend:
         非推理模型返回 ``None``：不下发任何开关，避免污染请求体（部分后端会把未知
         ``chat_template_kwargs`` 当 400 处理）。
         """
+        adaptive_thinking = bool(provider is not None and provider.enable_thinking)
+        # 单次调用可以**只关不开**：`enable_thinking=False` 用于「结构化抽取」这类
+        # 不需要思考的任务。真机症状：kimi-2.6 开着思考审合同，3 分钟全花在
+        # 输出「We need answer JSON only…」这类过程文字上，JSON 一个字符都没写出来——
+        # 结构化输出型调用必须能关掉它，否则一份合同审查永远拿不到结论。
+        # 反之（平台关、单次开）不允许：那等于绕过平台的总开关。
+        if enable_thinking is False:
+            adaptive_thinking = False
         directives = gateway_profile.resolve_thinking(
             model or self.default_model,
-            enable_thinking=bool(provider is not None and provider.enable_thinking),
+            enable_thinking=adaptive_thinking,
         )
         return gateway_profile.wire_fields(directives) or None
 
@@ -593,7 +606,11 @@ class OpenAICompatibleBackend:
         used_model = model or self.default_model
         provider = self._resolve_provider(used_model)
         request_timeout = float(kwargs.pop("timeout_seconds", provider.timeout if provider else self.timeout))
-        payload = self._build_payload(used_model, messages, temperature, max_tokens, provider=provider)
+        # 单次调用级的思考开关（None = 沿用平台配置）
+        thinking_override = kwargs.pop("enable_thinking", None)
+        payload = self._build_payload(
+            used_model, messages, temperature, max_tokens, provider=provider, enable_thinking=thinking_override
+        )
 
         base_url, api_key = self._endpoint_for(provider)
         if provider is None or not provider.api_keys:
