@@ -184,7 +184,7 @@ export function AnswerAgentMenu({
           role="listbox"
           aria-label="可选 AI（多选）"
           aria-multiselectable
-          className="absolute bottom-full left-0 z-[120] mb-1 w-72 rounded-[10px] border border-border bg-popover p-1 shadow-md"
+          className="absolute bottom-full left-0 z-[120] mb-1 w-80 rounded-[10px] border border-border bg-popover p-1 shadow-md"
         >
           {backends.length === 0 && (
             <p className="px-2 py-1.5 text-[11.5px] leading-relaxed text-muted-foreground">

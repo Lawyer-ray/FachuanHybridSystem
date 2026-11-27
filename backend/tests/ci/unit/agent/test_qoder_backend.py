@@ -604,6 +604,31 @@ def test_result_failure_maps_known_codes() -> None:
 
 
 @_SDK
+def test_result_failure_byok_disabled_is_auth() -> None:
+    """BYOK 被组织管理员关掉时给「去开通」的动作，而不是「未知错误」。
+
+    实测原文：``BYOK is disabled by your enterprise admin. Please contact them for details.``
+    —— 这是**组织级开关**，重试和重登都没用，所以必须是 AUTH（不可重试）。
+    """
+    from qoder_agent_sdk import ResultMessage
+
+    msg = ResultMessage(
+        subtype="error_during_execution",
+        duration_ms=1,
+        duration_api_ms=1,
+        is_error=True,
+        num_turns=1,
+        session_id="s1",
+        errors=["BYOK is disabled by your enterprise admin. Please contact them for details."],
+    )
+    error = QoderBackend._result_failure(msg, max_turns=24)
+    assert error is not None
+    assert error.kind is BackendErrorKind.AUTH
+    assert error.retryable is False
+    assert "BYOK" in error.message
+
+
+@_SDK
 def test_result_failure_max_turns_is_readable() -> None:
     from qoder_agent_sdk import ResultMessage
 

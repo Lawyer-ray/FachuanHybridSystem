@@ -1055,6 +1055,18 @@ class QoderBackend:
             return error
         text = (str(exc) or name).lower()
 
+        if "byok" in text and ("disabled" in text or "denied" in text):
+            # 实测原文：「BYOK is disabled by your enterprise admin. Please contact them
+            # for details.」——这是**组织级开关**，不是令牌问题，重试/重登都没用。
+            # 归 AUTH 而不是 UNKNOWN：它需要「去开通」，用户看到「未知错误」只会反复重试。
+            error = BackendError(
+                BackendErrorKind.AUTH,
+                "Qoder 组织管理员关闭了 BYOK，无法用律所网关的模型；"
+                "请在 Qoder 管理后台开启 BYOK（或改用 Qoder 自己的模型）",
+            )
+            error.__cause__ = exc
+            return error
+
         if "control request timeout" in text:
             # SDK 在 CLI 初始化阶段没收到握手响应时的通用超时。真实原因八成是
             # 「未登录」（CLI 静默退出，控制请求无人应答），此时 stderr 尾巴就是

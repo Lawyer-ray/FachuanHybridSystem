@@ -73,7 +73,7 @@ export function AgentRow({
       aria-selected={picked}
       aria-disabled={blocked}
       data-testid={`agent-row-${option.kind}`}
-      className={`flex w-full items-center gap-1.5 rounded-[7px] px-2 py-1.5 transition-colors ${
+      className={`flex w-full items-center gap-1.5 rounded-[7px] px-2 py-1 transition-colors ${
         blocked ? 'opacity-55' : 'hover:bg-secondary'
       } ${picked ? 'bg-secondary/60' : ''}`}
     >
@@ -103,7 +103,8 @@ export function AgentRow({
             {/* 没有审批闸门必须在**勾选之前**就看到：勾上它等于放弃高危工具的人工确认 */}
             {noApprovalWarn(option) && <NoApprovalBadge className="ml-1" />}
           </span>
-          <span className="block text-[11px] leading-snug text-muted-foreground">
+          {/* 单行截断：两行说明会把 8 个后端撑成一屏装不下，而完整内容在 title 里 */}
+          <span className="block truncate text-[11px] leading-snug text-muted-foreground" title={title}>
             {option.available ? option.description : option.reason}
           </span>
         </span>
@@ -121,20 +122,20 @@ export function AgentRow({
           {option.action_label || `登录 ${option.label}`}
         </button>
       )}
-      <AgentModelPicker
-        models={option.models ?? []}
-        value={model}
-        defaultModel={option.default_model ?? ''}
-        label={option.label}
-        // 没勾的行选了模型也不会跑，置灰；不可用的行同理
-        disabled={!picked || !option.available}
-        disabledHint={
-          option.available
-            ? '先勾选这一行，再选它用哪个模型'
-            : option.reason || '该后端当前不可用'
-        }
-        onChange={(next) => onSelectModel(option.kind, next)}
-      />
+      {/* 模型下拉只在**勾上之后**出现：未勾的行它只是一个「置灰的按钮」，却把每行
+          挤掉约 140px 宽与一行高度——8 个后端时整张菜单就是密密麻麻的灰块。
+          勾选是「这一轮要问它」，模型是「它用哪个」，顺序本来就该是先勾后配。 */}
+      {picked && (
+        <AgentModelPicker
+          models={option.models ?? []}
+          value={model}
+          defaultModel={option.default_model ?? ''}
+          label={option.label}
+          disabled={!option.available}
+          disabledHint={option.reason || '该后端当前不可用'}
+          onChange={(next) => onSelectModel(option.kind, next)}
+        />
+      )}
     </div>
   )
 }

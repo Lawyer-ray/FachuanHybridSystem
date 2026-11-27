@@ -262,11 +262,12 @@ describe('AnswerAgentMenu：关闭时机（勾选不关，点外部空白 / Esca
     expect(screen.getByRole('checkbox', { name: 'DeepSeek Harness' }).getAttribute('aria-checked')).toBe('true')
   })
 
-  it('勾完那一行的模型下拉立刻可点，且展开/选完不连带关掉父菜单', () => {
+  it('勾完那一行的模型下拉立刻出现且可点，展开/选完不连带关掉父菜单', () => {
     renderStatefulMenu()
     openMenu()
     const picker = () => screen.getByLabelText('DeepSeek Harness 使用的模型：glm53') as HTMLButtonElement
-    expect(picker().disabled).toBe(true)
+    // 未勾选时**不渲染**（见 AgentRow 的说明：置灰按钮会把 8 行菜单挤爆）
+    expect(screen.queryByLabelText('DeepSeek Harness 使用的模型：glm53')).toBeNull()
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'DeepSeek Harness' }))
     expect(picker().disabled).toBe(false)
@@ -321,24 +322,30 @@ describe('AnswerAgentMenu：关闭时机（勾选不关，点外部空白 / Esca
 
 describe('AnswerAgentMenu：每行的模型下拉（规格 4.1）', () => {
   it('模型下拉预填后端给的 default_model（用户不用先点一下才知道去哪改）', () => {
-    renderMenu()
+    renderMenu({ selected: ['pi', 'dsh'] })
     openMenu()
     expect(screen.getByLabelText('Pi 使用的模型：kimi-2.6')).toBeTruthy()
     expect(screen.getByLabelText('DeepSeek Harness 使用的模型：glm53')).toBeTruthy()
   })
 
   it('律师指定过的模型覆盖默认预填', () => {
-    renderMenu({ models: { pi: 'claude-opus-4-5' } })
+    renderMenu({ selected: ['pi'], models: { pi: 'claude-opus-4-5' } })
     openMenu()
     expect(screen.getByLabelText('Pi 使用的模型：claude-opus-4-5')).toBeTruthy()
   })
 
-  it('没勾选的行模型下拉置灰（选了也不跑）', () => {
+  it('没勾选的行**不渲染**模型下拉（8 个后端时那一片置灰按钮把菜单挤爆了）', () => {
     renderMenu()
     openMenu()
-    const picker = screen.getByLabelText('Pi 使用的模型：kimi-2.6') as HTMLButtonElement
-    expect(picker.disabled).toBe(true)
-    expect(picker.title).toContain('先勾选这一行')
+    expect(screen.queryByLabelText('Pi 使用的模型：kimi-2.6')).toBeNull()
+  })
+
+  it('勾上之后模型下拉才出现', () => {
+    renderStatefulMenu()
+    openMenu()
+    // Pi 是会话默认（defaultKind="pi"），无障碍名里带「，会话默认」
+    fireEvent.click(screen.getByRole('checkbox', { name: /^Pi，会话默认$/ }))
+    expect(screen.queryByLabelText('Pi 使用的模型：kimi-2.6')).not.toBeNull()
   })
 
   it('勾选后模型下拉可点，选中回调 (kind, 模型)', () => {
