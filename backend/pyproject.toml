@@ -36,7 +36,7 @@ dependencies = [
     # 解析到 4.x。而它是 LLM 网关的唯一 SDK，挂了就是分段/起草/识别/agent 一起挂，
     # 且失败形态多半是流式帧形状变了——单测与 CI 都拦不住。
     # 与同一簇的 openai-agents / deepseek-harness-sdk / claude-agent-sdk 保持一致（都是 `==`）。
-    "openai==3.57.0",
+    "openai==3.58.0",
     "huggingface-hub>=2.0.0",  # v2 移除 resume_download 参数（本项目未使用，安全）
     # DeepSeek Harness Python SDK：第二个 agent 运行时（与 pi 并存，会话级切换）。
     # 会连带装同版本 deepseek-harness-runtime-bin（平台二进制 wheel）。
@@ -46,7 +46,7 @@ dependencies = [
     # OpenAI Agents SDK：第三个 agent 运行时（与 pi / dsh 并存，会话级切换）。
     # 纯 Python wheel、无平台限制；模型走律所网关的 OpenAI 兼容端点
     # （OpenAIChatCompletionsModel），工具面走共享 MCP（MCPServerStreamableHttp）。
-    "openai-agents==0.25.0",
+    "openai-agents==0.26.0",
     # Google Antigravity SDK：第四个 agent 运行时（与 pi / dsh / openai-agents 并存，会话级切换）。
     # 纯 Python 包 + **随 wheel 分发的 Go 二进制**（bin/localharness，实测 120MB / 118MB RSS）：
     # 只有 macosx_11_0 / manylinux_2_17 / musllinux_1_1 / win 轮子，别的平台装不上。
@@ -70,7 +70,7 @@ dependencies = [
     # 升级时必须先看它的 ``Requires-Dist: mcp`` 上界，再跑两条判死回归：
     #   ① ``kimi-2.6(Anthropic)`` 经律所网关 ``/v1/messages`` 能回答；
     #   ② ``can_use_tool`` 在高危工具前真阻塞（实测 300s 不超时）且拒绝后工具未执行。
-    "claude-agent-sdk==0.2.187",
+    "claude-agent-sdk==0.2.188",
     # Qoder Agent SDK：第六个 agent 运行时（与 pi / dsh / openai-agents / antigravity /
     # claude-agent 并存，会话级切换）。
     #
