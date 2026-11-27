@@ -243,3 +243,20 @@ class TestServerWiring:
         assert source.index("def _builtin_tool_names") < source.index("_register_ui_tools(_t"), (
             "注册必须在 _builtin_tool_names() 之后：撞名检查要以完整内置名单为基准"
         )
+
+    def test_extra_direct_names_mirror_modules(self) -> None:
+        """``tool_tiers`` 里手写的两个 UI 工具名必须与各自模块的常量一致。
+
+        为什么手写而不是 import：``tool_tiers`` 在 Django 装配期就被 ``pi/shared_mcp``
+        导入，而 ``state_tool`` 会拉起 snapshot 服务（Django 模型）——为一个常量把 import
+        图变重不值得。漂移由这条测试守，而不是靠"记得同步"。
+        """
+        from mcp_server.tools.ui.batch_tool import BATCH_TOOL_NAME
+        from mcp_server.tools.ui.state_tool import TOOL_NAME as STATE_TOOL_NAME
+
+        assert BATCH_TOOL_NAME == "ui_action_batch"
+        assert STATE_TOOL_NAME == "ui_page_state"
+        assert {BATCH_TOOL_NAME, STATE_TOOL_NAME} <= DIRECT_TOOLS
+        mapping = build_tool_exposure()
+        for name in (BATCH_TOOL_NAME, STATE_TOOL_NAME):
+            assert mapping.get(name) == "direct", f"{name} 必须是 direct（否则模型要先 tool_search）"

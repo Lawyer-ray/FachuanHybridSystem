@@ -105,6 +105,8 @@ export { globalSearch } from './api/mention-sources'
 export type { GlobalSearchItem, GlobalSearchResult } from './api/search-types'
 export { createProjectNote } from './memory-api'
 export type { ProjectNoteReceipt } from './memory-api'
+export { submitUiPageSnapshot } from './api/ui-snapshot'
+export type { UiPageSnapshotReceipt, UiPageSnapshotReply } from './api/ui-snapshot'
 
 /** 前端提交审批决定（同意/拒绝高危工具调用） */
 export function decideApproval(approvalId: string, approved: boolean, reason = ''): Promise<Record<string, unknown>> {

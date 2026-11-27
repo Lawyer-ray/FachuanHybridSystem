@@ -213,6 +213,11 @@ class UiActionEvent(_RunScoped):
     ``call_id`` / ``sequence`` 是前端的两条防线：前者做幂等（模型重试 / 事件重放命中
     LRU 直接跳过），后者让「跳号」可见（**只记 warning、不重排**——动作语义有先后，
     重排会把「先归案再跳页」变成「先跳页再归案」）。
+
+    ``batch_id`` / ``batch_index`` 是**批量下发**（``ui_action_batch``）的帧身份：同一批的
+    帧共享一个 id、序号从 0 递增。前端靠它串行执行、并在「停下」时把同批剩余步骤一起终止
+    ——不让它自带身份，前端就只能按到达顺序猜，猜错一次就是两个批次互相阻塞。两个键
+    **恒在**（单步动作是 ``None`` / ``0``），前端才只有一套读取逻辑。
     """
 
     type: Literal["ui_action"]
@@ -223,6 +228,28 @@ class UiActionEvent(_RunScoped):
     route: str | None = None
     #: 同会话内递增的动作序号。进程内计数，跨 worker 不保证连续。
     sequence: int = 0
+    #: 同一批次的 id（``ui_action_batch`` 生成）；``None`` = 单步动作。
+    batch_id: str | None = None
+    #: 该批次内的序号（0 起）；单步动作为 0。
+    batch_index: int = 0
+
+
+class UiSnapshotRequestEvent(_RunScoped):
+    """页面状态快照请求（AI 想知道「现在页面上是什么」）。
+
+    与 ``UiActionEvent`` 方向相反：那条是**让**页面动，这条是**问**页面。前端读完
+    ``ui-tools/page-state.ts`` 注册的结构化状态后 POST ``/agent/ui-snapshots/{request_id}``
+    回传；读不到就带 ``note`` 明说没声明（后端转成 ``no_page_state``，不许假装空对象）。
+
+    **超时不是错误**：模型按「没问到」继续（同 ``ask_user`` 的 ``timed_out``），所以帧上
+    带 ``timeout_seconds`` 让前端知道这次等待窗口有多长。
+    """
+
+    type: Literal["ui_snapshot_request"]
+    request_id: str
+    #: 期望读哪一页；``None`` = 前端取最近注册且已挂载的那个页面。
+    page: str | None = None
+    timeout_seconds: int = 3
 
 
 class CitationRef(BaseModel):
@@ -358,6 +385,7 @@ AgentStreamEvent = (
     | UsageEvent
     | QuestionRequestEvent
     | UiActionEvent
+    | UiSnapshotRequestEvent
     | CompactionEvent
     | CitationsEvent
     | ErrorEvent
@@ -378,6 +406,7 @@ EVENT_MODELS: list[type[BaseModel]] = [
     UsageEvent,
     QuestionRequestEvent,
     UiActionEvent,
+    UiSnapshotRequestEvent,
     CompactionEvent,
     CitationsEvent,
     ErrorEvent,

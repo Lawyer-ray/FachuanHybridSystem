@@ -27,6 +27,10 @@ export interface UiToolRun {
   code?: UiToolErrorCode
   startedAt: number
   endedAt?: number
+  /** 所属批次 id（`ui_action_batch` 下发的帧才有；单步动作为 null）——同一批的几步在排障时看得到是一组 */
+  batchId?: string | null
+  /** 批次内序号（0 起；单步动作为 0） */
+  batchIndex?: number
 }
 
 /**

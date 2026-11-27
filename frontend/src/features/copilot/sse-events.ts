@@ -101,6 +101,16 @@ export type AgentStreamEvent =
     arguments: Record<string, unknown>
     route?: string
     sequence?: number
+    batch_id?: string
+    batch_index?: number
+  }
+  | {
+    type: 'ui_snapshot_request'
+    run_id?: string
+    agent?: string
+    request_id: string
+    page?: string
+    timeout_seconds?: number
   }
   | {
     type: 'compaction'

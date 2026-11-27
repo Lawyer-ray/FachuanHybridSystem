@@ -1,4 +1,4 @@
-"""UI 动作回执（前端 → 后端）的请求契约。
+"""UI 动作回执 / 页面状态快照（前端 → 后端）的请求契约。
 
 字段名与取值是**双端冻结契约**：模型侧看到的是 ``publish_ui_action`` 的返回值
 （``apps/agent/services/ui_action/__init__.py``），前端侧提交的是这里。改字段要两端同改。
@@ -17,16 +17,21 @@
 
 from __future__ import annotations
 
+import json
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from ninja import Schema
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
+
+from apps.core.security.scrub import scrub_for_storage
 
 #: 控制字符（含 DEL）。
 _CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
-#: ``code`` / ``detail`` / ``observed_location`` 的长度上限。
+#: ``code`` / ``detail`` / ``observed_location`` / ``route`` / ``note`` 的长度上限。
 _MAX_TEXT = 200
+#: 页面状态快照序列化后的字符上限（超了直接拒，理由见 :class:`UiSnapshotIn`）。
+_MAX_SNAPSHOT_STATE = 2000
 #: ``call_id`` 只可能是后端自己生成的 32 位十六进制。仍然限字符集与长度：它会拼进
 #: Redis 键、也会进日志行，放任任意字符串等于给人一个撑键名、改日志的口子。
 _CALL_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -77,4 +82,39 @@ class UiActionResultIn(Schema):
         """
         if self.outcome != "error":
             self.code = ""
+        return self
+
+
+class UiSnapshotIn(Schema):
+    """前端回传的一次页面状态快照（``POST /agent/ui-snapshots/{request_id}``）。
+
+    ``state`` 会被**原样拼进模型上下文**、也会进日志，所以与 ``detail`` 同口径按不可信
+    输入处理：先脱敏（密钥类字段遮成 ``***``）再限量。
+
+    **超限直接拒、不截断**：截断后的结构体会缺键，而模型会把缺的键当成「页面上确实
+    没有这个字段」——比拒绝更误导。拒绝时把实际字数与上限写进错误，页面作者据此收窄
+    自己声明的字段（模型拿到的仍是「没问到」，不会变成假的空页面）。
+    """
+
+    #: 页面主动声明的那部分状态（``ui-tools/page-state.ts`` 的注册表产物）。
+    state: dict[str, Any] = Field(default_factory=dict)
+    #: 页面此刻的真实地址（模型据此知道「看到的是哪一页」）。
+    route: str = ""
+    #: 页面明说「我没声明状态」时带这句话；后端据此回 ``no_page_state`` 而不是空对象。
+    note: str = ""
+
+    @field_validator("route", "note")
+    @classmethod
+    def _clean_untrusted(cls, value: str) -> str:
+        return _untrusted_text(value)
+
+    @model_validator(mode="after")
+    def _check_state_size(self) -> UiSnapshotIn:
+        self.state = scrub_for_storage(self.state)
+        encoded = json.dumps(self.state, ensure_ascii=False)
+        if len(encoded) > _MAX_SNAPSHOT_STATE:
+            raise ValueError(
+                f"页面状态序列化后 {len(encoded)} 字，超过 {_MAX_SNAPSHOT_STATE} 字上限，已拒绝（不静默截断："
+                "缺键会被模型当成页面上确实没有该字段）。请页面只声明判断下一步真正要用的字段。"
+            )
         return self

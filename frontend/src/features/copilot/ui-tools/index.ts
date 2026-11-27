@@ -32,6 +32,17 @@ export { MAX_PENDING_PAGE_ACTIONS, queuePageAction, takePageActions } from './pe
 
 export { resolveExecutor, resolveSpec, runUiTool, UI_EXECUTORS, UI_TOOL_NAMES, validateArgs } from './registry'
 
+// 页面状态注册表（`ui_action` 的反方向：AI 读页面）。零运行时依赖，可以进桶：
+// 页面用 `hooks/use-ui-page-state` 登记，`handlers/ui-action-handler` 在快照请求时读取。
+export type { PageStateAnswer, PageStateRead, PageStateProvider } from './page-state'
+export {
+  currentRoute,
+  readPageState,
+  registerPageState,
+  subscribePageStateReads,
+  unregisterPageState,
+} from './page-state'
+
 export type { MaterialPrepStage } from './routes'
 export {
   isMaterialPrepStage,

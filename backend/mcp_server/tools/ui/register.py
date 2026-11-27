@@ -62,6 +62,9 @@ from pydantic import Field
 from apps.agent.services.ui_action import collect_ui_action_results, publish_ui_action
 from apps.agent.services.ui_action.manifest import UI_ACTIONS, UiAction
 from mcp_server.identity import current_session_id
+from mcp_server.tools.ui.batch_tool import BATCH_TOOL_NAME, register_ui_batch_tool
+from mcp_server.tools.ui.state_tool import TOOL_NAME as STATE_TOOL_NAME
+from mcp_server.tools.ui.state_tool import register_ui_state_tool
 
 logger = logging.getLogger(__name__)
 
@@ -263,4 +266,12 @@ def _register_ui_tools(
     registered.extend(
         _register_results_tool(register_tool, reserved_names=(*reserved_names, *registered)),
     )
+    # 两个「手写工具」与清单动作分开注册：它们不进 manifest（不是页面动作，而是**观察与编排**
+    # 页面动作的工具），但同样必须走真名注册 + 撞名检查——静默覆盖一个内置工具等于把审批与
+    # 审计的基准对象换掉。
+    for tool_name, label in ((STATE_TOOL_NAME, "页面状态"), (BATCH_TOOL_NAME, "批量动作")):
+        if tool_name in reserved_names or tool_name in registered:
+            raise RuntimeError(f"UI {label}工具与既有工具撞名，拒绝注册: {tool_name}")
+    registered.append(register_ui_state_tool(register_tool))
+    registered.append(register_ui_batch_tool(register_tool))
     return registered

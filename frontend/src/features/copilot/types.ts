@@ -8,12 +8,14 @@
  * - `scope-types.ts`：会话归属的业务范围（案件内 / 合同内）；
  * - `skill-types.ts`：技能清单与启停回执（`/` 菜单的数据源）；
  * - `state-types.ts`：store 的状态形状（`CopilotState`）；
- * - `memory-types.ts`：记忆条目、策展候选与可策展作用域。
+ * - `memory-types.ts`：记忆条目、策展候选与可策展作用域；
+ * - `api-types.ts`：端点收发形状（审批 / 提问 / 任务 / 附件 / usage / stats / compact 回执）。
+ *
+ * 这份清单是拆分契约：从这里再搬走一块，必须同步补一行，否则下一个人不知道它存在。
  */
 
 import type { CitationRef } from './domain/knowledge'
 import type { LaneUsage } from './domain/usage'
-import type { QuestionItem } from './domain/question'
 import type { ToolRunState } from './domain/tool-view'
 
 export type { CitationRef, CitationKind } from './domain/knowledge'
@@ -267,109 +269,6 @@ export interface ChatMessage extends ToolRunState {
   tools?: ChatMessage[]
 }
 
-/** 待审批的高危工具调用（approval_request 事件 → 审批卡） */
-export interface PendingApproval {
-  approvalId: string
-  toolName: string
-  toolArgs: Record<string, unknown>
-  message: string
-  receivedAt: number
-  /** 风险等级（low/medium/high/critical） */
-  riskLevel?: string
-  /** 紧急级：同意前需二次确认 */
-  needsSecondConfirmation?: boolean
-  /**
-   * 哪一栏提的（`approval_request.agent` 原文）。空串 = 没有栏归属（单栏 / 旧后端），
-   * 卡片据此不渲染栏标签；多栏轮次才记，见 turn-handlers.onApproval。
-   */
-  agent?: string
-  /** 该栏的 run_id（`approval_request.run_id` 原文；空串 = 旧后端未带） */
-  runId?: string
-  /** 离线待审（从 GET /approvals/pending 拉回，多来自后台任务），倒计时口径不同 */
-  offline?: boolean
-  /**
-   * 这张卡属于哪个会话。
-   *
-   * 补拉端点返回的是「当前律师全部会话」的待审项，入队时必须带上归属，
-   * 否则 A 会话挂起的高危审批会渲染在 B 会话上（律师以为自己在批 B 的事，
-   * 实际放行的是 A 的操作）。与 `PendingQuestion.sessionId` 同口径。
-   */
-  sessionId?: string
-  /** 本地已提交决定后的终态展示 */
-  decided?: 'approved' | 'rejected'
-}
-
-/**
- * 待回答的结构化提问（`question_request` 事件 → 问答卡；从 /questions/pending 补拉）
- *
- * 与审批**刻意同层但不同语义**：审批是闸门（超时=拒绝，fail-closed），
- * 提问是求助（超时=模型按假设继续，不阻断）。所以这里没有 expired 决断，
- * 只有「已继续但可补答」这一态——`continued`。
- */
-export interface PendingQuestion {
-  questionId: string
-  /**
-   * 提问所属会话。
-   *
-   * **必填才有防串会话的能力**：`question_request` 事件本身不带 session（它只
-   * 在某个会话的 SSE 流上出现），所以入队时由 store 补当前 sessionId；
-   * `GET /questions/pending` 则自带 `session_id`。缺这个字段，A 会话的提问会
-   * 渲染在 B 会话上（红队审查 F11）。
-   */
-  sessionId: string
-  questions: QuestionItem[]
-  /** 后端等待窗口（秒）：到点模型按假设继续，但问题不失效 */
-  timeoutSeconds: number
-  /** 本地收到时刻（倒计时起点，与服务端发事件时刻近似） */
-  receivedAt: number
-  /** 多答时哪一栏问的（事件 `agent`；缺失 = 主栏/单栏） */
-  agentKind?: string
-  /** 提交终态：已答 / 已跳过（终态后卡片只读回显） */
-  submitted?: 'answered' | 'skipped'
-  /** 回答被服务端记录但等待方已超时（`accepted && !success`）：本轮已继续 */
-  continued?: boolean
-  /** 服务端回执里给律师看的一句话（如「回答已记录，但本轮对话已按超时继续」） */
-  note?: string
-  /** 提交在途（按钮置忙，防重复提交） */
-  submitting?: boolean
-}
-
-/** GET /agent/questions/pending 的列表项 */
-export interface PendingQuestionItem {
-  question_id: string
-  session_id: string
-  questions: Record<string, unknown>[]
-  created_at: string
-}
-
-/** POST /agent/question/{id}/answer 的回执 */
-export interface QuestionAnswerReceipt {
-  success: boolean
-  accepted?: boolean
-  note?: string
-  error?: string
-}
-
-/** POST /agent/tasks 的受理回执 */
-export interface AgentTaskReceipt {
-  session_id: string
-  task_id: string
-  task_state: string
-  title: string
-}
-
-/** POST /agent/sessions/{id}/attachments 的上传回执：消息里以 attachment_id 引用 */
-export interface AgentAttachmentReceipt {
-  attachment_id: string
-  filename: string
-  size: number
-  mime: string
-  /** 引用型（拖拽绑定目录树文件）才有：指向绑定文件夹原文件，不复制字节 */
-  ref_owner_kind?: 'contract' | 'case'
-  ref_contract_id?: number | null
-  ref_subpath?: string
-}
-
 /** 拖拽引用草稿：合同绑定文件夹内的文件（发送时落库为 ref 记录并附引用块） */
 export interface FolderRefDraft {
   kind: RefOwnerKind
@@ -382,48 +281,18 @@ export interface FolderRefDraft {
 /** 拖拽通道常量与 workbench 共用，定义上提 lib（此处 re-export 便于域内引用） */
 export { FOLDER_REF_MIME } from '@/lib/folder-ref'
 
-/** GET /agent/usage 的汇总（token 由 pi 上报，取消/出错轮次也计入） */
-export interface UsageSummary {
-  runs: number
-  ok_runs: number
-  error_runs: number
-  cancelled_runs: number
-  input_tokens: number
-  output_tokens: number
-  total_tokens: number
-  tool_calls: number
-  avg_duration_ms: number
-  /** 小数（0.05 = 5%） */
-  error_rate: number
-}
-
-/** GET /agent/approvals/pending 的列表项（离线审批入口） */
-export interface PendingApprovalItem {
-  approval_id: string
-  session_id: string
-  tool_name: string
-  tool_args: Record<string, unknown>
-  risk_level: string
-  created_at: string
-}
-
-/** GET /agent/sessions/{id}/stats：token 用量与上下文水位（水位未知为 null） */
-export interface AgentSessionStats {
-  output_tokens: number
-  input_tokens: number
-  cache_read_tokens: number
-  cache_write_tokens: number
-  context_used_tokens: number | null
-  context_total_tokens: number | null
-  context_percent: number | null
-}
-
-/** POST /agent/sessions/{id}/compact 的回执（compacted=false 表示未超水位、无事发生） */
-export interface AgentCompactReceipt {
-  compacted: boolean
-  context_used_tokens: number | null
-  context_total_tokens: number | null
-}
+export type {
+  AgentAttachmentReceipt,
+  AgentCompactReceipt,
+  AgentSessionStats,
+  AgentTaskReceipt,
+  PendingApproval,
+  PendingApprovalItem,
+  PendingQuestion,
+  PendingQuestionItem,
+  QuestionAnswerReceipt,
+  UsageSummary,
+} from './api-types'
 
 /**
  * `/` 命令菜单项（技能补全 / 内置命令）；构建与过滤见 domain.ts，交互见 hooks/use-slash-menu。

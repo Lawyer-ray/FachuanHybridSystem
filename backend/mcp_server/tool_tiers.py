@@ -61,6 +61,19 @@ SKILL_TOOL_PREFIX = skill_prefix()
 
 TOOL_TIERS_ENV = "FACHUAN_MCP_TOOL_TIERS"
 
+#: 不进 manifest、但必须直连的 UI 工具（名字与各自模块的常量由
+#: ``test_ui_tool_tiers.test_extra_direct_names_mirror_modules`` 钉住，防手抄漂移）。
+#:
+#: - ``ui_action_batch``：整体标 ``destructive_hint`` 的批量入口。分层政策要求
+#:   "破坏性工具必须留在 direct"（律师要一眼看见 AI 有批量动手的能力）。
+#: - ``ui_page_state``：模型"看一眼当前页面"的入口。落 deferred 的话它得先
+#:   ``tool_search`` 才知道有这个东西，而它恰恰是**减少往返**用的——藏起来等于没用。
+#:
+#: 这里写字面量而不是 import 那两个模块：``tool_tiers`` 被 ``pi/shared_mcp.py``
+#: 在 Django 装配期导入，而 ``state_tool`` 会拉起 snapshot 服务（Django 模型）；
+#: 为一个 20 行的常量把 import 图变重不值得。漂移由测试守，不靠 import 守。
+_UI_EXTRA_DIRECT: frozenset[str] = frozenset({"ui_action_batch", "ui_page_state"})
+
 #: 直连工具清单。选取标准（缺一不可）：
 #: 1. 律师对话高频（身份/时间/期限/案件/合同/文书/检索/技能/附件）
 #: 2. 或破坏性（必须让模型和律师都看得见）
@@ -99,7 +112,8 @@ DIRECT_TOOLS: frozenset[str] = frozenset(
         # --- 汇总 ---
         "get_dashboard_stats",
     }
-) | CONFIRM_ACTION_NAMES | DIRECT_ACTION_NAMES
+) | CONFIRM_ACTION_NAMES | DIRECT_ACTION_NAMES | _UI_EXTRA_DIRECT
+
 
 #: 破坏性工具一律直连（模式匹配，覆盖 41 个 delete_* 等）。
 #: 用模式而不是枚举：新增 delete_xxx 时自动纳入，不依赖有人记得改这里。

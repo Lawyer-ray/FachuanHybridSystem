@@ -11,10 +11,14 @@
  *
  * ## 怎么用
  *
- * 点按钮 → 对照下方三行实测输出：
+ * 本页还会**声明一份示例状态**（`useUiPageState('probe', …)`）并显示「最近一次被 AI 问状态
+ * 时回了什么」——快照链路的真机手测入口（后端只等 3 秒，超时按「没问到」继续）。
+ *
+ * 点按钮 → 对照下方四行实测输出：
  * - `probe-loc`：`location.pathname + search`（地址有没有真的变）
  * - `probe-run`：最近一次运行记录的 state / code（执行层判成 ok 还是哪一类失败）
  * - `probe-launch`：最近一次 `copilot:launch` 事件的 payload（`ui_copilot_open` 的真实效果）
+ * - `probe-snapshot`：最近一次被问页面状态时回给后端的 `state + route`（快照链路）
  *
  * 每次点击都走**真实链路** `useCopilot.getState().runUiAction({ callId, action, args, route })`
  * ——与 SSE 帧到达时 `handlers/ui-action-handler.ts` 做的事完全一致；**不**直接调
@@ -37,10 +41,13 @@ import { useLocation } from 'react-router'
 
 import { UiActionBanner } from '../components/UiActionBanner'
 import { UiToolHost } from '../components/UiToolHost'
+import { useUiPageState } from '../hooks/use-ui-page-state'
 import { COPILOT_LAUNCH_EVENT } from '../launch'
 import type { CopilotLaunchContext } from '../launch'
 import type { UiToolRun } from '../state-types'
 import { useCopilot } from '../store'
+import { subscribePageStateReads } from '../ui-tools'
+import type { PageStateAnswer } from '../ui-tools'
 
 interface ProbeCase {
   /** 稳定 id：按钮 key 与 `data-testid`（手测/自动化都靠它定位） */
@@ -135,12 +142,19 @@ interface ProbePersisted {
   run: string
   launch: string
   errors: string
+  snapshot: string
 }
 
 const NO_ERRORS = '（无）'
+const NO_SNAPSHOT = '（尚未被问状态）'
 
 function readPersisted(): ProbePersisted {
-  const empty: ProbePersisted = { run: '（尚未执行）', launch: '（尚未收到 copilot:launch）', errors: NO_ERRORS }
+  const empty: ProbePersisted = {
+    run: '（尚未执行）',
+    launch: '（尚未收到 copilot:launch）',
+    errors: NO_ERRORS,
+    snapshot: NO_SNAPSHOT,
+  }
   try {
     const raw = sessionStorage.getItem(PROBE_STORE_KEY)
     if (!raw) return empty
@@ -149,10 +163,18 @@ function readPersisted(): ProbePersisted {
       run: parsed.run || empty.run,
       launch: parsed.launch || empty.launch,
       errors: parsed.errors || empty.errors,
+      snapshot: parsed.snapshot || empty.snapshot,
     }
   } catch {
     return empty
   }
+}
+
+/** 一次快照应答的可读形态（state=null = 页面没声明，后端会把它转成 no_page_state）。 */
+function describeSnapshot(answer: PageStateAnswer): string {
+  const route = answer.route || '（空）'
+  if (answer.state === null) return `页面没有声明状态（route=${route}）`
+  return `${JSON.stringify(answer.state)}（route=${route}）`
 }
 
 /** 一次运行记录的可读形态（state 必显，code 只在失败时有） */
@@ -169,6 +191,16 @@ export default function UiActionProbe() {
   // （而它拦得对——ref 变化不会触发重渲染，恢复值只该算一次）。
   const [restored] = useState<ProbePersisted>(() => readPersisted())
   const [lastLaunch, setLastLaunch] = useState(restored.launch)
+  const [lastSnapshot, setLastSnapshot] = useState(restored.snapshot)
+  // 本页的示例状态声明：AI 问「probe 页面上是什么」时回的就是这一份（真机手测入口）。
+  useUiPageState('probe', {
+    page: 'probe',
+    route: location.pathname + location.search,
+    selected: 'none',
+  })
+
+  // 每次被 AI 问一次就更新（注册表在读取时通知；不轮询，也不改注册关系）。
+  useEffect(() => subscribePageStateReads((answer) => setLastSnapshot(describeSnapshot(answer))), [])
   /**
    * 未捕获异常/拒绝的自捕获：手测第 8 步要求「控制台无红色报错」，但 Web Inspector
    * 的 AX 树在自动化里读不到（它是独立 webview）。把错误顺手抄到页面上，
@@ -197,11 +229,14 @@ export default function UiActionProbe() {
   // 每次结论变化都落一次 sessionStorage：页面被导航带走的瞬间也已经是新值
   useEffect(() => {
     try {
-      sessionStorage.setItem(PROBE_STORE_KEY, JSON.stringify({ run: shownRun, launch: shownLaunch, errors: caughtErrors }))
+      sessionStorage.setItem(
+        PROBE_STORE_KEY,
+        JSON.stringify({ run: shownRun, launch: shownLaunch, errors: caughtErrors, snapshot: lastSnapshot }),
+      )
     } catch {
       // 隐私窗口 / 禁用存储：持久化只是便利，失败不影响本次手测
     }
-  }, [shownRun, shownLaunch, caughtErrors])
+  }, [shownRun, shownLaunch, caughtErrors, lastSnapshot])
 
   useEffect(() => {
     const onError = (event: ErrorEvent): void => {
@@ -263,6 +298,7 @@ export default function UiActionProbe() {
         <div data-testid="probe-loc">probe-loc：{location.pathname + location.search}</div>
         <div data-testid="probe-run">probe-run：{shownRun}</div>
         <div data-testid="probe-launch">probe-launch：{shownLaunch}</div>
+        <div data-testid="probe-snapshot">probe-snapshot：{lastSnapshot}</div>
         <div data-testid="probe-errors" className={caughtErrors === NO_ERRORS ? '' : 'text-red-600 dark:text-red-400'}>
           probe-errors：{caughtErrors}
         </div>

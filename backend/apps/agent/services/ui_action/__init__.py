@@ -38,6 +38,7 @@ v1 那条「不该知道的就别让它说」并没有被推翻，它约束的�
 from __future__ import annotations
 
 import logging
+import math
 import os
 import uuid
 from typing import Any
@@ -84,6 +85,27 @@ def _next_sequence(session_id: str) -> int:
     return sequence
 
 
+def _resolve_wait_seconds(override: float | None) -> float:
+    """本次等待窗口：``None`` = 环境变量口径，否则 clamp 0~:data:`ack.MAX_ACK_WAIT`。
+
+    非法值（非数字 / NaN / ±inf）回落到环境变量值并告警，口径与
+    :func:`ack.ack_wait_seconds` 一致：窗口是运维开关，写错一个字符不该让整条通道失效。
+    覆盖值只由本仓代码传（批量下发时第 2 步起传 0），但仍要 clamp——``min(nan, 8)`` 还是
+    nan，一路传进 ``asyncio.wait_for`` 就是永不超时。
+    """
+    if override is None:
+        return ack.ack_wait_seconds()
+    try:
+        seconds = float(override)
+    except (TypeError, ValueError):
+        logger.warning("非法等待窗口 %r，按 %s 处理", override, ack.ACK_WAIT_ENV)
+        return ack.ack_wait_seconds()
+    if not math.isfinite(seconds):
+        logger.warning("非有限等待窗口 %r，按 %s 处理", override, ack.ACK_WAIT_ENV)
+        return ack.ack_wait_seconds()
+    return min(max(seconds, 0.0), ack.MAX_ACK_WAIT)
+
+
 def _log_dispatch(session_id: str | None, action: UiAction, delivered: bool) -> None:
     """结构化下发日志：审计要求能回答「谁让 AI 干了什么」，``action``/``risk`` 必须在内。"""
     logger.info(
@@ -100,8 +122,17 @@ async def publish_ui_action(
     action: UiAction,
     arguments: dict[str, Any],
     session_id: str | None,
+    batch_id: str | None = None,
+    batch_index: int = 0,
+    wait_seconds: float | None = None,
 ) -> dict[str, Any]:
     """把动作推到会话的 SSE 通道，并等最多 ``ACK_WAIT`` 秒把执行结果带回来。
+
+    ``batch_id`` / ``batch_index`` 是**批量下发**（:mod:`.batch`）注入的批次身份，单步动作
+    就是 ``None`` / ``0``。**本函数不认识批量的语义**——整批校验、只等第一步、失败即中止
+    全在 batch.py，这里只负责把这两个键写进帧（键恒在，前端才只有一套读取逻辑）。
+    ``wait_seconds``：本次等待窗口的覆盖值（``None`` = 按 ``FACHUAN_UI_ACTION_ACK_WAIT``，
+    ``0`` = 明确不等；批量里第 2 步起就是这么发的）。
 
     Returns:
         ``{"status": "dispatched"|"dry_run"|"no_channel"|"disabled"|"invalid_args", ...}``
@@ -157,7 +188,7 @@ async def publish_ui_action(
     # 而不是"缓存后端是不是 Redis"——后者在生产恒为 True，会让 delivered 永远为真。
     has_remote = bool(await bus.has_subscribers(session_id)) or bool(await bus.remote_subscriber_count(session_id))
     call_id = uuid.uuid4().hex
-    wait_seconds = ack.ack_wait_seconds()
+    wait_seconds = _resolve_wait_seconds(wait_seconds)
     # 归属先落盘：前端拿到 call_id 后可能立刻回执，而那条 POST 是在**另一个进程**里
     # 校验归属的，晚一步写就会让第一份回执被判成「未知 call_id」。
     ack.mark_dispatch_session(call_id, session_id)
@@ -179,6 +210,10 @@ async def publish_ui_action(
                 # 期望路由只作提示：真正决定去哪由前端 registry 的执行器算
                 "route": action.route,
                 "sequence": _next_sequence(session_id),
+                # 批次身份恒在（单步 = None / 0），与 ``sse_types.UiActionEvent`` 的默认值一致：
+                # 「有值才带」会让前端多一个分支，而这个分支只在批量时走，最容易漏测。
+                "batch_id": batch_id,
+                "batch_index": batch_index,
             },
         )
         delivered = bool(published) or has_remote

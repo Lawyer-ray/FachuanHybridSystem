@@ -109,6 +109,13 @@ export interface UiActionRequest {
   args: Record<string, unknown>
   /** 后端声明的期望路由前缀；`null` = 任意页面 */
   route: string | null
+  /**
+   * 所属批次（`ui_action_batch` 下发的帧才有）。同一 `batchId` 的帧在 store 里按
+   * `batchIndex` **串行**执行；`null` / 缺省 = 单步动作，立即执行（不排队）。
+   */
+  batchId?: string | null
+  /** 批次内序号（0 起）：它就是审批卡上那行「将按顺序执行」的顺序 */
+  batchIndex?: number
 }
 
 /** 一条动作的执行器：已校验过的参数 → 一次浏览器动作 */
