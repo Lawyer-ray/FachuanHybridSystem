@@ -14,6 +14,7 @@ from typing import Any
 
 import pytest
 
+from apps.cases.models.log import CaseLogAttachment as CaseLogAttachmentStub
 from apps.document_parsing.models import DocumentParsingTask
 from apps.documents.services.draft import facts_builder
 
@@ -93,3 +94,68 @@ def test_excerpt_is_truncated() -> None:
     excerpt = facts_builder._material_markdown(_case(_material(filename="合同.pdf", task=linked)))
 
     assert len(excerpt) < facts_builder.MATERIAL_EXCERPT_CHARS + 100
+
+
+def test_excerpt_keeps_clauses_beyond_the_head() -> None:
+    """只截头部会漏条款：真机合同 2000 字之后才是承包金/滞纳金/解除条款。"""
+    body = "首部" * 400 + "\n三、承包金 384277 元，应于 2026 年 5 月 8 日前缴交\n" + "无关段落" * 300
+
+    excerpt = facts_builder._excerpt(body)
+
+    assert "承包金 384277" in excerpt
+    assert excerpt.startswith("首部")
+    assert len(excerpt) <= facts_builder.MATERIAL_EXCERPT_CHARS
+
+
+def test_excerpt_short_text_is_returned_whole() -> None:
+    body = "短材料，承包金 100 元。"
+
+    assert facts_builder._excerpt(body) == body
+
+
+@pytest.mark.django_db
+def test_dto_case_without_materials_falls_back_to_case_id() -> None:
+    """起草链拿到的是 CaseDTO（不带 materials）：必须按 case_id 回查，否则整份材料静默消失。"""
+    from apps.cases.models import Case
+    from apps.cases.models.log import CaseLog
+    from apps.cases.models.material import CaseMaterial
+    from apps.organization.models import Lawyer
+
+    case = Case.objects.create(name="DTO 回查案", yz_wid="")
+    lawyer = Lawyer.objects.create(username="dto-lawyer", real_name="测试律师", license_no="TEST-002")
+    log = CaseLog.objects.create(case=case, content="归案", actor=lawyer)
+    attachment = CaseLogAttachmentStub.objects.create(log=log, original_filename="合同.pdf", file="x/合同.pdf")
+    task = _task("合同.pdf", markdown="## 归案解析正文", text="")
+    CaseMaterial.objects.create(case_id=case.id, type_name="客户提供材料", source_attachment=attachment, parsing_task=task)
+
+    class _DtoCase:  # 只带 id：模拟 CaseDTO
+        id = case.id
+
+    excerpt = facts_builder._material_markdown(_DtoCase())
+
+    assert "归案解析正文" in excerpt
+
+
+def test_conflicting_registered_amount_is_dropped_not_fed() -> None:
+    """案件登记的涉案金额与材料合计不一致时，不能把两套数字并列喂给模型。"""
+    material = "被告拖欠承包款384277元、水费3250元、管理费16694元，合计404221元。"
+    facts = {"涉案金额": "440000", "材料摘要": material}
+
+    reconciled = facts_builder._reconcile_amounts(facts)
+
+    assert "涉案金额" not in reconciled
+    # 不补口径提示：多喂一个数字，模型就会把它当成本金再列一遍（真机 796,845 的来路）
+    assert "口径提示" not in reconciled
+
+
+def test_matching_registered_amount_is_kept() -> None:
+    material = "承包款384277元、水费3250元、管理费16694元，合计404221元。"
+    facts = {"涉案金额": "404221.00", "材料摘要": material}
+
+    assert facts_builder._reconcile_amounts(facts)["涉案金额"] == "404221.00"
+
+
+def test_no_totals_in_material_keeps_registered_amount() -> None:
+    facts = {"涉案金额": "440000", "材料摘要": "合同约定按月付款。"}
+
+    assert facts_builder._reconcile_amounts(facts)["涉案金额"] == "440000"
