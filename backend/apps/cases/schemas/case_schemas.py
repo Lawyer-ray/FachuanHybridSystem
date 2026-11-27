@@ -123,7 +123,8 @@ class CaseOut(ModelSchema):
                 #    写成 `case` 会继续报 "case_id Field required"——实测踩过。
                 "case_id": getattr(it, "case_id", None),
                 "client_id": getattr(it, "client_id", None),
-                "legal_status": getattr(it, "legal_status", ""),
+                # ⚠️ 这里必须先翻成中文标签再放进 dict（见 _party_status_label）。
+                "legal_status": CaseOut._party_status_label(it),
             }
             # client_detail 要的是**完整的 Client 对象**（ClientOut 有 id/name/... 一堆必填），
             # 只给 client_id 那个整数会让 resolver 拿到 DjangoGetter: 495，
@@ -132,6 +133,29 @@ class CaseOut(ModelSchema):
             d["client"] = getattr(it, "client", None)
             out.append(d)
         return out
+
+    @staticmethod
+    def _party_status_label(obj: Any) -> str:
+        """`legal_status` 在**转 dict 这一步**就要翻成中文标签。
+
+        为什么不能留给 `CasePartyOut.resolve_legal_status`：那个 resolver 的 dict 分支
+        是直传（它假设传进来的 dict 已是序列化后的形状）。于是「原始模型 → dict」这一层
+        放进去的是代码值（`plaintiff`），接口就原样吐英文。
+
+        踩到过：案件卡上「诉讼地位」整行变成 `plaintiff：张三 / defendant：李四`，
+        而同一张卡的 `status`（在办）、`current_stage`（一审）走 `get_*_display` 是中文，
+        一张卡片上半中半英。tests/ci/unit/cases/test_case_schema_party_status.py 钉住这条。
+        """
+        raw = getattr(obj, "legal_status", None)
+        if not raw:
+            return ""
+        getter = getattr(obj, "get_legal_status_display", None)
+        if callable(getter):
+            try:
+                return str(getter())
+            except (AttributeError, ValueError):  # pragma: no cover - 模型字段无 choices 时才会发生
+                return str(raw)
+        return str(raw)
 
     @staticmethod
     def _as_assignment_dicts(items: list) -> list:

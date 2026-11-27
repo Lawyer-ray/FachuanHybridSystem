@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, TriangleAlert } from 'lucide-react'
 import { getEditorConfig, type EditorMode } from './api'
+import { loadApiJs } from './load-api-js'
+
+/** 挂载点 id 的进程级计数器（唯一性来源；见 placeId 为何不用 useId） */
+let ooSeq = 0
+import type {
+  EditorInstance,
+  EditorState,
+  OfficeEditorHandle,
+  PluginBridgeMessage,
+  PluginBridgeOutgoing,
+} from './types'
 
 /**
  * OnlyOffice Document Server 渲染单个文件。
@@ -13,114 +24,6 @@ import { getEditorConfig, type EditorMode } from './api'
  * 已签名的 config，DS 的 JWT 密钥不出后端。
  */
 
-const API_JS = '/web-apps/apps/api/documents/api.js'
-
-/** 挂载点 id 的进程级计数器（唯一性来源；见 placeId 为何不用 useId） */
-let ooSeq = 0
-
-/** DS 的 api.js 全局只该加载一次：并发挂载时共用一个 Promise */
-let apiScriptPromise: Promise<void> | null = null
-
-function loadApiJs(docserverUrl: string): Promise<void> {
-  if (window.DocsAPI) return Promise.resolve()
-  if (apiScriptPromise) return apiScriptPromise
-  apiScriptPromise = new Promise<void>((resolve, reject) => {
-    const el = document.createElement('script')
-    el.src = `${docserverUrl.replace(/\/$/, '')}${API_JS}`
-    el.async = true
-    el.onload = () => resolve()
-    el.onerror = () => {
-      apiScriptPromise = null
-      reject(new Error('OnlyOffice api.js 加载失败'))
-    }
-    document.head.appendChild(el)
-  })
-  return apiScriptPromise
-}
-
-interface EditorInstance {
-  destroyEditor?: () => void
-  /** DS 官方：把当前编辑内容存为指定格式的 Blob。用于「保存 / 另存为」。 */
-  downloadAs?: (format: string) => Promise<Blob>
-  /**
-   * DS 的外部命令入口（`serviceCommand({ c: 'forcesave' })` 触发立即回存）。
-   *
-   * 不在官方对外文档里，社区版实例上确实存在（实测）；声明成可选即表示
-   * 「可能没有」，调用侧用 typeof 守卫——所以这里是类型而非断言。
-   */
-  serviceCommand?: (cmd: { c: string }) => void
-}
-
-/** 供调用方持有的编辑器句柄 */
-export interface OfficeEditorHandle {
-  /**
-   * 触发编辑器内部保存（DS 工具栏的「保存」）。
-   *
-   * **为什么不是 `downloadAs('docx')` 取字节自己上传**：社区版的编辑器实例
-   * 不暴露 `downloadAs`（实测 `Asc.editor` 上只有私有的 `forceSave*` 系列），
-   * 外层也拿不到实例方法。而 DS 自带保存按钮会走 `forcesave` → 命中
-   * `callbackUrl` → 后端 `adopt_edited` 落盘，这条链路是真的通的。
-   *
-   * 返回是否成功点到按钮（编辑器未就绪或 DOM 结构变化时返回 false）。
-   */
-  requestSave: () => boolean
-  /**
-   * 向文档内核发一条命令（协议见 deploy/onlyoffice/plugins 里 plugin.js）。
-   *
-   * 可用 action：`get-selection` / `insert-revision` / `locate` / `apply-revision` /
-   * `accept-all` / `reject-all` / `add-comments` / `get-comments` / `capabilities`。
-   * 回执统一从 `onPluginMessage` 回来（类型见 `PluginBridgeMessage`）。
-   */
-  sendToPlugin: (action: string, text?: string, payload?: Record<string, unknown>) => void
-}
-
-/** 批注回执里单条的定位结果 */
-export interface PluginCommentResult {
-  index: number
-  ok: boolean
-  reason?: string
-  commentId?: string
-}
-
-/** 画布内已经存在的批注（`GetAllComments` 的归一化形态） */
-export interface PluginComment {
-  commentId: string
-  quote: string
-  text: string
-  userName: string
-  solved: boolean
-}
-
-/** 内核能力探测回执（决定「AI 署名分离」等分支走哪条路，不靠猜） */
-export interface PluginCapabilities {
-  assistantTrackRevisions?: boolean
-  trackRevisions?: boolean
-  contentControl?: boolean
-}
-
-/** 插件桥回传的消息（口径与 plugin.js 的 post({type:...}) 完全一致） */
-export type PluginBridgeMessage =
-  | { type: 'ready'; editorType?: string; supported?: boolean }
-  | { type: 'selection'; text: string; explicit?: boolean }
-  | { type: 'inserted'; text?: string; error?: string }
-  | { type: 'located'; found?: boolean; result?: { ok: boolean } }
-  | { type: 'applied'; result?: { ok: boolean; reason?: string; how?: string } }
-  | { type: 'commented'; result?: { ok: boolean; reason?: string; results?: PluginCommentResult[] } }
-  | { type: 'comments'; result?: { ok: boolean; reason?: string; comments?: PluginComment[] } }
-  | { type: 'capabilities'; result?: PluginCapabilities & { ok?: boolean } }
-  | { type: 'done'; error?: string }
-  | { type: 'hello'; editorType?: string; supported?: boolean }
-
-/** 发往插件的消息（页面 → 桥） */
-interface PluginBridgeOutgoing {
-  source: 'fachuan-page'
-  action: string
-  text?: string
-  payload?: Record<string, unknown>
-}
-
-/** 画布可见状态（父级据此把「正在打开」改成真话） */
-export type EditorState = 'loading' | 'ready' | 'error' | 'disabled'
 
 /**
  * 读 DS 的 `onDocumentStateChange`。
@@ -422,3 +325,13 @@ export function OfficeView({
     </div>
   )
 }
+
+export type {
+  EditorInstance,
+  EditorState,
+  OfficeEditorHandle,
+  PluginBridgeMessage,
+  PluginComment,
+  PluginCommentResult,
+  PluginCapabilities,
+} from './types'

@@ -3,8 +3,6 @@
  *
  * 这个文件守的是「自动识别跑起来之后，界面还能说人话」那一层：
  * - 图片来源判型（`guessImageType`）：照片取字前要贴 MIME，判错后端直接拒收；
- * - 提示名清洗（`hintNamesOf`）：材料包标题是连写的中文句子，切错就会把
- *   「（扫描件）」这类复数当成当事人名字；
  * - 分段来源标记（`segmentBackendOf`）：宁可说「规则」，也不能把规则引擎
  *   谎报成 AI 分段——律师据此判断结果要不要重跑；
  * - 轮询（`pollJob`）：超时与心跳停止必须给出能行动的文案，而不是让律师
@@ -23,7 +21,6 @@ import {
   blocksToMarkdown,
   formatElapsed,
   guessImageType,
-  hintNamesOf,
   jobSnapshotOf,
   pipelineProgressPct,
   pollJob,
@@ -82,64 +79,6 @@ describe('guessImageType：文件名 → 图片 MIME', () => {
     expect(guessImageType('IMG_0001.HEIC')).toBe('image/heic')
     expect(guessImageType('证据.PNG')).toBe('image/png')
     expect(guessImageType('证据.TIFF')).toBe('image/tiff')
-  })
-})
-
-describe('hintNamesOf：从标题与文件名取「提示名」', () => {
-  /**
-   * 材料包标题是「张三诉甲公司借款合同纠纷（扫描件）」这类连写句子，没有词边界。
-   * 这里守的是清洗规则本身：去扩展名 / 去括号注释 / 去程序词 / 拆短片段 / 去重。
-   * 洗过头会漏掉真名字，洗不够会把「扫描件」当当事人交给下游匹配。
-   */
-  it('去扩展名与括号注释：「（扫描件）」不算名字', () => {
-    const got = hintNamesOf('张三诉甲公司借款合同纠纷（扫描件）', [])
-    expect(got).toContain('张三诉甲公司借款合同纠纷')
-    expect(got.some((n) => n.includes('扫描件'))).toBe(false)
-  })
-
-  it('程序词（诉讼材料 / 卷宗 / 档案…）被剔掉，不残留成候选名', () => {
-    const got = hintNamesOf('谭某某借款纠纷诉讼材料卷宗档案', [])
-    expect(got.some((n) => n.includes('卷宗') || n.includes('档案') || n.includes('诉讼材料'))).toBe(false)
-  })
-
-  it('按中文标点切成最短片段（真名字自然落在某个片段里）', () => {
-    const got = hintNamesOf('张三、甲公司 与 李四', [])
-    expect(got).toEqual(['张三', '甲公司', '与', '李四'].filter((n) => n.length >= 2))
-  })
-
-  it('单字片段被丢弃（一个字的片段当不上名字，只会污染匹配）', () => {
-    expect(hintNamesOf('张三、李四、王五', [])).toEqual(['张三', '李四', '王五'])
-    const one = hintNamesOf('甲', [])
-    expect(one).toEqual([])
-  })
-
-  it('纯英文/数字片段被丢弃（提示名只服务中文当事人匹配）', () => {
-    expect(hintNamesOf('abc 12345 张三', [])).toEqual(['张三'])
-  })
-
-  it('同一名字在标题与多个文件名里重复出现时去重', () => {
-    const got = hintNamesOf('张三借款合同纠纷', [
-      { n: '张三身份证.png' },
-      { n: '材料三：张三', customName: '张三借款合同' },
-    ])
-    // 「张三借款合同纠纷」/「张三身份证」/「张三」都是不同片段，但「张三」本身只出现一次
-    expect(got.filter((n) => n === '张三')).toHaveLength(1)
-    expect(new Set(got).size).toBe(got.length)
-  })
-
-  it('customName 优先参与清洗（律师改过的名字比原名更可能含真名）', () => {
-    const got = hintNamesOf(undefined, [{ n: 'IMG_0001.png', customName: '李四身份证明' }])
-    expect(got).toContain('李四身份证明')
-    expect(got.some((n) => n.includes('IMG'))).toBe(false)
-  })
-
-  it('subject 为 undefined 不崩（材料包可以没有标题）', () => {
-    expect(() => hintNamesOf(undefined, [])).not.toThrow()
-    expect(hintNamesOf(undefined, [])).toEqual([])
-  })
-
-  it('空串标题 / 空串文件名被跳过，不产出空片段', () => {
-    expect(hintNamesOf('', [{ n: '' }])).toEqual([])
   })
 })
 

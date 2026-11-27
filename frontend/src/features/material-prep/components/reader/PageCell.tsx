@@ -1,14 +1,11 @@
-import { memo, useEffect, useRef, useState } from 'react'
-import { FileText } from 'lucide-react'
+import { memo, useRef, useState } from 'react'
 import type { BundleMat, RectPrecision, RotDeg } from '../../types'
 import { rotateNormRect } from '../../draft/page-rotation'
 import { rectPrecisionOf } from '../../types'
 import { cn } from '@/lib/utils'
 
 import { EngineBoxOverlay, type EngineBoxGroup } from './EngineBoxOverlay'
-import { PdfPageView } from './PdfPageView'
-import { PhotoPageView } from './PhotoPageView'
-import { SkeletonLines } from './SkeletonLines'
+import { PageBody } from './PageBody'
 import { resolveDragRect, type PageRect } from './ui'
 
 /**
@@ -310,69 +307,3 @@ export const PageCell = memo(function PageCell({
     </div>
   )
 })
-
-/** 选择页体渲染分支：视口外的页只挂骨架占位，滚近了才真正取附件渲染。
- *  92 页的大包若全部立即 mount，会同时拉取全部附件并渲染全部页位图
- *  （DPR 感知宽度下单页 ~21MB，见 PdfPageView 的驻留 img 说明）。 */
-function PageBody({
-  messageId,
-  p,
-  mat,
-  rotation = 0,
-}: {
-  messageId: number
-  p: number
-  mat: BundleMat
-  rotation?: RotDeg
-}) {
-  const hostRef = useRef<HTMLDivElement>(null)
-  const [shown, setShown] = useState(false)
-
-  useEffect(() => {
-    if (shown) return
-    const el = hostRef.current
-    // 环境不支持 IntersectionObserver 时直接渲染（退化到旧行为）
-    if (!el || typeof IntersectionObserver === 'undefined') {
-      setShown(true)
-      return
-    }
-    // 上下各预渲染约两屏：滚动到达时内容已在，骨架只是首开瞬间的占位
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((en) => en.isIntersecting)) setShown(true)
-      },
-      { rootMargin: '1600px 0px' },
-    )
-    io.observe(el)
-    return () => io.disconnect()
-  }, [shown])
-
-  if (!shown) {
-    return (
-      <div ref={hostRef} className="w-full bg-white">
-        <SkeletonLines />
-      </div>
-    )
-  }
-  if (mat.k === 'pdf')
-    return <PdfPageView messageId={messageId} partIndex={mat.partIndex} pageNum={p} rotation={rotation} />
-  if (mat.k === 'photo')
-    return <PhotoPageView messageId={messageId} partIndex={mat.partIndex} rotation={rotation} />
-  return <OfficePlaceholder mat={mat} />
-}
-
-function OfficePlaceholder({ mat }: { mat: BundleMat }) {
-  return (
-    <div className="flex aspect-[3/4] flex-col items-center justify-center gap-3 bg-zinc-50 p-6 text-center">
-      <span className="grid h-14 w-14 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-        <FileText className="h-7 w-7" />
-      </span>
-      <div>
-        <p className="text-sm font-medium">{mat.n}</p>
-        <p className="mt-1 max-w-[220px] text-[11px] leading-relaxed text-muted-foreground">
-          Word / Excel 等格式当前按整份处理，暂不能逐页切分
-        </p>
-      </div>
-    </div>
-  )
-}
