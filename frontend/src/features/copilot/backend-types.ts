@@ -125,8 +125,8 @@ export interface AgentBackendSelection {
   answerModels: Record<string, string>
   /** 给某一栏指定模型（空串 = 取消指定，回落平台默认） */
   setAnswerModel: (kind: string, model: string) => void
-  /** 切会话：把该会话上次选的模型（localStorage）装回来 */
-  hydrateAnswerModels: (sessionId: string | null) => void
+  /** 切会话：把该会话上次的勾选后端 + 各栏模型（localStorage）一起装回来 */
+  hydrateAnswerSelection: (sessionId: string | null) => void
   /** 服务端 `llm_model` 兜底：只在本地没选过该栏时生效 */
   seedAnswerModel: (kind: string, model: string) => void
 }
