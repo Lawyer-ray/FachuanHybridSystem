@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 
 /** 触发按钮：窄、单行、截断（模型名可以很长） */
 const TRIGGER_CLASS =
@@ -89,7 +89,7 @@ export function AgentModelPicker({
         <div
           role="listbox"
           aria-label={`${label} 的模型`}
-          className="absolute top-full right-0 z-[130] mt-0.5 max-h-56 w-44 overflow-y-auto rounded-[10px] border border-border bg-popover p-1 shadow-md"
+          className="absolute top-full right-0 z-[130] mt-0.5 max-h-64 w-56 overflow-y-auto rounded-[10px] border border-border bg-popover p-1 shadow-md"
         >
           {models.map((model) => (
             <button
@@ -107,8 +107,15 @@ export function AgentModelPicker({
                 setOpen(false)
               }}
             >
-              <span className="block truncate" title={model}>
-                {model}
+              <span className="flex items-center gap-1">
+                {/* 勾选标记：17 个模型时「我现在用的是哪个」必须一眼看到，靠底色不够 */}
+                <Check
+                  className={`h-3 w-3 flex-none ${model === shown ? 'opacity-100' : 'opacity-0'}`}
+                  aria-hidden
+                />
+                <span className="truncate" title={model}>
+                  {model}
+                </span>
               </span>
             </button>
           ))}

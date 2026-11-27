@@ -613,7 +613,14 @@ POST /tasks {message, title?, case_id?}
    把高危置 `ask`（qoder 自己的分类器不能替律师放行）→ `can_use_tool` 接现有
    `services/approval`。`test_hardening_flags_are_emitted` 用 SDK 自己的
    `build_session_args()` 钉住这些 flag 真的发出去了。
-4. **不用原生 session，也不 resume**：每轮一条子进程；配置目录只在**配了显式凭据**时
+4. **BYOK（用律所网关的模型）被组织开关挡着**：`resolve_model` 返回
+   `{model, url, api_key, style}` 是 SDK 支持的官方做法，本后端也已接线
+   （`FACHUAN_QODER_MODEL_SOURCE=gateway`），但真机实测这台账号直接回
+   `BYOK is disabled by your enterprise admin. Please contact them for details.`
+   —— 这是**组织级开关**，不是令牌/配置问题。要么请 Qoder 管理员开启 BYOK，
+   要么继续用 Qoder 自己的模型（默认路径）。这条已映射成 `AUTH`（不可重试），
+   文案直接说「去开通 / 改用 Qoder 模型」。
+5. **不用原生 session，也不 resume**：每轮一条子进程；配置目录只在**配了显式凭据**时
    才临时化（否则复用本机 `~/.qoder` 登录态）。理由两条：律师对话不能在多个会话/多个
    律师间共用目录；编排层在「无 pi session 但有历史」时会把历史渲染成 transcript，
    两套上下文叠一起会让同一句话出现两次。`ctx.isolated` 因此天然满足。
