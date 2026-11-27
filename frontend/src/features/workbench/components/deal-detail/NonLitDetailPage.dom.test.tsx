@@ -15,7 +15,7 @@
  *
  * 编排层之外的一切（布局、右栏、各工作台）全部 stub：它们各有自己的测试。
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
@@ -53,8 +53,19 @@ vi.mock('./use-net-width', () => ({
   useNetWidth: () => h.netWidth,
 }))
 vi.mock('./refetch-contract', () => ({ refetchContractAndCases: vi.fn() }))
-vi.mock('../../api', () => ({ listFolderEntries: h.listFolderEntries }))
-vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: vi.fn() }) }))
+vi.mock('../../api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api')>()),
+  listFolderEntries: h.listFolderEntries,
+  // 新增期限弹窗挂载即拉类型；这里给一份最小清单，断言只看开合与归属
+  listReminderTypes: vi.fn(async () => [{ value: 'other', label: '其他' }]),
+  createReminder: vi.fn(),
+}))
+// 本文件测的是接线，不挂真实 QueryClient：新增期限弹窗会跑
+// useQuery('/reminders/types')，给一个「永远在途」的桩即可（它不参与断言）
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: () => ({ data: undefined, isPending: true, isError: false, refetch: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: vi.fn(), refetchQueries: vi.fn() }),
+}))
 
 /* ---- 展示层全部 stub：本文件测接线，不测呈现 ---- */
 vi.mock('./DetailHeader', () => ({
@@ -305,10 +316,12 @@ describe('NonLitDetailPage · 右栏与下一程序', () => {
     }
   })
 
-  it('「＋ 新增期限」是占位动作（当前只有一句 toast）', () => {
+  it('「＋ 新增期限」打开新增期限弹窗（不再是一句 toast）', async () => {
     renderPage()
-    h.rail.mock.calls[0]![0].onAddDue()
-    expect(h.toast.info).toHaveBeenCalledWith('新增期限正在开发中')
+    act(() => h.rail.mock.calls[0]![0].onAddDue())
+    expect(await screen.findByText('新增期限')).toBeTruthy()
+    // 非诉没有案件卡：归属只给「整个委托」
+    expect(screen.getByRole('option', { name: '整个委托（合同层面）' })).toBeTruthy()
   })
 
   it('有 next 时渲染「下一程序」块，新建按钮也是占位', () => {

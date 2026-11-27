@@ -28,12 +28,14 @@ describe('workbench/index 出口', () => {
     expect(typeof mod.WorkbenchPage).toBe('function')
   })
 
+  // 这条会把整个详情页依赖图（含 pdfjs）动态拉一遍：并行跑测试时 5s 默认超时
+  // 经常不够，给到 20s——它验的是「chunk 能取到」，不是速度
   it('preloadDealDetailPage 返回 Promise 并能取到 DealDetailPage', async () => {
     const p = preloadDealDetailPage()
     expect(typeof p.then).toBe('function')
     const mod = await p
     expect(typeof mod.DealDetailPage).toBe('function')
-  })
+  }, 20000)
 
   it('WorkbenchPageLazy 是合法的 React.lazy 组件', () => {
     expect(WorkbenchPageLazy).toBeTruthy()

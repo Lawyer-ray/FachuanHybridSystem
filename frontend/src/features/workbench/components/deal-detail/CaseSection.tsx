@@ -63,7 +63,8 @@ export function CaseSection({
   ambiguous: boolean
   /** stepper 跳转后的短暂高亮环 */
   highlighted: boolean
-  onAddLog: () => void
+  /** 记日志：归属就是这张卡代表的案件（合同没有时间轴） */
+  onAddLog: (c: { id: number; label: string }) => void
   /**
    * 点文件行 = 打开 OnlyOffice 预览（而不是 window.open 下载）。
    *
@@ -143,7 +144,7 @@ export function CaseSection({
             </span>
           )}
           {view === 'logs' && (
-            <ActionButton sm onClick={onAddLog} title="即将支持：记日志的接口还没上线">
+            <ActionButton sm onClick={() => onAddLog({ id: c.id, label: c.proc })} title="记一条项目日志（可顺手约一个期限）">
               ＋ 记日志
             </ActionButton>
           )}

@@ -15,15 +15,7 @@ import { ActionButton, MetaLine } from './ui'
  * 主标题即合同名（建档时的全称），领域身份不另造名称；标题不限宽——限宽会留下
  * 一大片「标题够不着、按钮够不着」的空白（长案名 3 行折行时尤其明显）。
  */
-export function DetailHeader({
-  deal,
-  onAddDue,
-  onAddLog,
-}: {
-  deal: WorkbenchDeal
-  onAddDue: () => void
-  onAddLog: () => void
-}) {
+export function DetailHeader({ deal }: { deal: WorkbenchDeal }) {
   /** 抽屉开关留在页头（谁渲染触发器谁持状态）：抽屉自身不碰导航，纯只读面板 */
   const [memoryOpen, setMemoryOpen] = useState(false)
 
@@ -60,14 +52,9 @@ export function DetailHeader({
           <ActionButton title="本项目所有 AI 笔记（同团队可见）" onClick={() => setMemoryOpen(true)}>
             AI 上下文
           </ActionButton>
-          {/* 这两个动作后端还没上线：保留入口与点击后的解释，但不再用深色主按钮
-              冒充「这里能做」——页头的主操作位应该留给真能完成的事 */}
-          <ActionButton onClick={onAddDue} title="即将支持：新增期限的接口还没上线">
-            ＋ 新增期限
-          </ActionButton>
-          <ActionButton onClick={onAddLog} title="即将支持：记项目日志的接口还没上线">
-            ＋ 记项目日志
-          </ActionButton>
+          {/* 这里不再放「＋ 新增期限 / ＋ 记项目日志」：右栏「期限」节和每张案件卡
+              已有对应入口，页头再来一份只是重复。页头只留「编辑」（导航）与
+              「AI 上下文」（只读抽屉） */}
         </div>
       </div>
 

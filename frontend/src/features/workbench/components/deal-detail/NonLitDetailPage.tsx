@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 
 import { toast } from 'sonner'
 
+import { AddDeadlineDialog } from './AddDeadlineDialog'
 import { DealDocLayout, DOC_SIDE_BY_SIDE_MIN, type PickedFile } from './DealDocLayout'
 import type { FolderEntryMutation } from './folder-tree-types'
 import { UnsavedChangesDialog } from './UnsavedChangesDialog'
@@ -71,6 +72,14 @@ export function NonLitDetailPage() {
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
   }, [])
   const [payOpen, setPayOpen] = useState(false)
+  /** 新增期限弹窗（非诉没有案件卡，期限一律挂合同） */
+  const [deadlineOpen, setDeadlineOpen] = useState(false)
+  const onScheduleChanged = useCallback(() => {
+    const id = deal?.id
+    if (id == null) return
+    refetchContractAndCases(qc, id)
+    void qc.invalidateQueries({ queryKey: ['workbench', 'case-reminders', id] })
+  }, [qc, deal?.id])
   const [invoiceOpen, setInvoiceOpen] = useState(false)
   /** 正在发起审查的文件（null = 抽屉关闭） */
   const [reviewTarget, setReviewTarget] = useState<{ subpath: string; name: string } | null>(null)
@@ -210,7 +219,7 @@ export function NonLitDetailPage() {
     moneyRows: money,
     onOpenFile: openPreview,
     onReviewFile: (f: { subpath: string; name: string }) => setReviewTarget(f),
-    onAddDue: () => soonToast('新增期限'),
+    onAddDue: () => setDeadlineOpen(true),
     onAddPayment: () => setPayOpen(true),
     onOpenInvoices: () => setInvoiceOpen(true),
     // 发票关联/解除改了合同的开票金额：刷新合同（统计格、收款徽标、案件卡的钱）
@@ -219,7 +228,7 @@ export function NonLitDetailPage() {
 
   return (
     <main className="app-page-enter @container mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
-      <DetailHeader deal={deal} onAddDue={() => soonToast('新增期限')} onAddLog={() => soonToast('记项目日志')} />
+      <DetailHeader deal={deal} />
 
       {/* 周期轴：常法 → 服务期 + 事项刻度；专项 → 项目周期 + 阶段里程碑 */}
       {deal.from && deal.to && (
@@ -371,6 +380,14 @@ export function NonLitDetailPage() {
       />
 
       <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
+
+      <AddDeadlineDialog
+        open={deadlineOpen}
+        contractId={deal.id}
+        cases={[]}
+        onClose={() => setDeadlineOpen(false)}
+        onSaved={onScheduleChanged}
+      />
 
       {/* 未保存改动的确认：拦的是「关文档 / 换文件」 */}
       <UnsavedChangesDialog open={doc.pending} onStay={doc.stay} onLeave={doc.leave} />

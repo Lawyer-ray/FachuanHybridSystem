@@ -13,6 +13,8 @@ import { ChainStepper } from './ChainStepper'
 
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
+import { AddDeadlineDialog } from './AddDeadlineDialog'
+import { AddLogDialog } from './AddLogDialog'
 import { ContractFileOverlays } from './ContractFileOverlays'
 import { DealDocLayout, DOC_SIDE_BY_SIDE_MIN } from './DealDocLayout'
 import type { FolderEntryMutation } from './folder-tree-types'
@@ -152,15 +154,27 @@ export function DealDetailPage() {
   const steps = useMemo(() => chainSteps(plan), [plan])
   const ambiguous = useMemo(() => ambiguousStages(plan), [plan])
 
-  /* 创建类动作：记日志 / 新增期限 / 新建下一程序案件仍占位；记收款已接真实表单 */
+  /* 记日志 / 新增期限已接真实表单（见 AddLogDialog / AddDeadlineDialog）；只剩
+     「新建下一程序案件」仍是占位 */
   const soon = useCallback((what: string) => soonToast(what), [])
-  const onAddLog = useCallback(() => soon('记项目日志'), [soon])
-  const onAddDue = useCallback(() => soon('新增期限'), [soon])
   const onCreateNext = useCallback(() => soon('新建' + (next ?? '') + '案件'), [soon, next])
+
+  /** 正在记日志的案件（null = 弹窗关闭）。日志归属**具体案件**，所以带 id + 程序名 */
+  const [logTarget, setLogTarget] = useState<{ id: number; label: string } | null>(null)
+  /** 新增期限弹窗（右栏「期限」节的 ＋ 新增） */
+  const [deadlineOpen, setDeadlineOpen] = useState(false)
+  /**
+   * 期限/日志写完后要刷的三处：合同（合同直挂期限）、案件（时间轴里的日志与日志级
+   * 期限）、案件直挂提醒（开庭这类）——缺一处就会出现「记了但列表里没有」。
+   */
+  const queryClient = useQueryClient()
+  const onScheduleChanged = useCallback(() => {
+    refetchContractAndCases(queryClient, contractId)
+    void queryClient.invalidateQueries({ queryKey: ['workbench', 'case-reminders', contractId] })
+  }, [queryClient, contractId])
 
   /** 记收款弹窗：粘贴到账短信 / 拖发票进来（见 PaymentDialog） */
   const [payOpen, setPayOpen] = useState(false)
-  const queryClient = useQueryClient()
   /**
    * 收费节里的写操作（发票关联/解除/上传）完成后刷新合同 + 案件。
    *
@@ -200,11 +214,7 @@ export function DealDetailPage() {
   }
   return (
     <main className="app-page-enter @container mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
-      <DetailHeader
-        deal={deal}
-        onAddDue={onAddDue}
-        onAddLog={onAddLog}
-      />
+      <DetailHeader deal={deal} />
 
       <ChainStepper steps={steps} summary={chainSummary(plan)} onJump={jump} />
 
@@ -235,7 +245,7 @@ export function DealDetailPage() {
             team={deal.team}
             deal={deal}
             moneyRows={money}
-            onAddDue={onAddDue}
+            onAddDue={() => setDeadlineOpen(true)}
             onAddPayment={onAddPayment}
             onOpenInvoices={onOpenInvoices}
             onMoneyChanged={onMoneyChanged}
@@ -281,7 +291,7 @@ export function DealDetailPage() {
                     c={c}
                     ambiguous={ambiguous.has(c.proc)}
                     highlighted={hl === c.id}
-                    onAddLog={onAddLog}
+                    onAddLog={setLogTarget}
                     onOpenFile={openCaseFile(c.id)}
                     onDraft={draft.openFor}
                     selectedSubpath={picked?.kind === 'case' && picked.ownerId === c.id ? picked.subpath : null}
@@ -322,6 +332,24 @@ export function DealDetailPage() {
 
       {/* 先开票后付款：票挂合同名下；关闭即失效未关联缓存，右栏计数同步 */}
       <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
+
+      {/* 记日志：归属就是点它的那张案件卡；「同时设期限」走同一次请求 */}
+      <AddLogDialog
+        open={logTarget !== null}
+        caseId={logTarget?.id ?? 0}
+        caseLabel={logTarget?.label ?? ''}
+        onClose={() => setLogTarget(null)}
+        onSaved={onScheduleChanged}
+      />
+
+      {/* 新增期限：默认挂整个委托，也可以挑某个案件 */}
+      <AddDeadlineDialog
+        open={deadlineOpen}
+        contractId={contractId}
+        cases={ordered.map((c) => ({ id: c.id, proc: c.proc }))}
+        onClose={() => setDeadlineOpen(false)}
+        onSaved={onScheduleChanged}
+      />
 
       {/* 未保存改动的确认：拦的是「关文档 / 换文件」，不是页面级导航 */}
       <UnsavedChangesDialog open={doc.pending} onStay={doc.stay} onLeave={doc.leave} />

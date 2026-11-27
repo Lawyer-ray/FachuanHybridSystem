@@ -792,21 +792,36 @@ describe('DealDetailPage：案件加载失败重试', () => {
   })
 })
 
-// ============ 创建类占位按钮（覆盖率补测） ============
+// ============ 创建类动作（记日志 / 新增期限）============
 
-describe('DealDetailPage：占位动作按钮', () => {
-  it('页头「＋ 新增期限」「记日志」可点（占位提示，不抛错）', async () => {
+describe('DealDetailPage：创建类动作', () => {
+  it('页头不再放「新增期限 / 记项目日志」——右栏与案件卡已有入口，不重复', async () => {
     setupUi()
     await waitFor(() => expect(document.body.textContent).toContain('某银行与某公司'))
+    // 页头那两个入口已删：整页只剩右栏的「＋ 新增」与案件卡的「＋ 记日志」
+    const labels = Array.from(document.querySelectorAll('button')).map((b) => (b.textContent ?? '').trim())
+    expect(labels.some((t) => t.includes('新增期限'))).toBe(false)
+    expect(labels.some((t) => t.includes('记项目日志'))).toBe(false)
+  })
 
-    for (const label of ['＋ 新增期限', '记日志']) {
-      const btn = Array.from(document.querySelectorAll('button')).find((b) =>
-        (b.textContent ?? '').includes(label),
-      )
-      if (btn) {
-        expect(() => fireEvent.click(btn)).not.toThrow()
-      }
-    }
+  it('案件卡「＋ 记日志」打开记日志弹窗（归属就是这张卡）', async () => {
+    setupUi()
+    await screen.findByText('二审开庭')
+    const btn = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent ?? '').includes('＋ 记日志'))
+    expect(btn).toBeTruthy()
+    fireEvent.click(btn!)
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(screen.getByText('记日志')).toBeTruthy()
+  })
+
+  it('右栏「＋ 新增」打开新增期限弹窗', async () => {
+    setupUi()
+    await screen.findByText('二审开庭')
+    const btn = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent ?? '').trim() === '＋ 新增')
+    expect(btn).toBeTruthy()
+    fireEvent.click(btn!)
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(screen.getByText('新增期限')).toBeTruthy()
   })
 
   it('页头不放 AI 助手入口（只在导航栏），也不挂嵌入对话区与拖拽把手', async () => {
