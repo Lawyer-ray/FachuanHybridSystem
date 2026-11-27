@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -41,6 +42,8 @@ DEFAULT_TTL_SECONDS = 600.0
 TIMEOUT_SECONDS = 15.0
 #: 输出里的表头行（跳过）。
 _HEADER = "model"
+#: ``显示名 (id)`` 的行（BYOK 自定义模型的输出形态）。
+_DISPLAY_WITH_ID_RE = re.compile(r"^.+?\s*\(([^()\s]+)\)$")
 
 #: 缓存（模块级变量而不是 `dict[str, object]`：后者每处取值都要 cast，类型噪音大于收益）。
 _cached_models: list[str] = []
@@ -65,17 +68,26 @@ def invalidate() -> None:
 
 
 def _parse(output: str) -> list[str]:
-    """``--list-models`` 输出 → 模型 id 列表（去掉表头与空行，保序去重）。"""
+    """``--list-models`` 输出 → 模型 **id** 列表（去掉表头与空行，保序去重）。
+
+    ## BYOK 自定义模型的行长这样
+
+    ``kimi-2.6 (fachuan-gw/kimi-2.6)`` —— 括号里才是 ``--model`` 要的 id，
+    括号外只是给人看的显示名。把整行当 id 传给 CLI 必然「模型不存在」，所以这里
+    只取括号内的部分（没有括号的行本身就是 id，如 ``Auto`` / ``Ultimate``）。
+    """
     models: list[str] = []
     seen: set[str] = set()
     for line in output.splitlines():
         name = line.strip()
         if not name or name.lower() == _HEADER:
             continue
-        if name in seen:
+        match = _DISPLAY_WITH_ID_RE.match(name)
+        model_id = match.group(1) if match else name
+        if model_id in seen:
             continue
-        seen.add(name)
-        models.append(name)
+        seen.add(model_id)
+        models.append(model_id)
     return models
 
 
@@ -141,9 +153,24 @@ def default_model() -> str | None:
     return models[0] if models else None
 
 
+#: 是否在模型下拉里列出 BYOK 自定义模型（``fachuan-gw/kimi-2.6`` 这种）。
+#:
+#: 默认**关**：CLI 直跑能通，但 SDK 客户端这条路（``--input-format stream-json``）
+#: 实测拿不到（``You do not have access to this model service`` / ``Sorry, something
+#: went wrong``），而 2026-11-27 真机就是「选了它 → 报错」。宁可先不展示，也不让
+#: 用户点到一个必然失败的选项。等 SDK 侧跑通（或改走 CLI 子进程）再打开。
+SHOW_BYOK_ENV = "FACHUAN_QODER_SHOW_BYOK"
+
+
+def show_byok() -> bool:
+    return os.environ.get(SHOW_BYOK_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def for_display() -> tuple[list[str], str | None]:
     """``(models, default_model)``：``/agent/backends`` 直接用这个。"""
     models = list_models()
+    if not show_byok():
+        models = [name for name in models if "/" not in name]
     if not models:
         return [], None
     default = "Auto" if "Auto" in models else models[0]
@@ -157,5 +184,6 @@ __all__ = [
     "default_model",
     "for_display",
     "invalidate",
+    "show_byok",
     "list_models",
 ]
