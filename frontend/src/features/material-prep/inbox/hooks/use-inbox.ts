@@ -1,10 +1,14 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+
+import { errMessage } from '@/lib/errors'
 import {
   INBOX_LIST_KEY,
   convertToPack,
   inboxListKey,
   listInbox,
   setReadState,
+  submitMessageToSms,
   type ListInboxParams,
 } from '../api'
 import type { InboxRow } from '../types'
@@ -88,5 +92,25 @@ export function useConvertToPack() {
       void qc.invalidateQueries({ queryKey: INBOX_LIST_KEY })
       void qc.invalidateQueries({ queryKey: ['home-inbox'] })
     },
+  })
+}
+
+/**
+ * 提交短信流程（收件箱消息 → CourtSMS）。
+ *
+ * 成功后**不**失效任何查询，原因与 `useConvertToPack` 相反：转材料包会改列表行
+ * （`converted_message_id`），提交短信则不改收件箱的任何字段——短信记录在 automation
+ * 域，收件箱看不到它。失效列表只会白拉一次 200 行，用户看不出区别。
+ * 于是唯一的反馈是 toast，且必须按 `created` 分两种文案：命中幂等与新建都是 200，
+ * 说成「已提交」会让人以为重复点击建了两条短信记录。
+ */
+export function useSubmitToSms() {
+  return useMutation({
+    mutationFn: (id: number) => submitMessageToSms(id),
+    onSuccess: (res) => {
+      if (res.created) toast.success(`已提交短信处理（SMS #${res.sms_id}）`)
+      else toast.info(`该消息已提交过（SMS #${res.sms_id}）`)
+    },
+    onError: (error) => toast.error(errMessage(error, '提交短信流程失败')),
   })
 }

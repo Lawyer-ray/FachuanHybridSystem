@@ -89,6 +89,27 @@ export async function convertToPack(id: number): Promise<ConvertResult> {
   return inboxApi.post(`messages/${id}/convert`).json<ConvertResult>()
 }
 
+/**
+ * 提交短信流程的返回。
+ *
+ * `created` 区分「这次真的建了短信记录」与「之前已经提交过」：后端做了三级幂等
+ * （收件箱消息 ID / 一张网 sdbh / 内容指纹），重复提交同样返回 200，但新建与命中
+ * 幂等的用户语义完全不同，文案不能混。
+ * `skipped` 是逐附件失败清单（名字 + 原因）：部分附件取不到字节时消息照样进流程，
+ * 只是那几份没带上。
+ */
+export interface SubmitToSmsResult {
+  sms_id: number
+  created: boolean
+  attachment_count: number
+  skipped: { name: string; reason: string }[]
+}
+
+/** POST /inbox/messages/{id}/submit-to-sms —— 把消息附件提交到法院短信处理流程（幂等，返回 sms_id） */
+export async function submitMessageToSms(id: number): Promise<SubmitToSmsResult> {
+  return inboxApi.post(`messages/${id}/submit-to-sms`).json<SubmitToSmsResult>()
+}
+
 /** 附件下载 / 预览 URL。
  *
  *  ⚠️ **不能直接当 `<a href>` 用**：本应用的 JWT 在 localStorage，只有 ky 发

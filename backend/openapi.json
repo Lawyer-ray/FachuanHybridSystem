@@ -17471,6 +17471,44 @@
         ]
       }
     },
+    "/api/v1/inbox/messages/{message_id}/submit-to-sms": {
+      "post": {
+        "operationId": "apps_message_hub_api_inbox_api_submit_message_to_sms",
+        "summary": "Submit Message To Sms",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "schema": {
+              "title": "Message Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitToSmsOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "把一张网 / 庭审日程 / IMAP 消息提交到法院短信处理流程。\n\n附件字节会被**复制**一份到 automation 上传目录（不引用原 local_path）——\n短信链路的 ``DocumentRenamer`` 原地改名，引用会把收件箱附件弄丢。\n幂等：命中既有短信记录时返回该记录且 ``created=False``。",
+        "tags": [
+          "收件箱"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/inbox/messages/{message_id}/attachments/{part_index}/download": {
       "get": {
         "operationId": "apps_message_hub_api_inbox_api_download_attachment",
@@ -49059,6 +49097,46 @@
           "pack_id"
         ],
         "title": "ConvertOut",
+        "type": "object"
+      },
+      "SubmitToSmsOut": {
+        "description": "收件箱消息提交到法院短信流程的结果。\n\n``created=False`` 表示命中幂等，``sms_id`` 是既有那条记录；\n``skipped`` 是取不回的附件（``[{\"name\": ..., \"reason\": ...}]``），\n非空但记录已建成时前端只需提示，不需要重试。",
+        "properties": {
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          },
+          "sms_id": {
+            "title": "Sms Id",
+            "type": "integer"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "attachment_count": {
+            "title": "Attachment Count",
+            "type": "integer"
+          },
+          "skipped": {
+            "default": [],
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sms_id",
+          "created",
+          "attachment_count"
+        ],
+        "title": "SubmitToSmsOut",
         "type": "object"
       },
       "OcrBlockOut": {

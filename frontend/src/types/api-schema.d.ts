@@ -7161,6 +7161,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inbox/messages/{message_id}/submit-to-sms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Message To Sms
+         * @description 把一张网 / 庭审日程 / IMAP 消息提交到法院短信处理流程。
+         *
+         *     附件字节会被**复制**一份到 automation 上传目录（不引用原 local_path）——
+         *     短信链路的 ``DocumentRenamer`` 原地改名，引用会把收件箱附件弄丢。
+         *     幂等：命中既有短信记录时返回该记录且 ``created=False``。
+         */
+        post: operations["apps_message_hub_api_inbox_api_submit_message_to_sms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inbox/messages/{message_id}/attachments/{part_index}/download": {
         parameters: {
             query?: never;
@@ -21630,6 +21654,34 @@ export interface components {
             message_id: number;
             /** Pack Id */
             pack_id: number;
+        };
+        /**
+         * SubmitToSmsOut
+         * @description 收件箱消息提交到法院短信流程的结果。
+         *
+         *     ``created=False`` 表示命中幂等，``sms_id`` 是既有那条记录；
+         *     ``skipped`` 是取不回的附件（``[{"name": ..., "reason": ...}]``），
+         *     非空但记录已建成时前端只需提示，不需要重试。
+         */
+        SubmitToSmsOut: {
+            /**
+             * Success
+             * @default true
+             */
+            success: boolean;
+            /** Sms Id */
+            sms_id: number;
+            /** Created */
+            created: boolean;
+            /** Attachment Count */
+            attachment_count: number;
+            /**
+             * Skipped
+             * @default []
+             */
+            skipped: {
+                [key: string]: string;
+            }[];
         };
         /** OcrBlockOut */
         OcrBlockOut: {
@@ -38311,6 +38363,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConvertOut"];
+                };
+            };
+        };
+    };
+    apps_message_hub_api_inbox_api_submit_message_to_sms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmitToSmsOut"];
                 };
             };
         };

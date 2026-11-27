@@ -45,6 +45,7 @@ class MessageSourceAdmin(admin.ModelAdmin):  # pragma: no cover
                     "is_enabled",
                     "poll_interval_minutes",
                     "sync_since",
+                    "auto_sms_since",
                 )
             },
         ),

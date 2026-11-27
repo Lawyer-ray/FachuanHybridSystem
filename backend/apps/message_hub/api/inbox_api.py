@@ -19,6 +19,7 @@ from apps.message_hub.schemas import (
     InboxMessageOut,
     MessageAckOut,
     MessageRenameOut,
+    SubmitToSmsOut,
 )
 from apps.message_hub.services.inbox_access import can_view_message
 
@@ -224,6 +225,27 @@ def convert_message(request: HttpRequest, message_id: int) -> dict[str, Any]:
     msg = _get_message_or_404(request, message_id)
     pack = convert_to_material_pack(msg, uploaded_by=request.user)
     return {"ok": True, "message_id": msg.pk, "pack_id": pack.pk}
+
+
+@router.post("/messages/{message_id}/submit-to-sms", response=SubmitToSmsOut)
+def submit_message_to_sms(request: HttpRequest, message_id: int) -> dict[str, Any]:
+    """把一张网 / 庭审日程 / IMAP 消息提交到法院短信处理流程。
+
+    附件字节会被**复制**一份到 automation 上传目录（不引用原 local_path）——
+    短信链路的 ``DocumentRenamer`` 原地改名，引用会把收件箱附件弄丢。
+    幂等：命中既有短信记录时返回该记录且 ``created=False``。
+    """
+    from apps.message_hub.services.inbox_sms_bridge import InboxSmsBridgeService
+
+    msg = _get_message_or_404(request, message_id)
+    result = InboxSmsBridgeService().submit(msg)
+    return {
+        "success": True,
+        "sms_id": result.sms.pk,
+        "created": result.created,
+        "attachment_count": result.attachment_count,
+        "skipped": result.skipped,
+    }
 
 
 @router.get("/messages/{message_id}/attachments/{part_index}/download")

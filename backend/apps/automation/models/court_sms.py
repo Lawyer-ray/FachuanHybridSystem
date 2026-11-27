@@ -71,6 +71,11 @@ class CourtSMS(models.Model):
         db_index=True,
         verbose_name="送达事件去重键",
     )
+    # 收件箱桥接溯源：一张网 / IMAP 消息提交进短信流程时回指 InboxMessage.pk。
+    # 不用 FK——inbox 消息可硬删，这里只做历史指针与幂等键，查找侧容忍消息已删。
+    inbox_message_id = models.PositiveBigIntegerField(
+        null=True, blank=True, db_index=True, verbose_name="来源收件箱消息 ID"
+    )
 
     # 处理状态
     status = models.CharField(
@@ -133,7 +138,13 @@ class CourtSMS(models.Model):
                 fields=["delivery_event_key"],
                 condition=Q(delivery_event_key__isnull=False) & ~Q(delivery_event_key=""),
                 name="uniq_courtsms_delivery_event_key",
-            )
+            ),
+            # 一条收件箱消息最多进一次短信流程（并发重复提交的兜底；软引用为空的存量行不参与）
+            models.UniqueConstraint(
+                fields=["inbox_message_id"],
+                condition=Q(inbox_message_id__isnull=False),
+                name="uniq_courtsms_inbox_message",
+            ),
         ]
 
     def __str__(self) -> str:
