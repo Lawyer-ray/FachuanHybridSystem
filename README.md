@@ -138,7 +138,7 @@ FachuanHybridSystem/
 │   ├── apps/            38 个业务模块（cases / contracts / documents / agent / …）
 │   ├── mcp_server/      MCP 工具面（442 个工具，server.py 统一注册）
 │   ├── apiSystem/       Django 配置与路由装配
-│   ├── tests/           1708 个测试文件（unit / integration / property / structure）
+│   ├── tests/           1709 个测试文件（unit / integration / property / structure）
 │   └── plugins/         git 子模块（FachuanPlugins，**内部仓库，不对外提供**）
 ├── frontend/src/
 │   ├── app/             路由表 · 路径常量 · 壳层（唯一权威，禁止手拼路径）
@@ -147,7 +147,7 @@ FachuanHybridSystem/
 ├── ml-training/         方向分类模型训练（PyTorch → ONNX）
 ├── deploy/              公网栈（nginx + gunicorn + Cloudflare Tunnel）
 ├── docs/harness/        工程规范细则（按需加载的 18 个叶子文件）
-└── changelog/           679 篇版本变更记录
+└── changelog/           681 篇版本变更记录
 ```
 
 ## 快速开始
@@ -172,7 +172,7 @@ make ci-full        # 完整 CI（需 PostgreSQL：+ pytest + 覆盖率）
 | API 端点 | 751 | `from apiSystem.api import api_v1; api_v1._get_urls()`（不含 openapi/docs 两条调试路由） |
 | MCP 工具 | 442 | 导入 `mcp_server.server`，`asyncio.run(mcp.list_tools())` 计数；线上核对 `make mcp-verify` |
 | 数据库迁移 | 454 | `find backend/apps -path '*/migrations/*.py' ! -name '__init__.py' \| wc -l` |
-| 测试文件 | 1708 / 483 | 后端 `find backend/tests -name 'test_*.py'`；前端 `find frontend/src -name '*.test.ts*'` |
+| 测试文件 | 1709 / 483 | 后端 `find backend/tests -name 'test_*.py'`；前端 `find frontend/src -name '*.test.ts*'` |
 
 > 数字会随版本增长。以上为 2026-11-27 / v27.27.4 时点（`make mcp-verify` 实测代码注册表与线上工具面均为 442）。
 >
