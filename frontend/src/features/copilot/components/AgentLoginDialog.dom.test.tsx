@@ -24,6 +24,9 @@ import type { AgentBackendOption, QoderLoginState } from '../types'
 vi.mock('../api', () => ({
   startQoderLogin: vi.fn(),
   fetchQoderLoginStatus: vi.fn(),
+  fetchQoderByok: vi.fn(),
+  registerQoderByok: vi.fn(),
+  deleteQoderByok: vi.fn(),
 }))
 
 import { fetchQoderLoginStatus, startQoderLogin } from '../api'

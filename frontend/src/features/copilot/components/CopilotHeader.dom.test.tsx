@@ -18,6 +18,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // header 只从 store 读清单（已建会话的后端显示名）；选谁不在 header 里
 const storeMock = vi.hoisted(() => ({
+  // 模型记忆：切会话时装回本地选择、用服务端 llm_model 兜底（见 store/answers.ts）
+  hydrateAnswerModels: vi.fn(),
+  seedAnswerModel: vi.fn(),
   backends: [] as Array<{
     kind: string
     label: string

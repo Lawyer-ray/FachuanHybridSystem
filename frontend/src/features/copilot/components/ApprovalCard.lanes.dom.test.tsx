@@ -15,6 +15,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../api', () => ({
+  // 登录/接入模型入口（AnswerAgentMenu 的 qoder 行会调）
+  startQoderLogin: vi.fn(),
+  fetchQoderLoginStatus: vi.fn(),
+  registerQoderByok: vi.fn(),
   createSession: vi.fn(),
   fetchHistory: vi.fn(),
   openMessageStream: vi.fn(),

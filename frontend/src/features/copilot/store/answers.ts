@@ -24,13 +24,19 @@
  * 否则请求会在后端 400，而那时用户已经敲了回车。
  */
 
+import { readStoredAnswerModels, storeAnswerModels } from '../persistence'
 import { MAX_ANSWERS } from '../domain'
 import type { CopilotState } from '../types'
 import type { Slice } from './slice'
 
 export type AnswersSlice = Pick<
   CopilotState,
-  'answerAgents' | 'toggleAnswerAgent' | 'answerModels' | 'setAnswerModel'
+  | 'answerAgents'
+  | 'toggleAnswerAgent'
+  | 'answerModels'
+  | 'setAnswerModel'
+  | 'hydrateAnswerModels'
+  | 'seedAnswerModel'
 >
 
 export const createAnswersSlice: Slice<AnswersSlice> = (set, get) => ({
@@ -58,5 +64,32 @@ export const createAnswersSlice: Slice<AnswersSlice> = (set, get) => ({
     if (model) next[kind] = model
     else delete next[kind]
     set({ answerModels: next })
+    // 按会话落盘：刷新/切回来时不必重挑（见 persistence.readStoredAnswerModels）
+    storeAnswerModels(get().sessionId, next)
+  },
+
+  /**
+   * 切会话时把该会话上次选的模型装回来。
+   *
+   * 空对象 = 这个会话还没选过 → 交给 {@link seedAnswerModel} 用服务端的
+   * `llm_model`（最近一轮**实际**用过的）兜底。
+   */
+  hydrateAnswerModels: (sessionId) => {
+    set({ answerModels: readStoredAnswerModels(sessionId) })
+  },
+
+  /**
+   * 用服务端记录补默认值：**只在本地没有该栏选择时**生效。
+   *
+   * 顺序不能反：本地那条是「律师刚选的」，服务端那条是「上一轮实际跑的」。律师
+   * 手选过就必须尊重手选，否则刷新一次就被"纠正"回旧模型，比不记住更糟。
+   */
+  seedAnswerModel: (kind, model) => {
+    if (!kind || !model) return
+    const current = get().answerModels
+    if (current[kind]) return
+    const next = { ...current, [kind]: model }
+    set({ answerModels: next })
+    storeAnswerModels(get().sessionId, next)
   },
 })

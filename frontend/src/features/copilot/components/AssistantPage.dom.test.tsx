@@ -16,6 +16,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const storeMock = vi.hoisted(() => ({
+  // 模型记忆：切会话时装回本地选择、用服务端 llm_model 兜底（见 store/answers.ts）
+  hydrateAnswerModels: vi.fn(),
+  seedAnswerModel: vi.fn(),
   /** 当前会话（同步的另一半）：null = 新对话 */
   sessionId: null as string | null,
   lastError: null as string | null,
@@ -42,7 +45,11 @@ vi.mock('../store', () => ({
   useCopilot: (sel: (s: typeof storeMock) => unknown) => sel(storeMock),
 }))
 // useSessionRoute 会拉一份会话列表（坏 id 兜底用）：本文件不关心它，别让它真发请求
-vi.mock('../api', () => ({ listSessions: vi.fn(async () => []) }))
+vi.mock('../api', () => ({
+  // 登录/接入模型入口（AnswerAgentMenu 的 qoder 行会调）
+  startQoderLogin: vi.fn(),
+  fetchQoderLoginStatus: vi.fn(),
+  registerQoderByok: vi.fn(), listSessions: vi.fn(async () => []) }))
 vi.mock('../hooks/use-active-session', () => ({ useActiveSession: () => sessionMock }))
 vi.mock('@/hooks/use-media', () => mediaMock)
 vi.mock('../hooks/use-copilot-drop', () => ({
