@@ -33,9 +33,11 @@ vi.mock('../../api', async (importOriginal) => ({
 
 // OnlyOffice 画布不走真 DS：只断言挂载参数（URL 落在哪个业务通道）
 vi.mock('@/components/shared/onlyoffice/OfficeView', () => ({
-  OfficeView: (p: { fileUrl: string; fileName: string; mode?: string }) => (
+  OfficeView: (p: { fileUrl: string; fileName: string; mode?: string; onDirtyChange?: (d: boolean) => void }) => (
     <div data-testid="office-view" data-url={p.fileUrl} data-mode={p.mode}>
       {p.fileName}
+      {/* 画布「改了没存」的事件在真实实现里由 DS 推送，这里用按钮回放 */}
+      <button type="button" onClick={() => p.onDirtyChange?.(true)}>mock-dirty</button>
     </div>
   ),
 }))
@@ -49,6 +51,7 @@ import {
   listFolderEntries,
   listLawyers,
   listRemindersByCase,
+  renameFolderEntry,
 } from '../../api'
 import type { CaseListItem, ContractListItem, LawyerListItem, ReminderOut } from '../../types'
 
@@ -432,8 +435,9 @@ describe('DealDetailPage 程序链与案件节', () => {
     expect(within(sec2).getByText('上诉人')).toBeTruthy()
     const logs = within(sec2).getAllByText(/收到上诉状|二审立案/).map((n) => n.textContent)
     expect(logs).toEqual(['收到上诉状', '二审立案'])
-    // 附件从数字徽章升级为可点 chip（预览按钮 title 透出文件名）
-    expect(within(sec2).getByTitle('预览 a.pdf')).toBeTruthy()
+    // 附件 chip 透出文件名；这条日志的 media_url 为空（原件没上传）——此时它**不是**
+    // 按钮，点开只会得到空白页，所以只标「原件未上传」
+    expect(within(sec2).getByTitle('a.pdf（原件未上传）')).toBeTruthy()
 
     const sec1 = document.getElementById('case-1')!
     expect(within(sec1).getByText('已结')).toBeTruthy()
@@ -543,6 +547,45 @@ describe('DealDetailPage 程序链与案件节', () => {
     fireEvent.click(within(document.getElementById('case-1')!).getByText('起诉状.docx'))
     await screen.findByTestId('office-view')
   }
+
+  it('画布有未保存改动时，关文档先问一句；选「放弃修改」才真的关', async () => {
+    mockCaseFolder()
+    setupUi()
+    await openCaseDoc()
+
+    fireEvent.click(screen.getByText('mock-dirty'))
+    fireEvent.click(screen.getByRole('button', { name: '收起' }))
+
+    // 先拦下来：画布还在，弹窗说清楚代价
+    expect(await screen.findByText('文档里还有未保存的修改')).toBeTruthy()
+    expect(screen.getByTestId('office-view')).toBeTruthy()
+
+    // 继续编辑 → 留在文档里
+    fireEvent.click(screen.getByRole('button', { name: '继续编辑' }))
+    await waitFor(() => expect(screen.queryByText('文档里还有未保存的修改')).toBeNull())
+    expect(screen.getByTestId('office-view')).toBeTruthy()
+
+    // 再关一次，这次放弃修改 → 文档关掉
+    fireEvent.click(screen.getByRole('button', { name: '收起' }))
+    fireEvent.click(await screen.findByRole('button', { name: '放弃修改' }))
+    await waitFor(() => expect(screen.queryByTestId('office-view')).toBeNull())
+  })
+
+  it('正在预览的文件被改名 → 预览关闭（否则 ⌘S 会打到一个不存在的路径）', async () => {
+    mockCaseFolder()
+    vi.mocked(renameFolderEntry).mockResolvedValue({ subpath: '起诉状V2.docx', name: '起诉状V2.docx' })
+    setupUi()
+    await openCaseDoc()
+
+    const sec1 = document.getElementById('case-1')!
+    fireEvent.click(within(sec1).getByRole('button', { name: '重命名' }))
+    const input = await waitFor(() => sec1.querySelector('input[placeholder="新名称"]') as HTMLInputElement)
+    fireEvent.change(input, { target: { value: '起诉状V2.docx' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    // 画布指着的那条路径已经不存在：关掉它，别让律师在假文件上继续改
+    await waitFor(() => expect(screen.queryByTestId('office-view')).toBeNull())
+  })
 
   it('stepper 点击滚到对应案件节', async () => {
     setupUi()

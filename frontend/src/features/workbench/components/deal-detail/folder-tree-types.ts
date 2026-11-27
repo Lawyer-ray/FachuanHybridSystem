@@ -52,10 +52,20 @@ export interface TreeCtx {
   /** 传入时文件行 hover 显「AI 审查」按钮（非诉详情页的合同回审入口；不传则无此按钮） */
   onReviewFile?: (f: { subpath: string; name: string }) => void
   /** 点文件行时的回调；不传则由行自己下载（兼容未接预览的页面） */
-  onOpenFile?: (f: { subpath: string; name: string }) => void
+  onOpenFile?: (f: { subpath: string; name: string; size?: number; modified_at?: string }) => void
   /** 当前正在预览的 subpath——列表行据此高亮（让你知道「看的就是这份」） */
   selectedSubpath?: string | null
 }
+
+/**
+ * 树内条目被改名 / 删除（成功之后）。
+ *
+ * 为什么必须往上报：详情页可能正开着这个文件——画布还指着旧路径，
+ * 标题还是旧名字，保存直接 404，而界面上一切照旧（看起来「还在」）。
+ */
+export type FolderEntryMutation =
+  | { type: 'rename'; kind: FolderOwnerKind; ownerId: number; from: string; to: string }
+  | { type: 'delete'; kind: FolderOwnerKind; ownerId: number; subpath: string }
 
 /** 管理动作（FolderTree 的 mutations 下发） */
 export interface NodeActions {

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { errMessage } from '@/lib/errors'
+import type { FolderEntryMutation } from './folder-tree-types'
 import {
   copyFolderEntry,
   createFolderEntry,
@@ -70,7 +71,13 @@ function ancestorsOf(subpath?: string | null): Set<string> {
  * 三层目录里，连「下一份」都点不到。按选中文件重算祖先链，重挂后看到的就是
  * 自己刚才所在的那一层；没选中文件时仍是一棵收起的树。
  */
-export function useFolderTreeState(kind: FolderOwnerKind, ownerId: number, selectedSubpath?: string | null) {
+export function useFolderTreeState(
+  kind: FolderOwnerKind,
+  ownerId: number,
+  selectedSubpath?: string | null,
+  /** 改名/删除成功后往上报：页面据此把「正在预览的那份」关掉，别对着旧路径保存 */
+  onEntryMutated?: (e: FolderEntryMutation) => void,
+) {
   const qc = useQueryClient()
   const [open, setOpen] = useState<Set<string>>(() => ancestorsOf(selectedSubpath))
   const [creatingIn, setCreatingIn] = useState<string | null>(null)
@@ -121,6 +128,7 @@ export function useFolderTreeState(kind: FolderOwnerKind, ownerId: number, selec
         }
         return next
       })
+      onEntryMutated?.({ type: 'rename', kind, ownerId, from: p.subpath, to: nextPath })
     },
     onError: (e) => fail(e, '重命名'),
   })
@@ -152,6 +160,7 @@ export function useFolderTreeState(kind: FolderOwnerKind, ownerId: number, selec
         for (const k of next) if (k === subpath || k.startsWith(subpath + '/')) next.delete(k)
         return next
       })
+      onEntryMutated?.({ type: 'delete', kind, ownerId, subpath })
     },
     onError: (e) => {
       fail(e, '删除')

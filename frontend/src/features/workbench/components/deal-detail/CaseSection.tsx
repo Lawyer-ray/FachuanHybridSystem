@@ -1,18 +1,30 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import { toast } from 'sonner'
+
 import { EmptyBlock } from '@/components/shared/AsyncState'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { getCaseFolderBinding } from '../../api'
 import { workbenchKeys } from '../../hooks/use-workbench-data'
 import type { DealCase } from '../../types'
 import { caseMetaParts, legalStatusGroups, shortDocName, splitLinkText, timelineEntries } from './detail-domain'
+import type { FolderEntryMutation } from './folder-tree-types'
 import { FolderTree } from './FolderTree'
 import { ActionButton, Card, Chip, MetaLine, Pill, StateDot } from './ui'
 
-/** 附件新标签预览：media 走一次性 ticket（60s 单次），失败时后端 403 兜底 */
+/**
+ * 附件新标签预览：media 走一次性 ticket（60s 单次），失败时后端 403 兜底。
+ *
+ * 空地址不能点：`mediaUrl` 来自 `media_url || ''`，历史日志里可能没有原件，
+ * 点下去只会开一个空白标签页（看着像系统坏了）。
+ */
 async function openAttachment(mediaUrl: string) {
-  window.open(await withDownloadTicket(mediaUrl), '_blank', 'noopener')
+  try {
+    window.open(await withDownloadTicket(mediaUrl), '_blank', 'noopener')
+  } catch {
+    toast.error('附件打不开，请重试')
+  }
 }
 
 /** 视图切换小段按钮（日志 / 文件夹） */
@@ -44,6 +56,7 @@ export function CaseSection({
   onOpenFile,
   onDraft,
   selectedSubpath,
+  onFolderMutated,
 }: {
   c: DealCase
   /** 同阶段多案（如按被告分立）时节标题带案名才分得清 */
@@ -69,6 +82,8 @@ export function CaseSection({
   onDraft?: (caseId: number) => void
   /** 当前预览中的 subpath（属于本案件时行高亮，知道「看的就是这份」） */
   selectedSubpath?: string | null
+  /** 树内改名/删除 → 页面据此关掉正在预览的那份（见 FolderTree 的 onEntryMutated） */
+  onFolderMutated?: (e: FolderEntryMutation) => void
 }) {
   const legGroups = legalStatusGroups(c)
   const entries = timelineEntries(c)
@@ -82,7 +97,16 @@ export function CaseSection({
   })
   const binding = bindingQ.data ?? null
   const [viewOverride, setViewOverride] = useState<'logs' | 'folder' | null>(null)
-  const view: 'logs' | 'folder' = viewOverride ?? (binding ? 'folder' : 'logs')
+  /**
+   * 默认落在哪个视图。
+   *
+   * 判「可达」而不只是「有绑定」：硬盘路径被拔掉/无权限时 binding 仍然存在，
+   * 但点进文件夹只会看到一片空——先给律师看日志，他要看文件夹可以自己切。
+   * 绑定查询在途时不抢先判成「没有绑定」（否则会先闪一下「还没有项目日志」，
+   * 再整块跳成文件夹视图）。
+   */
+  const canBrowse = binding != null && binding.is_accessible
+  const view: 'logs' | 'folder' = viewOverride ?? (canBrowse ? 'folder' : 'logs')
 
   return (
     <Card
@@ -147,13 +171,29 @@ export function CaseSection({
         </div>
       )}
 
-      {view === 'folder' && binding ? (
+      {bindingQ.isError && (
+        <div className="px-5 pt-1 text-[11.5px] text-muted-foreground max-[680px]:px-3.5">
+          案件文件夹状态读取失败
+          <button
+            type="button"
+            className="ml-2 cursor-pointer underline underline-offset-2 hover:text-foreground"
+            onClick={() => void bindingQ.refetch()}
+          >
+            重试
+          </button>
+        </div>
+      )}
+
+      {bindingQ.isPending ? (
+        <div className="px-5 pt-2 pb-4 text-xs text-muted-foreground max-[680px]:px-3.5">正在读取案件材料…</div>
+      ) : view === 'folder' && binding ? (
         <div className="px-5 pt-2 pb-4 max-[680px]:px-3.5">
           <FolderTree
             kind="case"
             ownerId={c.id}
             onOpenFile={onOpenFile}
             selectedSubpath={selectedSubpath ?? null}
+            onEntryMutated={onFolderMutated}
           />
         </div>
       ) : (
@@ -213,13 +253,19 @@ export function CaseSection({
                   )}
                   {e.atts.length > 0 && (
                     <span className="mt-1 flex flex-wrap gap-1.5">
-                      {e.atts.map((a) => (
-                        <button
+                      {e.atts.map((a) => {
+                        // 没有原件（media_url 为空）就别装成按钮：点开只会得到空白页
+                        const clickable = Boolean(a.mediaUrl)
+                        const Tag = clickable ? 'button' : 'span'
+                        return (
+                        <Tag
                           key={a.id}
-                          type="button"
-                          title={'预览 ' + a.name}
-                          onClick={() => void openAttachment(a.mediaUrl)}
-                          className="inline-flex max-w-full min-w-0 cursor-pointer items-center rounded-[6px] border border-border-light bg-background px-2 py-[1px] text-[11px] text-muted-foreground transition-colors hover:border-input hover:text-foreground"
+                          {...(clickable ? { type: 'button' as const, onClick: () => void openAttachment(a.mediaUrl) } : {})}
+                          title={clickable ? '预览 ' + a.name : a.name + '（原件未上传）'}
+                          className={
+                            'inline-flex max-w-full min-w-0 items-center rounded-[6px] border border-border-light bg-background px-2 py-[1px] text-[11px] text-muted-foreground ' +
+                            (clickable ? 'cursor-pointer transition-colors hover:border-input hover:text-foreground' : 'opacity-70')
+                          }
                         >
                           {/* 左列在 AI 工作区展开时压到 ~300px：宽度全部交给容器
                               （max-w-full），flex 子项 min-w-0 才能让 truncate 生效。
@@ -228,8 +274,9 @@ export function CaseSection({
                           <span className="min-w-0 truncate" title={a.name}>
                             📎 {shortDocName(a.name)}
                           </span>
-                        </button>
-                      ))}
+                        </Tag>
+                        )
+                      })}
                     </span>
                   )}
                 </span>

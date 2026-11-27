@@ -119,6 +119,21 @@ interface PluginBridgeOutgoing {
   payload?: Record<string, unknown>
 }
 
+/** 画布可见状态（父级据此把「正在打开」改成真话） */
+export type EditorState = 'loading' | 'ready' | 'error' | 'disabled'
+
+/**
+ * 读 DS 的 `onDocumentStateChange`。
+ *
+ * 各版本口径不同：有的给 `event.data === true`，有的给 `{ status: true }`。
+ * 两种都认，拿不到就当「没改」——宁可漏报一次提醒，也不能凭空说「有未保存改动」。
+ */
+function readDirtyFlag(event: unknown): boolean {
+  const data = (event as { data?: unknown } | null)?.data
+  if (typeof data === 'boolean') return data
+  return (data as { status?: unknown } | undefined)?.status === true
+}
+
 export function OfficeView({
   fileUrl,
   fileName,
@@ -126,6 +141,8 @@ export function OfficeView({
   version = '',
   onEditorReady,
   onPluginMessage,
+  onDirtyChange,
+  onStateChange,
 }: {
   /** 站内下载路径（后端会为 DS 签发可重复使用的 HMAC 签名代理地址） */
   fileUrl: string
@@ -148,6 +165,15 @@ export function OfficeView({
    * 为什么必须绕桥：选区只存在于 DS 内核上下文，外部 React 拿不到。
    */
   onPluginMessage?: (msg: PluginBridgeMessage) => void
+  /**
+   * 文档是否处于「改了但还没保存」状态（DS `onDocumentStateChange`）。
+   *
+   * 关闭卡片 / 换文件 / 关页签前要靠它拦一下——否则律师在画布里敲了半小时，
+   * 随手点一下 X 就全没了，而界面上从未有过任何提示。
+   */
+  onDirtyChange?: (dirty: boolean) => void
+  /** 画布状态变化（加载中 / 就绪 / 打开失败 / 未启用） */
+  onStateChange?: (state: EditorState) => void
 }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<EditorInstance | null>(null)
@@ -165,8 +191,20 @@ export function OfficeView({
    * 回发时用该 origin 作 targetOrigin（而非 '*'）。
    */
   const trustedOriginRef = useRef<string>('')
-  const [state, setState] = useState<'loading' | 'ready' | 'error' | 'disabled'>('loading')
+  const [state, setState] = useState<EditorState>('loading')
   const [reason, setReason] = useState('')
+  /** 回调出口用 ref：进 effect 依赖会让画布每次渲染都重建（同 onEditorReady） */
+  const onDirtyChangeRef = useRef(onDirtyChange)
+  const onStateChangeRef = useRef(onStateChange)
+  useEffect(() => {
+    onDirtyChangeRef.current = onDirtyChange
+  }, [onDirtyChange])
+  useEffect(() => {
+    onStateChangeRef.current = onStateChange
+  }, [onStateChange])
+  useEffect(() => {
+    onStateChangeRef.current?.(state)
+  }, [state])
   /** 挂载轮次：DS 首挂偶发「无报错但 iframe 不创建」，换 key 重挂即好 */
   const [attempt, setAttempt] = useState(0)
   /** 已成功挂载的签名：React StrictMode 会 effect→cleanup→effect，
@@ -257,6 +295,10 @@ export function OfficeView({
           width: '100%',
           height: '100%',
           events: {
+            /** 改动/撤回改动都会来：父级据此决定关文档前要不要提醒 */
+            onDocumentStateChange: (event: unknown) => {
+              onDirtyChangeRef.current?.(readDirtyFlag(event))
+            },
             onDocumentReady: () => {
               if (deadTimer) clearTimeout(deadTimer)
               if (!cancelled) {
@@ -363,6 +405,17 @@ export function OfficeView({
               {state === 'disabled' ? 'OnlyOffice 未启用' : '文档打开失败'}
             </p>
             <p className="text-[11.5px] leading-relaxed text-muted-foreground">{reason}</p>
+            {/* 失败态原先唯一出路是「关掉文件再点开」：一个不起眼的图标按钮
+                藏着整条重试路径。重试 = 换 key 重挂（与僵死探活同一个入口） */}
+            {state === 'error' && (
+              <button
+                type="button"
+                onClick={() => setAttempt((n) => n + 1)}
+                className="mt-1 inline-flex h-[28px] items-center rounded-[7px] border border-border bg-card px-3 text-[12px] font-[550] text-secondary-foreground transition-colors hover:bg-secondary"
+              >
+                重试
+              </button>
+            )}
           </div>
         </div>
       )}

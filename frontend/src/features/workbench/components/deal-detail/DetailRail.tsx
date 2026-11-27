@@ -7,6 +7,7 @@ import type { Deadline } from './detail-domain'
 import { dueLabel } from './detail-domain'
 import { RailFacts, RailParties, RailSupps } from './RailArchive'
 import { RailFees } from './RailFees'
+import type { FolderEntryMutation } from './folder-tree-types'
 import { FolderTree } from './FolderTree'
 import { Card, CopyText, RailAction, RailSection } from './ui'
 
@@ -38,6 +39,7 @@ export function DetailRail({
   onReviewFile,
   folderOwnerId,
   folderSelectedSubpath,
+  onFolderMutated,
 }: {
   deadlines: Deadline[]
   today: Date
@@ -65,8 +67,16 @@ export function DetailRail({
   onReviewFile?: (f: { subpath: string; name: string }) => void
   /** 文件夹绑定的合同 id（默认用 deal.id；独立传是为了让调用方能绑定到别的委托） */
   folderOwnerId?: number
-  /** 当前预览中的 subpath：让树里那一行高亮，知道「看的就是这份」 */
+  /**
+   * 当前预览中的 subpath：让树里那一行高亮，知道「看的就是这份」。
+   *
+   * **调用方必须按 kind 过滤**（`picked.kind === 'contract' ? picked.subpath : null`）：
+   * 案件文件夹与合同文件夹都有 `1-立案材料/…` 这种同名路径，直接透传会亮错行，
+   * 还会按它把合同树里的同名目录强行展开。
+   */
   folderSelectedSubpath?: string | null
+  /** 树内改名/删除 → 页面据此关掉正在预览的那份（见 FolderTree 的 onEntryMutated） */
+  onFolderMutated?: (e: FolderEntryMutation) => void
 }) {
   const copy = (text: string) => {
     void copyText(text).then(() => toast.success('已复制'))
@@ -193,6 +203,7 @@ export function DetailRail({
             selectedSubpath={folderSelectedSubpath ?? null}
             onOpenFile={onOpenFile}
             onReviewFile={onReviewFile}
+            onEntryMutated={onFolderMutated}
           />
         </div>
       )}

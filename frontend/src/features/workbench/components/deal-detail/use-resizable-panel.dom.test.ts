@@ -113,6 +113,12 @@ describe('useResizablePanel', () => {
     expect(result.current.width).toBe(940)
   })
 
+  it('没拖过就不落盘（否则首帧写死默认值，下次访问起再也不按容器自适应）', () => {
+    localStorage.clear()
+    renderHook(() => useResizablePanel({ storageKey: KEY, defaultWidth: 720, min: 360 }))
+    expect(localStorage.getItem(KEY)).toBeNull()
+  })
+
   it('松手后写回 localStorage', () => {
     const { result } = renderHook(() =>
       useResizablePanel({ storageKey: KEY, defaultWidth: 720, min: 360 }),

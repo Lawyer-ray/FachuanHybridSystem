@@ -13,12 +13,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const requestSaveMock = vi.hoisted(() => vi.fn(() => true))
 
 vi.mock('@/components/shared/onlyoffice/OfficeView', () => ({
-  OfficeView: (p: { fileUrl: string; fileName: string; mode?: string; onEditorReady?: (h: unknown) => void }) => {
+  OfficeView: (p: {
+    fileUrl: string
+    fileName: string
+    mode?: string
+    onEditorReady?: (h: unknown) => void
+    onDirtyChange?: (dirty: boolean) => void
+    onStateChange?: (state: string) => void
+  }) => {
     // 立即交出句柄，模拟「编辑器就绪」（另存为要点到 requestSave）
     p.onEditorReady?.({ requestSave: requestSaveMock })
     return (
       <div data-testid="office-view" data-url={p.fileUrl} data-mode={p.mode}>
         {p.fileName}
+        {/* 画布事件在这里用按钮回放：真实实现由 DS 推送 */}
+        <button type="button" onClick={() => p.onDirtyChange?.(true)}>mock-dirty</button>
+        <button type="button" onClick={() => p.onStateChange?.('error')}>mock-error</button>
       </div>
     )
   },
@@ -133,6 +143,25 @@ describe('FilePreviewCard', () => {
     const { onClose } = setup()
     fireEvent.click(screen.getByRole('button', { name: '收起' }))
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('画布报「改了」→ 头部出现未保存标记，并把脏标交给父级', () => {
+    const onDirtyChange = vi.fn()
+    setup({ onDirtyChange })
+    expect(screen.queryByText('未保存')).toBeNull()
+
+    fireEvent.click(screen.getByText('mock-dirty'))
+
+    expect(screen.getByText('未保存')).toBeTruthy()
+    expect(onDirtyChange).toHaveBeenCalledWith(true)
+  })
+
+  it('打开失败时底部不再谎报「可直接编辑」（错误态与就绪态互斥）', () => {
+    setup()
+    expect(screen.getByText(/可直接编辑/)).toBeTruthy()
+    fireEvent.click(screen.getByText('mock-error'))
+    expect(screen.queryByText(/可直接编辑/)).toBeNull()
+    expect(screen.getByText(/打开失败/)).toBeTruthy()
   })
 
   it('沉浸开关：传了回调才出现（不传说明该页没这档），点击透传', () => {

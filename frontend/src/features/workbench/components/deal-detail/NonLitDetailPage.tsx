@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
@@ -6,6 +6,9 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { DealDocLayout, DOC_SIDE_BY_SIDE_MIN, type PickedFile } from './DealDocLayout'
+import type { FolderEntryMutation } from './folder-tree-types'
+import { UnsavedChangesDialog } from './UnsavedChangesDialog'
+import { useDocDirtyGuard } from './use-doc-dirty-guard'
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
 import { ContractFileOverlays } from './ContractFileOverlays'
@@ -75,10 +78,16 @@ export function NonLitDetailPage() {
   const [picked, setPicked] = useState<PickedFile | null>(null)
   /** 沉浸态（DealDocLayout 的 ④）：关掉文档时一并复位，否则下一份打开就是全屏 */
   const [immersive, setImmersive] = useState(false)
+  /** 画布有未保存改动时，关文档 / 换文件先拦一下（见 useDocDirtyGuard） */
+  const doc = useDocDirtyGuard()
+  const guardDirty = doc.guard
+  const markDirty = doc.markDirty
   const closePreview = useCallback(() => {
-    setImmersive(false)
-    setPicked(null)
-  }, [])
+    guardDirty(() => {
+      setImmersive(false)
+      setPicked(null)
+    })
+  }, [guardDirty, setImmersive, setPicked])
 
   /** 净宽（100vw − 助手宽度）：决定「文档在右」还是「文档通栏」（见 use-net-width） */
   const netWidth = useNetWidth()
@@ -101,7 +110,31 @@ export function NonLitDetailPage() {
    */
   const isCrossBorder = isSpecial && (deal?.client ?? '').includes('合同审查')
 
-  const openPreview = useCallback((f: PickedFile) => setPicked(f), [])
+  const openPreview = useCallback((f: PickedFile) => guardDirty(() => setPicked(f)), [guardDirty])
+
+  /** 预览路径的实时快照（树里改名/删除回调要读「现在开着哪份」） */
+  const pickedRef = useRef<PickedFile | null>(null)
+  useEffect(() => {
+    pickedRef.current = picked
+  }, [picked])
+
+  /** 树里改名/删除后，把还指着旧路径的画布关掉（否则 ⌘S 打到不存在的文件上） */
+  const onFolderMutated = useCallback(
+    (ev: FolderEntryMutation) => {
+      const cur = pickedRef.current
+      if (!cur || ev.kind !== 'contract' || ev.ownerId !== deal?.id) return
+      const hit =
+        ev.type === 'delete'
+          ? cur.subpath === ev.subpath || cur.subpath.startsWith(ev.subpath + '/')
+          : cur.subpath === ev.from || cur.subpath.startsWith(ev.from + '/')
+      if (!hit) return
+      setImmersive(false)
+      setPicked(null)
+      markDirty(false)
+      toast.info(ev.type === 'delete' ? '正在预览的文件已被删除，预览已关闭' : '文件已改名，预览已关闭')
+    },
+    [deal?.id, markDirty],
+  )
 
   useDealCopilotContext(deal, '非诉项目详情')
 
@@ -228,6 +261,7 @@ export function NonLitDetailPage() {
         onClose={closePreview}
         onSaved={() => void d.refetch()}
         onReview={(f) => setReviewTarget(f)}
+        onDirtyChange={markDirty}
         aside={
           isSpecial ? (
             <PhaseFoldersCard
@@ -241,6 +275,7 @@ export function NonLitDetailPage() {
             {...railProps}
             showFolder={!isSpecial}
             folderSelectedSubpath={picked?.subpath ?? null}
+            onFolderMutated={onFolderMutated}
           />
         }
       >
@@ -337,6 +372,9 @@ export function NonLitDetailPage() {
       />
 
       <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
+
+      {/* 未保存改动的确认：拦的是「关文档 / 换文件」 */}
+      <UnsavedChangesDialog open={doc.pending} onStay={doc.stay} onLeave={doc.leave} />
     </main>
   )
 }

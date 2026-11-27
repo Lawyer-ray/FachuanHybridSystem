@@ -111,15 +111,22 @@ export function useResizablePanel({
     return startDrag()
   }, [dragging, startDrag])
 
-  // 落盘只在松手后：拖动过程中每帧写 localStorage 会明显卡
+  /**
+   * 落盘只在「用户真的调过宽度」之后。
+   *
+   * 早先这里无条件写：首帧就把默认 720 写进 localStorage，而 `userAdjusted`
+   * 的初值又只看「这个键在不在」→ 第二次访问起永远被当成「用户拖过」，
+   * 自动按容器比例给宽度的那条路从此再也不走（同一台机器两次打开差几百 px）。
+   * 同时拖动过程中不写：每帧写 localStorage 会明显卡。
+   */
   useEffect(() => {
-    if (dragging) return
+    if (dragging || !userAdjusted) return
     try {
       localStorage.setItem(storageKey, String(width))
     } catch {
       // 隐私模式/配额满：记不住就算了，不影响本次使用
     }
-  }, [dragging, storageKey, width])
+  }, [dragging, userAdjusted, storageKey, width])
 
   /**
    * 键盘调整用：支持函数式更新（与 setState 同形）。

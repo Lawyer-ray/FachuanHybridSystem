@@ -82,6 +82,14 @@ export function useFolderSave({
    * 成功 ack）才清。不去重的话，律师每按一次 ⌘S 就弹一次同一个错。
    */
   const warnedDropRef = useRef<string | null>('__unset__')
+  /**
+   * 「正在保存」的同步标记。
+   *
+   * `busy` 是 state，本次调用里读到的永远是旧值：连按两下 ⌘S 或双击保存按钮时，
+   * 两次调用都看见 `busy === null`，于是发两次 forcesave、弹两叠 toast、挂两个
+   * 2500ms 定时器与两次落盘核实。ref 在赋值当刻就生效，才拦得住同一帧内的重入。
+   */
+  const savingRef = useRef(false)
 
   /**
    * 保存之后查一次：这次保存到底有没有落盘。
@@ -110,24 +118,27 @@ export function useFolderSave({
   }, [fileUrl])
 
   const save = useCallback(() => {
-    if (busy !== null || !canSave) return
+    if (savingRef.current || busy !== null || !canSave) return
+    savingRef.current = true
     setBusy('save')
-    try {
-      if (!requestSave()) {
-        toast.error('编辑器尚未就绪，请稍后重试')
-        return
-      }
-      toast.success('已提交保存', { description: '文档服务器正在写回原文件' })
-      // 落盘发生在 DS 回调里，延迟刷新才能读到新 mtime
-      window.setTimeout(() => {
-        void qc.invalidateQueries({ queryKey: workbenchKeys.folderEntries(kind, ownerId) })
-        onSaved?.()
-        // 同一时刻查「到底有没有落盘」：失败时给律师一个明确的错，不是假成功
-        verifySaveLanded()
-      }, 2500)
-    } finally {
+    if (!requestSave()) {
+      savingRef.current = false
       setBusy(null)
+      toast.error('编辑器尚未就绪，请稍后重试')
+      return
     }
+    // 固定 id：连按 ⌘S 只把同一条提示刷新一遍，不叠一排气泡
+    toast.success('已提交保存', { id: 'folder-save', description: '文档服务器正在写回原文件' })
+    // 落盘发生在 DS 回调里，延迟刷新才能读到新 mtime；忙碌态也跟着留到这一刻，
+    // 否则按钮从来看不到 spinner、也拦不住连点
+    window.setTimeout(() => {
+      savingRef.current = false
+      setBusy(null)
+      void qc.invalidateQueries({ queryKey: workbenchKeys.folderEntries(kind, ownerId) })
+      onSaved?.()
+      // 同一时刻查「到底有没有落盘」：失败时给律师一个明确的错，不是假成功
+      verifySaveLanded()
+    }, 2500)
   }, [busy, canSave, requestSave, onSaved, qc, kind, ownerId, verifySaveLanded])
 
   /** 另存为：登记意图 → forcesave（登记失败不保存，否则会把原稿覆盖） */
@@ -157,6 +168,9 @@ export function useFolderSave({
       // 票据是一次性的：每次下载都要现换，不能缓存复用
       const url = await withDownloadTicket(fileUrl)
       downloadUrl(url, file.name)
+    } catch {
+      // 换票失败原先是个未捕获 rejection：spinner 一闪，界面上什么都没发生
+      toast.error('下载失败，请重试')
     } finally {
       setDownloading(false)
     }
@@ -170,10 +184,19 @@ export function useFolderSave({
   }, [save])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault()
-        if (ready && canSave) void saveRef.current()
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 's') return
+      // 一律吃掉浏览器默认（否则会弹「保存网页」），但**不能什么都不说**：
+      // 只读格式（pdf/图片）与编辑器未就绪时，从前是彻底静默的死键。
+      e.preventDefault()
+      if (!canSave) {
+        toast.info('该格式不支持原地保存，请用「下载」另存', { id: 'folder-save-unsupported' })
+        return
       }
+      if (!ready) {
+        toast.info('编辑器还在打开，请稍后再保存', { id: 'folder-save-not-ready' })
+        return
+      }
+      void saveRef.current()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)

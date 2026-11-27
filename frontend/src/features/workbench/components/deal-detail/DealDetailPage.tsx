@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useParams } from 'react-router'
+import { toast } from 'sonner'
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { DraftDialog } from '@/features/doc-generation'
@@ -14,6 +15,9 @@ import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
 import { ContractFileOverlays } from './ContractFileOverlays'
 import { DealDocLayout, DOC_SIDE_BY_SIDE_MIN } from './DealDocLayout'
+import type { FolderEntryMutation } from './folder-tree-types'
+import { UnsavedChangesDialog } from './UnsavedChangesDialog'
+import { useDocDirtyGuard } from './use-doc-dirty-guard'
 import { useNetWidth } from './use-net-width'
 import { useDraftDialog } from './use-draft-dialog'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
@@ -63,21 +67,67 @@ export function DealDetailPage() {
    * 流水线从合同文件夹取文件。
    */
   const [picked, setPicked] = useState<PickedFile | null>(null)
-  /** 「生成文书」弹窗：哪一案在起草 + 成稿回落到本页画布（见 use-draft-dialog） */
-  const draft = useDraftDialog(setPicked)
+
+  /**
+   * 画布里有未保存的改动时，关文档 / 换文件先拦一下。
+   *
+   * 三个入口都能弄丢编辑：卡片右上角的 X、点文件夹树里的另一份、从案件卡打开
+   * 别的文书。确认因此挂在页面这一层（见 useDocDirtyGuard 的注释）。
+   */
+  const doc = useDocDirtyGuard()
+  const guardDirty = doc.guard
+  const markDirty = doc.markDirty
+
+  /**
+   * 当前预览路径的实时快照。
+   *
+   * 文件夹树里改名/删除成功后要立刻判断「被弄掉的是不是正在看的那份」，
+   * 而回调是事件式的、读 state 会读到上一轮渲染的值。
+   */
+  const pickedRef = useRef<PickedFile | null>(null)
+  useEffect(() => {
+    pickedRef.current = picked
+  }, [picked])
+
+  /**
+   * 树里改名 / 删除后，把还在指着旧路径的画布关掉。
+   *
+   * 不处理的话：标题还是旧名字、高亮消失、画布仍可编辑，⌘S 打到一个不存在的
+   * 文件上——律师看到的是「保存成功」，而内容根本没写进去。
+   */
+  const onFolderMutated = useCallback(
+    (ev: FolderEntryMutation) => {
+      const cur = pickedRef.current
+      if (!cur || cur.kind !== ev.kind || cur.ownerId !== ev.ownerId) return
+      const hit =
+        ev.type === 'delete'
+          ? cur.subpath === ev.subpath || cur.subpath.startsWith(ev.subpath + '/')
+          : cur.subpath === ev.from || cur.subpath.startsWith(ev.from + '/')
+      if (!hit) return
+      setImmersive(false)
+      setPicked(null)
+      markDirty(false)
+      toast.info(ev.type === 'delete' ? '正在预览的文件已被删除，预览已关闭' : '文件已改名，预览已关闭')
+    },
+    [markDirty],
+  )
 
   /** 合同文件夹的文件 → 预览（右栏合同文件夹树） */
   const openContractFile = useCallback(
     (f: { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number }) => {
-      setPicked({ ...f, kind: 'contract', ownerId: deal?.id ?? 0 })
+      guardDirty(() => setPicked({ ...f, kind: 'contract', ownerId: deal?.id ?? 0 }))
     },
-    [deal?.id],
+    [deal?.id, guardDirty],
   )
   /** 案件文件夹的文件 → 预览（左栏案件卡；ownerId 是案件 id）。柯里化：案件 id 在 map 里 */
   const openCaseFile =
-    (caseId: number) => (f: { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number }) => {
-      setPicked({ ...f, kind: 'case', ownerId: caseId })
+    (caseId: number) =>
+    (f: { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number }) => {
+      guardDirty(() => setPicked({ ...f, kind: 'case', ownerId: caseId }))
     }
+
+  /** 「生成文书」弹窗：成稿落回本页画布（同样走脏标记拦截） */
+  const draft = useDraftDialog((f) => guardDirty(() => setPicked(f)))
 
   /**
    * 文档栏形态（与非诉页同一套判定，见 DealDocLayout 的四态表）：
@@ -93,9 +143,11 @@ export function DealDetailPage() {
    */
   const [immersive, setImmersive] = useState(false)
   const closePreview = useCallback(() => {
-    setImmersive(false)
-    setPicked(null)
-  }, [])
+    guardDirty(() => {
+      setImmersive(false)
+      setPicked(null)
+    })
+  }, [guardDirty, setImmersive, setPicked])
 
   const steps = useMemo(() => chainSteps(plan), [plan])
   const ambiguous = useMemo(() => ambiguousStages(plan), [plan])
@@ -174,6 +226,7 @@ export function DealDetailPage() {
         onClose={closePreview}
         onSaved={() => void d.refetch()}
         onReview={picked?.kind === 'contract' ? (f) => setReviewTarget(f) : undefined}
+        onDirtyChange={markDirty}
         rail={
           <DetailRail
             deadlines={deadlines}
@@ -188,7 +241,8 @@ export function DealDetailPage() {
             onMoneyChanged={onMoneyChanged}
             onOpenFile={openContractFile}
             onReviewFile={(f) => setReviewTarget(f)}
-            folderSelectedSubpath={picked?.subpath ?? null}
+            folderSelectedSubpath={picked?.kind === 'contract' ? picked.subpath : null}
+            onFolderMutated={onFolderMutated}
           />
         }
       >
@@ -231,6 +285,7 @@ export function DealDetailPage() {
                     onOpenFile={openCaseFile(c.id)}
                     onDraft={draft.openFor}
                     selectedSubpath={picked?.kind === 'case' && picked.ownerId === c.id ? picked.subpath : null}
+                    onFolderMutated={onFolderMutated}
                   />
                   <CaseVerifyCard caseId={c.id} />
                 </div>
@@ -260,11 +315,17 @@ export function DealDetailPage() {
         fixedAmount={deal.amountNum}
         receivedAmount={Number(deal.totalReceived?.replace(/[^\d.]/g, '') || 0)}
         onClose={() => setPayOpen(false)}
-        onSaved={() => void d.refetch()}
+        // 与「关联发票」同一口径：合同 + 案件 + 工作台列表一起刷。
+        // 只 refetch 本页的话，退回列表 60s 内还是旧金额（staleTime），
+        // 看起来像「记了收款但没记上」。
+        onSaved={onMoneyChanged}
       />
 
       {/* 先开票后付款：票挂合同名下；关闭即失效未关联缓存，右栏计数同步 */}
       <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
+
+      {/* 未保存改动的确认：拦的是「关文档 / 换文件」，不是页面级导航 */}
+      <UnsavedChangesDialog open={doc.pending} onStay={doc.stay} onLeave={doc.leave} />
 
       {/* 一句话生成文书。只有诉讼分支挂它：已上线的 spec 都是案件文书，合同文件夹
           模板里没有对应落位节点（传 contract 侧会得到 created=false + 原因） */}

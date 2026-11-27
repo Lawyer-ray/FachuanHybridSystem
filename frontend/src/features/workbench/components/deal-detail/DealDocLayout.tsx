@@ -79,6 +79,7 @@ export function DealDocLayout({
   onClose,
   onSaved,
   onReview,
+  onDirtyChange,
   aside,
   rail,
   children,
@@ -98,6 +99,8 @@ export function DealDocLayout({
   onSaved: () => void
   /** 「AI 审查」入口（只对合同文件开放，案件文件传 undefined） */
   onReview?: (f: { subpath: string; name: string }) => void
+  /** 画布有无未保存改动（页面用它拦关闭/换文件，见 useDocDirtyGuard） */
+  onDirtyChange?: (dirty: boolean) => void
   /** 内容列（阶段表 / 服务事项流 / 案件程序链 + 下一程序） */
   children: ReactNode
   /** 档案卡（未展开时在右栏；展开后沉到内容列底部） */
@@ -141,6 +144,7 @@ export function DealDocLayout({
         onReview={onReview}
         immersive={docImmersive}
         onToggleImmersive={onToggleImmersive}
+        onDirtyChange={onDirtyChange}
       />
     </div>
   )
