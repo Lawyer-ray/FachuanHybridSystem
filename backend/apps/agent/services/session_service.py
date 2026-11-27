@@ -11,6 +11,7 @@ import uuid
 from django.apps import apps as django_apps
 from django.db.models import Q, QuerySet
 
+from ..backends.defaults import default_agent_kind
 from ..models import AgentMessage, AgentSession
 
 
@@ -72,15 +73,16 @@ async def create_session(
     origin: str = "chat",
     case_id: int | None = None,
     contract_id: int | None = None,
-    agent_kind: str = "pi",
+    agent_kind: str = "",
 ) -> AgentSession:
     """新建会话。
 
     模型由服务端在对话时解析并回写，客户端不指定；
     **agent 后端由客户端指定**（用户的显式选择，不是部署配置）。
 
-    ``agent_kind`` 为空时回退到 ``pi``：历史调用方（任务式 / 子任务 / 测试）
-    不传这个参数，行为与引入前一致。
+    ``agent_kind`` 为空时用部署默认后端（:func:`backends.defaults.default_agent_kind`，
+    当前 = qoder；未注册时自动回退 pi）。历史调用方（任务式 / 子任务 / 测试）不传这个
+    参数，于是它们跟着部署默认走——那正是「默认 Agent」该有的语义。
 
     ``contract_id`` 在案件会话里由 :func:`resolve_contract_id` 从案件反查补上，
     不依赖客户端多传一个字段（旧客户端也自动受益）。
@@ -91,7 +93,7 @@ async def create_session(
         origin=origin,
         case_id=case_id,
         contract_id=await resolve_contract_id(case_id=case_id, contract_id=contract_id),
-        agent_kind=agent_kind or "pi",
+        agent_kind=agent_kind or default_agent_kind(),
     )
 
 

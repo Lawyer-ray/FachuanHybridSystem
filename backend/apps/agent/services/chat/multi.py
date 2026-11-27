@@ -265,6 +265,7 @@ class StreamMemo:
 
 def primary_kind(session: AgentSession) -> str:
     """会话主后端 kind（未设置 / 未识别时回落 pi，与 ``stream_chat`` 同口径）。"""
+    # 会话级兜底保持 pi（历史事实），见 stream.py 的同款说明
     return getattr(session, "agent_kind", "") or "pi"
 
 

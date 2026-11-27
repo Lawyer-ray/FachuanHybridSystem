@@ -12475,6 +12475,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agent/qoder/accounts/{account_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Qoder Account Remove
+         * @description 把一个账号从池子里移除（凭据 + CLI 配置目录一起删）。
+         *
+         *     为什么要能删：账号池是「额度容器」，加了新号之后旧号（离职、换套餐）留着只会
+         *     让轮转把请求分给一个没额度的账号——每次都要多试一轮才落到能用的那个。
+         */
+        delete: operations["apps_agent_api_qoder_auth_api_qoder_account_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agent/memory": {
         parameters: {
             query?: never;
@@ -22773,11 +22796,6 @@ export interface components {
              * @default
              */
             contract_type: string;
-            /**
-             * Jurisdiction
-             * @default CN
-             */
-            jurisdiction: string;
             /** Playbook Id */
             playbook_id?: number | null;
         };
@@ -22874,11 +22892,6 @@ export interface components {
             stance: string;
             /** Contract Type */
             contract_type: string;
-            /**
-             * Jurisdiction
-             * @default CN
-             */
-            jurisdiction: string;
             /** Status */
             status: string;
             /** Playbook Key */
@@ -27883,6 +27896,23 @@ export interface components {
             cancelled_runs: number;
         };
         /**
+         * QoderAccountOut
+         * @description 池子里的一个 qoder 账号（额度容器）。
+         */
+        QoderAccountOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Usable */
+            usable: boolean;
+            /**
+             * Last Error
+             * @default
+             */
+            last_error: string;
+        };
+        /**
          * QoderAuthOut
          * @description 当前登录态（``GET /agent/qoder/auth``）。
          */
@@ -27904,6 +27934,11 @@ export interface components {
              * @default
              */
             message: string;
+            /**
+             * Accounts
+             * @default []
+             */
+            accounts: components["schemas"]["QoderAccountOut"][];
         };
         /**
          * QoderLoginOut
@@ -27929,6 +27964,25 @@ export interface components {
              * @default
              */
             account: string;
+            /**
+             * Account Id
+             * @default
+             */
+            account_id: string;
+        };
+        /**
+         * QoderLoginIn
+         * @description 发起一次授权。
+         *
+         *     ``account_id`` 空 = **新增一个账号**（点一次登录往池子里加一个额度容器）；
+         *     非空 = 给那个账号换令牌（登录失效后重登用）。
+         */
+        QoderLoginIn: {
+            /**
+             * Account Id
+             * @default
+             */
+            account_id: string;
         };
         /** MemoryOut */
         MemoryOut: {
@@ -44698,7 +44752,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["QoderLoginIn"] | null;
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -44729,6 +44787,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QoderLoginOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_qoder_auth_api_qoder_account_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QoderAuthOut"];
                 };
             };
         };

@@ -19,6 +19,7 @@ from apps.core.security.auth import JWTOrSessionAuth
 from ..backends import available_kinds as available_backend_kinds
 from ..backends import get as get_backend
 from ..backends.builtin import ensure_registered
+from ..backends.defaults import default_agent_kind
 from ..models import AgentSession
 from ..pi.rpc_client import PiError
 from ..schemas import BackendOptionOut, CompactOut, SessionIn, SessionOut, SessionRenameIn, SessionStatsOut
@@ -57,6 +58,7 @@ def _backend_option(
     available: bool,
     reason: str,
     models: list[str] | None = None,
+    default_model: str | None = None,
     action: str = "",
     action_label: str = "",
 ) -> BackendOptionOut:
@@ -76,7 +78,8 @@ def _backend_option(
         reason=reason,
         capabilities=capabilities,
         models=model_names,
-        default_model=model_names[0] if model_names else None,
+        # 显式给的 default 优先（qoder 的默认是 ``Auto``，不一定是列表第一项）
+        default_model=default_model or (model_names[0] if model_names else None),
         action=action,
         action_label=action_label,
     )
@@ -249,17 +252,27 @@ def _collect_backend_options() -> list[BackendOptionOut]:
             available, reason, qoder_action = _qoder_probe()
         else:
             available, reason = True, ""
+        kind_models = _models_for_kind(kind, models)
+        kind_default = kind_models[0] if kind_models else None
         if kind == "qoder":
-            # 「登录」这个动作属于 qoder，但**支付方式由契约表达**（action），
+            # 「登录」这个动作属于 qoder，但**动作由契约表达**（action），
             # 前端不按 kind 分支——接第四个需要登录的运行时不需要改前端。
             action, action_label = ("login", "登录 Qoder") if qoder_action == "login" else ("", "")
+            # 模型清单来自 Qoder 自己（``--list-models``，带缓存）：平台的模型名
+            # qoder 云不认识，反过来也一样——两边各问各的来源。
+            from ..backends.qoder_models import for_display
+
+            display_models, display_default = for_display()
+            if display_models:
+                kind_models, kind_default = display_models, display_default
         options.append(
             _backend_option(
                 kind,
                 asdict(get_backend(kind).capabilities),
                 available=available,
                 reason=reason,
-                models=_models_for_kind(kind, models),
+                models=kind_models,
+                default_model=kind_default,
                 action=action,
                 action_label=action_label,
             )
@@ -301,6 +314,11 @@ def _collect_backend_options() -> list[BackendOptionOut]:
                 models=[],
             )
         )
+    # 默认后端排第一：前端的「默认」徽标 = 清单第一项（见 domain/dual.ts 的说明），
+    # 服务端不排就等于「菜单说 Pi 是默认，实际建出来的会话是 qoder」——没有任何报错。
+    # 其余顺序保持注册表顺序（稳定排序，别在这里重排整张表）。
+    default_kind = default_agent_kind()
+    options.sort(key=lambda option: option.kind != default_kind)
     # qoder 同理：缺 wheel（约 68MB、带平台二进制）时它连注册都没有。置灰 + 说清缺什么，
     # 比让它从菜单里消失更容易排查。
     if "qoder" not in registered:
@@ -335,6 +353,7 @@ def _to_out(session: AgentSession) -> SessionOut:
         status=session.status,
         llm_model=session.llm_model,
         # 历史会话无此字段值时兜底 `pi`，与引入 agent_kind 之前的行为一致
+        # 历史会话空串按 pi（引入多后端前只有 pi）；新会话的默认见创建端点
         agent_kind=getattr(session, "agent_kind", "") or "pi",
         origin=session.origin,
         case_id=session.case_id,
@@ -359,7 +378,7 @@ async def create_session(request: Any, payload: SessionIn) -> SessionOut:  # pra
     「新模型效果不行」，白白浪费一轮调试。
     空串仍允许（旧客户端不传），走模型默认值 `pi`。
     """
-    agent_kind = (payload.agent_kind or "").strip() or "pi"
+    agent_kind = (payload.agent_kind or "").strip() or default_agent_kind()
     if agent_kind not in available_backend_kinds():
         raise HttpError(
             400,

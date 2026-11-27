@@ -14,6 +14,19 @@ from __future__ import annotations
 from ninja import Schema
 
 
+class QoderAccountOut(Schema):
+    """池子里的一个 qoder 账号（额度容器）。"""
+
+    #: 账号 id（``default`` = 升级前那个单账号）
+    id: str
+    #: 显示名（来自凭据文件；取不到时由服务端编号成「账号 N」）
+    name: str
+    #: 现在能不能用（有凭据 且 不在冷却期）
+    usable: bool
+    #: 最近一次失败的人话（额度耗尽 / 登录失效）；空串 = 没出过错
+    last_error: str = ""
+
+
 class QoderAuthOut(Schema):
     """当前登录态（``GET /agent/qoder/auth``）。"""
 
@@ -25,6 +38,18 @@ class QoderAuthOut(Schema):
     mode: str = "none"
     #: 面向用户的下一步（``authenticated=True`` 时为空串）。
     message: str = ""
+    #: 账号池。额度是账号级的，所以池子里可以有多个（见后端 ``qoder_accounts``）。
+    accounts: list[QoderAccountOut] = []
+
+
+class QoderLoginIn(Schema):
+    """发起一次授权。
+
+    ``account_id`` 空 = **新增一个账号**（点一次登录往池子里加一个额度容器）；
+    非空 = 给那个账号换令牌（登录失效后重登用）。
+    """
+
+    account_id: str = ""
 
 
 class QoderLoginOut(Schema):
@@ -39,3 +64,5 @@ class QoderLoginOut(Schema):
     message: str = ""
     #: 成功后带上账号名（取不到为空串）。
     account: str = ""
+    #: 这次登录落到哪个账号上（前端据此提示「已添加账号」还是「已更新账号」）。
+    account_id: str = ""

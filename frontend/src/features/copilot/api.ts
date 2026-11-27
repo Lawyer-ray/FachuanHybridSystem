@@ -268,9 +268,14 @@ export function fetchQoderAuth(): Promise<QoderAuthState> {
   return api.get('agent/qoder/auth').json<QoderAuthState>()
 }
 
-/** 发起一次 qoder 浏览器授权，返回授权链接（后端起 `qodercli login`）。 */
-export function startQoderLogin(): Promise<QoderLoginState> {
-  return api.post('agent/qoder/login').json<QoderLoginState>()
+/**
+ * 发起一次 qoder 浏览器授权，返回授权链接（后端起 `qodercli login`）。
+ *
+ * `accountId` 空 = **往池子里加一个账号**（额度是账号级的，见 backend-types 的说明）；
+ * 非空 = 给那个账号换令牌（登录失效后重登）。
+ */
+export function startQoderLogin(accountId = ''): Promise<QoderLoginState> {
+  return api.post('agent/qoder/login', { json: { account_id: accountId } }).json<QoderLoginState>()
 }
 
 /** 轮询某次授权的状态；未知 id 返回 `state=expired`（后端不抛 404）。 */

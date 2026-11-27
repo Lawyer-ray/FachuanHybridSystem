@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 
 import pytest
@@ -74,11 +75,21 @@ def test_explicit_token_counts_as_authenticated(
     assert qoder_login.is_authenticated() is True
 
 
-def test_config_dir_is_private(_isolated_home: Path) -> None:
+def test_legacy_account_paths(_isolated_home: Path) -> None:
+    """默认账号 = 历史单账号目录（升级前的部署不需要重新授权）。"""
     path = qoder_login.config_dir()
     assert path == _isolated_home / "qoder" / "config"
-    assert oct(os.stat(path).st_mode)[-3:] == "700"
     assert qoder_login.credential_path() == path / ".auth" / "user"
+
+
+def test_new_account_config_dir_is_private(_isolated_home: Path) -> None:
+    """新账号的配置目录 0700（里面放的是凭据）。"""
+    from apps.agent.backends import qoder_accounts
+
+    account_id = qoder_accounts.create_account()
+    path = qoder_accounts.account_config_dir(account_id)
+    assert path == _isolated_home / "qoder" / "accounts" / account_id / "config"
+    assert oct(os.stat(path).st_mode)[-3:] == "700"
 
 
 # ── 3. 后端清单上的登录入口 ────────────────────────────────────────────
@@ -127,6 +138,7 @@ def test_login_status_reads_state_file(_isolated_home: Path) -> None:
         "url": "https://qoder.com/device/x",
         "message": "等人确认",
         "account": "",
+        "account_id": "",
     }
 
 
@@ -190,3 +202,93 @@ def test_ensure_logged_in_passes_when_credential_present(_isolated_home: Path) -
 
     _write_credential({"name": "法穿"})
     asyncio.run(ensure_logged_in())  # 不抛
+
+
+# ── 9. 账号池：轮转、冷却、增删 ────────────────────────────────────────
+
+
+def _add_account(name: str = "") -> str:
+    """造一个「已登录」的账号（写一个假凭据文件）。"""
+    from apps.agent.backends import qoder_accounts
+
+    account_id = qoder_accounts.create_account()
+    cred = qoder_accounts.credential_path(account_id)
+    cred.parent.mkdir(parents=True, exist_ok=True)
+    cred.write_text(json.dumps({"name": name or account_id}), encoding="utf-8")
+    return account_id
+
+
+def test_account_pool_rotates_least_recently_used(_isolated_home: Path) -> None:
+    """池子按「最久没用过的」轮转——随机会在小池子里连续撞同一个账号。"""
+    from apps.agent.backends import qoder_accounts
+
+    first = _add_account("A")
+    second = _add_account("B")
+    picked = qoder_accounts.pick_account()
+    assert picked is not None
+    qoder_accounts.mark_used(picked.id)
+    other = qoder_accounts.pick_account()
+    assert other is not None and other.id != picked.id
+    assert {picked.id, other.id} == {first, second}
+
+
+def test_account_cooldown_skips_then_recovers(_isolated_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """额度耗尽的账号进冷却（默认 10 分钟），到期自动回到候选池。"""
+    from apps.agent.backends import qoder_accounts
+
+    account_id = _add_account("A")
+    qoder_accounts.mark_error(account_id, message="今日额度已用尽", cooldown=0.05)
+    assert qoder_accounts.usable_accounts() == []
+    assert qoder_accounts.pick_account() is None
+
+    time.sleep(0.1)
+    usable = qoder_accounts.usable_accounts()
+    assert [a.id for a in usable] == [account_id]
+    # 冷却结束后错误原因仍留着（给人看「上次为什么失败」），但账号可用
+    assert qoder_accounts.list_accounts()[0].last_error == "今日额度已用尽"
+
+
+def test_mark_ok_clears_error(_isolated_home: Path) -> None:
+    from apps.agent.backends import qoder_accounts
+
+    account_id = _add_account("A")
+    qoder_accounts.mark_error(account_id, message="x")
+    qoder_accounts.mark_ok(account_id)
+    account = qoder_accounts.list_accounts()[0]
+    assert account.healthy and account.last_error == ""
+
+
+def test_account_without_credential_is_not_listed(_isolated_home: Path) -> None:
+    """登录失败会在池子里留下空目录——它不算账号，否则永远选不中。"""
+    from apps.agent.backends import qoder_accounts
+
+    qoder_accounts.create_account()
+    assert qoder_accounts.list_accounts() == []
+
+
+def test_delete_account_removes_everything(_isolated_home: Path) -> None:
+    from apps.agent.backends import qoder_accounts
+
+    account_id = _add_account("A")
+    assert qoder_accounts.delete_account(account_id) is True
+    assert qoder_accounts.list_accounts() == []
+    assert not qoder_accounts.account_record_dir(account_id).exists()
+
+
+def test_any_config_dir_prefers_usable_account(_isolated_home: Path) -> None:
+    from apps.agent.backends import qoder_accounts
+
+    account_id = _add_account("A")
+    path = qoder_accounts.any_config_dir()
+    assert path is not None
+    assert path == qoder_accounts.account_config_dir(account_id)
+
+
+def test_start_login_assigns_legacy_first_then_new_account(_isolated_home: Path) -> None:
+    """第一次登录落历史账号；之后每点一次 = 往池子里加一个账号。"""
+    from apps.agent.backends.qoder_login import _pick_login_account
+
+    assert _pick_login_account(None) == "default"
+    _add_account("A")
+    assert _pick_login_account(None) != "default"
+    assert _pick_login_account("abc123") == "abc123"
