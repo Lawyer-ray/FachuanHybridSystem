@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <code>36</code> 个业务模块 · <code>199</code> 个模型 · <code>703</code> 个 API 端点 · <code>430</code> 个 MCP 工具
+  <code>38</code> 个业务模块 · <code>199</code> 个模型 · <code>751</code> 个 API 端点 · <code>442</code> 个 MCP 工具
 </p>
 
 ---
@@ -30,13 +30,13 @@
   └ 本地扫描件           ▼                    ▼
                  ┌────────────────┐  ┌─────────────────────┐
                  │ Django Ninja   │  │ agent (pi runtime)  │
-                 │ 703 端点       │  │ 进程池 + 四级审批     │
-                 │ 36 app/199 模型 │  └──────────┬──────────┘
+                 │ 751 端点       │  │ 进程池 + 四级审批     │
+                 │ 38 app/199 模型 │  └──────────┬──────────┘
                  └───────┬────────┘             │ MCP (http)
                          │                      ▼
            ┌─────────────┴───────┐  ┌────────────────────┐
            │ PostgreSQL · Valkey │  │ 共享 MCP :8011     │
-           │ Django-Q2·Channels  │  │ 430 工具，一份常驻  │
+           │ Django-Q2·Channels  │  │ 442 工具，一份常驻  │
            └─────────────────────┘  └────────────────────┘
 ```
 
@@ -107,7 +107,7 @@ Copilot 横跨两条主线，差异化在这里：AI 不是侧边栏，是**能�
 | 关键决策 | 做法与理由 |
 |:---|:---|
 | **运行时** | 建在 [pi](https://github.com/earendil-works/pi-coding-agent) 上，独立于业务 app。审批状态落库可审计，会话状态纯净，进程池并发 |
-| **工具面** | 430 个 MCP 工具**一份常驻进程**共享（:8011）。8 并发实测 3.4s / 71MB；若每进程各起一份 stdio 则 4.1s / 1.8GB，且每路首响应等 6 秒冷启动 |
+| **工具面** | 442 个 MCP 工具**一份常驻进程**共享（:8011）。8 并发实测 3.4s / 71MB；若每进程各起一份 stdio 则 4.1s / 1.8GB，且每路首响应等 6 秒冷启动 |
 | **权限** | 工具调用前可阻塞等人工审批，分四级（低/中/高/紧急）；无人在线时高危工具挂起等离线审批 |
 | **身份** | 工具以**当前律师本人身份**调 REST，归属过滤、权限、审计与本人登录完全一致（修 confused deputy） |
 | **工具面收紧** | pi 只被声明 `mcp__fachuan__*`，内置 `read`/`bash`/`edit`/`write` 一律不给——它们能以 Django 进程权限读写文件、执行命令，是提示注入直通服务器 RCE 的通道 |
@@ -135,19 +135,19 @@ Copilot 横跨两条主线，差异化在这里：AI 不是侧边栏，是**能�
 ```text
 FachuanHybridSystem/
 ├── backend/
-│   ├── apps/            36 个业务模块（cases / contracts / documents / agent / …）
-│   ├── mcp_server/      MCP 工具面（430 个工具，server.py 统一注册）
+│   ├── apps/            38 个业务模块（cases / contracts / documents / agent / …）
+│   ├── mcp_server/      MCP 工具面（442 个工具，server.py 统一注册）
 │   ├── apiSystem/       Django 配置与路由装配
-│   ├── tests/           1622 个测试文件（unit / integration / property / structure）
+│   ├── tests/           1708 个测试文件（unit / integration / property / structure）
 │   └── plugins/         git 子模块（FachuanPlugins，**内部仓库，不对外提供**）
 ├── frontend/src/
 │   ├── app/             路由表 · 路径常量 · 壳层（唯一权威，禁止手拼路径）
-│   └── features/        11 个 feature（material-prep / bank-litigation / copilot / …）
+│   └── features/        14 个 feature（material-prep / bank-litigation / copilot / …）
 ├── skills/              独立可跑的 Python 技能（案件处理 / 合同处理 / 自媒体运营）
 ├── ml-training/         方向分类模型训练（PyTorch → ONNX）
 ├── deploy/              公网栈（nginx + gunicorn + Cloudflare Tunnel）
-├── docs/harness/        工程规范细则（按需加载的 14 个叶子文件）
-└── changelog/           546 篇版本变更记录
+├── docs/harness/        工程规范细则（按需加载的 18 个叶子文件）
+└── changelog/           679 篇版本变更记录
 ```
 
 ## 快速开始
@@ -167,16 +167,16 @@ make ci-full        # 完整 CI（需 PostgreSQL：+ pytest + 覆盖率）
 
 | 指标 | 数值 | 复核命令 |
 |:---|:---|:---|
-| 业务模块 | 36 | `sed -n '64,145p' backend/apiSystem/apiSystem/settings.py \| rg -o '"apps\.[a-z_]+' \| sort -u \| wc -l` |
-| 数据模型 | 199 | `django.apps.get_app_configs()` 遍历 `get_models()` 求和 |
-| API 端点 | 703 | `from apiSystem.api import api_v1; api_v1._get_urls()`（不含 openapi/docs） |
-| MCP 工具 | 430 | 导入 `mcp_server.server`，`asyncio.run(mcp.list_tools())` 计数 |
-| 数据库迁移 | 433 | `find backend/apps -path '*/migrations/*.py' ! -name '__init__.py' \| wc -l` |
-| 测试文件 | 1622 / 454 | 后端 `find backend/tests -name 'test_*.py'`；前端 `find frontend/src -name '*.test.ts*'` |
+| 业务模块 | 38 | `rg -o '"apps\.[a-z_]+' backend/apiSystem/apiSystem/settings.py \| sort -u \| wc -l` |
+| 数据模型 | 199 | `apps.*` 业务 app 遍历 `get_models()` 求和（不含 django contrib / django_q 的 10 个底座模型，含则 209） |
+| API 端点 | 751 | `from apiSystem.api import api_v1; api_v1._get_urls()`（不含 openapi/docs 两条调试路由） |
+| MCP 工具 | 442 | 导入 `mcp_server.server`，`asyncio.run(mcp.list_tools())` 计数；线上核对 `make mcp-verify` |
+| 数据库迁移 | 454 | `find backend/apps -path '*/migrations/*.py' ! -name '__init__.py' \| wc -l` |
+| 测试文件 | 1708 / 483 | 后端 `find backend/tests -name 'test_*.py'`；前端 `find frontend/src -name '*.test.ts*'` |
 
-> 数字会随版本增长。以上为 2026-11-24 / v27.23.6 时点。
+> 数字会随版本增长。以上为 2026-11-27 / v27.27.4 时点（`make mcp-verify` 实测代码注册表与线上工具面均为 442）。
 >
-> MCP 工具数含 `backend/plugins` 私有子模块注册的 1 个工具（`weike_advanced_search`）——公开克隆拿不到该子模块，实测为 **429**。
+> MCP 工具数含 `backend/plugins` 私有子模块注册的 1 个工具（`weike_advanced_search`）——公开克隆拿不到该子模块，实测为 **441**。
 
 ---
 
