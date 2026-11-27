@@ -768,3 +768,26 @@ def test_sdk_import_surface() -> None:
         "tools",
     ):
         assert name in fields, f"QoderAgentOptions 缺字段 {name}"
+
+
+def test_effective_model_prefers_user_choice_then_firm_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """没选模型时的落点是**律所网关模型**，不是 Qoder 云侧的 Auto（2026-11-27）。
+
+    优先级：gateway 的 target → 律师手选 → 律所默认 → 交回 CLI。
+    """
+    from types import SimpleNamespace
+
+    from apps.agent.backends import qoder_backend
+
+    monkeypatch.setattr(qoder_backend, "_default_qoder_model", lambda: "fachuan-gw/kimi-2.6")
+
+    # 没选 → 律所模型（这条是本次改动的核心：不能再落到 Auto）
+    assert qoder_backend._effective_model("", None) == "fachuan-gw/kimi-2.6"
+    # 手选优先，不被默认覆盖
+    assert qoder_backend._effective_model("Ultimate", None) == "Ultimate"
+    # gateway 模式的 target 最高优先
+    assert qoder_backend._effective_model("Ultimate", SimpleNamespace(model="gateway-x")) == "gateway-x"
+
+    # 连默认都拿不到（冷缓存 / 没接 BYOK）→ 空串 = 交回 CLI，与改动前一致
+    monkeypatch.setattr(qoder_backend, "_default_qoder_model", lambda: None)
+    assert qoder_backend._effective_model("", None) == ""
