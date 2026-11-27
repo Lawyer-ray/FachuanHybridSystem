@@ -576,10 +576,10 @@ POST /tasks {message, title?, case_id?}
   `<skill name=... location=...>` 全文块 + 用户参数——模型无需任何文件读取工具
   （这也是本系统工具面刻意不声明 read/bash 的前提下，用户点名通道仍可用的原因）。
 
-## 5.3 后端矩阵：五个 agent 同题并答
+## 5.3 后端矩阵：六个 agent 同题并答
 
-`registry` 里现在有五个真实后端。前端「跑哪几个 AI」菜单（`AnswerAgentMenu`）按
-`GET /agent/backends` 渲染，**勾满 5 个就是五栏并答**（编排层 `MAX_ANSWERS = 5`，
+`registry` 里现在有六个真实后端。前端「跑哪几个 AI」菜单（`AnswerAgentMenu`）按
+`GET /agent/backends` 渲染，勾几个就是几栏并答（编排层 `MAX_ANSWERS` 封顶，
 前后端同口径），不需要改前端。
 
 | kind | 运行时 | 协议 | 上下文 | 插话 | 审批闸门 | 工具面 |
@@ -589,6 +589,31 @@ POST /tasks {message, title?, case_id?}
 | `openai-agents` | Python SDK（每轮自建） | OpenAI 兼容 | 无状态（历史由编排层渲染） | ❌ | ✅ guardrail | MCP `tool_filter` |
 | `antigravity` | **Go 二进制**（每轮一个进程，118MB） | OpenAI 兼容 | 无状态 | ❌ | ✅ `PreToolCallDecideHook` | MCP eager 原生工具 + tier 头 |
 | `claude-agent` | **`claude` CLI 子进程**（每轮一个，随 wheel 分发 ~160MB） | **Anthropic Messages** | CLI autocompact | ❌（未接句柄） | ✅ `can_use_tool`（实测卡 300s） | MCP http + tier 头 |
+| `qoder` | **`qodercli` CLI 子进程**（每轮一个，随 wheel 分发 ~165MB） | **Qoder 云模型**（可选 BYOK 直连律所网关） | 无状态（历史由编排层渲染；单轮内 CLI 自压缩） | ❌（未接句柄） | ✅ `PreToolUse` 强制 ask + `can_use_tool` | MCP http + tier 头；内置 21 个工具全关 |
+
+### qoder 的四条硬事实（改它之前先看这四条）
+
+1. **依赖冲突是真实存在的**：`qoder-agent-sdk==1.0.17` 声明 `mcp>=1.0.0,<2.0.0`，
+   而本仓库要求 `mcp[cli]>=2.2.0`。解法是 `pyproject.toml` 的
+   `[tool.uv] override-dependencies = ["mcp[cli]>=2.2.0"]`，**依据是实测**：qoder 在
+   模块级只 import 4 个 `mcp.types` 符号、`mcp.server.Server` 只在建进程内 SDK MCP
+   server 时才 import（我们只用外部 HTTP MCP）。护栏是
+   `test_qoder_backend.py::test_sdk_import_surface`——mcp 升到删名版本时当场红。
+2. **未登录会表现成「转圈 60 秒 + 未知错误」**：CLI 未登录时立刻退出，但 SDK 的
+   `initialize` 控制请求要等到 `control_request_timeout_ms`（默认 60s）才抛超时。
+   所以后端在拉起真会话前先跑一次 `qodercli --list-models`（仅在**没配显式凭据**时），
+   看到 `Not logged in` 就秒级报 `AUTH` 并给出「去 `qodercli login` / 配令牌」的动作。
+   超时或网络失败一律**不拦**（交给 SDK 报真实原因）。
+3. **内置工具必须翻成 `--tools ""`**：`tools=[]` 经 SDK 变成 `--tools ""`（CLI 文档：
+   `""` to disable all），写成「不传 `--tools`」等于**全量内置工具**（读文件 / 跑
+   shell 直通 RCE）。三道闸：`disallowed_tools`（MCP 全名硬拒）→ `PreToolUse` hook
+   把高危置 `ask`（qoder 自己的分类器不能替律师放行）→ `can_use_tool` 接现有
+   `services/approval`。`test_hardening_flags_are_emitted` 用 SDK 自己的
+   `build_session_args()` 钉住这些 flag 真的发出去了。
+4. **不用原生 session，也不 resume**：每轮一条子进程；配置目录只在**配了显式凭据**时
+   才临时化（否则复用本机 `~/.qoder` 登录态）。理由两条：律师对话不能在多个会话/多个
+   律师间共用目录；编排层在「无 pi session 但有历史」时会把历史渲染成 transcript，
+   两套上下文叠一起会让同一句话出现两次。`ctx.isolated` 因此天然满足。
 
 ### claude-agent 的四条硬事实（改它之前先看这四条）
 

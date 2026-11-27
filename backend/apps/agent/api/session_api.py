@@ -43,6 +43,7 @@ _BACKEND_LABELS: dict[str, tuple[str, str]] = {
     "opencode": ("opencode", "开源 coding agent（ACP 协议接入，工具面来自共享 MCP）"),
     "codex": ("codex", "OpenAI 官方 coding agent（app-server 接入，含执行前审批）"),
     "cline": ("cline", "Cline SDK（Node 桥接入，工具面来自共享 MCP）"),
+    "qoder": ("Qoder", "Qoder Agent SDK（默认用 Qoder 云模型，工具面来自共享 MCP）"),
 }
 
 #: dsh 的 Python SDK 模块名（可用性自检用）。
@@ -162,8 +163,37 @@ def _cline_probe() -> tuple[bool, str]:
     return True, ""
 
 
+def _qoder_probe() -> tuple[bool, str]:
+    """qoder 后端现在能不能用：SDK 装了 + （走网关时）平台配好了。
+
+    为什么不在这里探测登录态：``qodercli`` 的登录检查要起进程 + 联网（秒级），
+    而切换器每次打开都会调本端点。没登录时第一轮会拿到 ``AUTH`` 分类的可读报错
+    （见 ``qoder_backend._wrap_error``），代价是一轮。
+
+    ``gateway`` 模式是个例外：那种模式**确定**要读 ``LLMProvider``，没配就一定跑
+    不起来，所以在这里提前拦掉——比让用户建完会话才发现便宜。
+    """
+    from ..backends.qoder_backend import MODEL_SOURCE_GATEWAY, is_available, model_source
+
+    if not is_available():
+        return False, "未安装 qoder-agent-sdk（qoder-agent-sdk==1.0.17）"
+    if model_source() == MODEL_SOURCE_GATEWAY:
+        provider_reason = _no_llm_provider_reason()
+        if provider_reason:
+            return False, f"qoder 已配成走律所网关，但{provider_reason}"
+    return True, ""
+
+
 def _models_for_kind(kind: str, models: list[str]) -> list[str]:
     """某个后端实际能用的模型（平台清单按运行时收窄）。
+
+    qoder 默认（``MODEL_SOURCE=qoder``）返回**空清单**：模型在 Qoder 云侧，我们既
+    拿不到可靠清单（要联网 + 鉴权才能 ``get_available_models()``），也不应该让用户
+    从「我们的网关模型」里挑一个 qoder 云根本不认识的名字。空清单让前端只隐藏
+    模型下拉（``AgentModelPicker`` 在 ``models.length === 0`` 时返回 null），
+    跑完由 ``result_for`` 把真实模型回写会话。
+
+    ``MODEL_SOURCE=gateway`` 时反过来：那时用的就是平台模型，清单照原样给。
 
     claude-agent 走 Anthropic Messages 协议，只有模型名含
     :data:`~apps.agent.backends.claude_agent_backend.ANTHROPIC_MODEL_MARKER` 的才能用
@@ -171,6 +201,10 @@ def _models_for_kind(kind: str, models: list[str]) -> list[str]:
     前端就能选出「claude-agent + glm53」这种必然失败的组合（实测空正文 / 入口报错）。
     其余后端都走 OpenAI 兼容端点，用整份清单。
     """
+    if kind == "qoder":
+        from ..backends.qoder_backend import MODEL_SOURCE_GATEWAY, model_source
+
+        return list(models) if model_source() == MODEL_SOURCE_GATEWAY else []
     if kind != "claude-agent":
         return list(models)
     # 延迟 import：claude_agent_backend 只在注册了 claude-agent 时才需要
@@ -196,6 +230,8 @@ def _collect_backend_options() -> list[BackendOptionOut]:
             available, reason = _codex_probe()
         elif kind == "cline":
             available, reason = _cline_probe()
+        elif kind == "qoder":
+            available, reason = _qoder_probe()
         else:
             available, reason = True, ""
         options.append(
@@ -241,6 +277,18 @@ def _collect_backend_options() -> list[BackendOptionOut]:
                 {},
                 available=False,
                 reason="未注册 OpenCodeBackend（未找到 opencode 可执行文件，或接入未完成）",
+                models=[],
+            )
+        )
+    # qoder 同理：缺 wheel（约 68MB、带平台二进制）时它连注册都没有。置灰 + 说清缺什么，
+    # 比让它从菜单里消失更容易排查。
+    if "qoder" not in registered:
+        options.append(
+            _backend_option(
+                "qoder",
+                {},
+                available=False,
+                reason="未注册 QoderBackend（缺 qoder-agent-sdk 或接入未完成）",
                 models=[],
             )
         )

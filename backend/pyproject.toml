@@ -71,6 +71,23 @@ dependencies = [
     #   ① ``kimi-2.6(Anthropic)`` 经律所网关 ``/v1/messages`` 能回答；
     #   ② ``can_use_tool`` 在高危工具前真阻塞（实测 300s 不超时）且拒绝后工具未执行。
     "claude-agent-sdk==0.2.187",
+    # Qoder Agent SDK：第六个 agent 运行时（与 pi / dsh / openai-agents / antigravity /
+    # claude-agent 并存，会话级切换）。
+    #
+    # 与其它五个的区别：它是**唯一自带模型**的后端——默认走 Qoder 云侧模型（这才是
+    # 接它的理由：Qoder 会自己迭代、更贴中文/法律场景），而其余五个都落到律所网关。
+    # 也支持 BYOK 把网关当直连后端（``FACHUAN_QODER_MODEL_SOURCE=gateway``），但那条
+    # 路要 Qoder 账号的 ``allow_byok >= 2``（服务端开关），默认关闭。
+    #
+    # ⚠️ **依赖冲突：它声明 ``mcp>=1.0.0,<2.0.0``，而本仓库要求 ``mcp[cli]>=2.2.0``。**
+    # 处理方式见 ``[tool.uv] override-dependencies``；升级本包时必须重跑
+    # ``tests/ci/unit/agent/test_qoder_backend.py::test_sdk_import_surface``（它按名字
+    # 钉住 qoder 在 mcp 2.x 上真正用到的那些符号）。
+    #
+    # 体积代价：wheel 68–99MB（随包分发 165MB 的 ``qodercli`` 二进制），只有
+    # macosx / manylinux / musllinux / win 轮子；且**必须能连 Qoder 鉴权**，纯离线部署
+    # 用不了（``/agent/backends`` 会如实标不可用）。
+    "qoder-agent-sdk==1.0.17",
     # --- 文档处理 ---
     "docxtpl==0.20.2",
     "python-docx==1.2.0",
@@ -186,6 +203,24 @@ constraint-dependencies = [
     "virtualenv>=21.14.9",  # pre-commit 引入；修 6 个 CVE（激活脚本注入等）
     "filelock>=4.2.1",      # huggingface-hub / virtualenv 引入；修 3 个 CVE
     "certifi>=2026.10.19",  # HTTPS 根证书包（运行时依赖）；修 PYSEC-2026-4320
+]
+
+# 强制覆盖某个包的**上界**——只在「本仓库必须用新版、而某个 SDK 声明了更窄的上界」
+# 且已核实「它用到的 API 在新版里都在」时才允许用。
+#
+# 当前唯一一条：``qoder-agent-sdk==1.0.17`` 声明 ``mcp>=1.0.0,<2.0.0``，与本仓库
+# 自己的 MCP 服务（``mcp[cli]>=2.2.0``）直接冲突——不加覆盖 ``uv lock`` 无解。
+#
+# 为什么可以覆盖（2026-11-27 实测，不是推测）：
+#   ① qoder 对 mcp 的**模块级**依赖只有 4 个类型名
+#      （``ToolAnnotations`` / ``CallToolRequest`` / ``CallToolRequestParams`` /
+#      ``ListToolsRequest``），mcp 2.3.0 上全部存在；
+#   ② ``mcp.server.Server`` 只在它建**进程内 SDK MCP server** 时才 import，
+#      而法穿只用外部 HTTP MCP（:8011），这条路径永不触达；
+#   ③ 上述 ①② 由 ``test_qoder_backend.py::test_sdk_import_surface`` 钉住——
+#      mcp 升到删掉这些名字的版本时那条测试当场红，而不是等到真机跑对话。
+override-dependencies = [
+    "mcp[cli]>=2.2.0",
 ]
 
 [tool.isort]

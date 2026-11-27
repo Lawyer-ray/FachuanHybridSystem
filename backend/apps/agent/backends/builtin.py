@@ -52,6 +52,7 @@ def ensure_registered() -> None:
         _register_opencode()
         _register_codex()
         _register_cline()
+        _register_qoder()
         return
 
     # 延迟 import：pi_backend 会连带拉起 pi 的 rpc / 池依赖。
@@ -68,6 +69,7 @@ def ensure_registered() -> None:
     _register_opencode()
     _register_codex()
     _register_cline()
+    _register_qoder()
 
 
 def _register_dsh() -> None:
@@ -219,6 +221,33 @@ def _register_codex() -> None:
         return
 
     registry.register(CodexBackend())
+
+
+def _register_qoder() -> None:
+    """注册 qoder 后端；SDK 没装时静默降级（只登记一次）。
+
+    与 claude-agent 同构：``qoder_backend`` 顶层**不** import ``qoder_agent_sdk``
+    （它只在 ``stream()`` 与少数几个函数里延迟 import），所以模块能 import 成功
+    并不代表 SDK 已装——这里额外做一次 ``find_spec`` 探测，让「没装」在
+    ``/backends`` 就能问出来，而不是等用户点进去才失败。
+
+    ``_attempted`` 只记「探测失败过」，不能当成「已注册」——注册表可被
+    ``clear()`` 清空（测试大量用到），清空后被它挡住会永远报「未知 backend」。
+    """
+    kind = "qoder"
+    if kind in registry.available_kinds():
+        return
+    if kind in _attempted:
+        return
+
+    from .qoder_backend import QoderBackend, is_available
+
+    if not is_available():
+        _attempted.add(kind)
+        logger.info("qoder-agent-sdk 未安装，qoder 后端不可用（其它后端不受影响）")
+        return
+
+    registry.register(QoderBackend())
 
 
 def _register_cline() -> None:

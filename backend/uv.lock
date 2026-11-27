@@ -3,16 +3,16 @@ revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
-    "python_full_version == '3.14.*' and sys_platform == 'win32'",
     "python_full_version >= '3.15' and sys_platform == 'emscripten'",
-    "python_full_version == '3.14.*' and sys_platform == 'emscripten'",
     "python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.14.*' and sys_platform == 'win32'",
+    "python_full_version == '3.14.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.14.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version == '3.13.*' and sys_platform == 'win32'",
-    "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version == '3.13.*' and sys_platform == 'emscripten'",
-    "python_full_version < '3.13' and sys_platform == 'emscripten'",
     "python_full_version == '3.13.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and sys_platform == 'emscripten'",
     "python_full_version < '3.13' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
@@ -22,6 +22,7 @@ constraints = [
     { name = "filelock", specifier = ">=4.2.1" },
     { name = "virtualenv", specifier = ">=21.14.9" },
 ]
+overrides = [{ name = "mcp", extras = ["cli"], specifier = ">=2.2.0" }]
 
 [[package]]
 name = "absl-py"
@@ -842,7 +843,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
     { name = "jsonschema" },
-    { name = "mcp" },
+    { name = "mcp", extra = ["cli"] },
     { name = "sniffio" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e1/fd/72c481967f99402b63c5c31b4ecc96cdfca2faab922ddff69a214985e6ed/claude_agent_sdk-0.2.187.tar.gz", hash = "sha256:40558f133cb57286989521d6b4e89afb1fb9a853268d009716d35d7a9580ae21", size = 409303, upload-time = "2026-11-20T23:27:15.869Z" }
@@ -1507,6 +1508,7 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "python-multipart" },
     { name = "pyyaml" },
+    { name = "qoder-agent-sdk" },
     { name = "rapidocr" },
     { name = "reportlab" },
     { name = "requests" },
@@ -1614,6 +1616,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = "==1.2.4" },
     { name = "python-multipart", specifier = "==0.0.34" },
     { name = "pyyaml", specifier = "==6.0.4" },
+    { name = "qoder-agent-sdk", specifier = "==1.0.17" },
     { name = "rapidocr", specifier = "==3.10.0" },
     { name = "reportlab", specifier = "==5.1.0" },
     { name = "requests", specifier = ">=2.34" },
@@ -1883,7 +1886,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "absl-py" },
     { name = "google-genai" },
-    { name = "mcp" },
+    { name = "mcp", extra = ["cli"] },
     { name = "protobuf" },
     { name = "pydantic" },
     { name = "uvicorn" },
@@ -3553,7 +3556,7 @@ dependencies = [
     { name = "certifi" },
     { name = "griffelib" },
     { name = "httpx2" },
-    { name = "mcp" },
+    { name = "mcp", extra = ["cli"] },
     { name = "openai" },
     { name = "pydantic" },
     { name = "pyjwt" },
@@ -4986,6 +4989,25 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/bb/85/62d54e223b4bc89ff85f087a5ce2648e5d929d3214d64613dbae17d5e045/pyyaml-6.0.4-cp315-cp315t-musllinux_1_2_x86_64.whl", hash = "sha256:a65339c24f2fb8d4419e06ceec1bda98bdcff727b3b533a81d5af6bb2dd34520", size = 845763, upload-time = "2026-11-20T23:37:01.331Z" },
     { url = "https://files.pythonhosted.org/packages/eb/40/6bd9090368664be984a83fd7fe64f8e044b067a52449679c309706e3199d/pyyaml-6.0.4-cp315-cp315t-win_amd64.whl", hash = "sha256:a3cc63af3d639d1609143711837b926183418260aae89ed95193c07b25b99d33", size = 163170, upload-time = "2026-11-20T23:37:02.3Z" },
     { url = "https://files.pythonhosted.org/packages/0d/22/468d36762a0c650cf2295052998eb1d419053335ea9ff48a043f5ae4d578/pyyaml-6.0.4-cp315-cp315t-win_arm64.whl", hash = "sha256:d276f23e2371deb5ee68dd252cc9c2402b806b54d8d2cc7efbb6c34c3a78d886", size = 156942, upload-time = "2026-11-20T23:37:03.209Z" },
+]
+
+[[package]]
+name = "qoder-agent-sdk"
+version = "1.0.17"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "mcp", extra = ["cli"] },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1a/fc/d2c7e548b81d18ac7f26efba6b3fe04226c7e6272920b327a1b99454efd9/qoder_agent_sdk-1.0.17.tar.gz", hash = "sha256:4eb73920f8d5efd8d2abd1f4997350f2ef974682a56eb8587d123134c9656740", size = 174764, upload-time = "2026-10-27T12:00:51.507Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dd/e2/6080dee2c098439b9f67751cd98d25f64fe3ffadab4ae6707db66cbd8269/qoder_agent_sdk-1.0.17-py3-none-macosx_11_0_arm64.whl", hash = "sha256:ad401296a7a889d39f7dbe95b0502e184a2d221c3f1394ee46451c03f33a3bad", size = 67947982, upload-time = "2026-10-27T11:59:44.029Z" },
+    { url = "https://files.pythonhosted.org/packages/72/7d/290e81980d69498ff60fc55c9e7534866a171464a3d3d20bf66f58c9359b/qoder_agent_sdk-1.0.17-py3-none-macosx_11_0_x86_64.whl", hash = "sha256:1fd6c0d26ffaf2dc9c3c6525a3dbe36eb3948845bf0b2e8d404fc13c17b2326d", size = 72520592, upload-time = "2026-10-27T11:59:55.801Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/e5/7109c51de4304fa86a1a89b0fae6307f2cb81d91456b6074a866b9038271/qoder_agent_sdk-1.0.17-py3-none-manylinux_2_17_aarch64.whl", hash = "sha256:830d501ab1830b07a16ca260303ba001af5cad02fffb058270f408a231c9351d", size = 78126343, upload-time = "2026-10-27T12:00:06.832Z" },
+    { url = "https://files.pythonhosted.org/packages/43/16/266582dbb4bc813c684160bdf4f48696cda5f4c0e8ef45b3db1287e99f1a/qoder_agent_sdk-1.0.17-py3-none-manylinux_2_17_x86_64.whl", hash = "sha256:74b3d752cda87f9466d53153d4e2a834367d2917ee026ef294cf143cb311008a", size = 78495978, upload-time = "2026-10-27T12:00:17.335Z" },
+    { url = "https://files.pythonhosted.org/packages/b1/12/5190f5667b5b98d52508ed602cd8b3737184674136701d6ccce08ec192fe/qoder_agent_sdk-1.0.17-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:ac3e5845914508dddb6f80e2f9e49ed07b3133acf3447f0b12c27440c55a37cc", size = 75592875, upload-time = "2026-10-27T12:00:26.562Z" },
+    { url = "https://files.pythonhosted.org/packages/22/57/7f8160e2d5816c5d0f4a9cbfd2ad540eb9d1751564da03d755273e9ebc03/qoder_agent_sdk-1.0.17-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:4cb1779315e4e2f701bb4c61d45643562b8f27435fb5ea7eacdfcb85b25b0cc7", size = 76005805, upload-time = "2026-10-27T12:00:34.302Z" },
+    { url = "https://files.pythonhosted.org/packages/86/ca/c202eebb853d706d7b044bb8af49775cd4006cf93af2c1db098fbc24a845/qoder_agent_sdk-1.0.17-py3-none-win_amd64.whl", hash = "sha256:2c5cc459eb55e3b64e38c180a7a2e9d25d046e14ed405f4750efacbbfc3a3c55", size = 98579709, upload-time = "2026-10-27T12:00:48.935Z" },
 ]
 
 [[package]]

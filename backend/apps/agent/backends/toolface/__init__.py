@@ -23,6 +23,7 @@
 ``shared_enabled()``         ``FACHUAN_MCP_SHARED`` 解析
 ``endpoint_from_env()``      按环境变量解析 endpoint
 ``port_open()``              端口探测
+``agent_home()``             运行时状态根目录（``FACHUAN_AGENT_HOME``）
 ``spawn_shared_server()``    拉起常驻 MCP 子进程
 ``wait_until_port_ready()``  同步就绪等待
 ===========================  ==========================================
@@ -53,6 +54,7 @@ from .endpoint import (
     READY_TIMEOUT,
     SHARED_ENV,
     McpEndpoint,
+    agent_home,
     backend_dir,
     endpoint_from_env,
     mcp_log_dir,
@@ -79,6 +81,7 @@ __all__ = [
     "TIER_LITE",
     "TOOL_TIMEOUT_SECONDS",
     "TOOL_TIER_HEADER",
+    "agent_home",
     "backend_dir",
     "endpoint_from_env",
     "mcp_log_dir",
