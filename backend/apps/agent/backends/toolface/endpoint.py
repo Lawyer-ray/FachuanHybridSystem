@@ -76,17 +76,33 @@ def port_open(host: str, port: int, timeout: float = 0.5) -> bool:
         return False
 
 
+def agent_home() -> Path:
+    """运行时状态的稳定根目录（默认 ``~/.fachuan-agent``，``FACHUAN_AGENT_HOME`` 可覆盖）。
+
+    ## 为什么在本模块重新实现而不 import ``pi.session_store.agent_home``
+
+    ``pi`` 依赖本包（``pi/rpc_client.py`` / ``pi/shared_mcp.py`` 都 import
+    ``backends.toolface``），反过来 import 就成环。取值规则必须与
+    ``pi.session_store.agent_home()`` **逐字一致**（同一个环境变量、同一个默认
+    目录、同样 ``expanduser``），由 ``tests/ci/unit/agent/test_toolface.py``
+    钉住两者不漂移。
+
+    与 ``pi.session_store.agent_home()`` 的差异只有一处、且刻意：本函数**不建目录、
+    不改权限**。它被 ``/agent/backends`` 这类只读探测路径调用，在只读文件系统或
+    权限不足的部署里 mkdir 会抛错，把「能不能用」的探测变成 500。需要写盘的
+    调用方自己 ``mkdir(parents=True, exist_ok=True)`` 并收权限。
+    """
+    raw = os.environ.get("FACHUAN_AGENT_HOME", "").strip()
+    return Path(raw).expanduser() if raw else Path.home() / ".fachuan-agent"
+
+
 def mcp_log_dir() -> Path:
     """共享 MCP 日志目录（``<agent home>/logs``，0700）。
 
-    这里读 ``FACHUAN_AGENT_HOME`` 而**不** import ``pi.session_store``：
-    ``pi`` 依赖本包，反过来 import 会成环。取值规则与
-    ``pi.session_store.agent_home()`` 一致（同一个环境变量 + 同一个默认目录），
-    由 ``tests/ci/unit/agent/test_toolface.py`` 钉住两者不漂移。
+    走 :func:`agent_home` 而不是自己再读一次环境变量：两处各读一次就会在
+    「一个改了另一个没改」时把日志写到两个地方，而这种漂移没有任何报错。
     """
-    raw = os.environ.get("FACHUAN_AGENT_HOME", "").strip()
-    root = Path(raw).expanduser() if raw else Path.home() / ".fachuan-agent"
-    return root / "logs"
+    return agent_home() / "logs"
 
 
 def backend_dir() -> Path:

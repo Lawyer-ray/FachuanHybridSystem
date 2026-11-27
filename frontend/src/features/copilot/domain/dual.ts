@@ -73,6 +73,7 @@ const AGENT_LABELS: Record<string, string> = {
   'openai-agents': 'OpenAI Agents',
   antigravity: 'Antigravity',
   'claude-agent': 'Claude Agent',
+  qoder: 'Qoder',
   // 综合结论在转录里也是一条 assistant（见 SYNTHESIS_AGENT_KIND）。它不是某一栏的
   // 回答，distinctAgentKinds / mergeAgentAnswers 都会把它排掉；这里只给它一个可读名字。
   [SYNTHESIS_AGENT_KIND]: '综合结论',

@@ -264,6 +264,9 @@ class TestEndpointValueObject:
 
         monkeypatch.setenv("FACHUAN_AGENT_HOME", str(tmp_path / "ah"))
         assert toolface.mcp_log_dir() == agent_home() / "logs"
+        # ``agent_home()`` 本身也钉住：qoder 后端的 work/配置目录建在它下面，
+        # 两边取值漂移会把状态写到两个地方（而这是没有任何报错的静默失效）。
+        assert toolface.agent_home() == agent_home()
 
 
 class TestToolfaceStaysStdlibOnly:
