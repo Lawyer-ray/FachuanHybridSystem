@@ -22,7 +22,7 @@
 import { create } from 'zustand'
 
 import { resetUploadReceipts } from '../outgoing'
-import { readStoredSession, storeAgentKind, storeSession } from '../persistence'
+import { clearNewAnswerSelection, readStoredSession, storeAgentKind, storeSession } from '../persistence'
 import type { CopilotState } from '../types'
 import { createAnswersSlice } from './answers'
 import { createApprovalSlice } from './approval'
@@ -121,6 +121,9 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       selectedAgentKind: '',
     })
     storeAgentKind('')
+    // 「新对话」那对键也得清：sessionId 置 null 后 hydrate 会读它们，不清就是
+    // 把上一个账号勾过的 AI / 选的模型送到下一个账号的输入区
+    clearNewAnswerSelection()
     resetUploadReceipts()
     storeSession(null)
   },

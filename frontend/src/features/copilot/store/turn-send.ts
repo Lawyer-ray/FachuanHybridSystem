@@ -26,7 +26,7 @@ import {
   splitRefBlocks,
 } from '../domain'
 import { uploadAttachmentsAndCompose } from '../outgoing'
-import { storeSession } from '../persistence'
+import { seedAnswerSelectionFromNew, storeSession } from '../persistence'
 import { consumeAgentStream } from '../streaming'
 import { createTurnHandlers } from '../turn-handlers'
 import type { AgentSpec, CopilotState, SelectionQuote, TurnStats } from '../types'
@@ -95,6 +95,10 @@ export async function ensureSession(
     return null
   }
   bumpSessionEpoch()
+  // 建会话这一刻必须先搬家：勾选/模型是律师在「新对话」里选的，写盘落在
+  // `copilot:agents:new` / `copilot:models:new`；不搬的话紧接着的 hydrate 会按
+  // `<新 id>` 读到空，把刚勾的选择当场清成 0（用户看到「已选 0 个」，刷新也回不来）。
+  seedAnswerSelectionFromNew(sessionId)
   set({ sessionId })
   storeSession(sessionId)
   return sessionId
