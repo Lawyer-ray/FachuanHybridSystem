@@ -7,7 +7,11 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('agent', '0031_personal_skills'),
+        # 只依赖本表上一个迁移（0030）。**不要**写成当时本地存在但未入库的
+        # 0031_personal_skills：那个文件不在版本里，任何 worktree / clone 上都会变成
+        # 「依赖了不存在的父节点」，整套迁移图直接报 NodeNotFoundError（真机手测时
+        # 在干净 worktree 里踩到过）。
+        ('agent', '0030_uiaction_unsettled_unique'),
     ]
 
     operations = [
