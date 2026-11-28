@@ -73,7 +73,7 @@ def submit(
             _promote_scope(lawyer, skill, target_scope, acknowledged_firm_wide=acknowledged_firm_wide)
         if not permissions.can_submit(lawyer, skill):
             raise SkillForbidden("你没有提审这条技能的权限")
-        hard, soft = _scan(skill)
+        hard, soft = _scan(title=skill.title, description=skill.description, body=skill.body)
         if hard:
             raise SkillInvalid([{"field": finding.field, "message": finding.message} for finding in hard])
         _write_workspace_revision(skill, edited_by_id=user_id)
@@ -107,6 +107,11 @@ def approve(*, user_id: int, key: str, acknowledged_firm_wide: bool = False) -> 
         revision = skill.revisions.order_by("-version").first()
         if revision is None:  # pragma: no cover - 有工作区就一定有快照
             raise SkillInvalid([{"field": "body", "message": "没有可发布的版本快照"}])
+        # 发布前再扫一次**即将生效的那份快照**，不是工作区：驳回后作者可以继续
+        # 增删而没有再提审的窗口，只靠 submit 那一次扫描是不够的。
+        hard, _soft = _scan(title=revision.title, description=revision.description, body=revision.body)
+        if hard:
+            raise SkillInvalid([{"field": finding.field, "message": finding.message} for finding in hard])
         now = timezone.now()
         skill.status = AgentSkill.Status.ACTIVE
         skill.review_status = AgentSkill.ReviewStatus.NONE
@@ -217,7 +222,7 @@ def diff_versions(*, user_id: int, key: str, v1: int | None = None, v2: int | No
     要的是「哪些行是新增、哪些是删除、哪些没变」的结构，不是一段带 ``@@`` 头
     的文本——后者在中文正文里几乎读不了。
     """
-    import difflib  # noqa: PLC0415 - 单点使用的标准库
+    import difflib
 
     lawyer = _lawyer(user_id)
     skill = _get_skill(user_id, key)
@@ -267,7 +272,7 @@ def prune_revisions(skill: AgentSkill) -> None:
 
 
 def _lawyer(user_id: int) -> object:
-    from apps.organization.models import Lawyer  # noqa: PLC0415 - 避免循环导入
+    from apps.organization.models import Lawyer
 
     lawyer = Lawyer.objects.select_related("law_firm").prefetch_related("lawyer_teams").filter(pk=user_id).first()
     if lawyer is None:
@@ -276,13 +281,13 @@ def _lawyer(user_id: int) -> object:
 
 
 def _get_skill(user_id: int, key: str) -> AgentSkill:
-    from .user_skills import _resolve_skill_row  # noqa: PLC0415 - 避免与 CRUD 模块循环 import
+    from .user_skills import _resolve_skill_row
 
     return _resolve_skill_row(user_id, key)
 
 
 def _locked_skill(user_id: int, key: str) -> AgentSkill:
-    from .user_skills import _resolve_skill_row  # noqa: PLC0415
+    from .user_skills import _resolve_skill_row
 
     return _resolve_skill_row(user_id, key, for_update=True)
 
@@ -317,7 +322,12 @@ def _promote_scope(lawyer: object, skill: AgentSkill, target_scope: str, *, ackn
 def _write_workspace_revision(skill: AgentSkill, *, edited_by_id: int) -> None:
     """为工作区当前状态写一条快照（提审时补齐 v1 之外的新版本）。"""
     latest = skill.revisions.order_by("-version").first()
-    if latest is not None and latest.body == skill.body and latest.title == skill.title and latest.description == skill.description:
+    if (
+        latest is not None
+        and latest.body == skill.body
+        and latest.title == skill.title
+        and latest.description == skill.description
+    ):
         return
     AgentSkillRevision.objects.create(
         skill=skill,
@@ -331,18 +341,18 @@ def _write_workspace_revision(skill: AgentSkill, *, edited_by_id: int) -> None:
     prune_revisions(skill)
 
 
-def _scan(skill: AgentSkill) -> tuple[list, list]:
-    """跑 PII / 注入闸门；``safety`` 模块尚未落地时视为无命中。
+def _scan(*, title: str, description: str, body: str) -> tuple[list, list]:
+    """跑 PII / 注入闸门，返回 ``(hard, soft)``。
 
     惰性 import + 兜底是刻意的：``safety`` 与生命周期是两个可独立演进的模块，
     但「导入失败就放行」不能成为长期状态，所以一旦模块存在就必须被调用。
     """
     try:
-        from .safety import scan_skill  # noqa: PLC0415 - 见 docstring
+        from .safety import scan_skill
     except ImportError:  # pragma: no cover - 仅模块缺失期
         logger.warning("技能安全闸门模块缺失，本次提审未做 PII 扫描")
         return [], []
-    findings = scan_skill(title=skill.title, description=skill.description, body=skill.body)
+    findings = scan_skill(title=title, description=description, body=body)
     hard = [item for item in findings if item.level == "hard"]
     soft = [item for item in findings if item.level == "soft"]
     return hard, soft
@@ -350,8 +360,10 @@ def _scan(skill: AgentSkill) -> tuple[list, list]:
 
 def _detail(skill: AgentSkill) -> dict:
     """生命周期动作的回执（管理面字段 + 工作区正文）。"""
-    from .user_skills import entry_for_row  # noqa: PLC0415
+    from .user_skills import entry_for_row
 
-    return {**entry_for_row(skill), "body": skill.body, "preview": render_skill_body(
-        scope=str(skill.scope), name=skill.name, title=skill.title, body=skill.body
-    )}
+    return {
+        **entry_for_row(skill),
+        "body": skill.body,
+        "preview": render_skill_body(scope=str(skill.scope), name=skill.name, title=skill.title, body=skill.body),
+    }
