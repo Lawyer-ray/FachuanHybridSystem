@@ -171,6 +171,34 @@ class TestListVisibleSkills:
         assert f"skill:{mine.pk}" in keys
         assert f"skill:{theirs.pk}" not in keys
 
+    def test_every_entry_has_shadowed_list(self, lawyer: Lawyer, firm: LawFirm) -> None:
+        """``shadowed`` 是 §2 必填字段：缺它会让 ``GET /skills`` 直接 500。"""
+        _row(scope=AgentSkill.Scope.LAWYER, name="a", lawyer=lawyer)
+        shared = _row(scope=AgentSkill.Scope.LAW_FIRM, name="b", firm=firm)
+        _publish(shared, version=1, body="所内版")
+        for item in resolve.list_visible_skills(user_id=lawyer.pk):
+            assert isinstance(item["shadowed"], list), item["key"]
+
+    def test_archived_personal_is_not_effective(self, lawyer: Lawyer) -> None:
+        """``effective`` = 「本轮真会交给模型」，不是「级联里赢了」。
+
+        已归档的个人技能仍在候选集且 enabled=True，甚至可能赢下同名级联，但它
+        根本不会进 ``resolve_for_user``。把它标成「生效中」等于告诉律师
+        「AI 正在按它做事」——最坏的一类假信息。
+        """
+        archived = _row(
+            scope=AgentSkill.Scope.LAWYER, name="gone", lawyer=lawyer, status=AgentSkill.Status.ARCHIVED
+        )
+        listed = {item["key"]: item for item in resolve.list_visible_skills(user_id=lawyer.pk)}
+        assert listed[f"skill:{archived.pk}"]["effective"] is False
+        assert "gone" not in [item["name"] for item in resolve.resolve_for_user(lawyer.pk)]
+
+    def test_unpublished_shared_is_not_effective(self, lawyer: Lawyer, firm: LawFirm) -> None:
+        draft = _row(scope=AgentSkill.Scope.LAW_FIRM, name="draft-only", firm=firm, status=AgentSkill.Status.DRAFT)
+        AgentSkill.objects.filter(pk=draft.pk).update(created_by=lawyer)
+        listed = {item["key"]: item for item in resolve.list_visible_skills(user_id=lawyer.pk)}
+        assert listed[f"skill:{draft.pk}"]["effective"] is False
+
     def test_no_body_in_list(self, lawyer: Lawyer, firm: LawFirm) -> None:
         """列表不带 ``body``：60 条 × 32KB 会把抽屉的首屏响应拖成兆级。"""
         _row(scope=AgentSkill.Scope.LAWYER, name="big", lawyer=lawyer, body="x" * 5000)

@@ -7,7 +7,14 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
+    # 必须**同时**依赖 0031 与 0032：这两条迁移都从 0030 分叉出来（0031 是本批
+    # 技能表迁移，0032 是并行会话的 UI 动作迁移，写 0032 时 0031 还没入库）。
+    # 只依赖 0032 会让迁移图出现两个 leaf，``migrate`` 直接报
+    # ``Conflicting migrations detected... multiple leaf nodes`` —— 而单看任何
+    # 一个迁移文件都完全正常，只有跑起来才炸。这里把 0033 当成汇合点，
+    # 两个分叉在它身上收拢，不需要去改别人那条迁移。
     dependencies = [
+        ('agent', '0031_personal_skills'),
         ('agent', '0032_uiaction_session_setnull'),
         ('organization', '0012_lawfirm_name_unique'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),

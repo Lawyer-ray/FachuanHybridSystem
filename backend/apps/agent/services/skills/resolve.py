@@ -79,18 +79,21 @@ def list_visible_skills(*, user_id: int) -> list[dict]:
     # 过 ``permissions.can_view``。不过这道闸门的话，全所每一条别人的草稿都会出现
     # 在每个人的抽屉里——那比不发布更糟（半成品指令最容易被误当规范照做）。
     entries = [
-        entry
-        for entry in candidates
-        if entry.get("_row") is None or permissions.can_view(lawyer, entry["_row"])
+        entry for entry in candidates if entry.get("_row") is None or permissions.can_view(lawyer, entry["_row"])
     ]
     winners = {entry["name"]: entry for entry in _cascade([e for e in entries if e["enabled"]])}
 
     result: list[dict] = []
     for entry in entries:
         winner = winners.get(entry["name"])
-        is_effective = winner is not None and winner["key"] == entry["key"]
+        # ``effective`` 的语义是「本轮真的会交付给模型」，不是「在级联里赢了」。
+        # 两者对已归档/未发布的条目会分叉：它可能赢下同名级联，却因为不进
+        # ``resolve_for_user`` 而根本不会被交付——抽屉里把它显示成「生效中」
+        # 就是最典型的假信息（律师会以为 AI 正在按它做事）。
+        deliverable = bool(entry.get("_deliverable", True)) and entry["enabled"]
+        is_effective = deliverable and winner is not None and winner["key"] == entry["key"]
         shadowed_by = None
-        if entry["enabled"] and winner is not None and not is_effective:
+        if deliverable and winner is not None and not is_effective:
             shadowed_by = {
                 "key": winner["key"],
                 "scope": winner["scope"],
@@ -100,6 +103,9 @@ def list_visible_skills(*, user_id: int) -> list[dict]:
             **entry,
             "effective": is_effective,
             "shadowed_by": shadowed_by,
+            # 只有赢家持有「我遮蔽了谁」；败者没有话语权，给空列表而不是缺字段——
+            # 缺字段会让按 §2 必填声明的 schema 直接 500。
+            "shadowed": winner["shadowed"] if is_effective and winner is not None else [],
         }
         enriched.update(permissions.capability_flags(lawyer, entry.get("_row")))
         result.append(_public(enriched))
@@ -248,6 +254,10 @@ def _entry_from_row(
         "shadowed": [],
         # 内部字段：列表出口会剔掉，权限计算需要原始行
         "_row": row,
+        # 内部字段：「本轮能否被交付」。共享技能还要有已审批的线上版本才算，
+        # 否则它就是一条躺在审批队列里的草稿（``effective`` 口径见 list_visible_skills）。
+        "_deliverable": str(row.status) == AgentSkill.Status.ACTIVE
+        and (not row.is_shared or row.published_revision_id is not None),
     }
 
 
