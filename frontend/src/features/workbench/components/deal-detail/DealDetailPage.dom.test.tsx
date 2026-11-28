@@ -460,10 +460,10 @@ describe('DealDetailPage 程序链与案件节', () => {
 
   it('系列案形态（4 案 3 个案由）：总览按案由分组、一案一行、点行滚到该案', async () => {
     casesMock.mockResolvedValueOnce([
-      makeCase({ id: 1, name: '刘某某诉奥创民间借贷纠纷', cause_of_action: '民间借贷纠纷', start_date: '2025-08-31' }),
-      makeCase({ id: 2, name: '黄某诉奥创劳动纠纷', cause_of_action: '劳动争议', start_date: '2025-08-31' }),
-      makeCase({ id: 3, name: '科图印刷诉奥创买卖合同纠纷', cause_of_action: '买卖合同纠纷', start_date: '2025-08-31' }),
-      makeCase({ id: 4, name: '丰翰泰运诉奥创买卖合同纠纷', cause_of_action: '买卖合同纠纷', start_date: '2025-10-28' }),
+      makeCase({ id: 1, name: '刘某某诉某电器公司民间借贷纠纷', cause_of_action: '民间借贷纠纷', start_date: '2025-08-31' }),
+      makeCase({ id: 2, name: '黄某诉某电器公司劳动争议', cause_of_action: '劳动争议', start_date: '2025-08-31' }),
+      makeCase({ id: 3, name: '某印刷公司诉某电器公司买卖合同纠纷', cause_of_action: '买卖合同纠纷', start_date: '2025-08-31' }),
+      makeCase({ id: 4, name: '某运业公司诉某电器公司买卖合同纠纷', cause_of_action: '买卖合同纠纷', start_date: '2025-10-28' }),
     ])
     setupUi()
     const head = await screen.findByText('4 个案件')
@@ -472,13 +472,13 @@ describe('DealDetailPage 程序链与案件节', () => {
     // 案由多样 → 默认按案由分组；组标题带组内案件数
     expect(within(card).getAllByRole('heading', { level: 4 }).map((h) => h.textContent)).toContain('买卖合同纠纷')
     expect(within(card).getAllByRole('heading', { level: 4 })).toHaveLength(3)
-    expect(within(card).getByTitle('跳到 丰翰泰运诉奥创买卖合同纠纷')).toBeTruthy()
+    expect(within(card).getByTitle('跳到 某运业公司诉某电器公司买卖合同纠纷')).toBeTruthy()
 
     // 切「按程序」：全是同一阶段，只剩一组，组标题跟着消失（只有一组时它就是整块的标签）
     fireEvent.click(within(card).getByText('按程序'))
     await waitFor(() => expect(within(card).queryAllByRole('heading', { level: 4 })).toHaveLength(0))
 
-    within(card).getByTitle('跳到 黄某诉奥创劳动纠纷').click()
+    within(card).getByTitle('跳到 黄某诉某电器公司劳动争议').click()
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
   })
 

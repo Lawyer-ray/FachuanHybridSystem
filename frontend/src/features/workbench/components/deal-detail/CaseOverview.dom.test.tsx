@@ -41,20 +41,20 @@ describe('CaseOverview（一个委托下多条程序线）', () => {
     render(
       <CaseOverview
         cases={[
-          makeCase({ id: 305, name: '三水南钢上诉升平百货', proc: '二审', cause: '买卖合同纠纷' }),
-          makeCase({ id: 361, name: '同艾堂执行三水南钢', proc: '执行', prev: 305, cause: '买卖合同纠纷' }),
-          makeCase({ id: 375, name: '梁伟龙上诉升平公司', proc: '二审', cause: '买卖合同纠纷' }),
+          makeCase({ id: 305, name: '某钢业公司上诉某百货公司', proc: '二审', cause: '买卖合同纠纷' }),
+          makeCase({ id: 361, name: '某中医馆执行某钢业公司', proc: '执行', prev: 305, cause: '买卖合同纠纷' }),
+          makeCase({ id: 375, name: '梁某上诉某百货公司', proc: '二审', cause: '买卖合同纠纷' }),
         ]}
         onJump={() => {}}
       />,
     )
     expect(screen.getByText('3 个案件')).toBeTruthy()
-    const execRow = screen.getByTitle('跳到 同艾堂执行三水南钢')
+    const execRow = screen.getByTitle('跳到 某中医馆执行某钢业公司')
     // 执行那行带整条线：二审 → 执行（这是 ×N 讲不清的那件事）
     expect(within(execRow).getByText('二审')).toBeTruthy()
     expect(within(execRow).getByText('执行')).toBeTruthy()
     // 孤立二审只有自己的点，不能把它接到别人的执行上
-    const loneRow = screen.getByTitle('跳到 梁伟龙上诉升平公司')
+    const loneRow = screen.getByTitle('跳到 梁某上诉某百货公司')
     expect(within(loneRow).queryByText('执行')).toBeNull()
   })
 
@@ -80,11 +80,11 @@ describe('CaseOverview（一个委托下多条程序线）', () => {
     const onJump = vi.fn()
     render(
       <CaseOverview
-        cases={[makeCase({ id: 7, name: '刘某某诉奥创民间借贷纠纷' }), makeCase({ id: 8, name: '黄某诉奥创劳动纠纷' })]}
+        cases={[makeCase({ id: 7, name: '刘某某诉某电器公司民间借贷纠纷' }), makeCase({ id: 8, name: '黄某诉某电器公司劳动争议' })]}
         onJump={onJump}
       />,
     )
-    screen.getByTitle('跳到 黄某诉奥创劳动纠纷').click()
+    screen.getByTitle('跳到 黄某诉某电器公司劳动争议').click()
     expect(onJump).toHaveBeenCalledWith(8)
   })
 
