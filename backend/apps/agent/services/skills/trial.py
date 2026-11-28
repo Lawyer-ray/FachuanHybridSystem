@@ -134,7 +134,16 @@ def prepare_trial(*, user_id: int, key: str, question: str = "", backend_kind: s
     if not flags.writes_enabled():
         # 试跑要铸律师凭证、起子进程；运营开关关闭时整条技能链都该静默，别只留它一个入口。
         raise SkillForbidden("技能写入已被运营开关关闭，请联系管理员")
+    from .library import builtin_names
+
     lawyer = _lawyer(user_id)
+    # 内置技能随代码发布、**不走审批**，本来就没有「发布前试跑」这个场景。给它一个
+    # 404 会让前端以为「技能不存在」（它明明就在列表里），所以显式说清楚。
+    raw = (key or "").strip()
+    if raw.startswith("builtin:") or raw in builtin_names():
+        raise SkillInvalid(
+            [{"field": "key", "message": "内置技能随代码发布、不走审批，无需试跑（只有待发布的技能才需要）"}]
+        )
     skill = _readable_skill(user_id, key, lawyer)
     if len((skill.body or "").encode("utf-8")) > MAX_BODY_BYTES:
         raise SkillInvalid([{"field": "body", "message": f"正文超过 {MAX_BODY_BYTES // 1024} KB，无法试跑"}])

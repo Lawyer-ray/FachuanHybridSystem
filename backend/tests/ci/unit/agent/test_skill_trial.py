@@ -336,3 +336,28 @@ class TestTrialEndpoint:
             assert response.status_code == 503
         finally:
             flags.reset_cache()
+
+
+@pytest.mark.django_db
+class TestBuiltinIsNotTriallable:
+    """内置技能不走审批 → 没有「发布前试跑」这个场景。
+
+    这里必须是 **422 + 明确原因**，不能是 404：内置技能明明就显示在抽屉的「系统」
+    tab 里，回 404 会让前端以为是数据不一致（「列表有、点进去没有」）。
+    """
+
+    def test_builtin_key_rejected_with_reason(self, firm: LawFirm, fake: _FakeBackend) -> None:
+        from apps.agent.services.skills.errors import SkillInvalid
+
+        lawyer = _lawyer("trial-builtin", firm)
+        with pytest.raises(SkillInvalid) as excinfo:
+            trial.prepare_trial(user_id=lawyer.pk, key="builtin:web-research")
+        message = excinfo.value.errors[0]["message"]
+        assert "内置技能" in message and "无需试跑" in message
+
+    def test_bare_builtin_name_rejected(self, firm: LawFirm, fake: _FakeBackend) -> None:
+        from apps.agent.services.skills.errors import SkillInvalid
+
+        lawyer = _lawyer("trial-builtin-bare", firm)
+        with pytest.raises(SkillInvalid):
+            trial.prepare_trial(user_id=lawyer.pk, key="web-research")
