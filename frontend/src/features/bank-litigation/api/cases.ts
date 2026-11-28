@@ -19,9 +19,20 @@ export const casesApi = createApiClient({ prefix: '/api/v1/cases' })
  * 「起诉条件校验失败」，看着像业务错误，实际只是 URL 拼错。
  */
 
-/** 案件列表（双层 cases） */
-export async function listCases(): Promise<components['schemas']['CaseOut'][]> {
-  return casesApi.get('cases').json<components['schemas']['CaseOut'][]>()
+/**
+ * 案件列表（双层 cases）。
+ *
+ * 带 `slim=true`：本页是后端列表接口**唯一的重消费方**，但只读 7 个标量字段
+ * （见 `types.ts` 的 `CaseRow`），而全量 `CaseOut` 每行还背着 7 个嵌套集合——
+ * 真库 115 行实测 258 条 SQL / 755 KB。slim 走 `CaseSlimOut`（标量列与 CaseOut
+ * 同口径），后端同步裁掉预取。
+ * 分页暂不动：后端已支持 `limit/offset` + `with_total=true`（总数在 `X-Total-Count`
+ * 响应头），但本页还没有分页 UI；现在默认 200 条上限够用，加 UI 是独立的交互改动。
+ */
+export async function listCases(): Promise<components['schemas']['CaseSlimOut'][]> {
+  return casesApi
+    .get('cases', { searchParams: { slim: 'true' } })
+    .json<components['schemas']['CaseSlimOut'][]>()
 }
 
 /** 单个案件详情（双层 cases） */

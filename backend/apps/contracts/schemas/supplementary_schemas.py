@@ -12,8 +12,7 @@ from ninja import ModelSchema, Schema
 
 from apps.contracts.models import PartyRole, SupplementaryAgreement, SupplementaryAgreementParty
 from apps.core.api.schemas import SchemaMixin
-
-from .client_schemas import ClientOut
+from apps.core.api.schemas_shared import ClientBriefOut
 
 
 class SupplementaryAgreementPartyInput(Schema):
@@ -58,7 +57,7 @@ class SupplementaryAgreementPartyIn(Schema):
 class SupplementaryAgreementPartyOut(ModelSchema):
     """补充协议当事人输出 Schema"""
 
-    client_detail: ClientOut
+    client_detail: ClientBriefOut
     client_name: str
     is_our_client: bool
     role_label: str
@@ -68,14 +67,14 @@ class SupplementaryAgreementPartyOut(ModelSchema):
         fields: ClassVar = ["id", "client", "role"]
 
     @staticmethod
-    def resolve_client_detail(obj: Any) -> ClientOut | None:
+    def resolve_client_detail(obj: Any) -> ClientBriefOut | None:
         """解析完整的客户信息"""
         if isinstance(obj, dict):
             detail = obj.get("client_detail")
             if isinstance(detail, dict):
-                return ClientOut(**detail)
+                return ClientBriefOut(**detail)
             return detail
-        return ClientOut.from_model(obj.client) if obj.client else None
+        return ClientBriefOut.from_model(obj.client) if obj.client else None
 
     @staticmethod
     def resolve_client_name(obj: Any) -> str:

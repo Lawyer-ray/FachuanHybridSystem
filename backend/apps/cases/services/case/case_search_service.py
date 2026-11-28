@@ -29,6 +29,7 @@ class CaseSearchService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         exact_match: bool = False,
+        slim: bool = False,
     ) -> QuerySet[Case, Case]:
         normalized = normalize_case_number(case_number)
         if not normalized:
@@ -40,7 +41,7 @@ class CaseSearchService:
             search_term = normalized.rstrip("号")
             case_ids = CaseNumber.objects.filter(number__icontains=search_term).values_list("case_id", flat=True)
 
-        qs = get_case_queryset().filter(id__in=case_ids)
+        qs = get_case_queryset(slim=slim).filter(id__in=case_ids)
         return self.access_policy.filter_queryset(
             qs, user=user, org_access=org_access, perm_open_access=perm_open_access
         )
@@ -107,8 +108,9 @@ class CaseSearchService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
+        slim: bool = False,
     ) -> QuerySet[Case, Case]:
-        qs = get_case_queryset().order_by("-id")
+        qs = get_case_queryset(slim=slim).order_by("-id")
 
         # status/case_type 是 Case 自身字段（与 Contract 同名但语义独立），
         # 按 contract__ 过滤会丢掉无合同关联的案件，这里直接过滤 Case 字段
@@ -122,6 +124,45 @@ class CaseSearchService:
         return self.access_policy.filter_queryset(
             qs, user=user, org_access=org_access, perm_open_access=perm_open_access
         )
+
+    def count_cases(
+        self,
+        case_type: str | None = None,
+        status: str | None = None,
+        contract_id: int | None = None,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> int:
+        """与 list_cases **同一套过滤 + 可见性口径**的总数（与 limit/offset 无关）。
+
+        专供端点回 X-Total-Count：口径必须和列表本身逐条对齐（同一个 list_cases
+        再 .count()），否则「列表 3 条、总数 4」这种对不上的数比没有总数更坏。
+        这里用不到预取，故不传 slim（prefetch 不影响 count 的 SQL）。
+        """
+        return self.list_cases(
+            case_type=case_type,
+            status=status,
+            contract_id=contract_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        ).count()
+
+    def count_cases_by_case_number(
+        self,
+        case_number: str,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> int:
+        """与 search_by_case_number 同口径的总数（端点走案号分支时用它）。"""
+        return self.search_by_case_number(
+            case_number=case_number,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        ).count()
 
     def list_cases_ctx(
         self,

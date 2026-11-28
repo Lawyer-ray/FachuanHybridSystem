@@ -20,6 +20,8 @@ vi.mock('../../api', async (importOriginal) => ({
   listCasesByContract: vi.fn(),
   listRemindersByCase: vi.fn(),
   getCaseFolderBinding: vi.fn(),
+  // 右栏「合同文件夹」先查绑定再决定要不要拉目录（未绑定显示「绑定文件夹」入口）
+  getContractFolderBinding: vi.fn(),
   listFolderEntries: vi.fn(),
   createFolderEntry: vi.fn(),
   renameFolderEntry: vi.fn(),
@@ -45,6 +47,7 @@ vi.mock('@/components/shared/onlyoffice/OfficeView', () => ({
 import {
   attachPaymentInvoice,
   getCaseFolderBinding,
+  getContractFolderBinding,
   getContract,
   listCasesByContract,
   listContractInvoices,
@@ -86,6 +89,7 @@ const lawyersMock = vi.mocked(listLawyers)
 const casesMock = vi.mocked(listCasesByContract)
 const remindersMock = vi.mocked(listRemindersByCase)
 const bindingMock = vi.mocked(getCaseFolderBinding)
+const contractBindingMock = vi.mocked(getContractFolderBinding)
 const entriesMock = vi.mocked(listFolderEntries)
 
 const today = new Date()
@@ -95,19 +99,15 @@ const TODAY = iso(today)
 const IN_10_DAYS = iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 10))
 const YESTERDAY = iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1))
 
-function clientLite(id: number, name: string, ours: boolean) {
+function clientBrief(id: number, name: string, ours: boolean) {
   return {
     id,
     name,
     is_our_client: ours,
     phone: ours ? '0757-8288' : null,
     address: null,
-    client_type: 'legal',
-    client_type_label: '法人',
     id_number: null,
     legal_representative: ours ? '刘某' : null,
-    legal_representative_id_number: null,
-    identity_docs: [],
   }
 }
 
@@ -138,8 +138,8 @@ function makeContract(over: Partial<ContractListItem> = {}): ContractListItem {
     total_invoiced: 0,
     unpaid_amount: null,
     contract_parties: [
-      { id: 1, contract: 7, client: 1, role: 'principal', role_label: '委托人', client_detail: clientLite(1, '某银行', true) },
-      { id: 2, contract: 7, client: 2, role: 'opponent', role_label: '对方当事人', client_detail: clientLite(2, '某公司', false) },
+      { id: 1, contract: 7, client: 1, role: 'principal', role_label: '委托人', client_detail: clientBrief(1, '某银行', true) },
+      { id: 2, contract: 7, client: 2, role: 'opponent', role_label: '对方当事人', client_detail: clientBrief(2, '某公司', false) },
     ],
     assignments: [{ id: 1, lawyer_id: 1, lawyer_name: '黄某', is_primary: true, order: 0 }],
     primary_lawyer: { id: 1, username: 'hs', real_name: '黄某', phone: '138', law_firm_name: '某律所' },
@@ -181,8 +181,8 @@ function makeCase(over: Partial<CaseListItem> = {}): CaseListItem {
     current_stage: '一审',
     contract_id: 7,
     parties: [
-      { id: 1, case: 1, client: 1, legal_status: '原告', client_detail: clientLite(1, '某银行', true) },
-      { id: 2, case: 1, client: 2, legal_status: '被告', client_detail: clientLite(2, '某公司', false) },
+      { id: 1, case: 1, client: 1, legal_status: '原告', client_detail: clientBrief(1, '某银行', true) },
+      { id: 2, case: 1, client: 2, legal_status: '被告', client_detail: clientBrief(2, '某公司', false) },
     ],
     assignments: [],
     logs: [],
@@ -222,6 +222,15 @@ beforeEach(() => {
   getContractMock.mockResolvedValue(makeContract())
   lawyersMock.mockResolvedValue(lawyers)
   bindingMock.mockResolvedValue(null)
+  // 右栏合同文件夹：默认「已绑定」，否则树不渲染（那是「绑定文件夹」入口的形态）
+  contractBindingMock.mockResolvedValue({
+    id: 1,
+    contract_id: 7,
+    folder_path: '/tmp/合同',
+    folder_path_display: '/tmp/合同',
+    storage_type: 'local',
+    is_accessible: true,
+  } as never)
   casesMock.mockResolvedValue([
     // 故意乱序给：二审（2026）在前、一审（2025）在后，页面应按收案日期排
     makeCase({
@@ -236,8 +245,8 @@ beforeEach(() => {
         { id: 2, name: '佛山市中级人民法院', authority_type: 'trial', authority_type_display: '法院', created_at: '2026-03-05T00:00:00Z' },
       ],
       parties: [
-        { id: 3, case: 2, client: 1, legal_status: '被上诉人', client_detail: clientLite(1, '某银行', true) },
-        { id: 4, case: 2, client: 2, legal_status: '上诉人', client_detail: clientLite(2, '某公司', false) },
+        { id: 3, case: 2, client: 1, legal_status: '被上诉人', client_detail: clientBrief(1, '某银行', true) },
+        { id: 4, case: 2, client: 2, legal_status: '上诉人', client_detail: clientBrief(2, '某公司', false) },
       ],
       logs: [
         {

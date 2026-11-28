@@ -106,11 +106,11 @@ describe('客户端按域拆分', () => {
 })
 
 describe('案件资源（层级不统一，逐条钉住）', () => {
-  it('listCases：双层 cases', async () => {
+  it('listCases：双层 cases，且带 slim=true（只要标量列，不要 7 个嵌套集合）', async () => {
     const api = client('/api/v1/cases')
     api.get.mockReturnValueOnce(respond([{ id: 1 }]))
     await expect(listCases()).resolves.toEqual([{ id: 1 }])
-    expect(api.get).toHaveBeenCalledWith('cases')
+    expect(api.get).toHaveBeenCalledWith('cases', { searchParams: { slim: 'true' } })
   })
 
   it('getCase：双层 cases/:id', async () => {

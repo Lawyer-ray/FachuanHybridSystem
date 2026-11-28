@@ -246,6 +246,78 @@ class InboxMessageOut(SchemaMixin, Schema):
         return str(obj.upload_link.contract.name)
 
 
+class InboxMessageSlimOut(SchemaMixin, Schema):
+    """收件箱列表行级摘要（``GET /messages?slim=true`` 的响应元素）。
+
+    **只声明收件箱页真正消费的字段**，其余一律不出现在 JSON 里——每行少 15 个键
+    （含键名开销）实测让 492 行全量从 481.1 KB 降到 325.3 KB（-32.4%）。
+
+    剔除集是**从消费方反推**（`InboxRowItem` / `InboxList` / `MessageDrawer` /
+    `MessageContent`），剔除的都是材料预处理桌面才用的字段：
+
+    - ``status`` / ``segs`` / ``named`` / ``pages`` / ``mats`` / ``types`` /
+      ``compose``：材料包卡（PackGrid / PackCard）读，收件箱行不读；
+    - ``created_at``：收件箱按 ``received_at`` 分组与展示，入库时间无人消费；
+    - ``uploaded_by_id`` / ``uploaded_by_name``：前端无消费方；
+    - ``upload_link_id`` / ``upload_link_title`` / ``upload_contract_id`` /
+      ``upload_contract_name``：材料包卡的项目绑定徽标用，收件箱行不读；
+    - ``read_at``：收件箱只消费布尔 ``is_read``（时间戳仅供调试）。
+
+    ⚠️ **正文不在这里**：本接口（含 ``slim=false``）从不带 ``body_text`` /
+    ``body_html``。正文由详情接口 ``GET /messages/{id}``（``InboxMessageDetailOut``）
+    提供，``MessageContent`` 用 ``row.id`` 单独查（见 inbox/api.ts 的
+    ``getInboxMessage``）。所以剔除这些字段不会让「点开详情读正文」失效。
+
+    解析器一律委托给 ``InboxMessageOut``：两份实现迟早漂移。
+    """
+
+    id: int
+    source_name: str
+    source_type: str
+    subject: str
+    sender: str
+    recipient: str
+    received_at: str
+    has_attachments: bool
+    attachment_count: int
+    # 列表也带附件元信息：收件箱行内要能预览/判断「这条要不要进材料预处理」
+    attachments: list[AttachmentMeta] = []
+    is_read: bool = False
+    converted_message_id: int | None = None
+
+    @staticmethod
+    def resolve_source_name(obj: InboxMessage) -> str:
+        return InboxMessageOut.resolve_source_name(obj)
+
+    @staticmethod
+    def resolve_source_type(obj: InboxMessage) -> str:
+        return InboxMessageOut.resolve_source_type(obj)
+
+    @staticmethod
+    def resolve_recipient(obj: InboxMessage) -> str:
+        return InboxMessageOut.resolve_recipient(obj)
+
+    @staticmethod
+    def resolve_received_at(obj: InboxMessage) -> str:
+        return InboxMessageOut.resolve_received_at(obj)
+
+    @staticmethod
+    def resolve_attachment_count(obj: InboxMessage) -> int:
+        return InboxMessageOut.resolve_attachment_count(obj)
+
+    @staticmethod
+    def resolve_attachments(obj: InboxMessage) -> list[dict[str, Any]]:
+        return InboxMessageOut.resolve_attachments(obj)
+
+    @staticmethod
+    def resolve_is_read(obj: InboxMessage) -> bool:
+        return InboxMessageOut.resolve_is_read(obj)
+
+    @staticmethod
+    def resolve_converted_message_id(obj: InboxMessage) -> int | None:
+        return InboxMessageOut.resolve_converted_message_id(obj)
+
+
 class InboxMessageDetailOut(InboxMessageOut):
     """收件箱消息详情（含正文和草稿）。
 

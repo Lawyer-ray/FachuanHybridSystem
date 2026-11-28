@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from .base import CaseParty, ClientOut, ModelSchema, Schema
+from apps.core.api.schemas_shared import ClientBriefOut
+
+from .base import CaseParty, ModelSchema, Schema
 
 
 class CasePartyIn(Schema):
@@ -20,14 +22,14 @@ class CasePartyUpdate(Schema):
 
 
 class CasePartyOut(ModelSchema):
-    client_detail: ClientOut
+    client_detail: ClientBriefOut
 
     class Meta:
         model = CaseParty
         fields: ClassVar = ["id", "case", "client", "legal_status"]
 
     @staticmethod
-    def resolve_client_detail(obj: Any) -> ClientOut:
+    def resolve_client_detail(obj: Any) -> ClientBriefOut:
         # When called from from_orm(), obj is the Django model instance
         # When called from model_validate() via DjangoGetter, obj is the raw
         # dict/Pydantic model returned by the view.
@@ -35,13 +37,13 @@ class CasePartyOut(ModelSchema):
             client = obj.get("client_detail") or obj.get("client")
         else:
             client = getattr(obj, "client_detail", None) or getattr(obj, "client", None)
-        if isinstance(client, ClientOut):
+        if isinstance(client, ClientBriefOut):
             return client
         if isinstance(client, dict):
-            return ClientOut(**client)
+            return ClientBriefOut(**client)
         if client is not None and hasattr(client, "_meta"):
             # Fallback: obj is a Django model instance with a client FK
-            return ClientOut.from_model(client)
+            return ClientBriefOut.from_model(client)
         # Pydantic model or None — return as-is (Pydantic will coerce)
         return client  # type: ignore[return-value]
 

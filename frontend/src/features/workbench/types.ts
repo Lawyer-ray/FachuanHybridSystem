@@ -20,7 +20,7 @@ type Schemas = components['schemas']
 
 /* ============ 后端投影：/api/v1/contracts/contracts ============ */
 
-export type ClientLite = Schemas['ClientLiteOut']
+export type ClientBrief = Schemas['ClientBriefOut']
 export type ContractParty = Schemas['ContractPartyOut']
 export type ContractReminder = Schemas['ReminderLiteOut']
 export type ContractPayment = Schemas['ContractPaymentOut']
@@ -124,6 +124,9 @@ export interface DealLog {
 }
 
 /** 案件文件夹绑定（GET /cases/{id}/folder-binding；null = 未绑定） */
+/** 合同（项目）文件夹绑定：与案件侧同形，只是挂在合同上 */
+export type ContractFolderBindingInfo = CaseFolderBindingInfo
+
 export interface CaseFolderBindingInfo {
   id: number
   case_id: number

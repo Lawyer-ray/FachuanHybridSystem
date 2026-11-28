@@ -7,7 +7,7 @@ import logging
 from typing import Any
 
 from django.db import transaction
-from django.http import FileResponse, HttpRequest, HttpResponse
+from django.http import FileResponse, HttpRequest, HttpResponse, JsonResponse
 from ninja import Form, Query, Router, Schema
 
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -17,6 +17,7 @@ from apps.message_hub.schemas import (
     ContractMatchOut,
     InboxMessageDetailOut,
     InboxMessageOut,
+    InboxMessageSlimOut,
     MessageAckOut,
     MessageRenameOut,
     SubmitToSmsOut,
@@ -65,6 +66,7 @@ def list_messages(  # pragma: no cover
     search: str | None = None,
     limit: int = 500,
     offset: int = 0,
+    slim: bool = False,
 ) -> Any:
     """收件箱消息列表（limit 截取前 N 条；收件箱持续增长，服务端兜底默认 500，
     需要更大结果集的消费方显式传 limit——不传即全量的旧行为会让「打开收件箱」
@@ -73,6 +75,11 @@ def list_messages(  # pragma: no cover
     安全审计（2026Q4 M-6）：``limit<=0`` 时原先不做切片 → 全表序列化
     （含 N+1 的 draft_state resolver），用户上传大量材料包后可自我放大为 DoS。
     此处把 limit 收敛到 [1, 1000]。offset（默认 0）供 MCP 信封续取。
+
+    ``slim=true``：按 ``InboxMessageSlimOut`` 只回行级摘要（剔除收件箱行不
+    消费的 15 个字段，实测全量 492 行 481.1 KB → 325.3 KB，-32.4%）。响应体仍是裸数组，
+    不带 ``slim`` 时**逐字节不变**（仍由 ``response=list[InboxMessageOut]``
+    序列化整个 QuerySet）。正文本来就不在本接口：详情正文走 ``GET /messages/{id}``。
     """
     limit = max(1, min(limit, 1000))
     bounded_offset = max(0, offset)
@@ -96,6 +103,19 @@ def list_messages(  # pragma: no cover
 
     if limit > 0:
         qs = qs[bounded_offset : bounded_offset + limit]
+
+    if slim:
+        # 走 JsonResponse 而不是改 response schema：声明式的 response 是编译期固定
+        # 的，而「是否紧凑」是请求期参数；用 Union 会让默认路径也过一遍 pydantic
+        # 联合判定，默认响应就有被选成窄形状的风险（红线：不带 slim 逐字节不变）。
+        return JsonResponse(
+            [InboxMessageSlimOut.from_orm(obj).model_dump() for obj in qs],
+            safe=False,
+            # 与站点渲染器 UTF8JSONRenderer（apiSystem/apiSystem/api.py:41）同参：
+            # 中文不转义。不写这两项就会回退到 Django 默认的 \uXXXX 转义，
+            # 中文字段反而比默认路径胖两成。
+            json_dumps_params={"ensure_ascii": False, "default": str},
+        )
 
     return qs
 

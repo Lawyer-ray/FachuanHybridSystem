@@ -64,6 +64,26 @@ class CaseChatOut(ModelSchema):
         fields: ClassVar = ["id", "platform", "name", "is_active"]
 
 
+# Case 自身的标量列（不含任何关联集合）。CaseOut 与 CaseSlimOut 共用这一份：
+# 列表瘦身版（case_slim_schemas.py）裁掉的只有 7 个嵌套集合，标量列两边同口径，
+# 否则「slim 时 is_filed 怎么没了」这类缺口会逐个冒出来。
+CASE_SCALAR_FIELDS: list[str] = [
+    "id",
+    "name",
+    "status",
+    "is_filed",
+    "filing_number",
+    "case_type",
+    "start_date",
+    "effective_date",
+    "specified_date",
+    "target_amount",
+    "preservation_amount",
+    "cause_of_action",
+    "current_stage",
+]
+
+
 class CaseOut(ModelSchema):
     parties: list[CasePartyOut]
     assignments: list[CaseAssignmentOut]
@@ -76,21 +96,7 @@ class CaseOut(ModelSchema):
 
     class Meta:
         model = Case
-        fields: ClassVar = [
-            "id",
-            "name",
-            "status",
-            "is_filed",
-            "filing_number",
-            "case_type",
-            "start_date",
-            "effective_date",
-            "specified_date",
-            "target_amount",
-            "preservation_amount",
-            "cause_of_action",
-            "current_stage",
-        ]
+        fields: ClassVar = CASE_SCALAR_FIELDS
 
     @staticmethod
     def _resolve_list_field(obj: Any, key: str) -> list:
@@ -281,6 +287,7 @@ class UnifiedGenerateRequest(Schema):
 
 
 __all__: list[str] = [
+    "CASE_SCALAR_FIELDS",
     "CaseChatOut",
     "CaseCreateFull",
     "CaseFullOut",

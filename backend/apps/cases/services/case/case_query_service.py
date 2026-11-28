@@ -65,9 +65,33 @@ class CaseQueryService(PermissionMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
+        slim: bool = False,
     ) -> QuerySet[Case, Case]:
-        """获取案件列表（带权限过滤；contract_id 可按合同过滤）。"""
+        """获取案件列表（带权限过滤；contract_id 可按合同过滤）。
+
+        slim=True 只取标量列（供 CaseSlimOut 的轻量列表），不做任何关联预取。
+        """
         return self._search_service.list_cases(
+            case_type=case_type,
+            status=status,
+            contract_id=contract_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+            slim=slim,
+        )
+
+    def count_cases(
+        self,
+        case_type: str | None = None,
+        status: str | None = None,
+        contract_id: int | None = None,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> int:
+        """与 list_cases 同口径的案件总数（不受 limit/offset 影响）。"""
+        return self._search_service.count_cases(
             case_type=case_type,
             status=status,
             contract_id=contract_id,
@@ -153,14 +177,31 @@ class CaseQueryService(PermissionMixin):
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         exact_match: bool = False,
+        slim: bool = False,
     ) -> QuerySet[Case, Case]:
-        """通过案号搜索案件。"""
+        """通过案号搜索案件（slim=True 同 list_cases：只取标量列）。"""
         return self._search_service.search_by_case_number(
             case_number=case_number,
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
             exact_match=exact_match,
+            slim=slim,
+        )
+
+    def count_cases_by_case_number(
+        self,
+        case_number: str,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> int:
+        """与 search_by_case_number 同口径的案件总数。"""
+        return self._search_service.count_cases_by_case_number(
+            case_number=case_number,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
         )
 
     def search_by_case_number_ctx(

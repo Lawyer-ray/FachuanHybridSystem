@@ -87,6 +87,11 @@ class TestSyncSourceById:
         ):
             mock_source = MagicMock()
             mock_source.display_name = "Test Source"
+            # 一张网材料接回短信链路后（95e8e9215），sync 会读 auto_sms_since 去补投
+            # 短信；MagicMock 的嵌套属性会被当成 received_at__gte 的值塞进查询，
+            # 于是报 TypeError: fromisoformat: argument must be str。这两条用例考的是
+            # window_days 透传，把该字段显式置 None（= 不自动补投）即可。
+            mock_source.auto_sms_since = None
             MockSource.objects.select_related.return_value.filter.return_value.first.return_value = mock_source
 
             mock_fetcher = MagicMock()

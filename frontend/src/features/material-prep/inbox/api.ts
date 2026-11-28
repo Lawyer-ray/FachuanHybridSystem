@@ -63,9 +63,23 @@ export function inboxListKey(params: ListInboxParams = {}): readonly unknown[] {
   ]
 }
 
-/** GET /inbox/messages —— 收件箱列表（后端已按 received_at 倒序） */
+/**
+ * GET /inbox/messages —— 收件箱列表（后端已按 received_at 倒序）。
+ *
+ * `slim=true`：收件箱行只用 12 个字段，而 `InboxMessageOut` 还有 15 个只服务
+ * 材料包桌面（`listMaterialPacks`，它**不带** slim）与「已转 / 上传凭证」类徒标。
+ * 实测 limit=200 响应 195.4 KB → 132.0 KB（-32.4%），SQL 仍 1 条。
+ * 剔除集已逐个对过消费方：`InboxRowItem` / `InboxList` / `MessageDrawer` /
+ * `MessageContent` 只读 id / source_name / source_type / subject / sender /
+ * recipient / received_at / has_attachments / attachment_count / attachments /
+ * is_read / converted_message_id，均在保留集内。
+ * 注意：**详情**走另一个端点（`messages/{id}`，带 body_text/body_html），不受影响。
+ */
 export async function listInbox(params: ListInboxParams = {}): Promise<InboxRow[]> {
-  const searchParams: Record<string, string> = { limit: String(params.limit ?? INBOX_PAGE_SIZE) }
+  const searchParams: Record<string, string> = {
+    limit: String(params.limit ?? INBOX_PAGE_SIZE),
+    slim: 'true',
+  }
   const sourceType = sourceTypeParam(params.source ?? 'all')
   if (sourceType) searchParams.source_type = sourceType
   if (params.unreadOnly) searchParams.unread_only = 'true'
