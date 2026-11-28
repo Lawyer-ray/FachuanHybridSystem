@@ -85,7 +85,7 @@ def test_reverse_is_safe_with_existing_rows() -> None:
     ``NotNullViolation``，反向迁移整体失败。
 
     守的是「结构」而不是「DDL」：断言 RemoveField 前一步把该字段改成了带默认值的
-    形态。真正的 DDL 反向在一次性库上实跑过（见 changelog v27.31.0）。
+    形态。真正的 DDL 反向在一次性库上实跑过（见 changelog v27.29.2）。
     """
     operations = list(migration.Migration.operations)
     remove_at = next(
