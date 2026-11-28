@@ -73,6 +73,8 @@ OpenHands 的 ``UserRejectObservation`` 带 ``rejection_reason``）。拒绝是*
 进程里 import 整个包（生成器只碰 manifest / schema）。所以 Django 的模型与
 ``timezone`` 全部下沉到函数内（同 ``ack.py::_cache`` 的延迟 import）；
 :mod:`.manifest` 是纯数据模块（不 import Django），顶层 import 它不违反这条约束。
+
+只读查询（动作历史列表）见 :mod:`.audit_query`；写路径仍是本模块。
 """
 
 from __future__ import annotations
@@ -85,6 +87,10 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from .manifest import UI_ACTIONS
+
+# 纯 re-export：调用方 ``api/ui_api.py`` 与测试都按 ``audit.list_recent_for_user`` 取用，
+# ``LIST_MAX_LIMIT`` 也随查询搬走但保持 ``audit.LIST_MAX_LIMIT`` 可取，别删。
+from .audit_query import LIST_MAX_LIMIT, list_recent_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +112,8 @@ APPROVAL_WINDOW = timedelta(minutes=10)
 RECEIPT_TTL = timedelta(seconds=300)
 
 #: ``outcome`` 的初始值。**不是** ``ok``：回执可能永远不到，默认成功就是撒谎。
+#: 查询侧同一个字面量由 ``audit_query`` 的模块 docstring 说明（``outcome="unknown"``
+#: 是「未结算」的唯一取值）；两侧不得各写一套常量。
 OUTCOME_UNKNOWN = "unknown"
 #: 从未执行过、由「人/超时」判定的两种结局（``decision`` 同时会写同一个值）。
 OUTCOME_DENIED = "denied"
@@ -122,9 +130,6 @@ CODE_MAX = 32
 LOCATION_MAX = 300
 #: ``decision_note`` / ``verify_note`` 的落库上限（同上，与字段长度一致）。
 NOTE_MAX = 300
-
-#: 历史查询的每页硬上限（前端传再大也不给，避免一次拉全表）。
-LIST_MAX_LIMIT = 200
 
 
 def sanitize_arguments(arguments: Any) -> dict[str, Any]:
@@ -565,72 +570,3 @@ async def apply_verification(call_id: str, *, verified: bool | None, note: str =
         logger.warning("UI 动作核实结论落库失败（不影响下发结果）: call_id=%s", call_id, exc_info=True)
         return False
     return bool(updated)
-
-
-async def list_recent_for_user(
-    user: Any,
-    *,
-    limit: int = 50,
-    action: str = "",
-    outcome: str = "",
-    risk: str = "",
-) -> list[dict[str, Any]]:
-    """当前用户自己的动作历史（新 → 旧）。
-
-    **只按 ``user`` 过滤，不按会话共享**：同一会话被转交给同事后，新负责人也不该看见
-    前任按过哪些高危按钮——动作历史是「谁让 AI 干了什么」，换成别人看就成了另一件事。
-
-    Args:
-        limit: 条数，clamp 到 1~:data:`LIST_MAX_LIMIT`（传 0 或负数按 1 处理）。
-        action / outcome / risk: 精确匹配的过滤条件，**空串 = 不过滤**。三个都做成
-            「空串即全部」而不是 ``None``：查询参数在 HTTP 层天然是字符串，让 None 与
-            "" 表示同一件事只会在两端各写一个分支。
-
-    Returns:
-        每项 ``{session_id, action, risk, outcome, decision, decided_at, verified,
-        verify_note, batch_id, approved_by_name, created_at, observed_location}``。
-        时间字段是 ISO 8601 字符串（前端直接 ``new Date()``），为空时给空串；
-        没有审批关联时 ``approved_by_name`` 为空串，``verified`` 保持 ``None``
-        （「无法核实」与「没核实过」在列表里同形，细节看 ``verify_note``）。
-    """
-    # 延迟 import：理由见模块 docstring。
-    from django.db import DatabaseError
-
-    from ...models import AgentUiAction
-
-    bounded = max(1, min(int(limit), LIST_MAX_LIMIT))
-    filters: dict[str, str] = {}
-    if action:
-        filters["action"] = action
-    if outcome:
-        filters["outcome"] = outcome
-    if risk:
-        filters["risk"] = risk
-    try:
-        rows = [
-            row
-            async for row in AgentUiAction.objects.filter(user=user, **filters)
-            .select_related("session", "approved_by")
-            .order_by("-created_at")[:bounded]
-        ]
-    except (DatabaseError, ValueError):
-        logger.warning("查询 UI 动作历史失败 user=%s", getattr(user, "pk", None), exc_info=True)
-        return []
-    return [
-        {
-            "session_id": str(row.session.session_id) if row.session is not None else "",
-            "action": row.action,
-            "risk": row.risk,
-            "outcome": row.outcome,
-            "decision": row.decision,
-            "decided_at": row.decided_at.isoformat() if row.decided_at is not None else "",
-            "verified": row.verified,
-            "verify_note": row.verify_note,
-            "batch_id": row.batch_id,
-            # ``Lawyer.__str__`` = real_name or username，台账里要人能认出的名字。
-            "approved_by_name": str(row.approved_by) if row.approved_by is not None else "",
-            "created_at": row.created_at.isoformat(),
-            "observed_location": row.observed_location,
-        }
-        for row in rows
-    ]
