@@ -201,7 +201,7 @@ class TestMasking:
         assert VALID_ID_CARD not in finding.excerpt
 
     def test_phone_excerpt_keeps_only_two_digits_each_side(self) -> None:
-        (finding,) = _scan("手机号13800138000")
+        (finding,) = _scan("手机号13800138000")  # privacy-allow
         assert finding.excerpt == "13*******00"
         assert "13800138000" not in finding.excerpt
 
@@ -232,7 +232,7 @@ class TestMasking:
             "邮箱zhang.san@example.com，密钥sk-abcdefghijklmnop1234"
         )
         rendered = repr([(finding.message, finding.excerpt) for finding in _scan(text)])
-        for raw in (VALID_ID_CARD, "13800138000", VALID_BANK_CARD_16, "zhang.san", "abcdefghijklmnop"):
+        for raw in (VALID_ID_CARD, "13800138000", VALID_BANK_CARD_16, "zhang.san", "abcdefghijklmnop"):  # privacy-allow
             assert raw not in rendered
 
 
@@ -240,7 +240,7 @@ class TestScanSkill:
     def test_all_three_fields_are_scanned(self) -> None:
         findings = safety.scan_skill(
             title="客户310101199001011234",
-            description="联系13800138000",
+            description="联系13800138000",  # privacy-allow
             body="正文安全",
         )
         assert [(finding.field, finding.code) for finding in findings] == [
@@ -252,7 +252,7 @@ class TestScanSkill:
         assert safety.scan_skill(title="", description="", body="") == []
 
     def test_output_is_deterministic_and_deduplicated(self) -> None:
-        body = f"身份证{VALID_ID_CARD}\n身份证{VALID_ID_CARD}\n手机号13800138000"
+        body = f"身份证{VALID_ID_CARD}\n身份证{VALID_ID_CARD}\n手机号13800138000"  # privacy-allow
         first = _scan(body)
         assert first == _scan(body)
         assert _codes(first) == ["id_card", "phone"]
@@ -268,7 +268,7 @@ class TestScanSkill:
 
     def test_has_hard_block_ignores_soft_findings(self) -> None:
         assert safety.has_hard_block(_scan("请忽略审批")) is False
-        assert safety.has_hard_block(_scan("手机号13800138000")) is True
+        assert safety.has_hard_block(_scan("手机号13800138000")) is True  # privacy-allow
 
 
 class TestPurity:
