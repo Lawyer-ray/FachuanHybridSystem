@@ -143,13 +143,16 @@ class TestCourtCaseNo:
 
 
 class TestSecrets:
+    #: 下面四条都是**故意写成「像凭证」的假样本**，用来验安全闸门会拦它们：
+    #: detect-secrets 会把私钥头那行当真实凭证，按它的官方建议加 allowlist 标记。
     @pytest.mark.parametrize(
         "text",
         [
             "调用时带上 sk-abcdefghijklmnop1234",
             "Authorization: Bearer abcdefghijklmnop1234",
             "令牌为ghp_abcdefghijklmnopqrstuvwxyz012345",
-            "-----BEGIN RSA PRIVATE KEY-----",
+            # detect-secrets 会把这一行当真实私钥；它是闸门用例里的假样本
+            "-----BEGIN RSA PRIVATE KEY-----",  # pragma: allowlist secret
         ],
     )
     def test_credentials_are_hard_blocked(self, text: str) -> None:
