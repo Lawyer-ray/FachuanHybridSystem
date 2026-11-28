@@ -32,6 +32,8 @@
 
 from __future__ import annotations
 
+import contextlib
+from collections.abc import AsyncIterator
 from typing import Any
 
 from asgiref.sync import sync_to_async
@@ -54,12 +56,15 @@ from ..schemas import (
     SkillSubmitIn,
     SkillToggleIn,
     SkillToggleOut,
+    SkillTrialIn,
+    SkillTrialOut,
     SkillUpdateIn,
     SkillValidateIn,
     SkillValidateOut,
 )
 from ..services import skill_service
 from ..services.skills import errors as skill_errors
+from ..services.skills import trial as skill_trial
 from ..services.skills import flags, user_skills
 from ..services.skills import review as skill_review
 from ..services.skills.constants import CONTENT_PAGE_BYTES
@@ -74,14 +79,16 @@ _SCOPE_FILTERS = frozenset({"all", "lawyer", "team", "law_firm", "builtin"})
 _REVIEW_DECISIONS = frozenset({"approve", "reject"})
 
 
-async def _invoke(func: Any, **kwargs: Any) -> Any:
-    """在线程里跑同步 service，并把领域错误翻译成 ``HttpError``。
+@contextlib.asynccontextmanager
+async def _translating() -> AsyncIterator[None]:
+    """把领域错误翻译成 ``HttpError``（一处实现，两条调用路径共用）。
 
-    ``thread_sensitive=True``：这些调用会进 ``transaction.atomic()``，必须回到主线程
-    的单连接上跑，否则同一请求里的行锁与快照在两个连接上各说各话。
+    单独抽成上下文管理器，是因为下面的同步 service 与异步 service 必须共用**同一份**
+    状态码映射：两处各写一遍，迟早会出现「同步端点 409、异步端点 500」这种
+    只在那一个按钮上复现的分叉。
     """
     try:
-        return await sync_to_async(func, thread_sensitive=True)(**kwargs)
+        yield
     except skill_errors.SkillNotFound as exc:
         raise HttpError(404, str(exc)) from exc
     except skill_errors.SkillForbidden as exc:
@@ -94,6 +101,28 @@ async def _invoke(func: Any, **kwargs: Any) -> Any:
         raise HttpError(422, skill_errors.as_message(exc.errors)) from exc
 
 
+async def _invoke(func: Any, **kwargs: Any) -> Any:
+    """在线程里跑**同步** service，并把领域错误翻译成 ``HttpError``。
+
+    ``thread_sensitive=True``：这些调用会进 ``transaction.atomic()``，必须回到主线程
+    的单连接上跑，否则同一请求里的行锁与快照在两个连接上各说各话。
+    """
+    async with _translating():
+        return await sync_to_async(func, thread_sensitive=True)(**kwargs)
+
+
+async def _await_service(func: Any, **kwargs: Any) -> Any:
+    """直接 ``await`` 一个**异步** service。
+
+    单独一条路径而不是复用 ``_invoke``：``sync_to_async`` 只接受同步函数，塞进一个
+    ``async def`` 会在**调用时**抛
+    ``TypeError: sync_to_async can only be applied to sync functions``——那不是
+    领域错误，上面的翻译接不住，最终表现为整条端点 500。试跑就是第一个异步 service。
+    """
+    async with _translating():
+        return await func(**kwargs)
+
+
 def _require_writes() -> None:
     """写端点前置拦截：运营开关 ``off`` 时 503（见模块 docstring 第 3 条）。"""
     if not flags.writes_enabled():
@@ -104,6 +133,12 @@ async def _invoke_write(func: Any, **kwargs: Any) -> Any:
     """写端点的统一入口：先过总开关，再走 ``_invoke``。"""
     _require_writes()
     return await _invoke(func, **kwargs)
+
+
+async def _await_write(func: Any, **kwargs: Any) -> Any:
+    """写端点里的**异步** service：总开关 + 直接 await（见 ``_await_service``）。"""
+    _require_writes()
+    return await _await_service(func, **kwargs)
 
 
 async def _invoke_toggle(func: Any, **kwargs: Any) -> Any:
@@ -284,6 +319,36 @@ async def submit_skill(request: Any, key: str, payload: SkillSubmitIn) -> SkillD
         team_id=payload.team_id,
     )
     return SkillDetailOut(**detail)
+
+
+@router.post("/skills/{key}/trial", response=SkillTrialOut)
+async def trial_skill(request: Any, key: str, payload: SkillTrialIn) -> SkillTrialOut:
+    """发布前试跑：真跑一轮，把模型回复交给审批人（**不写会话历史、不可能写业务**）。
+
+    这是个**慢端点**（起一个 pi 子进程 + 一轮模型调用，默认上限 90 秒）。前端必须
+    给它独立的等待态，不能沿用列表操作那种「点完就回来」的交互。
+    """
+    result = await _await_write(
+        skill_trial.run_trial,
+        user_id=_user_id(request) or 0,
+        key=key,
+        question=payload.question,
+        backend_kind=payload.backend,
+    )
+    return SkillTrialOut(
+        ok=result.ok,
+        text=result.text,
+        backend=result.backend,
+        model=result.model,
+        duration_ms=result.duration_ms,
+        skill_key=str(result.skill["key"]),
+        skill_name=str(result.skill["name"]),
+        skill_scope=str(result.skill["scope"]),
+        skill_version=int(result.skill["version"]),
+        injected=result.injected,
+        tool_calls=list(result.tool_calls),
+        error=result.error,
+    )
 
 
 @router.post("/skills/{key}/review", response=SkillDetailOut)

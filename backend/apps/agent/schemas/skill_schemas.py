@@ -223,6 +223,36 @@ class SkillSubmitIn(Schema):
     team_id: int | None = None
 
 
+class SkillTrialIn(Schema):
+    """试跑请求：不给问题就用服务端默认探针问法。"""
+
+    question: str = ""
+    #: 用哪个后端跑（默认 pi）。声明 ``skill_delivery=tool_only`` 的后端会被拒绝。
+    backend: str = ""
+
+
+class SkillTrialOut(Schema):
+    """试跑回执。
+
+    ``injected`` 是**实际注入给模型的那段文字**——审批人必须能看见「我们到底让模型
+    看了什么」，否则一个奇怪的回答无法归因（技能写得不好？还是注入时拼错了？）。
+    ``tool_calls`` 是模型在试跑里真的调用了哪些工具（只读工具面，不会有写操作）。
+    """
+
+    ok: bool
+    text: str
+    backend: str
+    model: str | None
+    duration_ms: int
+    skill_key: str
+    skill_name: str
+    skill_scope: str
+    skill_version: int
+    injected: str
+    tool_calls: list[str]
+    error: str
+
+
 class SkillReviewIn(Schema):
     """审批：``decision`` 二选一；``reject`` 必须带 ``note``（否则作者只能盲改）。"""
 
