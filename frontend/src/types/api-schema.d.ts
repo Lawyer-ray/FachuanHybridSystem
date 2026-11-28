@@ -31396,6 +31396,8 @@ export interface operations {
                 offset?: number;
                 slim?: boolean;
                 with_total?: boolean;
+                search?: string | null;
+                sort?: string | null;
             };
             header?: never;
             path?: never;
