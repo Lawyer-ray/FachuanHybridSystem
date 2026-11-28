@@ -118,6 +118,12 @@ export function normalizeAgentSkill(raw: AgentSkillWire): AgentSkill {
     can_review: raw.can_review ?? false,
     can_archive: raw.can_archive ?? false,
     can_restore: raw.can_restore ?? false,
+    // 提升能力位与可选目标层：与上面五处不同，这里**不补默认值**——缺省的含义是
+    // 「服务端没表态」，界面的正确反应是不出提升入口，而不是猜一个 true 出来。
+    // 注意本函数是显式构造对象：**任何新增的服务端字段都必须在这段里透传**，否则
+    // 会被静默丢掉，症状是「入口永不出现」而不是报错，属于最难查的一类。
+    can_promote: raw.can_promote,
+    promotable_scopes: raw.promotable_scopes,
   }
 }
 

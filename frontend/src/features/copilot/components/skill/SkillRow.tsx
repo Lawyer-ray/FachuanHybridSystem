@@ -1,12 +1,14 @@
 /**
  * 技能清单的一行：标题 + slug + 双轨状态徽标 + 描述 + 覆盖关系 + 行内动作。
  *
- * 三件事都在这一行里说清，因为它们互为前提：
+ * 四件事都在这一行里说清，因为它们互为前提：
  * 1. **状态**（`skillStatusBadge`）：已生效 / 草稿 / 待审（有未发布改动）/ 已驳回 / 已下线；
  * 2. **覆盖关系**（`skillCoverageNotes`）：`/skill:名字` 只会展开赢家，被顶掉的那条
- *    若不明说「被谁覆盖」，律师会以为开关坏了；
- * 3. **动作**：全部由服务端 `can_*` 决定——`can_edit` 才有编辑，`can_restore` 才有
- *    恢复（后者随审批面板，另一 lane）。前端绝不按 `source` 或 `is_admin` 自己推。
+ *    若不明说「被谁覆盖」，律师会以为开关坏了；同名竞争时赢家再补一个「当前生效」
+ *    徽标——否则「已生效」与「赢了级联」这两件事在这一行上长得一样；
+ * 3. **动作**：全部由服务端 `can_*` 决定——`can_edit` 才有编辑，`can_review &&
+ *    review_status==='pending'` 才有审核，`can_promote`/`can_submit` 才有提审。
+ *    前端绝不按 `source` 或 `is_admin` 自己推。
  *
  * 开关用 `role="switch"` + `aria-checked` 手写而不是原生 checkbox：原生控件在 WebKit
  * 上的尺寸/配色不可控，与抽屉里其它中性灰阶控件对不齐。
@@ -15,7 +17,7 @@
  * 「停用」——「停用一条所内技能」听起来像是替全所关掉它。
  */
 
-import { Copy, Pencil, Trash2 } from 'lucide-react'
+import { ClipboardCheck, Copy, Pencil, Trash2, Upload } from 'lucide-react'
 
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import type { AgentSkill } from '../../types'
@@ -64,23 +66,34 @@ function SkillSwitch({
 export function SkillRow({
   skill,
   busy,
+  /** 同名条目 ≥2：赢家行补「当前生效」徽标，让人看清 `/skill:名字` 现在展开哪一条 */
+  contended,
   onEdit,
   onDelete,
   onDuplicate,
   onToggle,
+  onReview,
+  onPromote,
 }: {
   skill: AgentSkill
   /** 该行有请求在途（启停/删除/复制）：开关与动作暂时禁用，避免连点打架 */
   busy: boolean
+  contended: boolean
   onEdit: (skill: AgentSkill) => void
   onDelete: (skill: AgentSkill) => void
   onDuplicate: (skill: AgentSkill) => void
   onToggle: (skill: AgentSkill, enabled: boolean) => void
+  onReview: (skill: AgentSkill) => void
+  onPromote: (skill: AgentSkill) => void
 }) {
   const badge = skillStatusBadge(skill)
   const notes = skillCoverageNotes(skill)
-  // 已下线的条目不在运行时集合里，开关没有意义；恢复入口在详情/审批面板（另 lane）
+  // 已下线的条目不在运行时集合里，开关没有意义；恢复入口（`can_restore`）还没接，别在这里假装有
   const togglable = skill.status !== 'archived'
+  // 待审 + 有审批权才给「审核」：两个条件都来自服务端（`can_review` 由后端算）
+  const reviewable = skill.can_review && skill.review_status === 'pending'
+  // 个人条目用 `can_promote`（`can_submit` 对 scope=lawyer 恒 false），共享条目用 `can_submit`
+  const promotable = skill.can_promote === true || skill.can_submit
   return (
     <div className="flex items-start gap-2.5 rounded-[9px] border border-border bg-card px-2.5 py-2">
       <div className="min-w-0 flex-1">
@@ -89,6 +102,15 @@ export function SkillRow({
           <StatusBadge tone={badge.tone} size="xs" title={badge.hint}>
             {badge.label}
           </StatusBadge>
+          {contended && skill.effective ? (
+            <StatusBadge
+              tone="blue"
+              size="xs"
+              title={`/skill:${skill.name} 现在展开的是这一条（同名条目里它赢了级联）`}
+            >
+              当前生效
+            </StatusBadge>
+          ) : null}
           <code className="truncate font-mono text-[10.5px] text-muted-foreground/80">{skill.name}</code>
         </div>
         <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-relaxed text-muted-foreground">{skill.description}</p>
@@ -110,6 +132,30 @@ export function SkillRow({
             className={ROW_ACTION_CLASS}
           >
             <Copy className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
+        {reviewable ? (
+          <button
+            type="button"
+            aria-label={`审核 ${skill.title}`}
+            title="审核待审改动"
+            disabled={busy}
+            onClick={() => onReview(skill)}
+            className={ROW_ACTION_CLASS}
+          >
+            <ClipboardCheck className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
+        {promotable ? (
+          <button
+            type="button"
+            aria-label={`提审 ${skill.title}`}
+            title={skill.scope === 'lawyer' ? '提审到共享层' : '提交审批'}
+            disabled={busy}
+            onClick={() => onPromote(skill)}
+            className={ROW_ACTION_CLASS}
+          >
+            <Upload className="h-3.5 w-3.5" />
           </button>
         ) : null}
         {skill.can_edit ? (

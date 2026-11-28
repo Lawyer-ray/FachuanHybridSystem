@@ -10,6 +10,9 @@
  *
  * 取数只有一份清单查询（`SKILLS_QUERY_KEY`，与 Composer 的 `/` 菜单同键）：
  * 写动作后的缓存失效由 `use-skill-mutations` 统一做，这里不另建缓存。
+ *
+ * 三个二级视图（编辑 / 审核 / 提审）互斥：同一时刻只该有一个目标，否则「正在编一条、
+ * 又在审另一条」这种组合会让返回按钮回到一个谁也不知道在哪的位置。
  */
 
 import { useQuery } from '@tanstack/react-query'
@@ -21,6 +24,7 @@ import { errMessage } from '@/lib/errors'
 import { fetchAgentSkillQuota, fetchAgentSkills } from '../../skill-api'
 import { useSkillDrawer } from '../../skill-drawer'
 import type { AgentSkill, AgentSkillScope } from '../../types'
+import type { AgentSkillWritableScope } from '../../skill-types'
 import type { SkillEditorTarget } from './SkillEditor'
 import {
   skillInTab,
@@ -31,6 +35,7 @@ import {
   type SkillCreateScope,
   type SkillTabId,
 } from './skill-tabs'
+import { useSkillDrift } from './use-skill-drift'
 import { SKILL_QUOTA_QUERY_KEY, SKILLS_QUERY_KEY, useSkillMutations } from './use-skill-mutations'
 
 export function useSkillDrawerState() {
@@ -39,6 +44,10 @@ export function useSkillDrawerState() {
   const [tab, setTab] = useState<SkillTabId>('mine')
   /** 二级视图：有值时不显示 tab 与列表 */
   const [editor, setEditor] = useState<SkillEditorTarget | null>(null)
+  /** 审批人工作台的目标（只有从「审核」按钮进来时才有值） */
+  const [reviewTarget, setReviewTarget] = useState<AgentSkill | null>(null)
+  /** 提审对话框的目标（`null` = 关闭） */
+  const [promoteTarget, setPromoteTarget] = useState<AgentSkill | null>(null)
   const [editorDirty, setEditorDirty] = useState(false)
   /** 未保存改动时点关闭（X / Esc / 遮罩）：先问一句再关抽屉 */
   const [confirmClose, setConfirmClose] = useState(false)
@@ -56,9 +65,11 @@ export function useSkillDrawerState() {
     enabled: open,
     staleTime: 60_000,
   })
-  const { deleteMutation, duplicateMutation, toggleMutation } = useSkillMutations()
+  const { deleteMutation, duplicateMutation, toggleMutation, invalidate } = useSkillMutations()
 
   const skills = skillsQuery.data?.skills ?? []
+  // 同名竞争的名字集合 + 赢家跨层切换的一次性提示（取数、判定都在 use-skill-drift）
+  const contendedNames = useSkillDrift(skills)
   const quota = quotaQuery.data
   const tabs = visibleSkillTabs(skills, quota)
   // 权限变化后当前 tab 可能已经不在了（例如所内条目清空且不再是管理员）：回落到「我的」
@@ -97,6 +108,23 @@ export function useSkillDrawerState() {
   const openEdit = (skill: AgentSkill) => setEditor({ mode: 'edit', skill })
   /** 保存成功后切到刚写的那一层（在「所内」新建却停在「我的」会看不见新技能） */
   const handleSaved = (scope: AgentSkillScope) => setTab(skillTabForScope(scope))
+
+  const openReview = (skill: AgentSkill) => setReviewTarget(skill)
+  const closeReview = () => setReviewTarget(null)
+  /** 审批成功：清单里的待审/版本都变了，退回列表并让缓存失效（徽标与角标才会跟着变） */
+  const handleReviewed = () => {
+    invalidate()
+    setReviewTarget(null)
+  }
+
+  const openPromote = (skill: AgentSkill) => setPromoteTarget(skill)
+  const closePromote = () => setPromoteTarget(null)
+  /** 提审成功：切到目标层（提审到所内却还停在「我的」，会让人以为没成功） */
+  const handlePromoted = (scope: AgentSkillWritableScope) => {
+    invalidate()
+    setPromoteTarget(null)
+    setTab(skillTabForScope(scope))
+  }
 
   const handleToggle = (skill: AgentSkill, enabled: boolean) =>
     // 个人技能改本体；内置 / 共享技能写的只是本人偏好（服务端语义，见 CONTRACT §4.2）
@@ -146,6 +174,16 @@ export function useSkillDrawerState() {
     createScope,
     handleSaved,
     setEditorDirty,
+    reviewTarget,
+    openReview,
+    closeReview,
+    handleReviewed,
+    promoteTarget,
+    openPromote,
+    closePromote,
+    handlePromoted,
+    // 同名竞争的赢家行徽标
+    contendedNames,
     // 行内动作
     busyKey,
     handleToggle,

@@ -38,6 +38,7 @@ export function SkillList({
   tab,
   skills,
   busyKey,
+  contendedNames,
   tabQuota,
   createScope,
   onCreate,
@@ -45,12 +46,16 @@ export function SkillList({
   onDelete,
   onDuplicate,
   onToggle,
+  onReview,
+  onPromote,
 }: {
   tab: SkillTabId
   /** 已按 tab 过滤好的清单 */
   skills: AgentSkill[]
   /** 正在写的那一行（启停/删除/复制在途）：只有它置忙，别的行照常可点 */
   busyKey: string | null
+  /** 同名条目 ≥2 的 command name（跨全部层算，见 `use-skill-drift`） */
+  contendedNames: Set<string>
   tabQuota: SkillTabQuotaCell | null
   /** `null` = 这一层不给新建入口（无权限 / 团队要选团队 / 系统技能随平台发布） */
   createScope: SkillCreateScope | null
@@ -59,6 +64,8 @@ export function SkillList({
   onDelete: (skill: AgentSkill) => void
   onDuplicate: (skill: AgentSkill) => void
   onToggle: (skill: AgentSkill, enabled: boolean) => void
+  onReview: (skill: AgentSkill) => void
+  onPromote: (skill: AgentSkill) => void
 }) {
   const blocked = tabQuota?.full === true
   const createButton =
@@ -100,10 +107,13 @@ export function SkillList({
             key={skill.key}
             skill={skill}
             busy={busyKey === skill.key}
+            contended={contendedNames.has(skill.name)}
             onEdit={onEdit}
             onDelete={onDelete}
             onDuplicate={onDuplicate}
             onToggle={onToggle}
+            onReview={onReview}
+            onPromote={onPromote}
           />
         ))}
       </div>

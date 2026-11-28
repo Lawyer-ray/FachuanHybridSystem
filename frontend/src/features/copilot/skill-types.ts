@@ -96,6 +96,17 @@ export interface AgentSkill {
   can_review: boolean
   can_archive: boolean
   can_restore: boolean
+  /**
+   * 能否把这一条**提升**到共享层（个人 → 团队/所内）。**可选**：未升级的部署不下发，
+   * 缺省按「不出现提升入口」处理，绝不默认 true。
+   *
+   * 与 `can_submit` 的分工不能混：`can_submit` 是「已在共享层的条目能不能再提审
+   * 工作区」，而它对个人条目**恒 false**（`permissions.can_submit` 明确拒绝
+   * `scope=lawyer`）。用 `can_submit` 判个人条目能不能提升，只会让入口永远不出现。
+   */
+  can_promote?: boolean
+  /** 可提升到的目标层（服务端算）；缺失或空数组 = 不给提升入口，不在前端硬编码 */
+  promotable_scopes?: AgentSkillWritableScope[]
 }
 
 /** `GET agent/skills` 的响应体 */
@@ -240,6 +251,16 @@ export interface AgentSkillSubmitInput {
   note?: string
   /** 所内层发布要勾「会影响全所」确认（同记忆策展口径） */
   acknowledged_firm_wide?: boolean
+  /**
+   * 提审时改名（只对「个人 → 共享」这条路径生效）：目标层已有同名技能时用它避撞名。
+   * 服务端按 `NAME_RE` / 保留字 / 目标层查重校验，撞名回 409。
+   */
+  name?: string
+  /**
+   * 目标团队（仅 `target_scope='team'`）。**数字**而非字符串：后端是 `int | None`，
+   * 传 `"3"` 会被 Ninja 判 422。省略 = 服务端按本人所属律师团队选定。
+   */
+  team_id?: number
 }
 
 /** 审批请求体（`note` 在驳回时必填，通过时可选） */
