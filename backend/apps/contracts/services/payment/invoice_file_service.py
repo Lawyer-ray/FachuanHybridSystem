@@ -47,17 +47,26 @@ from typing import Any
 from django.db import transaction
 from django.db.models import Q
 
+from apps.contracts.services.payment import invoice_voided_mover
+
+# 冲红搬移子系统（`已冲红/` 的进出、发票目录定位）的实现在 invoice_voided_mover；
+# 这里保留同名再导出，调用方与测试（invoice_intake_service 的 move_invoice_to_voided、
+# invoice_folder_cleanup 的 move_invoice_back_from_voided）仍按本模块路径引用这些名字。
+from apps.contracts.services.payment.invoice_voided_mover import (
+    VOIDED_DIR_NAME,
+    VOIDED_NAME_MARKER,
+    _ensure_voided_dir,
+    _invoice_contract_id,
+    _is_invoice_dir,
+    _locate_invoice_dir,
+    _relocate_voided,
+    _skip_reason,
+)
 from apps.core.exceptions import BusinessException, ValidationException
 
 logger = logging.getLogger("apps.contracts")
 
 __all__ = ["InvoiceFileService", "SavedInvoice", "VOIDED_DIR_NAME", "invoice_voided_by", "is_voided"]
-
-#: 冲红隔离目录名（挂在发票目录下）。闸 2（文件夹扫描）与闸 3（归档材料）都按这个名字 /
-#: 文件名里的「红字开具」识别作废票，改这里必须同步改那两处
-VOIDED_DIR_NAME = "已冲红"
-#: 红票文件名的尾部标记（`YYYYMMDD红字开具.pdf`）。归档闸 3 只能靠它判断作废票
-VOIDED_NAME_MARKER = "红字开具"
 
 
 @dataclass(frozen=True)
@@ -165,10 +174,6 @@ def _as_date(value: Any) -> date | None:
     return None
 
 
-def _skip_reason(exc: Exception) -> str:
-    return str(getattr(exc, "message", "") or exc or "无法写入合同文件夹")
-
-
 def _media_url() -> str:
     from django.conf import settings
 
@@ -182,16 +187,6 @@ def _media_abs(rel_path: str) -> str:
 
 
 # ── 作废派生（不落库）─────────────────────────────────────────────
-
-
-def _invoice_contract_id(invoice: Any) -> int | None:
-    """发票归属的合同：挂收款时跟收款走，先开票后付款时直接挂合同。"""
-    contract_id = getattr(invoice, "contract_id", None)
-    if contract_id:
-        return int(contract_id)
-    payment = getattr(invoice, "payment", None) if getattr(invoice, "payment_id", None) else None
-    payment_contract_id = getattr(payment, "contract_id", None)
-    return int(payment_contract_id) if payment_contract_id else None
 
 
 def invoice_voided_by(invoice: Any) -> Any | None:
@@ -266,7 +261,7 @@ class InvoiceFileService:
     ALLOWED_EXTENSIONS: tuple[str, ...] = (".pdf", ".jpg", ".jpeg", ".png")
     MAX_SIZE_BYTES = 20 * 1024 * 1024
     #: 合同文件夹里发票目录的名字特征（`发票` / `3-发票` / `1-律师资料/3-发票`）
-    FOLDER_NAME = "发票"
+    FOLDER_NAME = invoice_voided_mover.INVOICE_DIR_NAME
     _ILLEGAL_NAME_CHARS = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
 
     # ------------------------------------------------------------------ 写
@@ -299,8 +294,8 @@ class InvoiceFileService:
         因为那里的同号票几乎必然是“同一张票被确认了两次”；而人手拖文件上传时
         “重传同一张票覆盖”是真实场景，那条路径保持 ``False``（只提示不拦）。
         """
-        from apps.contracts.admin.wiring_admin import get_invoice_upload_service
         from apps.contracts.models import Invoice
+        from apps.contracts.services.contract.integrations.wiring import build_invoice_upload_service
 
         if payment_id is not None:
             payment = self._load_payment(
@@ -321,7 +316,7 @@ class InvoiceFileService:
         # InvoiceUploadService.save_invoice_file 返回的是**已建好的 Invoice 对象**
         # （它内部就做了 Invoice.objects.create）。这里只能拿它补识别字段，
         # 再自己 create 一次会撞上 uniq_invoice_payment_file_path 并产生孤儿记录。
-        invoice = get_invoice_upload_service().save_invoice_file(
+        invoice = build_invoice_upload_service().save_invoice_file(
             uploaded_file, payment_id=payment_id, contract_id=None if payment_id is not None else contract_id
         )
         file_path = invoice.file_path
@@ -600,8 +595,8 @@ class InvoiceFileService:
         合同文件夹里的副本**不删**：那是律师本地工作目录里的文件，系统不该在他
         不知情时删掉本地磁盘内容（与删除=移入 `_已删除` 的宽松口径一致）。
         """
-        from apps.contracts.admin.wiring_admin import get_invoice_upload_service
         from apps.contracts.models import Invoice
+        from apps.contracts.services.contract.integrations.wiring import build_invoice_upload_service
         from apps.core.exceptions import NotFoundError
 
         try:
@@ -618,7 +613,7 @@ class InvoiceFileService:
             self.ensure_contract_access(
                 invoice.contract_id, user=user, org_access=org_access, perm_open_access=perm_open_access
             )
-        get_invoice_upload_service().delete_invoice(invoice.id)
+        build_invoice_upload_service().delete_invoice(invoice.id)
         if payment is not None:
             self._recompute_invoiced_amount(payment)
         return {"success": True}
@@ -891,20 +886,7 @@ class InvoiceFileService:
         空目录在 Finder 里是噪声，也不该污染律所模板目录，所以只在真要写入时建。
         并发下另一次冲红已建好同名目录时 mkdir 会报“同名项目已存在”，直接当已存在处理。
         """
-        target = f"{invoice_dir}/{VOIDED_DIR_NAME}" if invoice_dir else VOIDED_DIR_NAME
-        try:
-            entries = service.list_entries(owner_id=contract_id, subpath=invoice_dir, **access)
-        except Exception:
-            entries = {}
-        for folder in entries.get("folders") or []:
-            if isinstance(folder, dict) and str(folder.get("name") or "").strip() == VOIDED_DIR_NAME:
-                return str(folder.get("subpath") or target)
-        try:
-            created = service.mkdir(owner_id=contract_id, subpath=invoice_dir, name=VOIDED_DIR_NAME, **access)
-            return str(created.get("subpath") or target)
-        except Exception:
-            logger.info("invoice_voided_dir_mkdir_skipped", extra={"subpath": target})
-            return target
+        return invoice_voided_mover._ensure_voided_dir(service, contract_id, invoice_dir, access)
 
     @transaction.atomic
     def move_invoice_to_voided(
@@ -921,8 +903,8 @@ class InvoiceFileService:
         ``folder_subpath`` 是撤销时确定位置的唯一依据，不许出现两份。
         未镜像到合同文件夹（``folder_subpath`` 为空）时返回空串（media 副本仍在）。
         """
-        return self._relocate_voided(
-            invoice_id, to_voided=True, user=user, org_access=org_access, perm_open_access=perm_open_access
+        return invoice_voided_mover.move_invoice_to_voided(
+            self, invoice_id=invoice_id, user=user, org_access=org_access, perm_open_access=perm_open_access
         )
 
     @transaction.atomic
@@ -939,141 +921,18 @@ class InvoiceFileService:
         整组撤销必须移回：半截状态（红票删了、原票还在 `已冲红/`）是比错账更难查的
         东西。不在 `已冲红/` 里时原样返回旧 subpath（幂等，可重入）。
         """
-        return self._relocate_voided(
-            invoice_id, to_voided=False, user=user, org_access=org_access, perm_open_access=perm_open_access
+        return invoice_voided_mover.move_invoice_back_from_voided(
+            self, invoice_id=invoice_id, user=user, org_access=org_access, perm_open_access=perm_open_access
         )
-
-    def _relocate_voided(
-        self,
-        invoice_id: int,
-        *,
-        to_voided: bool,
-        user: Any | None,
-        org_access: dict[str, Any] | None,
-        perm_open_access: bool,
-    ) -> str:
-        """冲红目录与发票目录之间的文件搬运（两个公开方法的共用实现）。
-
-        **为什么直接用 pathlib 而不走 ``ContractFolderBrowseService``**：浏览服务只提供
-        ``rename``（同目录改名）/ ``copy_entry`` + ``delete_entry``（两步，中间失败就留下
-        两份或零份）。本动作要求“要么原位要么位置”，而且我们手里已经有绑定根的绝对路径，
-        查一次目录列表就能校验“源在已冲红 / 目标不在已冲红”，然后 ``Path.replace``
-        在同文件系统上一步完成——比“复制 + 软删”少一半失败面。
-
-        ACL 仍走合同行级鉴权（``ensure_contract_access``），路径合法仍用 ``Path.relative_to``
-        校验不越出绑定根（等价于 ``is_within_root``），不新开豁口。
-        """
-        from apps.contracts.models import Invoice
-        from apps.core.exceptions import NotFoundError, ValidationException
-
-        try:
-            invoice = Invoice.objects.select_related("payment__contract", "contract").get(pk=invoice_id)
-        except Invoice.DoesNotExist:
-            raise NotFoundError(message="发票不存在", code="INVOICE_NOT_FOUND") from None
-
-        contract_id = _invoice_contract_id(invoice)
-        self.ensure_contract_access(contract_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
-        subpath = str(getattr(invoice, "folder_subpath", "") or "")
-        if contract_id is None or not subpath:
-            return subpath
-
-        from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
-
-        access: dict[str, Any] = {"user": user, "org_access": org_access, "perm_open_access": perm_open_access}
-        service = ContractFolderBrowseService()
-        try:
-            root = service._local_root(contract_id)  # 子类钩子，取绑定根是唯一来源
-        except Exception as exc:  # 未绑定 / 云存储 / 目录不可达：不阻断裁定，folder_subpath 保持原值
-            logger.info(
-                "invoice_folder_relocate_root_unreachable",
-                extra={"contract_id": contract_id, "reason": _skip_reason(exc)},
-            )
-            return subpath
-        source = root / subpath
-        if not source.is_file():
-            logger.info(
-                "invoice_folder_relocate_source_missing", extra={"contract_id": contract_id, "subpath": subpath}
-            )
-            return subpath
-
-        # `Path("")` 是 `Path(".")`，直接当父目录会把文件移到 "x.pdf/已冲红/" 这种鬼路径下。
-        # 发票直接落在绑定根时 parent 为空串，这里显式收敛成 root。
-        parent_dir = root / Path(subpath).parent
-        if to_voided:
-            target_dir = parent_dir / VOIDED_DIR_NAME
-            target_dir.mkdir(parents=True, exist_ok=True)
-        else:
-            # 撤回到发票目录：`<发票目录>/已冲红/x.pdf` → `<发票目录>/x.pdf`。
-            # 不在已冲红里时 parent 就是发票目录本身，不动文件（幂等）。
-            in_voided = parent_dir.name == VOIDED_DIR_NAME
-            target_dir = parent_dir.parent if in_voided else parent_dir
-        if not target_dir.is_dir():
-            raise ValidationException(message="发票目录不存在，无法移动发票", errors={"subpath": subpath})
-
-        target = target_dir / source.name
-        if target.is_file() and target.resolve() == source.resolve():
-            return subpath
-        if target.exists():
-            # 同名不同件：加序号，宁可多一个后缀也不覆盖任何一份原件。
-            # 同件（上一轮已移完但 folder_subpath 没落库）时 replace 不会重复写内容。
-            target = service._unique_destination(target_dir, source.name)
-        source.replace(target)  # 同一文件系统内的原子改名（跨目录就是移动）
-
-        try:
-            new_subpath = target.resolve().relative_to(root.resolve()).as_posix()
-        except ValueError:
-            raise ValidationException(message="发票移动目标越界", errors={"subpath": subpath}) from None
-
-        Invoice.objects.filter(pk=invoice.pk).update(folder_subpath=new_subpath)
-        logger.info(
-            "invoice_folder_voided_relocated",
-            extra={
-                "contract_id": contract_id,
-                "invoice_id": invoice.pk,
-                "from": subpath,
-                "to": new_subpath,
-                "to_voided": to_voided,
-            },
-        )
-        return new_subpath
 
     def _locate_invoice_dir(self, service: Any, contract_id: int, access: dict[str, Any]) -> str:
         """在绑定文件夹两层内找发票目录；找不到就在顶层建 `发票/`。返回子目录 subpath。"""
-        root = service.list_entries(owner_id=contract_id, subpath="", **access)
-
-        def _dirs(entries: dict[str, Any]) -> list[dict[str, Any]]:
-            return [f for f in (entries.get("folders") or []) if isinstance(f, dict) and f.get("name")]
-
-        l1_dirs = _dirs(root)
-        for folder in l1_dirs:
-            if self._is_invoice_dir(str(folder["name"])):
-                return str(folder.get("subpath") or folder["name"])
-
-        # 第二层：`1-律师资料/3-发票` 这类嵌套
-        for folder in l1_dirs:
-            try:
-                entries = service.list_entries(
-                    owner_id=contract_id, subpath=str(folder.get("subpath") or folder["name"]), **access
-                )
-            except Exception as exc:
-                logger.info("invoice_folder_walk_skipped", extra={"folder": str(folder["name"]), "reason": str(exc)})
-                continue
-            for sub in _dirs(entries):
-                if self._is_invoice_dir(str(sub["name"])):
-                    return str(sub.get("subpath") or f"{folder['name']}/{sub['name']}")
-
-        try:
-            service.mkdir(owner_id=contract_id, subpath="", name=self.FOLDER_NAME, **access)
-        except Exception as exc:
-            # 并发下另一张发票已建好同名目录 → 视为已存在，继续写文件
-            logger.info("invoice_folder_mkdir_skipped", extra={"reason": str(exc)})
-        return self.FOLDER_NAME
+        return invoice_voided_mover._locate_invoice_dir(service, contract_id, access)
 
     @classmethod
     def _is_invoice_dir(cls, name: str) -> bool:
         """`发票` / `3-发票` 认；`发票领取台账` 这类记录性目录不误认（要求以「发票」结尾）。"""
-        cleaned = name.strip()
-        return cleaned.endswith(cls.FOLDER_NAME) and len(cleaned) <= 12
+        return invoice_voided_mover._is_invoice_dir(name)
 
     def display_filename(
         self, *, contract_name: str, inv_date: date | None, ext: str, seller: str = "", is_red: bool = False
