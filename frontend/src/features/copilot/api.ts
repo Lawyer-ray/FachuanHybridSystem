@@ -8,13 +8,14 @@
  * 按职责拆出去的部分（本文件只 re-export，import 路径一律不变）：
  * - `review-api.ts`      评审 / 综合结论 / 采纳（8 个端点）
  * - `memory-api.ts`      记忆域（含 @see createProjectNote 项目笔记，同为 `agent/memory` 前缀）
+ * - `skill-api.ts`       技能域（个人技能增删改 / 校验 / 复制 / 启停，`agent/skills` 前缀）
  * - `api/folders.ts`     绑定文件夹浏览（contracts / cases 两个后端域；契约在 `api/folder-types.ts`）
  * - `api/mention-sources.ts` `@` 引用的跨实体候选源（core `search/`；契约在 `api/search-types.ts`）
  */
 
 import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
-import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, PendingQuestionItem, QuestionAnswerItem, QuestionAnswerReceipt, QoderAuthState, QoderByokState, QoderLoginState, UsageSummary } from './types'
+import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, PendingQuestionItem, QuestionAnswerItem, QuestionAnswerReceipt, QoderAuthState, QoderByokState, QoderLoginState, UsageSummary } from './types'
 // 回执的线上契约归执行层所有（与 `UiToolErrorCode` 同级的事实），这里只借用类型：
 // `import type` 编译期擦除，不会让 api.ts ↔ ui-tools/ack.ts 在运行时成环。
 import type { UiActionResultAck, UiActionResultReceipt } from './ui-tools/types'
@@ -257,15 +258,22 @@ export function cancelAgentTask(sessionId: string): Promise<Record<string, unkno
   return api.delete(`agent/tasks/${sessionId}`).json<Record<string, unknown>>()
 }
 
-/** 技能清单（`/` 命令菜单数据源；消息以 `/skill:名字 参数` 触发，后端 pi 展开） */
-export function fetchAgentSkills(): Promise<AgentSkillList> {
-  return api.get('agent/skills').json<AgentSkillList>()
-}
-
-/** 启停一个技能（name 为技能名；返回终态回执） */
-export function setAgentSkillEnabled(name: string, enabled: boolean): Promise<AgentSkillToggleReceipt> {
-  return api.patch(`agent/skills/${name}`, { json: { enabled } }).json<AgentSkillToggleReceipt>()
-}
+/**
+ * 技能端点在 `skill-api.ts`（清单 / 详情 / 增删改 / 校验 / 复制 / 启停）。
+ *
+ * re-export 保持既有 `from './api'` 的 import 路径（`/` 菜单与测试都吃这一条），
+ * 与 memory / review 两个拆分同口径。
+ */
+export {
+  createAgentSkill,
+  deleteAgentSkill,
+  duplicateAgentSkill,
+  fetchAgentSkill,
+  fetchAgentSkills,
+  setAgentSkillEnabled,
+  updateAgentSkill,
+  validateAgentSkill,
+} from './skill-api'
 
 /** 会话 token 用量与上下文水位（上下文水位驱动 Composer 底部的水位指示） */
 export function fetchSessionStats(sessionId: string): Promise<AgentSessionStats> {

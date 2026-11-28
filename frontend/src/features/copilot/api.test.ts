@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const apiMock = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
+  put: vi.fn(),
   delete: vi.fn(),
   patch: vi.fn(),
 }))
@@ -37,6 +38,12 @@ import {
   steerSession,
   submitAgentTask,
   fetchAgentSkills,
+  fetchAgentSkill,
+  createAgentSkill,
+  updateAgentSkill,
+  deleteAgentSkill,
+  validateAgentSkill,
+  duplicateAgentSkill,
   setAgentSkillEnabled,
   fetchSessionStats,
   compactSession,
@@ -282,10 +289,46 @@ describe('skills & stats & compact api', () => {
     expect(apiMock.get).toHaveBeenCalledWith('agent/skills')
   })
 
-  it('setAgentSkillEnabled PATCH agent/skills/{name} 带 enabled', async () => {
-    apiMock.patch.mockReturnValueOnce(chain({ name: 'web-research', enabled: false }))
-    await setAgentSkillEnabled('web-research', false)
-    expect(apiMock.patch).toHaveBeenCalledWith('agent/skills/web-research', { json: { enabled: false } })
+  it('setAgentSkillEnabled PATCH agent/skills/{key} 带 enabled', async () => {
+    apiMock.patch.mockReturnValueOnce(chain({ key: 'builtin:web-research', enabled: false }))
+    await setAgentSkillEnabled('builtin:web-research', false)
+    expect(apiMock.patch).toHaveBeenCalledWith('agent/skills/builtin%3Aweb-research', { json: { enabled: false } })
+  })
+
+  /**
+   * key 的 URL 编码：内置 key 是 `builtin:<name>`、个人是 `skill:<uuid>`，`:`
+   * 原样拼进路径会被 URL 解析吃掉（或当成其它语义）——每个按 key 的端点都得过一遍。
+   */
+  it('所有按 key 的端点都把 `:` 编码成 %3A', async () => {
+    const encoded = 'agent/skills/builtin%3Aweb-research'
+    apiMock.get.mockReturnValueOnce(chain({ key: 'builtin:web-research', body: '' }))
+    await fetchAgentSkill('builtin:web-research')
+    expect(apiMock.get).toHaveBeenLastCalledWith(encoded)
+
+    apiMock.put.mockReturnValueOnce(chain({ key: 'builtin:web-research' }))
+    await updateAgentSkill('builtin:web-research', { title: 't', description: 'd', body: 'b', version: 1 })
+    expect(apiMock.put).toHaveBeenLastCalledWith(encoded, {
+      json: { title: 't', description: 'd', body: 'b', version: 1 },
+    })
+
+    apiMock.delete.mockReturnValueOnce(Promise.resolve({}))
+    await deleteAgentSkill('builtin:web-research')
+    expect(apiMock.delete).toHaveBeenLastCalledWith(encoded)
+
+    apiMock.post.mockReturnValueOnce(chain({ key: 'builtin:web-research' }))
+    await duplicateAgentSkill('builtin:web-research')
+    expect(apiMock.post).toHaveBeenLastCalledWith(`${encoded}/duplicate`)
+  })
+
+  it('createAgentSkill POST agent/skills；validateAgentSkill POST agent/skills/validate', async () => {
+    const input = { name: 'skill-ab12', title: '合同审查三段式', description: '审合同', body: '1. 主体' }
+    apiMock.post.mockReturnValueOnce(chain({ key: 'skill:1' }))
+    await createAgentSkill(input)
+    expect(apiMock.post).toHaveBeenLastCalledWith('agent/skills', { json: input })
+
+    apiMock.post.mockReturnValueOnce(chain({ ok: true, errors: [], preview: '---' }))
+    await validateAgentSkill(input)
+    expect(apiMock.post).toHaveBeenLastCalledWith('agent/skills/validate', { json: input })
   })
 
   it('fetchSessionStats GET agent/sessions/{id}/stats', async () => {

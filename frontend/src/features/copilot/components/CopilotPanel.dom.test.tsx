@@ -99,6 +99,8 @@ vi.mock('./SessionSidebar', () => ({
 }))
 vi.mock('./MessageList', () => ({ MessageList: () => <div data-testid="message-list" /> }))
 vi.mock('./Composer', () => ({ Composer: () => <div data-testid="composer" /> }))
+vi.mock('./skill/SkillDrawer', () => ({ SkillDrawer: () => <div data-testid="skill-drawer" /> }))
+
 vi.mock('./FolderTreeDrawer', () => ({
   FolderTreeDrawer: ({ contractId, onClose }: { contractId: number; onClose: () => void }) => (
     <div data-testid="tree-drawer">
@@ -161,6 +163,11 @@ afterEach(() => {
 })
 
 describe('CopilotPanel：标题与头部', () => {
+  it('技能抽屉挂在页面层（侧栏收起时 `/管理技能` 仍能打开）', () => {
+    renderPanel()
+    expect(screen.getByTestId('skill-drawer')).toBeTruthy()
+  })
+
   it('无会话无业务范围时标题为「AI 助手」，并发起一次挂载恢复会话', async () => {
     renderPanel()
     expect(screen.getByText('AI 助手')).toBeTruthy()

@@ -41,6 +41,7 @@ import { growTextarea, useComposerSubmit } from '../hooks/use-composer-submit'
 import { useMentionMenu } from '../hooks/use-mention-menu'
 import { useSlashMenu } from '../hooks/use-slash-menu'
 import { useSpeechInput } from '../hooks/use-speech-input'
+import { useSkillDrawer } from '../skill-drawer'
 import { defaultAgentKind } from '../store/backends'
 import { useCopilot } from '../store'
 import type { CopilotScope } from '../types'
@@ -97,6 +98,7 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
   const toggleAnswerAgent = useCopilot((s) => s.toggleAnswerAgent)
   const setAnswerModel = useCopilot((s) => s.setAnswerModel)
   const defaultKind = useCopilot((s) => defaultAgentKind(s.backends))
+  const openSkillDrawer = useSkillDrawer((s) => s.openDrawer)
   const send = useCopilot((s) => s.send)
   const stop = useCopilot((s) => s.stop)
   const steer = useCopilot((s) => s.steer)
@@ -152,9 +154,11 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
       })
     },
     onCommand: (id) => {
-      if (id !== 'compact') return
+      if (id !== 'compact' && id !== 'manage-skills') return
       setText('')
-      void compactContext()
+      // `manage-skills` 只弹抽屉：编辑器逻辑在 components/skill/，不在这
+      if (id === 'manage-skills') openSkillDrawer()
+      else void compactContext()
     },
   })
 

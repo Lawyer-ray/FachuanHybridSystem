@@ -11,7 +11,7 @@ from .question import AgentQuestion
 from .review import AgentReview
 from .run import AgentRun
 from .session import AgentSession
-from .skill import AgentSkillPreference
+from .skill import AgentSkill, AgentSkillPreference, AgentSkillRevision
 from .subtask import AgentSubtask
 from .synthesis import AgentSynthesis
 from .ui_action import AgentUiAction
@@ -27,7 +27,9 @@ __all__ = [
     "AgentReviewAdoption",
     "AgentRun",
     "AgentSession",
+    "AgentSkill",
     "AgentSkillPreference",
+    "AgentSkillRevision",
     "AgentSubtask",
     "AgentSynthesis",
     "AgentUiAction",

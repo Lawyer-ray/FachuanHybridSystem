@@ -3,6 +3,9 @@
  *
  * listbox/option 语义 + 鼠标悬停同步选中；禁用项（无会话时的 compact）
  * 可见但置灰并给出原因小字。风格与 Composer 同一中性灰阶（无 emoji）。
+ *
+ * 技能项的 `badge`（我的 / 系统）渲染在标题右侧，中性色——它只是来源提示，
+ * 不应抢过「已停用」这类真正需要被注意的语义色。
  */
 
 import { Archive } from 'lucide-react'
@@ -50,8 +53,15 @@ export function SlashMenu({ items, selectedIndex, onHover, onSelect }: SlashMenu
             {item.kind === 'command' ? <Archive className="h-3.5 w-3.5" /> : null}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[12.5px] text-foreground">
-              {item.kind === 'skill' ? `/skill:${item.label}` : `/${item.id}`}
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate text-[12.5px] text-foreground">
+                {item.kind === 'skill' ? `/skill:${item.label}` : `/${item.id}`}
+              </span>
+              {item.badge ? (
+                <span className="flex-none rounded-[4px] bg-secondary px-1 py-px text-[10px] leading-[1.4] text-muted-foreground">
+                  {item.badge}
+                </span>
+              ) : null}
             </span>
             <span className="block truncate text-[11px] text-muted-foreground">
               {item.disabled && item.disabledHint ? item.disabledHint : item.description}

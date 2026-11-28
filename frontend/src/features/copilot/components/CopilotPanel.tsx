@@ -34,6 +34,7 @@ import { FileDropHint } from './FileDropHint'
 import { FolderTreeDrawer } from './FolderTreeDrawer'
 import { MessageList } from './MessageList'
 import { SessionSidebar } from './SessionSidebar'
+import { SkillDrawer } from './skill/SkillDrawer'
 import { UiActionBanner } from './UiActionBanner'
 import { UiToolHost } from './UiToolHost'
 
@@ -188,6 +189,9 @@ export function CopilotPanel({
           )}
         </div>
         <Composer steerEnabled={currentCapabilities.steer !== false} />
+        {/* 技能抽屉挂在这里而不是会话侧栏：侧栏在窄屏/收起时根本不渲染，
+            而 `/` 菜单的 manage-skills 命令任何宽度下都要能打开抽屉（Sheet 自带 portal）。 */}
+        <SkillDrawer />
     </aside>
   )
 }

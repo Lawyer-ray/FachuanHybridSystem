@@ -32,7 +32,19 @@ from .session_schemas import (
     SessionRenameIn,
     SessionStatsOut,
 )
-from .skill_schemas import SkillListOut, SkillOut, SkillToggleIn, SkillToggleOut
+from .skill_schemas import (
+    SkillCreateIn,
+    SkillDetailOut,
+    SkillFieldError,
+    SkillListOut,
+    SkillOut,
+    SkillQuotaOut,
+    SkillToggleIn,
+    SkillToggleOut,
+    SkillUpdateIn,
+    SkillValidateIn,
+    SkillValidateOut,
+)
 from .task_schemas import TaskIn, TaskOut
 from .ui_schemas import UiActionResultIn, UiSnapshotIn
 from .usage_schemas import UsageOut
@@ -63,10 +75,17 @@ __all__ = [
     "SessionOut",
     "SessionRenameIn",
     "SessionStatsOut",
+    "SkillCreateIn",
+    "SkillDetailOut",
+    "SkillFieldError",
     "SkillListOut",
     "SkillOut",
+    "SkillQuotaOut",
     "SkillToggleIn",
     "SkillToggleOut",
+    "SkillUpdateIn",
+    "SkillValidateIn",
+    "SkillValidateOut",
     "SnapshotOut",
     "SteerIn",
     "SteerOut",

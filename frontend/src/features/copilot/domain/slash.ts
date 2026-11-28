@@ -7,13 +7,27 @@ import type { AgentSkill, SlashMenuItem } from '../types'
 /** 内置命令（不走 `/skill:` 文本协议：RPC 模式下 pi 内置命令不是文本，由前端直调端点） */
 export const SLASH_COMMANDS: Array<Pick<SlashMenuItem, 'kind' | 'id' | 'label' | 'description'>> = [
   { kind: 'command', id: 'compact', label: '压缩上下文', description: '总结当前会话历史，释放上下文空间（保留案号/期限等锚点）' },
+  { kind: 'command', id: 'manage-skills', label: '管理技能', description: '查看、新建、编辑我的技能' },
 ]
 
-/** 技能清单 + 内置命令 → 菜单项（技能只列已启用的；compact 无活动会话时禁用） */
+/**
+ * 技能清单 + 内置命令 → 菜单项。
+ *
+ * 技能只列已启用的，并带 `badge`（我的 / 系统）——同名时用户要能分清这条
+ * `/skill:名` 是自己写的还是内置的。compact 无活动会话时禁用；`manage-skills`
+ * 与弹抽屉的入口不依赖会话，恒可用。
+ */
 export function buildSlashMenuItems(skills: AgentSkill[], hasSession: boolean): SlashMenuItem[] {
   const skillItems: SlashMenuItem[] = skills
     .filter((s) => s.enabled)
-    .map((s) => ({ key: `skill-${s.name}`, kind: 'skill' as const, id: s.name, label: s.name, description: s.description }))
+    .map((s) => ({
+      key: `skill-${s.key}`,
+      kind: 'skill' as const,
+      id: s.name,
+      label: s.name,
+      description: s.description,
+      badge: s.source === 'user' ? '我的' : '系统',
+    }))
   const commandItems: SlashMenuItem[] = SLASH_COMMANDS.map((c) => ({
     key: `command-${c.id}`,
     ...c,

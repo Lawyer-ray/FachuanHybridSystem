@@ -42,6 +42,7 @@ import { FileDropHint } from './FileDropHint'
 import { FolderTreeDrawer } from './FolderTreeDrawer'
 import { MessageList } from './MessageList'
 import { SessionSidebar } from './SessionSidebar'
+import { SkillDrawer } from './skill/SkillDrawer'
 import { UiActionBanner } from './UiActionBanner'
 import { UiToolHost } from './UiToolHost'
 
@@ -142,6 +143,8 @@ export function AssistantPage() {
           <MessageList wide />
           <Composer steerEnabled={currentCapabilities.steer !== false} />
         </div>
+        {/* 与 CopilotPanel 同因：抽屉不能挂在条件渲染的侧栏里 */}
+        <SkillDrawer />
         {treeDrawerOpen && context?.origin === 'contract' && (
           <FolderTreeDrawer contractId={context.refId} onClose={() => setTreeDrawerOpen(false)} />
         )}

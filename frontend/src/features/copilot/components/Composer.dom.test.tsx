@@ -62,6 +62,13 @@ vi.mock('../api', () => ({
   fetchAgentSkills: skillsMock,
 }))
 
+/** 技能抽屉开关（`manage-skills` 命令只弹抽屉，抽屉本体不属 Composer） */
+const openDrawerSpy = vi.hoisted(() => vi.fn())
+vi.mock('../skill-drawer', () => ({
+  useSkillDrawer: (selector: (s: { open: boolean; openDrawer: () => void; closeDrawer: () => void }) => unknown) =>
+    selector({ open: false, openDrawer: openDrawerSpy, closeDrawer: vi.fn() }),
+}))
+
 import { Composer } from './Composer'
 
 /** Composer 带 react-query Provider 渲染（useQuery 技能清单依赖） */
@@ -98,11 +105,53 @@ beforeEach(() => {
   copilotState.answerAgents = []
   copilotState.toggleAnswerAgent = vi.fn()
   copilotState.selectedAgentKind = ''
+  openDrawerSpy.mockClear()
   skillsMock.mockResolvedValue({
     skills: [
-      { name: 'web-research', description: '联网搜索与网页原文抓取', enabled: true },
-      { name: 'deadline-queries', description: '期限/排期查询', enabled: true },
-      { name: 'disabled-skill', description: '已停用', enabled: false },
+      {
+        key: 'builtin:web-research',
+        name: 'web-research',
+        title: 'web-research',
+        description: '联网搜索与网页原文抓取',
+        enabled: true,
+        source: 'builtin',
+        scope: '',
+        editable: false,
+        version: 0,
+      },
+      {
+        key: 'builtin:deadline-queries',
+        name: 'deadline-queries',
+        title: 'deadline-queries',
+        description: '期限/排期查询',
+        enabled: true,
+        source: 'builtin',
+        scope: '',
+        editable: false,
+        version: 0,
+      },
+      {
+        key: 'skill:mine-1',
+        name: 'my-checklist',
+        title: '我的核对清单',
+        description: '我的技能（菜单应带「我的」徽标）',
+        enabled: true,
+        source: 'user',
+        scope: 'lawyer',
+        editable: true,
+        version: 2,
+      },
+      {
+        key: 'builtin:disabled-skill',
+        name: 'disabled-skill',
+        title: 'disabled-skill',
+        description: '已停用',
+        enabled: false,
+        source: 'builtin',
+        scope: '',
+        editable: false,
+        version: 0,
+      },
     ],
   })
   copilotState.turnStats = {
@@ -288,6 +337,20 @@ describe('Composer `/` 命令菜单', () => {
     expect(copilotState.compactContext).toHaveBeenCalled()
     expect(box2.value).toBe('')
     second.container.remove()
+  })
+
+  it('输入 `/管理` 选中 manage-skills：清空输入并打开技能抽屉', async () => {
+    const { container } = renderComposer()
+    const box = within(container).getByRole('textbox') as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: '/管理' } })
+    const menu = await within(container).findByRole('listbox')
+    expect(menu.textContent).toContain('/manage-skills')
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(openDrawerSpy).toHaveBeenCalled()
+    // 命令只弹抽屉，不往草稿里写命令文本、也不发送
+    expect(box.value).toBe('')
+    expect(copilotState.send).not.toHaveBeenCalled()
+    container.remove()
   })
 
   it('已停用技能不出现在菜单里', async () => {

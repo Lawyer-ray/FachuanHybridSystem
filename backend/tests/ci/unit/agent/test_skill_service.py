@@ -49,13 +49,13 @@ class TestUserPreferences:
             assert skill["enabled"] is True
 
     def test_disabled_only_affects_that_user(self, user: Any, db: Any) -> None:
-        AgentSkillPreference.objects.create(user=user, skill_name="web-research", enabled=False)
+        AgentSkillPreference.objects.create(user=user, skill_key="builtin:web-research", enabled=False)
         mine = {s["name"]: s["enabled"] for s in skill_service.skills_for_user(user.pk)}
         assert mine["web-research"] is False
         assert mine["deadline-queries"] is True
 
     def test_enabled_paths_exclude_disabled(self, user: Any) -> None:
-        AgentSkillPreference.objects.create(user=user, skill_name="web-research", enabled=False)
+        AgentSkillPreference.objects.create(user=user, skill_key="builtin:web-research", enabled=False)
         paths = skill_service.enabled_skill_paths(user.pk)
         assert paths, "至少还有其他技能在列"
         assert all(REAL_ROOT.as_posix() not in p or "web-research" not in p for p in paths)
@@ -63,10 +63,10 @@ class TestUserPreferences:
 
     def test_set_skill_enabled_roundtrip(self, user: Any) -> None:
         result = skill_service.set_skill_enabled(user.pk, "web-research", False)
-        assert result == {"name": "web-research", "enabled": False}
+        assert result == {"key": "builtin:web-research", "enabled": False}
         # 幂等 upsert：再开一次不产生第二行
         skill_service.set_skill_enabled(user.pk, "web-research", True)
-        assert AgentSkillPreference.objects.filter(user=user, skill_name="web-research").count() == 1
+        assert AgentSkillPreference.objects.filter(user=user, skill_key="builtin:web-research").count() == 1
 
 
 class TestValidation:

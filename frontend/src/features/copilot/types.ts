@@ -22,7 +22,19 @@ export type { CitationRef, CitationKind } from './domain/knowledge'
 export type { MentionCandidate, MentionInsert, MentionKind } from './domain/mention'
 export type { AgentBackendOption, AgentSpec, QoderAuthState, QoderByokState, QoderLoginState } from './backend-types'
 export type { CopilotContext, CopilotScope } from './scope-types'
-export type { AgentSkill, AgentSkillList, AgentSkillToggleReceipt } from './skill-types'
+export type {
+  AgentSkill,
+  AgentSkillCreateInput,
+  AgentSkillDetail,
+  AgentSkillList,
+  AgentSkillQuota,
+  AgentSkillScope,
+  AgentSkillSource,
+  AgentSkillToggleReceipt,
+  AgentSkillUpdateInput,
+  AgentSkillValidation,
+  AgentSkillValidationError,
+} from './skill-types'
 export type {
   AgentMemoryItem,
   MemoryKind,
@@ -296,8 +308,9 @@ export type {
 
 /**
  * `/` 命令菜单项（技能补全 / 内置命令）；构建与过滤见 domain.ts，交互见 hooks/use-slash-menu。
- * 字段口径：`key` 是列表 key（`skill-名` / `command-名`）；`id` 是技能名 / 命令 id；
- * `label` 是展示名；`disabled` + `disabledHint` 表示不可选与原因（如「先开始对话」）。
+ * 字段口径：`key` 是列表 key（`skill-<技能key>` / `command-名`）；`id` 是技能名 / 命令 id；
+ * `label` 是展示名；`badge` 是标题右侧的小徽标（技能项为「我的 / 系统」，命令项无）；
+ * `disabled` + `disabledHint` 表示不可选与原因（如「先开始对话」）。
  */
 export interface SlashMenuItem {
   key: string
@@ -305,6 +318,7 @@ export interface SlashMenuItem {
   id: string
   label: string
   description: string
+  badge?: string
   disabled?: boolean
   disabledHint?: string
 }
