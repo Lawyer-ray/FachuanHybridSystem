@@ -1,7 +1,7 @@
 import { UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
-import type { CaseFolderBindingInfo, FolderEntries } from '../types'
-import { casesApi, contractFolderApi } from './client'
+import type { CaseFolderBindingInfo, ContractFolderBindingInfo, FolderEntries } from '../types'
+import { casesApi, contractFolderApi, contractsApi } from './client'
 
 /* ============ 绑定文件夹（案件卡「文件夹视图」+ 右栏「合同文件夹」树共用） ============ */
 
@@ -22,6 +22,36 @@ function folderApi(kind: FolderOwnerKind) {
 /** 案件文件夹绑定（未绑定时端点返回 null；404 = 案件不存在/无权） */
 export async function getCaseFolderBinding(caseId: number): Promise<CaseFolderBindingInfo | null> {
   return casesApi.get(String(caseId) + '/folder-binding').json<CaseFolderBindingInfo | null>()
+}
+
+/**
+ * 合同（项目）文件夹绑定。
+ *
+ * **未绑定时后端返回 `null` 而不是 404**——所以调用方可以用它决定要不要去拉目录：
+ * 不先查绑定就直打 `folder-entries`，未绑定的项目会得到一条 404（控制台噪音，
+ * 界面上也只是一句兜底错误，律师分不清「没绑」还是「目录坏了」）。
+ */
+export async function getContractFolderBinding(contractId: number): Promise<ContractFolderBindingInfo | null> {
+  return contractsApi.get(String(contractId) + '/folder-binding').json<ContractFolderBindingInfo | null>()
+}
+
+/**
+ * 手工绑定合同文件夹（服务器上的绝对路径）。
+ *
+ * 为什么允许手工绑：项目从「材料包归案」建出来、或老数据没走过扫描流程时，
+ * 根本没有绑定记录——没有绑定就没有文件夹树、没有合同文件可看。给一个输入路径
+ * 的小入口，比让律师去 admin 里找要快得多。
+ */
+export async function bindContractFolder(
+  contractId: number,
+  folderPath: string,
+  storageType = 'local',
+): Promise<ContractFolderBindingInfo> {
+  return contractsApi
+    .post(String(contractId) + '/folder-binding', {
+      json: { folder_path: folderPath, storage_type: storageType },
+    })
+    .json<ContractFolderBindingInfo>()
 }
 
 /** 绑定文件夹某一层子项（subpath 为空 = 根；非递归、不含隐藏项） */

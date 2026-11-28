@@ -11,6 +11,7 @@ import { ChainStepper } from './ChainStepper'
 
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
+import { CaseActionsSheet } from './CaseActionsSheet'
 import { DealDetailDialogs } from './DealDetailDialogs'
 import { ContractFileOverlays } from './ContractFileOverlays'
 import { DealDocLayout } from './DealDocLayout'
@@ -118,6 +119,8 @@ export function DealDetailPage() {
   const [deadlineOpen, setDeadlineOpen] = useState(false)
   /** 新建下一程序案件弹窗 */
   const [caseOpen, setCaseOpen] = useState(false)
+  /** 「办理」抽屉：立案 / 担保 / OA / 归档（四件事一个入口，案件卡不变工具栏） */
+  const [actionsFor, setActionsFor] = useState<{ id: number; label: string } | null>(null)
   /** 刚建好的案件 id：等它出现在 ordered 里再滚过去高亮（列表刷新是异步的） */
   const [newCaseId, setNewCaseId] = useState<number | null>(null)
   /**
@@ -260,6 +263,7 @@ export function DealDetailPage() {
                     ambiguous={ambiguous.has(c.proc)}
                     highlighted={hl === c.id}
                     onAddLog={setLogTarget}
+                    onOpenActions={setActionsFor}
                     onOpenFile={openCaseFile(c.id)}
                     onDraft={draft.openFor}
                     selectedSubpath={picked?.kind === 'case' && picked.ownerId === c.id ? picked.subpath : null}
@@ -310,6 +314,16 @@ export function DealDetailPage() {
         onDeadlineClose={() => setDeadlineOpen(false)}
         doc={doc}
         draft={draft}
+      />
+
+      {/* 办理：一张网立案 / 申请担保 / OA 立案 / 项目归档 */}
+      <CaseActionsSheet
+        open={actionsFor !== null}
+        onClose={() => setActionsFor(null)}
+        caseId={actionsFor?.id ?? 0}
+        caseLabel={actionsFor?.label ?? ''}
+        contractId={contractId}
+        onChanged={() => refetchContractAndCases(queryClient, contractId)}
       />
     </main>
   )

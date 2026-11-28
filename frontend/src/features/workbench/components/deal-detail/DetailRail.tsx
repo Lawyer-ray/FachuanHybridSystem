@@ -8,7 +8,7 @@ import { dueLabel } from './detail-domain'
 import { RailFacts, RailParties, RailSupps } from './RailArchive'
 import { RailFees } from './RailFees'
 import type { FolderEntryMutation } from './folder-tree-types'
-import { FolderTree } from './FolderTree'
+import { ContractFolderSection } from './ContractFolderSection'
 import { Card, CopyText, RailAction, RailSection } from './ui'
 
 /**
@@ -196,18 +196,13 @@ export function DetailRail({
           非诉页不渲染（那份树在左栏独占，见 NonLitDetailPage）。
           点文件 = 交给详情页的文档栏打开（DealDocLayout），不再就地长在这张卡里。 */}
       {showFolder && (
-        <div className="border-t border-border-light px-[18px] pt-3.5 pb-[15px]">
-          <FolderTree
-            kind="contract"
-            ownerId={folderOwnerId ?? deal.id}
-            maxH="max-h-[420px]"
-            title="合同文件夹"
-            selectedSubpath={folderSelectedSubpath ?? null}
-            onOpenFile={onOpenFile}
-            onReviewFile={onReviewFile}
-            onEntryMutated={onFolderMutated}
-          />
-        </div>
+        <ContractFolderSection
+          contractId={folderOwnerId ?? deal.id}
+          selectedSubpath={folderSelectedSubpath ?? null}
+          onOpenFile={onOpenFile}
+          onReviewFile={onReviewFile}
+          onFolderMutated={onFolderMutated}
+        />
       )}
 
       <RailFacts deal={deal} />

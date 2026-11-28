@@ -53,6 +53,7 @@ export function CaseSection({
   ambiguous,
   highlighted,
   onAddLog,
+  onOpenActions,
   onOpenFile,
   onDraft,
   selectedSubpath,
@@ -65,6 +66,13 @@ export function CaseSection({
   highlighted: boolean
   /** 记日志：归属就是这张卡代表的案件（合同没有时间轴） */
   onAddLog: (c: { id: number; label: string }) => void
+  /**
+   * 「办理」：一张网立案 / 申请担保 / OA 立案 / 项目归档。
+   *
+   * 四件事都不是高频动作，各摆一个按钮会把案件卡变成工具栏——只给这一个入口，
+   * 点开是抽屉里的四行。
+   */
+  onOpenActions?: (c: { id: number; label: string }) => void
   /**
    * 点文件行 = 打开 OnlyOffice 预览（而不是 window.open 下载）。
    *
@@ -131,6 +139,15 @@ export function CaseSection({
           {onDraft && (
             <ActionButton sm onClick={() => onDraft(c.id)} title="按文书类型起草一份新文书，落进本案文件夹">
               ＋ 生成文书
+            </ActionButton>
+          )}
+          {onOpenActions && (
+            <ActionButton
+              sm
+              onClick={() => onOpenActions({ id: c.id, label: c.proc })}
+              title="一张网立案 / 申请担保 / OA 立案 / 项目归档"
+            >
+              办理
             </ActionButton>
           )}
           {binding && (
