@@ -120,8 +120,11 @@ export function AppShell() {
           />
         </Suspense>
       )}
+      {/* 手机端底部要给 composer pill 留出高度：pill 是 fixed 定位，不吃父级
+          padding；不留白就会压住列表最后一行。76px = pill 自身高度（py-3 +
+          36px 圆钮 = 60px）+ 12px 底距 + 4px 余量，再加安全区。 */}
       <div
-        className="transition-[padding-right] duration-200"
+        className="max-[760px]:pb-[calc(76px+env(safe-area-inset-bottom))] transition-[padding-right] duration-200"
         style={
           contentDocked
             ? ({
@@ -141,13 +144,16 @@ export function AppShell() {
       </div>
 
       {/*
-        移动端悬浮 AI 入口。
+        移动端底部 AI 入口（composer 形状的 pill，不是独立圆球）。
         为什么不在导航栏里放个图标就够了：手机上的导航栏在屏幕最上沿，律师滑到
         文书/材料列表第 20 条时它早滚出视线（sticky 也只是贴着顶部），而「问 AI」
-        是随时会想按的动作——固定右下、与拇指同侧才按得到。
-        桌面端不渲染同款：那里导航栏有带文字的常驻入口，再挂一个悬浮球纯属挡内容。
+        是随时会想按的动作——固定在底部、与拇指同侧才按得到。形状做成整宽的
+        composer 条：手机上的次要动作已经收进导航栏「…」菜单，底部这一条是
+        随时可用的主入口，整枚都是按钮（点击 = toggleCopilot）。
+        文案不写「按住说话」之类：我们**没有语音输入**，只承诺「问 AI…」。
+        桌面端不渲染同款：那里导航栏有带文字的常驻入口，再挂一条纯属挡内容。
         层级取 z-[75]：高于页面内容与吸顶导航（50），但**低于全屏阅读器（80）**——
-        阅读器是「专注看材料」的模式，右下角再压一个悬浮球会挡住它自己的底部浮条；
+        阅读器是「专注看材料」的模式，底部再压一条会挡住它自己的底部浮条；
         那里要看 AI，走阅读器内的选区问 AI。同样低于 copilot 遮罩/面板（90/100）
         与弹窗（130），面板一开就被盖住（同时也用状态淡出，避免透出边缘）。
       */}
@@ -160,14 +166,19 @@ export function AppShell() {
         title="AI 助手"
         onClick={toggleCopilot}
         className={
-          'fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[75] flex items-center gap-2 rounded-full bg-foreground py-3.5 pr-4 pl-3.5 text-background shadow-[0_12px_28px_rgba(0,0,0,0.28)] transition-all duration-200 min-[760px]:hidden ' +
+          'fixed inset-x-4 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-[75] flex items-center gap-2 rounded-full bg-foreground px-4 py-3 text-background shadow-[0_12px_28px_rgba(0,0,0,0.28)] transition-all duration-200 min-[760px]:hidden ' +
           (onAssistantPage || copilotOpen
             ? 'pointer-events-none translate-y-3 opacity-0'
             : 'translate-y-0 opacity-100 active:scale-95')
         }
       >
-        <Sparkles className="size-[18px]" />
-        <span className="text-[13px] font-[640] tracking-[0.01em]">AI</span>
+        <Sparkles className="size-[17px] flex-none text-background/70" />
+        <span className="min-w-0 flex-1 truncate text-left text-[13px] font-[560] tracking-[0.01em]">
+          问 AI…
+        </span>
+        <span className="flex size-9 flex-none items-center justify-center rounded-full bg-background/15">
+          <Sparkles className="size-4" />
+        </span>
       </button>
     </div>
   )
