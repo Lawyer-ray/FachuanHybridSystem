@@ -146,8 +146,7 @@ FachuanHybridSystem/
 ├── skills/              独立可跑的 Python 技能（案件处理 / 合同处理 / 自媒体运营）
 ├── ml-training/         方向分类模型训练（PyTorch → ONNX）
 ├── deploy/              公网栈（nginx + gunicorn + Cloudflare Tunnel）
-├── docs/harness/        工程规范细则（按需加载的 18 个叶子文件）
-└── changelog/           681 篇版本变更记录
+└── docs/harness/        工程规范细则（按需加载的 18 个叶子文件）
 ```
 
 ## 快速开始
@@ -174,7 +173,7 @@ make ci-full        # 完整 CI（需 PostgreSQL：+ pytest + 覆盖率）
 | 数据库迁移 | 454 | `find backend/apps -path '*/migrations/*.py' ! -name '__init__.py' \| wc -l` |
 | 测试文件 | 1709 / 483 | 后端 `find backend/tests -name 'test_*.py'`；前端 `find frontend/src -name '*.test.ts*'` |
 
-> 数字会随版本增长。以上为 2026-11-27 / v27.27.4 时点（`make mcp-verify` 实测代码注册表与线上工具面均为 442）。
+> 数字会随迭代增长，以「复核命令」列的实测结果为准。
 >
 > MCP 工具数含 `backend/plugins` 私有子模块注册的 1 个工具（`weike_advanced_search`）——公开克隆拿不到该子模块，实测为 **441**。
 
