@@ -2,12 +2,12 @@
 
 端点前缀：``/api/v1/agent``（技能子域）。律师用 ``/skill:名字 参数`` 点名技能，
 模型也可以经 MCP ``get_agent_skill`` 按需取全文——后者打的就是
-``GET /skills/resolve/{ref}/content``。
+``GET /skills/resolve/{name}/content``。
 
 ## 三条实现纪律
 
 1. **路由顺序**：``/skills``、``/skills/quota``、``/skills/validate``、
-   ``/skills/resolve/{ref}/content`` 必须注册在 ``/skills/{key}`` **之前**。ninja 的
+   ``/skills/resolve/{name}/content`` 必须注册在 ``/skills/{key}`` **之前**。ninja 的
    URL 按声明顺序匹配，``{key}`` 的 ``[^/]+`` 会把后面的字面量段吞成参数值
    （症状是路由「永远 404」或「恒 405」，且没有任何报错）。
 2. **API 层零 ORM**（四层棘轮）：查询、校验、权限、事务全在 ``services/skills/``；
@@ -161,23 +161,28 @@ async def validate_skill(request: Any, payload: SkillValidateIn) -> SkillValidat
     )
 
 
-@router.get("/skills/resolve/{ref}/content", response=SkillContentOut)
+@router.get("/skills/resolve/{name}/content", response=SkillContentOut)
 async def skill_content(
     request: Any,
-    ref: str,
+    name: str,
     start: int = 0,
     limit: int = CONTENT_PAGE_BYTES,
 ) -> SkillContentOut:
     """**运行时**正文（MCP ``get_agent_skill`` 的数据源），按字节分段。
 
-    ``ref`` 同时接受 ``builtin:<name>`` / ``skill:<uuid>`` / 裸 ``name``：模型只
-    知道名字，路径参数却常带 key。严格走 ``resolve_for_user``——已停用 / 草稿 /
-    无权一律 404，这条出口给的是模型，不能像管理面那样把工作区草稿返出去。
+    ``name`` 这个路径段同时接受 ``builtin:<name>`` / ``skill:<uuid>`` / 裸 ``name``：
+    模型只知道名字，而调用方手里常是 key。叫 ``name`` 而不是 ``ref`` 是有意的——
+    MCP 工具面对模型暴露的参数就叫 ``name``，两边**同名**才能让「工具签名是否暴露了
+    后端必填参数」这道跨语言契约门禁自动对齐（``test_output_contract``）；换个名字
+    会让门禁只能靠注释说服人，而它本该靠签名说服人。
+
+    严格走 ``resolve_for_user``——已停用 / 草稿 / 无权一律 404，这条出口给的是模型，
+    不能像管理面那样把工作区草稿返出去。
     """
     content = await _invoke(
         user_skills.content_for_ref,
         user_id=_user_id(request) or 0,
-        ref=ref,
+        ref=name,
         start=start,
         limit=limit,
     )
@@ -192,7 +197,7 @@ async def get_skill(request: Any, key: str) -> SkillDetailOut:
     """技能详情（管理面）：**工作区**最新正文，作者要能接着编辑自己的稿子。
 
     ``key`` 可含 ``:``（``builtin:web-research``）。运行时正文走
-    ``/skills/resolve/{ref}/content``，两者刻意分开：一个是工作区，一个是线上。
+    ``/skills/resolve/{name}/content``，两者刻意分开：一个是工作区，一个是线上。
     """
     detail = await _invoke(user_skills.get_detail, user_id=_user_id(request) or 0, key=key)
     return SkillDetailOut(**detail)

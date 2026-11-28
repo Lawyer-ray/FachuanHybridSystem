@@ -1,4 +1,4 @@
-"""``GET /skills/resolve/{ref}/content`` —— 运行时正文出口（MCP ``get_agent_skill`` 的数据源）。
+"""``GET /skills/resolve/{name}/content`` —— 运行时正文出口（MCP ``get_agent_skill`` 的数据源）。
 
 这条端点直接决定模型「打开技能时看到什么」，所以三件事必须钉死：
 
