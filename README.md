@@ -130,24 +130,6 @@ Copilot 横跨两条主线，差异化在这里：AI 不是侧边栏，是**能�
 | **文档** | PyMuPDF · pdfplumber · pikepdf · python-docx · docxtpl · reportlab · openpyxl |
 | **部署** | Docker Compose · nginx + gunicorn · launchd / systemd · 私有化 · 数据自持 |
 
-## 项目结构
-
-```text
-FachuanHybridSystem/
-├── backend/
-│   ├── apps/            38 个业务模块（cases / contracts / documents / agent / …）
-│   ├── mcp_server/      MCP 工具面（442 个工具，server.py 统一注册）
-│   ├── apiSystem/       Django 配置与路由装配
-│   ├── tests/           1709 个测试文件（unit / integration / property / structure）
-│   └── plugins/         git 子模块（FachuanPlugins，**内部仓库，不对外提供**）
-├── frontend/src/
-│   ├── app/             路由表 · 路径常量 · 壳层（唯一权威，禁止手拼路径）
-│   └── features/        14 个 feature（material-prep / bank-litigation / copilot / …）
-├── skills/              独立可跑的 Python 技能（案件处理 / 合同处理 / 自媒体运营）
-├── ml-training/         方向分类模型训练（PyTorch → ONNX）
-└── deploy/              公网栈（nginx + gunicorn + Cloudflare Tunnel）
-```
-
 ## 快速开始
 
 完整步骤见 **[安装与部署指南](INSTALL.md)**。常用命令（根目录 `Makefile`）：
