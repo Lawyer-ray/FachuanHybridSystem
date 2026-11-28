@@ -341,6 +341,9 @@ class TestTrialBackendCanInjectSkillIndex:
         monkeypatch.setattr(trial.flags, "writes_enabled", lambda: True)
         monkeypatch.setattr(trial, "_lawyer", lambda user_id: object())
         monkeypatch.setattr(trial, "_readable_skill", lambda user_id, key, lawyer: _fake_trial_skill())
+        # ``auto`` 会查交付面（``resolve_for_user``）来定 inline/index；本用例只要验
+        # 「kind 从哪来」，所以把那一层也打掉，保持零 DB 依赖。
+        monkeypatch.setattr(trial, "_deliverable_entry", lambda user_id, skill: None)
 
         plan = trial.prepare_trial(user_id=1, key="skill:1048576")
         assert plan.backend_kind in _injectable_kinds(), (

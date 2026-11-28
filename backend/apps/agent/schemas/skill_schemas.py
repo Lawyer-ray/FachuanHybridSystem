@@ -227,8 +227,32 @@ class SkillTrialIn(Schema):
     """试跑请求：不给问题就用服务端默认探针问法。"""
 
     question: str = ""
-    #: 用哪个后端跑（默认 pi）。声明 ``skill_delivery=tool_only`` 的后端会被拒绝。
+    #: 用哪个后端跑（默认 pi）。声明 ``skill_delivery=tool_only`` 或不在
+    #: ``FACHUAN_SKILL_TRIAL_BACKENDS`` 白名单里的后端会被 422 拒绝。
     backend: str = ""
+    #: 验证哪一层：``auto``（缺省：已可交付→index，否则 inline）/ ``inline`` / ``index``。
+    #: 回执里的 ``mode`` 才是**实际**用的那种。
+    mode: str = "auto"
+
+
+class SkillToolError(Schema):
+    """试跑里失败的一次工具调用（``message`` 只留前 200 字，不返正文）。"""
+
+    tool: str
+    message: str
+
+
+class SkillTrialQuotaOut(Schema):
+    """今日试跑余量（``GET /skills/trial-quota``）。
+
+    ``reset_at`` 是**明日本地零点**的 ISO 8601：前端拿它渲染「XX 后恢复」，不要自己
+    算「明天」——跨时区/夏令时的时候，前端算出来的与服务端真正放行的时刻会对不上。
+    """
+
+    limit: int
+    used: int
+    remaining: int
+    reset_at: str
 
 
 class SkillTrialOut(Schema):
@@ -236,12 +260,15 @@ class SkillTrialOut(Schema):
 
     ``injected`` 是**实际注入给模型的那段文字**——审批人必须能看见「我们到底让模型
     看了什么」，否则一个奇怪的回答无法归因（技能写得不好？还是注入时拼错了？）。
-    ``tool_calls`` 是模型在试跑里真的调用了哪些工具（只读工具面，不会有写操作）。
+    ``mode`` 是实际用的注入层（``auto`` 已解析）；``tool_calls`` 是模型真的调了哪些
+    工具（只读工具面，不会有写操作）；``tool_errors`` 是其中失败的调用。
+    ``trial_id`` 指向这次的入账行（成本账）。
     """
 
     ok: bool
     text: str
     backend: str
+    mode: str
     model: str | None
     duration_ms: int
     skill_key: str
@@ -250,6 +277,8 @@ class SkillTrialOut(Schema):
     skill_version: int
     injected: str
     tool_calls: list[str]
+    tool_errors: list[SkillToolError]
+    trial_id: str
     error: str
 
 

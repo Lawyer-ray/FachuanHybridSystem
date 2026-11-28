@@ -16,8 +16,8 @@ import pytest
 
 from apps.agent.backends import BackendCapabilities, RunContext, SkillDelivery
 from apps.agent.backends import registry
-from apps.agent.models import AgentSkill, AgentMessage
-from apps.agent.services.skills import trial
+from apps.agent.models import AgentSkill, AgentMessage, AgentSkillTrial
+from apps.agent.services.skills import prompt_block, trial, trial_ledger
 from apps.organization.models import LawFirm, Lawyer, Team
 
 TEST_PASSWORD = "x-test-12345678"  # pragma: allowlist secret
@@ -30,7 +30,9 @@ class _FakeBackend:
 
     kind = "fake-trial"
 
-    def __init__(self, *, delivery: str = SkillDelivery.PROMPT, delay: float = 0.0, error: str = "") -> None:
+    def __init__(
+        self, *, delivery: str = SkillDelivery.PROMPT, delay: float = 0.0, error: str = "", tool_error: str = ""
+    ) -> None:
         self.capabilities = BackendCapabilities(
             streaming=True,
             tool_calls=True,
@@ -41,6 +43,7 @@ class _FakeBackend:
         )
         self._delay = delay
         self._error = error
+        self._tool_error = tool_error
         self.last_ctx: RunContext | None = None
 
     def stream(self, ctx: RunContext) -> AsyncGenerator[dict[str, Any] | None, None]:
@@ -61,6 +64,14 @@ class _FakeBackend:
             return
         block = ctx.skill_block_override or ""
         yield {"type": "tool_call", "name": "mcp__fachuan__list_cases"}
+        if self._tool_error:
+            yield {
+                "type": "tool_result",
+                "tool_call_id": "call-1",
+                "name": "mcp__fachuan__get_agent_skill",
+                "result": self._tool_error,
+                "is_error": True,
+            }
         yield {"type": "delta", "content": "回答：" + ("读到技能" if MARKER in block else "没读到技能")}
         yield {"type": "settled"}
 
@@ -68,6 +79,16 @@ class _FakeBackend:
 @pytest.fixture
 def firm(db: Any) -> LawFirm:
     return LawFirm.objects.create(name="试跑所")
+
+
+def _allow_backend(monkeypatch: pytest.MonkeyPatch, *kinds: str) -> None:
+    """把假后端放进试跑白名单。
+
+    白名单（``trial.BACKENDS_ENV``）缺省只有 ``pi``：任何用假后端真跑一轮的用例
+    都得先显式放行，否则请求会停在 422——这正是「一个拼出来的 kind 不该拉起陌生
+    运行时」的那道闸。
+    """
+    monkeypatch.setenv(trial.BACKENDS_ENV, ",".join(kinds))
 
 
 def _lawyer(username: str, firm: LawFirm, *, is_admin: bool = False) -> Lawyer:
@@ -96,6 +117,7 @@ def _skill(lawyer: Lawyer, *, scope: str = AgentSkill.Scope.LAWYER, firm: LawFir
 def fake(monkeypatch: pytest.MonkeyPatch) -> _FakeBackend:
     backend = _FakeBackend()
     registry.register(backend)  # type: ignore[arg-type]
+    _allow_backend(monkeypatch, backend.kind)
     monkeypatch.setattr("apps.agent.services.chat.env.mint_user_token", _always_token)
     yield backend
     registry.clear()
@@ -111,13 +133,16 @@ class TestRunTrial:
         lawyer = _lawyer("trial-author", firm)
         skill = _skill(lawyer)
 
-        result = asyncio.run(trial.run_trial(user_id=lawyer.pk, key=f"skill:{skill.pk}", backend_kind=fake.kind))
+        result = asyncio.run(
+            trial.run_trial(user_id=lawyer.pk, key=f"skill:{skill.pk}", backend_kind=fake.kind, mode="inline")
+        )
 
         assert result.ok is True
         assert "读到技能" in result.text
         assert result.skill["name"] == "trial-skill"
         assert MARKER in result.injected
         assert result.backend == fake.kind
+        assert result.mode == "inline"
         # 注入块的首行必须与线上索引块区分开：日志/会话里一眼能认出这是试跑
         assert result.injected.startswith(trial.TRIAL_HEADING)
 
@@ -152,6 +177,8 @@ class TestRunTrial:
         """``tool_only`` 的后端注不进系统提示，试跑只会给出假阴性 —— 直说验不了。"""
         backend = _FakeBackend(delivery=SkillDelivery.TOOL_ONLY)
         registry.register(backend)  # type: ignore[arg-type]
+        # 先放行白名单，才能确保它是因为「注不进系统提示」而被拒，而不是因为不在白名单
+        _allow_backend(monkeypatch, backend.kind)
         monkeypatch.setattr("apps.agent.services.chat.env.mint_user_token", _always_token)
         try:
             lawyer = _lawyer("trial-toolonly", firm)
@@ -183,6 +210,7 @@ class TestRunTrial:
         """真实用途：审批人试跑一条**待审**的所内技能（它还不在交付面里）。"""
         backend = _FakeBackend()
         registry.register(backend)  # type: ignore[arg-type]
+        _allow_backend(monkeypatch, backend.kind)
         monkeypatch.setattr("apps.agent.services.chat.env.mint_user_token", _always_token)
         try:
             admin = _lawyer("trial-reviewer", firm, is_admin=True)
@@ -196,6 +224,7 @@ class TestRunTrial:
             )
             assert result.ok is True
             assert MARKER in result.injected, "待审草稿也必须能被试跑（正文取自工作区，不是线上版）"
+            assert result.mode == "inline", "auto 对「不在交付面里」的技能必须落到 inline"
         finally:
             registry.clear()
 
@@ -228,6 +257,7 @@ class TestRunTrial:
     def test_backend_error_becomes_result(self, firm: LawFirm, monkeypatch: pytest.MonkeyPatch) -> None:
         backend = _FakeBackend(error="模型通道 429")
         registry.register(backend)  # type: ignore[arg-type]
+        _allow_backend(monkeypatch, backend.kind)
         monkeypatch.setattr("apps.agent.services.chat.env.mint_user_token", _always_token)
         try:
             lawyer = _lawyer("trial-error", firm)
@@ -244,6 +274,7 @@ class TestRunTrial:
         """超时必须**返回**一个可读回执，不能把审批人挂在转圈上。"""
         backend = _FakeBackend(delay=2.0)
         registry.register(backend)  # type: ignore[arg-type]
+        _allow_backend(monkeypatch, backend.kind)
         monkeypatch.setattr("apps.agent.services.chat.env.mint_user_token", _always_token)
         try:
             lawyer = _lawyer("trial-timeout", firm)
@@ -304,18 +335,27 @@ class TestTrialEndpoint:
         backend = _FakeBackend()
         registry.register(backend)  # type: ignore[arg-type]
         monkeypatch.setattr("apps.agent.services.chat.env.mint_user_token", _always_token)
+        _allow_backend(monkeypatch, backend.kind)
         try:
             from tests.ci.unit.agent.test_skill_api import _make_user, _send
 
             lawyer, client = _make_user("trial-endpoint")
             skill = _skill(lawyer)
-            response = _send(client, "post", f"/api/v1/agent/skills/skill:{skill.pk}/trial", {"question": "按技能做", "backend": backend.kind})
+            # 显式 ``inline``：这条技能是 active 的，``auto`` 会走真实索引（只有名字与
+            # 描述、没有正文），断言「注入了正文」就会落空。索引那条路由服务层用例覆盖。
+            response = _send(
+                client,
+                "post",
+                f"/api/v1/agent/skills/skill:{skill.pk}/trial",
+                {"question": "按技能做", "backend": backend.kind, "mode": "inline"},
+            )
             assert response.status_code == 200, response.text
             body = response.json()
             assert body["ok"] is True
             assert body["backend"] == backend.kind
             assert "读到技能" in body["text"]
             assert body["skill_name"] == "trial-skill"
+            assert body["mode"] == "inline"
             assert MARKER in body["injected"]
         finally:
             registry.clear()

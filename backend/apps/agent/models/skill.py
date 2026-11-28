@@ -1,6 +1,6 @@
-"""Agent 技能模型 —— 注册表（个人 / 团队 / 所内预留）+ 修订历史 + 用户偏好。
+"""Agent 技能模型 —— 注册表（个人 / 团队 / 所内预留）+ 修订历史 + 用户偏好 + 试跑流水。
 
-## 三个模型的分工
+## 四个模型的分工
 
 - ``AgentSkill``：统一注册表。P0 只允许 ``scope=lawyer``（个人技能），
   ``team`` / ``law_firm`` 两个归属字段与唯一约束**现在就建好**，将来加团队/所内
@@ -10,6 +10,8 @@
 - ``AgentSkillPreference``：用户对**技能启用面**的偏好。内置技能是随代码发布的
   目录（``pi/skills/<name>/SKILL.md``），没有数据库行，所以偏好不能挂外键——
   ``skill_key`` 是两者的公共身份：``builtin:<name>`` / ``skill:<uuid>``。
+- ``AgentSkillTrial``：发布前试跑的流水行（成本入账 + 日限流计数）。**不复用
+  ``AgentRun``**：它的 ``session`` 是非空外键，而试跑没有会话（详见该类 docstring）。
 
 ## 为什么一张表装三个作用域
 
@@ -274,3 +276,68 @@ class AgentSkillPreference(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user}:{self.skill_key} → {'on' if self.enabled else 'off'}"
+
+
+class AgentSkillTrial(models.Model):
+    """一次发布前试跑（成本入账 + 日限流的计数行）。
+
+    ## 为什么不用 ``AgentRun``
+
+    ``AgentRun.session`` 是非空外键，而试跑没有会话：为一个按钮造一条假会话，会把
+    假行推进会话列表，也会被 ``AgentSession`` 的清理逻辑当成真会话扫。试跑要记的
+    又只有几个规模量（后端 / 模型 / 耗时 / 回复字数 / 工具调用数 / 成败），另起一张
+    窄表既不欠账，也不污染运行时表。
+
+    ## 这一行在**跑之前**就落
+
+    日限流计的是「今天点了几次」，不是「今天成了几次」：超时 / 报错的试跑照样起了
+    一个子进程、烧了一次模型调用。所以 ``ok`` 缺省 ``False``——先落行、跑完回填，
+    崩在中间的那一行会如实显示成一次失败（见 ``services/skills/trial_ledger.py``）。
+    """
+
+    #: ``error`` 的字段宽度。入账层按它截断（只留原因，绝不落正文/律师业务表述）
+    ERROR_MAX_CHARS: ClassVar[int] = 200
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #: 技能被删后置空：流水行必须留着（它是成本账），但身份靠 ``skill_key`` 保留
+    skill = models.ForeignKey(
+        AgentSkill,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="trials",
+        verbose_name="技能",
+    )
+    #: ``skill:<uuid>``：技能删掉之后仍要能看出「当时试的是谁」
+    skill_key = models.CharField(max_length=80, verbose_name="技能键")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="agent_skill_trials",
+        verbose_name="试跑人",
+    )
+    backend = models.CharField(max_length=32, verbose_name="后端")
+    model = models.CharField(max_length=100, blank=True, default="", verbose_name="模型")
+    #: ``inline``（内联工作区全文）/ ``index``（真实索引块，模型自己取全文）
+    mode = models.CharField(max_length=16, default="inline", verbose_name="注入模式")
+    ok = models.BooleanField(default=False, verbose_name="是否成功")
+    duration_ms = models.PositiveIntegerField(default=0, verbose_name="耗时毫秒")
+    response_chars = models.PositiveIntegerField(default=0, verbose_name="回复字数")
+    tool_calls_count = models.PositiveIntegerField(default=0, verbose_name="工具调用数")
+    #: 失败原因（截断后的文本，**不含**模型回复正文）
+    error = models.CharField(max_length=ERROR_MAX_CHARS, blank=True, default="", verbose_name="失败原因")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Agent 技能试跑"
+        verbose_name_plural = "Agent 技能试跑"
+        ordering = ["-created_at"]
+        indexes: ClassVar[list[models.Index]] = [
+            # 日限流主路径：按人取「今天」的行
+            models.Index(fields=["user", "created_at"], name="agent_skill_trial_user_idx"),
+            # 「这条技能被试跑过几次」：技能删掉后仍可按 skill_key 查（见字段注释）
+            models.Index(fields=["skill", "created_at"], name="agent_skill_trial_skill_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.skill_key} by {self.user_id} → {'ok' if self.ok else 'fail'}"
