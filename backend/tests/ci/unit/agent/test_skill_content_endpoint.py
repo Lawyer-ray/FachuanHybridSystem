@@ -101,7 +101,11 @@ class TestNotDeliverable:
         _, client = _make_user("skill-content-disabled")
         detail = _create(client, name="off-one", body="# 做法")
         AgentSkill.objects.filter(pk=detail["key"].removeprefix("skill:")).update(enabled=False)
-        assert _content(client, detail["key"]).status_code == 404
+        response = _content(client, detail["key"])
+        assert response.status_code == 404
+        # 404 必须是「已停用」这一种，且**不返回正文**——这条出口直接给模型，漏正文就是漏指令
+        assert "停用" in response.json()["message"]
+        assert "做法" not in response.content.decode("utf-8", "ignore")
 
     def test_other_lawyers_private_skill_is_404(self) -> None:
         _, owner_client = _make_user("skill-content-owner")
@@ -157,7 +161,10 @@ class TestPaging:
     def test_out_of_range_start_is_422(self, start: int) -> None:
         _, client = _make_user(f"skill-content-start-{start}")
         detail = _create(client, name="short-one", body="# 做法")
-        assert _content(client, detail["key"], f"?start={start}").status_code == 422
+        response = _content(client, detail["key"], f"?start={start}")
+        assert response.status_code == 422
+        # 越界要指名是 start 越界：分页错误与权限错误的处置完全不同
+        assert "start" in response.json()["message"]
 
     def test_utf8_never_split_mid_character(self) -> None:
         """中文 + emoji 正文按小步长逐字节续读：每段都能干净解码且拼回原文。"""

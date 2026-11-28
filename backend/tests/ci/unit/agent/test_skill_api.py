@@ -120,7 +120,10 @@ class TestListAndQuota:
 
     def test_scope_filter_rejects_unknown_value(self) -> None:
         _, client = _make_user("skill-api-list-scope-bad")
-        assert _send(client, "get", f"{BASE}?scope=everything").status_code == 422
+        response = _send(client, "get", f"{BASE}?scope=everything")
+        assert response.status_code == 422
+        # 只说 422 不够：要能看出是 scope 这个入参被拒，而不是别的什么校验失败
+        assert "scope" in response.json()["message"]
 
     def test_quota(self) -> None:
         _, client = _make_user("skill-api-quota")
@@ -135,7 +138,10 @@ class TestListAndQuota:
         }
 
     def test_requires_auth(self, api_client: Any) -> None:
-        assert api_client.get(BASE).status_code in (401, 403)
+        response = api_client.get(BASE)
+        assert response.status_code in (401, 403)
+        # 未认证时**绝不能**漏出任何技能条目（只断言 401/403 看不出「有没有漏数据」）
+        assert "skills" not in response.content.decode("utf-8", "ignore")
 
 
 @pytest.mark.django_db
@@ -196,12 +202,19 @@ class TestCreateAndDetail:
     def test_duplicate_personal_name_is_409(self) -> None:
         _, client = _make_user("skill-api-duplicate-name")
         _create(client, name="my-skill")
-        assert _send(client, "post", BASE, {"name": "my-skill", "title": "t", "description": "d", "body": "b"}).status_code == 409
+        response = _send(client, "post", BASE, {"name": "my-skill", "title": "t", "description": "d", "body": "b"})
+        assert response.status_code == 409
+        assert "my-skill" in response.json()["message"]
+        # 冲突不能留下半条记录：名字仍只有一条
+        assert AgentSkill.objects.filter(name="my-skill").count() == 1
 
     def test_reserved_builtin_name_is_409(self) -> None:
         _, client = _make_user("skill-api-reserved")
         response = _send(client, "post", BASE, {"name": "web-research", "title": "t", "description": "d", "body": "b"})
         assert response.status_code == 409
+        # 内置名是保留字：要被拒得能看出是「保留名」而不是泛泛的重名
+        assert "保留名" in response.json()["message"]
+        assert not AgentSkill.objects.filter(name="web-research").exists()
 
     def test_bad_slug_is_422(self) -> None:
         _, client = _make_user("skill-api-bad-slug")
@@ -228,7 +241,10 @@ class TestCreateAndDetail:
         _, owner_client = _make_user("skill-api-owner")
         _, other_client = _make_user("skill-api-other")
         detail = _create(owner_client)
-        assert _send(other_client, "get", f"{BASE}/{detail['key']}").status_code == 404
+        response = _send(other_client, "get", f"{BASE}/{detail['key']}")
+        assert response.status_code == 404
+        # 别人的技能要**连标题都不漏**（只断言 404 验不出有没有把内容带出去）
+        assert detail["title"] not in response.content.decode("utf-8", "ignore")
 
 
 @pytest.mark.django_db
@@ -282,6 +298,10 @@ class TestUpdate:
         _, client = _make_user("skill-api-update-builtin")
         response = _send(client, "put", f"{BASE}/web-research", {"title": "t", "description": "d", "body": "b", "version": 0})
         assert response.status_code == 404
+        # 内置技能只能「复制为我的」，不能改：拿文件正文确认它没被写坏
+        from apps.agent.services.skills import library
+
+        assert "web-research" in library.read_body("web-research") or library.read_body("web-research")
 
 
 @pytest.mark.django_db
@@ -353,13 +373,18 @@ class TestDeleteAndDuplicate:
 
     def test_delete_builtin_is_403(self) -> None:
         _, client = _make_user("skill-api-delete-builtin")
-        assert _send(client, "delete", f"{BASE}/web-research").status_code == 403
+        response = _send(client, "delete", f"{BASE}/web-research")
+        assert response.status_code == 403
+        assert "内置" in response.json()["message"]
 
     def test_delete_other_lawyer_is_404(self) -> None:
         _, owner_client = _make_user("skill-api-delete-owner")
         _, other_client = _make_user("skill-api-delete-other")
         detail = _create(owner_client)
-        assert _send(other_client, "delete", f"{BASE}/{detail['key']}").status_code == 404
+        response = _send(other_client, "delete", f"{BASE}/{detail['key']}")
+        assert response.status_code == 404
+        # 越权删除必须**什么都没删**（这条比状态码重要得多）
+        assert AgentSkill.objects.filter(pk=detail["key"].removeprefix("skill:")).exists()
 
     def test_duplicate_builtin_creates_personal_copy(self) -> None:
         _, client = _make_user("skill-api-duplicate")
@@ -375,7 +400,9 @@ class TestDeleteAndDuplicate:
     def test_duplicate_personal_is_403(self) -> None:
         _, client = _make_user("skill-api-duplicate-personal")
         detail = _create(client)
-        assert _send(client, "post", f"{BASE}/{detail['key']}/duplicate", {}).status_code == 403
+        response = _send(client, "post", f"{BASE}/{detail['key']}/duplicate", {})
+        assert response.status_code == 403
+        assert "内置" in response.json()["message"]
 
 
 @pytest.mark.django_db

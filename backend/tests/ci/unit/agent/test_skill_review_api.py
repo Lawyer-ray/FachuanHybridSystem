@@ -212,7 +212,9 @@ class TestDiff:
     def test_unknown_version_is_422(self) -> None:
         _, client = _make_user("review-diff-bad", is_admin=True)
         created = _create_firm_skill(client, body="# 第一版")
-        assert _send(client, "get", f"{BASE}/{created['key']}/diff?v1=99").status_code == 422
+        response = _send(client, "get", f"{BASE}/{created['key']}/diff?v1=99")
+        assert response.status_code == 422
+        assert "99" in response.json()["message"]
 
 
 @pytest.mark.django_db
@@ -234,6 +236,13 @@ class TestReviewPermissions:
         client.force_login(ordinary)
         response = _send(client, "post", f"{BASE}/{key}/review", {"decision": "approve"})
         assert response.status_code == 403
+        assert "管理员" in response.json()["message"]
+        # 被拒的审批**不能顺带改状态**：这条技能必须还停在待审、线上仍无版本
+        from apps.agent.models import AgentSkill
+
+        skill = AgentSkill.objects.get(pk=key.removeprefix("skill:"))
+        assert skill.review_status == AgentSkill.ReviewStatus.PENDING
+        assert skill.published_revision_id is None
 
     def test_other_firm_admin_cannot_review(self) -> None:
         _, admin_client = _make_user("review-perm-owner", is_admin=True)
@@ -243,6 +252,11 @@ class TestReviewPermissions:
             other_admin_client, "post", f"{BASE}/{key}/review", {"decision": "approve", "acknowledged_firm_wide": True}
         )
         assert response.status_code == 403
+        # 跨所越权被拒之后，本所那条技能必须原封不动（published_revision 仍为空）
+        from apps.agent.models import AgentSkill
+
+        skill = AgentSkill.objects.get(pk=key.removeprefix("skill:"))
+        assert skill.published_revision_id is None
 
     def test_reject_without_note_is_422(self) -> None:
         _, client = _make_user("review-perm-note", is_admin=True)
@@ -254,7 +268,11 @@ class TestReviewPermissions:
     def test_unknown_decision_is_422(self) -> None:
         _, client = _make_user("review-perm-decision", is_admin=True)
         key = self._pending_firm_skill(client)
-        assert _send(client, "post", f"{BASE}/{key}/review", {"decision": "maybe"}).status_code == 422
+        response = _send(client, "post", f"{BASE}/{key}/review", {"decision": "maybe"})
+        assert response.status_code == 422
+        # 报错要把合法取值列出来（前端/模型据此自纠，不用翻文档）
+        message = response.json()["message"]
+        assert "approve" in message and "reject" in message
 
     def test_approve_without_firm_wide_ack_is_422(self) -> None:
         """管理员自审自发要显式确认影响范围（生产有 0/1 名管理员的律所，不能靠双人）。"""

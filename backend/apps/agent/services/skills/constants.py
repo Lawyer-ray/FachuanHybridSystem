@@ -74,3 +74,11 @@ SCOPE_LABELS: dict[str, str] = {
 
 #: 作用域 → 排序权重（含内置）。``resolve`` 输出条目里的 ``scope_weight`` 就是它。
 SCOPE_WEIGHT: dict[str, int] = {"builtin": BUILTIN_RANK, **SCOPE_RANK}
+
+#: 运行时正文取不到的三句原因。**前缀是对外契约**：MCP 的 ``get_agent_skill`` 按
+#: ``("未发布：", "已停用：", "技能不存在")`` 识别它们，再翻译成给模型看的可操作提示
+#: （``mcp_server/tools/core/agent_skills.py::_UNAVAILABLE_REASON_PREFIXES``）。
+#: 改这三句之前先改那边，否则模型又只剩「工具坏了」这一个解释。
+UNAVAILABLE_NOT_PUBLISHED = "未发布：这条技能还在审批中，尚不可交付"
+UNAVAILABLE_DISABLED = "已停用：律师本人已停用这条技能"
+UNAVAILABLE_MISSING = "技能不存在"

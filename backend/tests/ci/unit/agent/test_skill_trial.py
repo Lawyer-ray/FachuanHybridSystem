@@ -374,6 +374,8 @@ class TestTrialEndpoint:
         try:
             response = _send(client, "post", f"/api/v1/agent/skills/skill:{skill.pk}/trial", {})
             assert response.status_code == 503
+            # 503 的文案要说清「被运营开关关了」，否则运维会去查模型/进程而不是开关
+            assert "开关" in response.json()["message"]
         finally:
             flags.reset_cache()
 

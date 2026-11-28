@@ -41,6 +41,9 @@ from apps.agent.models import AgentSkill, AgentSkillPreference, AgentSkillRevisi
 from . import flags, library, permissions, resolve, review, validation
 from .constants import (
     BUILTIN_PREFIX,
+    UNAVAILABLE_DISABLED,
+    UNAVAILABLE_MISSING,
+    UNAVAILABLE_NOT_PUBLISHED,
     CONTENT_PAGE_BYTES,
     MAX_SHARED_SKILLS,
     MAX_TITLE,
@@ -185,6 +188,34 @@ def content_for_ref(user_id: int, ref: str, *, start: int = 0, limit: int = CONT
         "truncated": next_start < total,
         "next_start": next_start if next_start < total else None,
     }
+
+
+def content_unavailable_reason(user_id: int, ref: str) -> str:
+    """``content_for_ref`` 取不到时，「为什么」是什么——三条出口都 404，但原因必须能区分。
+
+    为什么值得多查两次库：这条出口的消费者是**模型**。它拿到「技能不存在」时的典型反应是
+    「工具坏了」或换名字重试三次；拿到「未发布」才会想到「我该直接用上下文里那份全文」。
+
+    为什么不能区分「存在但你无权看」：那是一个存在性探测口。所以 ``can_view`` 不成立时，
+    一律回到「技能不存在」，与真的不存在共用一句话。
+    """
+    try:
+        row = _resolve_skill_row(user_id, ref)
+    except SkillNotFound:
+        return UNAVAILABLE_MISSING
+    lawyer = _lawyer_or_none(user_id)
+    if not permissions.can_view(lawyer, row):
+        return UNAVAILABLE_MISSING
+    if row.scope == AgentSkill.Scope.LAWYER:
+        if not row.enabled:
+            return UNAVAILABLE_DISABLED
+        return UNAVAILABLE_MISSING if row.status == AgentSkill.Status.ACTIVE else UNAVAILABLE_NOT_PUBLISHED
+    # 共享技能：本人偏好关掉 → 停用；还没批准（或已下线）→ 未发布
+    if AgentSkillPreference.objects.filter(user_id=user_id, skill_key=f"{USER_PREFIX}{row.pk}", enabled=False).exists():
+        return UNAVAILABLE_DISABLED
+    if row.status != AgentSkill.Status.ACTIVE or row.published_revision_id is None:
+        return UNAVAILABLE_NOT_PUBLISHED
+    return UNAVAILABLE_MISSING
 
 
 def validate_form(*, user_id: int, name: str | None, title: str, description: str, body: str) -> dict:
