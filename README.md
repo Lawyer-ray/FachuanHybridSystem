@@ -145,8 +145,7 @@ FachuanHybridSystem/
 │   └── features/        14 个 feature（material-prep / bank-litigation / copilot / …）
 ├── skills/              独立可跑的 Python 技能（案件处理 / 合同处理 / 自媒体运营）
 ├── ml-training/         方向分类模型训练（PyTorch → ONNX）
-├── deploy/              公网栈（nginx + gunicorn + Cloudflare Tunnel）
-└── docs/harness/        工程规范细则（按需加载的 18 个叶子文件）
+└── deploy/              公网栈（nginx + gunicorn + Cloudflare Tunnel）
 ```
 
 ## 快速开始
