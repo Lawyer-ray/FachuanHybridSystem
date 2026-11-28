@@ -35711,6 +35711,17 @@
             ],
             "title": "Contract Id"
           },
+          "previous_case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Case Id"
+          },
           "contacts": {
             "default": [],
             "items": {
@@ -36171,6 +36182,17 @@
               }
             ],
             "title": "Contract Id"
+          },
+          "previous_case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Case Id"
           }
         },
         "required": [

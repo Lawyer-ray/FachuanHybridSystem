@@ -169,6 +169,14 @@ export interface DealCase {
   id: number
   name: string
   proc: string
+  /**
+   * 前序案件 id（后端 `previous_case_id`）；null = 没串过或就是根。
+   *
+   * 详情页靠它把「二审接哪条一审、执行接哪条二审」分出一条条程序线
+   * （`caseBranches`）。库里大面积为空，所以消费方必须把 null 当常态：
+   * 没串过的案件各自成线，不许替律师猜关系。
+   */
+  prev: number | null
   ref: string
   numbers: string[]
   st: string

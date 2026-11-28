@@ -92,6 +92,15 @@ class CaseOut(ModelSchema):
     supervising_authorities: list[SupervisingAuthorityOut]
     chats: list[CaseChatOut]
     contract_id: int | None
+    # 前序案件（`Case.previous_case` 的裸 id，不是嵌套对象）。
+    #
+    # 前端**唯一的**「本案接在哪个案件后面」信号（如二审接一审、执行接二审）。
+    # 合同详情页顶部原来把「合同勾选阶段 ∪ 案件阶段」铺成一条线性进度条，
+    # 同阶段多案只能标 ×N——而 ×N 会说假话：两个二审、只有一个进了执行时，
+    # 进度条读起来像「还差一个」。
+    # 没有它前端就只能按阶段猜关系，`docs/02-产品与方案/合同程序链多案件适配方案.md`
+    # 的 A/B 形态判定也就做不了。单案/系列案里 `previous_case` 本来就为空，故可空。
+    previous_case_id: int | None = None
     contacts: list[CaseContactOut] = []
 
     class Meta:
@@ -221,6 +230,12 @@ class CaseOut(ModelSchema):
         if isinstance(obj, dict):
             return obj.get("contract_id")
         return getattr(obj, "contract_id", None)
+
+    @staticmethod
+    def resolve_previous_case_id(obj: Any) -> int | None:
+        if isinstance(obj, dict):
+            return obj.get("previous_case_id")
+        return getattr(obj, "previous_case_id", None)
 
     @staticmethod
     def resolve_case_numbers(obj: Any) -> list:

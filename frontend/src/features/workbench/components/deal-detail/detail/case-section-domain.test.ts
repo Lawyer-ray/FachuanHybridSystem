@@ -9,6 +9,7 @@ function makeCase(over: Partial<DealCase> = {}): DealCase {
     id: 1,
     name: '案件',
     proc: '一审',
+    prev: null,
     ref: '',
     numbers: [],
     st: '在办',

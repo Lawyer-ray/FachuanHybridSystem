@@ -9,16 +9,19 @@
  * 出口面一眼可查（lazy 分包行为两者一致，工作台详情页仍走 index.ts 的 import()）。
  */
 
-export type { ChainStep, StagePlan, StepState } from './detail/chain-domain'
+export type { ChainShape, ChainStep, StagePlan, StepState } from './detail/chain-domain'
 export {
   STAGE_ORDER,
   ambiguousStages,
   buildStagePlan,
+  caseBranches,
+  chainShape,
   chainSteps,
   chainSummary,
   nextStage,
   orderChain,
   planCases,
+  trimPlan,
 } from './detail/chain-domain'
 
 export type { MetaPart, TimelineEntry } from './detail/case-section-domain'

@@ -127,3 +127,86 @@ export function chainSummary(plan: StagePlan[]): string {
 export function ambiguousStages(plan: StagePlan[]): Set<string> {
   return new Set(plan.filter((p) => p.cases.length > 1).map((p) => p.stage))
 }
+
+/* ================= 程序线分叉与形态判定（多案件适配） =================
+ *
+ * 一条横向进度条能表达「一条程序线走到哪」（一审 → 二审 → 执行），表达不了
+ * 「一个委托底下有几条互不相干的线」。261 号（两个被告各走一审+执行）与奥创系列案
+ * （14 个不同案由的平行案件）都属于后者：`×N` 把它们压成一个数字，读起来像
+ * 「还差 N-1 个」。所以顶部先判形态，再决定画什么（方案见
+ * docs/02-产品与方案/合同程序链多案件适配方案.md）：
+ *   single → 不画（单案的阶段/状态/法院在案件卡上已经有了，画一遍是纯重复）
+ *   chain  → ChainStepper，且砍掉永远空着的节点（trimPlan）
+ *   multi  → CaseOverview 案件总览，一条程序线一条程序线地列
+ */
+
+/** 顶部该画什么：none=没案件；single=一个案件；chain=多案同一条线；multi=多条线 */
+export type ChainShape = 'none' | 'single' | 'chain' | 'multi'
+
+/**
+ * 按 `prev`（后端 `Case.previous_case_id`）把案件分成若干条程序线。
+ *
+ * 取**无向连通分量**而不是沿 prev 走单链：`previous_case` 在库里大面积为空（261 的四个
+ * 案件一个 prev 都没写），"链"只在真的手工串过时才存在。分量同时容得下两种现实——
+ * 串过的按 `二审 → 执行` 归一组，没串过的各自成组（如实说「这几条的关系未知」，
+ * 而不是替律师猜一条链）。prev 指向本委托以外或指向自己时按无线处理，案件不会被吞掉。
+ */
+export function caseBranches(cases: DealCase[]): DealCase[][] {
+  const byId = new Map(cases.map((c) => [c.id, c]))
+  const adj = new Map<number, number[]>()
+  const link = (a: number, b: number) => adj.set(a, [...(adj.get(a) ?? []), b])
+  for (const c of cases) {
+    if (c.prev == null || c.prev === c.id || !byId.has(c.prev)) continue
+    link(c.id, c.prev)
+    link(c.prev, c.id)
+  }
+  const seen = new Set<number>()
+  const out: DealCase[][] = []
+  // 起点用收案日期序：不管接口返回顺序怎么变，线的先后都稳定
+  for (const start of orderChain(cases)) {
+    if (seen.has(start.id)) continue
+    const group: DealCase[] = []
+    seen.add(start.id)
+    const stack = [start.id]
+    while (stack.length > 0) {
+      const c = byId.get(stack.pop() as number)
+      if (!c) continue
+      group.push(c)
+      for (const nb of adj.get(c.id) ?? []) {
+        if (seen.has(nb)) continue
+        seen.add(nb)
+        stack.push(nb)
+      }
+    }
+    // 线内按程序序：小链点读起来必须是「一审 → 二审 → 执行」，同日再按 id
+    out.push(group.sort((a, b) => stageRank(a.proc) - stageRank(b.proc) || a.id - b.id))
+  }
+  return out
+}
+
+export function chainShape(branches: DealCase[][]): ChainShape {
+  const n = branches.reduce((sum, b) => sum + b.length, 0)
+  if (n === 0) return 'none'
+  if (n === 1) return 'single'
+  return branches.length === 1 ? 'chain' : 'multi'
+}
+
+/**
+ * 砍掉「永远空着」的节点。
+ *
+ * 合同勾选的阶段是**代理范围**，不等于**走得到的程序**：勾了一审/二审/执行，一审调解
+ * 结案直接进执行，那个二审就该消失——它每开一次页面都提醒「还有一步没做」，而它永远
+ * 不会发生。规则：最后一个已启动阶段**之前**的未启动阶段一律不画（已被跳过），之后只留
+ * **紧邻的一个**（真正的下一步，与 NextStageRow 是同一个程序）。一个都还没启动时原样
+ * 返回——此时空节点就是合同约定的代理范围，是有用信息，不是噪音。
+ */
+export function trimPlan(plan: StagePlan[]): StagePlan[] {
+  let lastStarted = -1
+  plan.forEach((p, i) => {
+    if (p.state !== 'todo') lastStarted = i
+  })
+  if (lastStarted === -1) return plan
+  const shown = plan.slice(0, lastStarted + 1).filter((p) => p.state !== 'todo')
+  const nextTodo = plan.slice(lastStarted + 1).find((p) => p.state === 'todo')
+  return nextTodo ? [...shown, nextTodo] : shown
+}

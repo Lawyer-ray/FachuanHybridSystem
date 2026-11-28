@@ -137,6 +137,27 @@ export function RailSection({ title, action, children }: { title: string; action
   )
 }
 
+/**
+ * 视图切换小段按钮（日志/文件夹、按案由/按程序）。
+ *
+ * 从 `CaseSection` 提上来：案件总览的分组开关用的是同一个控件，同一页里出现两种
+ * 长着不一样的分段按钮，读起来就像两套设计。
+ */
+export function SegBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        'cursor-pointer rounded-[5px] px-2 py-[2px] text-[11px] leading-[1.5] transition-colors ' +
+        (active ? 'bg-secondary font-[620] text-secondary-foreground' : 'text-muted-foreground hover:text-foreground')
+      }
+    >
+      {children}
+    </button>
+  )
+}
+
 /** 右栏文字小动作（＋ 新增） */
 export function RailAction({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (

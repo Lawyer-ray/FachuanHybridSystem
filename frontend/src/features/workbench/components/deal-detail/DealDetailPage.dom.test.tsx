@@ -180,6 +180,7 @@ function makeCase(over: Partial<CaseListItem> = {}): CaseListItem {
     cause_of_action: '金融借款合同纠纷',
     current_stage: '一审',
     contract_id: 7,
+    previous_case_id: null,
     parties: [
       { id: 1, case: 1, client: 1, legal_status: '原告', client_detail: clientBrief(1, '某银行', true) },
       { id: 2, case: 1, client: 2, legal_status: '被告', client_detail: clientBrief(2, '某公司', false) },
@@ -232,11 +233,14 @@ beforeEach(() => {
     is_accessible: true,
   } as never)
   casesMock.mockResolvedValue([
-    // 故意乱序给：二审（2026）在前、一审（2025）在后，页面应按收案日期排
+    // 故意乱序给：二审（2026）在前、一审（2025）在后，页面应按收案日期排。
+    // 二审写了 previous_case_id：**顶部进度条只在「多案但同一条程序线」时才画**
+    // （见 chainShape），没这条关系就是两条线，走的是 CaseOverview 总览。
     makeCase({
       id: 2,
       name: '某公司与某银行金融借款合同纠纷二审',
       current_stage: '二审',
+      previous_case_id: 1,
       start_date: '2026-03-05',
       target_amount: null,
       preservation_amount: null,
@@ -408,7 +412,7 @@ describe('DealDetailPage 程序链与案件节', () => {
     getContractMock.mockResolvedValueOnce(makeContract({ representation_stages: ['一审', '二审', '劳动仲裁'] }))
     casesMock.mockResolvedValueOnce([
       makeCase({ id: 1, status: '已结案', current_stage: '劳动仲裁', start_date: '2026-07-07' }),
-      makeCase({ id: 2, current_stage: '一审', start_date: '2026-10-12' }),
+      makeCase({ id: 2, current_stage: '一审', start_date: '2026-10-12', previous_case_id: 1 }),
     ])
     setupUi()
     await screen.findByRole('heading', { level: 1 })
@@ -429,16 +433,67 @@ describe('DealDetailPage 程序链与案件节', () => {
     expect(screen.queryByText(/新建.*案件/)).toBeNull()
   })
 
-  it('同阶段两案（分叉）：stepper 标 ×2，两节标题各带案名消歧', async () => {
+  it('同阶段两案但没串过（261 型）：不再标 ×2，改成一案一行的总览，两节标题各带案名消歧', async () => {
     casesMock.mockResolvedValueOnce([
       makeCase({ id: 1, name: '对甲的一审', start_date: '2026-03-04' }),
       makeCase({ id: 2, name: '对乙的一审', start_date: '2026-03-09' }),
     ])
     setupUi()
+    await screen.findByText('2 个案件')
+    // ×2 会说假话（读起来像「都走到这一步了，还差一个」），总览里换成两行
+    expect(screen.queryByText('×2')).toBeNull()
+    expect(screen.queryByTitle('跳到 一审')).toBeNull()
+    expect(screen.getByTitle('跳到 对甲的一审')).toBeTruthy()
+    expect(screen.getByTitle('跳到 对乙的一审')).toBeTruthy()
+  })
+
+  it('单案：顶部不画进度条（阶段/状态/机构在案件卡上已经有了），下一步行照旧', async () => {
+    casesMock.mockResolvedValueOnce([makeCase({ id: 1 })])
+    setupUi()
+    // 等案件卡真的到位再断言，否则「还没渲染」会被误读成「确实不画」
+    await screen.findByText('（2025）粤0605民初1234号') // privacy-allow 虚构案号
+    expect(screen.queryByTitle(/^跳到 /)).toBeNull()
+    expect(screen.queryByText('1 个案件')).toBeNull()
+    // 单案也不是没话说：「下一步是什么」由最下方的行回答，而且带按钮
+    expect(screen.getByText('＋ 新建二审案件')).toBeTruthy()
+  })
+
+  it('系列案形态（4 案 3 个案由）：总览按案由分组、一案一行、点行滚到该案', async () => {
+    casesMock.mockResolvedValueOnce([
+      makeCase({ id: 1, name: '刘某某诉奥创民间借贷纠纷', cause_of_action: '民间借贷纠纷', start_date: '2025-08-31' }),
+      makeCase({ id: 2, name: '黄某诉奥创劳动纠纷', cause_of_action: '劳动争议', start_date: '2025-08-31' }),
+      makeCase({ id: 3, name: '科图印刷诉奥创买卖合同纠纷', cause_of_action: '买卖合同纠纷', start_date: '2025-08-31' }),
+      makeCase({ id: 4, name: '丰翰泰运诉奥创买卖合同纠纷', cause_of_action: '买卖合同纠纷', start_date: '2025-10-28' }),
+    ])
+    setupUi()
+    const head = await screen.findByText('4 个案件')
+    const card = head.closest('section')!
+    expect(within(card).getByText('4 在办 · 0 已结')).toBeTruthy()
+    // 案由多样 → 默认按案由分组；组标题带组内案件数
+    expect(within(card).getAllByRole('heading', { level: 4 }).map((h) => h.textContent)).toContain('买卖合同纠纷')
+    expect(within(card).getAllByRole('heading', { level: 4 })).toHaveLength(3)
+    expect(within(card).getByTitle('跳到 丰翰泰运诉奥创买卖合同纠纷')).toBeTruthy()
+
+    // 切「按程序」：全是同一阶段，只剩一组，组标题跟着消失（只有一组时它就是整块的标签）
+    fireEvent.click(within(card).getByText('按程序'))
+    await waitFor(() => expect(within(card).queryAllByRole('heading', { level: 4 })).toHaveLength(0))
+
+    within(card).getByTitle('跳到 黄某诉奥创劳动纠纷').click()
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+  })
+
+  it('勾了一审/二审/执行、一审结案直接进执行：被跳过的那一步不再挂在进度条上', async () => {
+    casesMock.mockResolvedValueOnce([
+      makeCase({ id: 1, status: '已结案', current_stage: '一审' }),
+      makeCase({ id: 2, current_stage: '执行', previous_case_id: 1, start_date: '2026-05-01' }),
+    ])
+    setupUi()
     await screen.findByTitle('跳到 一审')
-    expect(screen.getByText('×2')).toBeTruthy()
-    expect(screen.getByText('对甲的一审')).toBeTruthy()
-    expect(screen.getByText('对乙的一审')).toBeTruthy()
+    expect(screen.getByTitle('跳到 执行')).toBeTruthy()
+    // 二审勾了但不会发生：留着那个空心点，每开一次页面就骗一次「还差一步」
+    expect(screen.queryByTitle('跳到 二审')).toBeNull()
+    expect(screen.queryByTitle('未启动')).toBeNull()
+    expect(screen.queryByText('＋ 新建二审案件')).toBeNull()
   })
 
   it('案件节：案号 chip、meta 机构/收案/案由/标的/保全、诉讼地位随案变化、日志升序叙事', async () => {

@@ -15433,6 +15433,8 @@ export interface components {
             chats: components["schemas"]["CaseChatOut"][];
             /** Contract Id */
             contract_id: number | null;
+            /** Previous Case Id */
+            previous_case_id?: number | null;
             /**
              * Contacts
              * @default []
@@ -15592,6 +15594,8 @@ export interface components {
             current_stage: string | null;
             /** Contract Id */
             contract_id: number | null;
+            /** Previous Case Id */
+            previous_case_id?: number | null;
         };
         /**
          * CaseIn

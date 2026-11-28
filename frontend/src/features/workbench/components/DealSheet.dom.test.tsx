@@ -65,6 +65,7 @@ function makeDealCase(id: number, proc: string, done: boolean): DealCase {
     id,
     name: `案件 ${id}`,
     proc,
+    prev: null,
     ref: '',
     numbers: [],
     st: done ? '已结案' : '在办',

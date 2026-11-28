@@ -11,7 +11,7 @@ import type { DealCase } from '../../types'
 import { caseMetaParts, legalStatusGroups, shortDocName, splitLinkText, timelineEntries } from './detail-domain'
 import type { FolderEntryMutation } from './folder-tree-types'
 import { FolderTree } from './FolderTree'
-import { ActionButton, Card, Chip, MetaLine, Pill, StateDot } from './ui'
+import { ActionButton, Card, Chip, MetaLine, Pill, SegBtn, StateDot } from './ui'
 
 /**
  * 附件新标签预览：media 走一次性 ticket（60s 单次），失败时后端 403 兜底。
@@ -25,22 +25,6 @@ async function openAttachment(mediaUrl: string) {
   } catch {
     toast.error('附件打不开，请重试')
   }
-}
-
-/** 视图切换小段按钮（日志 / 文件夹） */
-function SegBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        'cursor-pointer rounded-[5px] px-2 py-[2px] text-[11px] leading-[1.5] transition-colors ' +
-        (active ? 'bg-secondary font-[620] text-secondary-foreground' : 'text-muted-foreground hover:text-foreground')
-      }
-    >
-      {children}
-    </button>
-  )
 }
 
 /**

@@ -59,6 +59,7 @@ export function buildDealCases(cases: CaseListItem[], today: Date): DealCase[] {
     id: x.id,
     name: x.name,
     proc: x.current_stage || '未立案',
+    prev: x.previous_case_id ?? null,
     ref: x.case_numbers[0]?.number ?? '',
     numbers: x.case_numbers.map((n) => n.number),
     st: x.status || '',

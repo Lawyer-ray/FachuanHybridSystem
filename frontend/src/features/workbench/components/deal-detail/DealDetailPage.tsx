@@ -5,8 +5,9 @@ import { Navigate, useParams } from 'react-router'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { CaseVerifyCard } from '@/features/material-prep'
 
-import { ambiguousStages, chainSteps, chainSummary } from './detail-domain'
+import { ambiguousStages, caseBranches, chainShape, chainSteps, chainSummary, trimPlan } from './detail-domain'
 import { CaseSection, NextStageRow } from './CaseSection'
+import { CaseOverview } from './CaseOverview'
 import { ChainStepper } from './ChainStepper'
 
 import { DetailHeader } from './DetailHeader'
@@ -106,7 +107,21 @@ export function DealDetailPage() {
     return `${deal?.client ?? ''}·${next ?? ''}`
   }, [deal?.parties?.client, deal?.parties?.other, deal?.client, ordered, next])
 
-  const steps = useMemo(() => chainSteps(plan), [plan])
+  /**
+   * 顶部那块画什么，由「这个委托下有几条程序线」决定（判据见 caseBranches / chainShape）：
+   *
+   * - `single`（一个案件）→ **什么都不画**。单案的「一审 · 在办 · 顺德法院」在下面那张
+   *   案件卡的卡头与 meta 行里一个字段不少，进度条只是把它抄了一遍；「下一步是什么」
+   *   由最下方的 NextStageRow 回答，且带按钮，比一个空心点有用。
+   * - `chain`（多案但在同一条线）→ 横向进度条，砍掉永远空着的节点（trimPlan）。
+   * - `multi`（多条互不相干的线）→ 一案一行的总览（CaseOverview）。
+   * - `none`（一个案件都还没立）→ 只有合同勾了阶段时才画（那是**约定的代理范围**，
+   *   与「走这边」无关）；阶段也没勾就和左列的空态卡重复，不画。
+   */
+  const branches = useMemo(() => caseBranches(ordered), [ordered])
+  const shape = chainShape(branches)
+  const showStepper = shape === 'chain' || (shape === 'none' && plan.length > 0)
+  const steps = useMemo(() => chainSteps(trimPlan(plan)), [plan])
   const ambiguous = useMemo(() => ambiguousStages(plan), [plan])
 
   /* 三个创建动作都接了真实表单：记日志 / 新增期限 / 新建下一程序案件
@@ -187,7 +202,11 @@ export function DealDetailPage() {
     <main className="app-page-enter @container mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
       <DetailHeader deal={deal} />
 
-      <ChainStepper steps={steps} summary={chainSummary(plan)} onJump={jump} />
+      {shape === 'multi' ? (
+        <CaseOverview cases={ordered} onJump={jump} />
+      ) : showStepper ? (
+        <ChainStepper steps={steps} summary={chainSummary(plan)} onJump={jump} />
+      ) : null}
 
       {/* AI 助手入口只在导航栏（全局侧边栏 CopilotPanel，⌘J 同效）：页面内既不挂
           对话区、页头也不放按钮，避免与导航栏入口重复 */}

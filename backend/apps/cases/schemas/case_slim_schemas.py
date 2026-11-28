@@ -51,6 +51,9 @@ class CaseSlimOut(ModelSchema):
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 
     contract_id: int | None
+    # 与 CaseOut 同口径下发：两份 schema 的标量列必须一致，否则「完整版有、瘦身版
+    # 没有」的缺口会一个个冒出来（同 contract_id 当年的教训）。前端的程序线分组靠它。
+    previous_case_id: int | None = None
 
     class Meta:
         model = Case
@@ -67,3 +70,7 @@ class CaseSlimOut(ModelSchema):
     @staticmethod
     def resolve_contract_id(obj: Any) -> int | None:
         return CaseOut.resolve_contract_id(obj)
+
+    @staticmethod
+    def resolve_previous_case_id(obj: Any) -> int | None:
+        return CaseOut.resolve_previous_case_id(obj)
