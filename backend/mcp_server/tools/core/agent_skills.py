@@ -33,6 +33,7 @@ pi 原生 Skills 机制要求模型用 read/bash 工具读技能文件，而本�
 
 from __future__ import annotations
 
+import ast
 import os
 import re
 from pathlib import Path
@@ -65,6 +66,21 @@ _SKILLS_DIR_ENV = "FACHUAN_AGENT_SKILLS_DIR"
 #: 完整字符（UTF-8 安全切分，不会把中文切坏）。与 REST 端点 ``?limit=16000``
 #: 同口径。
 _CONTENT_BYTE_BUDGET = 16_000
+
+#: ``client`` 的 REST 错误固定以 ``HTTP <status>: <响应体>`` 开头（见 ``client._handle``）
+_HTTP_STATUS_RE = re.compile(r"^HTTP (?P<status>\d{3}):\s*")
+
+#: 后端 ``/content`` 的 404 原因前缀（与 ``apps/agent/api/skill_api.py`` 的固定三句同源）。
+#: 只用来区分「业务性取不到」（这条技能存在但不可交付）与环境性 404（端点不在 /
+#: 旧后端）——前者必须原样告诉模型，后者仍走原来的静态回落。
+_UNAVAILABLE_REASON_PREFIXES = ("未发布：", "已停用：", "技能不存在")
+
+#: 404 的可操作提示：正文可能已经内联在上下文里（试跑待审技能就是这么跑的）
+_NOT_FOUND_HINT = (
+    "取不到「{name}」：{reason}。\n"
+    "如果你正在阅读一条尚未发布/刚被停用的技能，请直接使用已经注入到你上下文里的技能全文，\n"
+    "不要反复按名字重读；如果你只是记错了名字，可以先调 list_my_skills 看可用清单。"
+)
 
 
 def _skills_root() -> Path:
@@ -166,6 +182,43 @@ def _static_fallback(name: str, start: int, exc: FachuanApiError) -> dict[str, A
         ) from exc
 
 
+def _backend_detail(message: str) -> str:
+    """从 ``HTTP <status>: <响应体>`` 里取出后端那句话（``{"code", "message"}`` → 中文原文）。
+
+    ``client`` 只保留了 ``str(响应体)``；后端 4xx 的体是 ``{"code": "HTTP_ERROR",
+    "message": "…", "error": "…"}``（见 ``apps/core/exceptions/handlers.py``），原样
+    塞给模型就是一坨字典字面量，看不出哪句是原因。
+    """
+    raw = _HTTP_STATUS_RE.sub("", message, count=1).strip()
+    if not raw.startswith("{"):
+        return raw
+    try:
+        parsed = ast.literal_eval(raw)
+    except (SyntaxError, ValueError):
+        # 响应体不是 Python 字面量（例如已经被人手改过）：原样交给模型，不猜
+        return raw
+    if isinstance(parsed, dict):
+        for field in ("message", "detail"):
+            text = parsed.get(field)
+            if isinstance(text, str) and text.strip():
+                return text.strip()
+    return raw
+
+
+def _not_found_reason(exc: FachuanApiError) -> str | None:
+    """后端 404 且说了「取不到的原因」时返回那句原因，其余一概 ``None``。
+
+    ``None`` 是「保持原行为」的信号：5xx / 超时 / 网络故障 / 端点不在都不能被包装成
+    「技能不存在」——真正的故障伪装成业务语义，模型就会去改名字重试而不是报告故障。
+    """
+    message = str(exc)
+    match = _HTTP_STATUS_RE.match(message)
+    if match is None or int(match.group("status")) != 404:
+        return None
+    detail = _backend_detail(message)
+    return detail if detail.startswith(_UNAVAILABLE_REASON_PREFIXES) else None
+
+
 def get_agent_skill(
     name: Annotated[
         str,
@@ -201,14 +254,19 @@ def get_agent_skill(
             就是 key），模型通常只需传名字。
         start: 起始字节偏移，默认 0（从头读）；续读时传上一次的 ``next_start``。
 
-    已停用 / 无权访问的技能返回 404（带原因）——那是律师的选择，不要改用别的
-    名字绕过，也不要假设它的内容。
+    **本工具只取「已经交付」的技能**：未发布（还在审批/试跑）/ 律师本人已停用 / 无权
+    访问的技能一律取不到，这是设计而不是故障——待审技能的正文由系统**内联注入**，
+    不在这条按名读取的路径上。碰到 404 时错误消息会说明是哪一种：直接用手上已有的
+    全文继续，不要换个名字重试、也不要假设它的内容。
     """
     ref = _normalize_ref(name)
     if passthrough_authorization():
         try:
             result: dict[str, Any] = client.get(f"/agent/skills/resolve/{ref}/content", params={"start": start})
         except FachuanApiError as exc:
+            reason = _not_found_reason(exc)
+            if reason is not None:
+                raise FachuanApiError(_NOT_FOUND_HINT.format(name=name, reason=reason)) from exc
             return _static_fallback(name, start, exc)
         return result
     return _static_skill(name, start)

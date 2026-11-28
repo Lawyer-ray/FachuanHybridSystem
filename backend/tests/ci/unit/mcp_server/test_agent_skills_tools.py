@@ -12,6 +12,9 @@
    字段 → 高危」分支，审批语义就脏了（写工具本身就是 HIGH，不需要这层）。
 4. 风险档与只读白名单：读 LOW / 写 HIGH；三个写工具不得进子 agent 的只读面
    （``readonly_tool_selection`` 只放 ``get_/list_/search_/read_/preview_``）。
+5. 404 的「为什么取不到」必须原样转达给模型并给出可操作下一步（待审技能的正文是
+   内联注入的，模型不该为它换名字重试），而 5xx / 超时不许伪装成「技能不存在」
+   （真正的故障伪装成业务语义，模型就会去改名字而不是报告故障）。
 
 用假 client 驱动 REST 路径，不打网络、不碰数据库。
 """
@@ -139,6 +142,55 @@ class TestGetAgentSkillRest:
         with pytest.raises(ValueError, match="非内置技能没有本地副本") as excinfo:
             agent_skills.get_agent_skill("my-style")
         assert "HTTP 503" in str(excinfo.value)
+
+
+class TestGetAgentSkillNotFound:
+    """404 → 模型看得懂的提示；其它故障保持原样（见模块 docstring 第 5 条）。"""
+
+    @pytest.mark.parametrize(
+        "reason",
+        [
+            "未发布：这条技能还在审批中，尚不可交付",
+            "已停用：律师本人已停用这条技能",
+            "技能不存在",
+        ],
+    )
+    def test_backend_reason_reaches_the_model(self, rest_client: Any, reason: str) -> None:
+        """后端三种原因逐字保留（提取自 ``HTTP 404: {…'message': …}`` 的字典字面量）。"""
+        _act_as_lawyer()
+        # 与 ``client._handle`` 的消息格式同形：``HTTP <status>: <resp.json()>``
+        payload = {"code": "HTTP_ERROR", "message": reason, "error": reason, "errors": {}}
+        rest_client.get.side_effect = FachuanApiError(f"HTTP 404: {payload}")
+
+        with pytest.raises(FachuanApiError) as excinfo:
+            agent_skills.get_agent_skill("my-style")
+
+        message = str(excinfo.value)
+        assert reason in message, "后端原因必须原样转达，模型据此判断是审批中还是记错名字"
+        assert "取不到「my-style」" in message
+        assert "尚未发布" in message
+        assert "list_my_skills" in message
+        # 字典字面量不该漏给模型（看不出哪句是原因）
+        assert "HTTP_ERROR" not in message
+
+    def test_stopped_builtin_is_not_read_from_disk(self, rest_client: Any) -> None:
+        """内置名 404 且后端说「已停用」——读静态盘就是绕过律师的停用偏好。"""
+        _act_as_lawyer()
+        payload = {"code": "HTTP_ERROR", "message": "已停用：律师本人已停用这条技能"}
+        rest_client.get.side_effect = FachuanApiError(f"HTTP 404: {payload}")
+
+        with pytest.raises(FachuanApiError, match="list_my_skills"):
+            agent_skills.get_agent_skill(_BUILTIN)
+
+    def test_server_error_is_not_disguised_as_missing(self, rest_client: Any) -> None:
+        """5xx 是故障，不是「技能不存在」：不包装、不改文案，照原路报错。"""
+        _act_as_lawyer()
+        rest_client.get.side_effect = FachuanApiError("HTTP 500: {'detail': '数据库连接失败'}")
+
+        with pytest.raises(ValueError, match="非内置技能没有本地副本") as excinfo:
+            agent_skills.get_agent_skill("my-style")
+        assert "HTTP 500" in str(excinfo.value)
+        assert "尚未发布" not in str(excinfo.value)
 
 
 class TestGetAgentSkillStatic:
