@@ -447,6 +447,9 @@ class ToolApprovalGateMiddleware:
             # 多写一行台账，**不改审批判定**：record_denial 自己判「是不是清单里的
             # confirm/guarded 动作」（不是就直接返回 False，不查库），且内部只 catch
             # DatabaseError/ValueError，写不成也不影响下面这个拒绝结果。
+            # 「律师点拒绝」与「等满上限超时」在这里是同一个 approved=False。两者的区分
+            # **不在本闸门**：audit 拿着 approval_id 回读 AgentApproval.status 落
+            # denied / expired（见 audit._classify_denial），这里不要自己判。
             await record_denial(
                 tool_name=tool_name,
                 tool_args=tool_args,

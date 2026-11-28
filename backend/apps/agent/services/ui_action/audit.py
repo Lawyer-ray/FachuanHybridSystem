@@ -29,6 +29,12 @@ OpenHands 的 ``UserRejectObservation`` 带 ``rejection_reason``）。拒绝是*
 （有人不同意 / 没人应答）。所以拆开：``denied``（有人明确拒绝）、``expired``（回执窗口
 过了，从没执行过或被判为过期）。
 
+**闸门超时同样必须落成 ``expired`` 而不是 ``denied``**：审批等满上限就 fail-closed，
+回到调用方时与「律师点拒绝」是同一个形状（``approved=False`` + 同一个 ``approval_id``），
+只有 ``AgentApproval.status`` 分得清这两件事。所以 :func:`record_denial` 拿着
+``approval_id`` 时以审批行的状态为准（见 :func:`_classify_denial`）：把系统自己的
+放弃记成「律师不同意」，台账里就再也量不出「审批卡是不是形同虚设」。
+
 ## 终态不可变 + 回执窗口
 
 ``apply_receipt`` 只改 ``outcome="unknown"`` 的行，且要求 ``expires_at`` 未过
@@ -123,6 +129,11 @@ OUTCOME_EXPIRED = "expired"
 DECISION_APPROVED = "approved"
 DECISION_DENIED = "denied"
 DECISION_EXPIRED = "expired"
+
+#: 超时/取消分支写进 ``decision_note`` 的固定说明。
+#: 读表的人不该从 ``expired`` 反推「这是系统判的还是人点的」——``decision_note`` 经常被
+#: 单独导出给人看，所以这句话必须自己说清「没人应答」与「我们不执行」两件事。
+DENIAL_NOTE_SYSTEM_EXPIRED = "审批超时（无人同意/拒绝），系统按拒绝处理"
 
 #: ``error_code`` / ``observed_location`` 的落库上限（与模型字段长度一致，
 #: 超长在 PostgreSQL 上是 ``DataError``——整份回执会因此丢掉）。
@@ -397,6 +408,32 @@ async def mark_delivered(call_id: str, delivered: bool) -> bool:
     return bool(updated)
 
 
+def _classify_denial(*, approval: Any, decision: str, reason: str) -> tuple[str, str]:
+    """按审批行的状态把「人拒绝」与「系统放弃」分开，返回 ``(decision, decision_note)``。
+
+    闸门等满上限就 fail-closed（见 ``mcp_server/tool_approval_gate.py`` 的等待窗口），
+    回到调用方时与「律师点拒绝」是同一个形状（``approved=False`` + 同一个
+    ``approval_id``）——只有 ``AgentApproval.status`` 分得清这两件事，所以判定放在这里
+    而不是调用侧：调用侧多写一句 if，早晚有一条新路径忘了写。
+
+    映射：``REJECTED`` → ``denied``（律师的决定）；``TIMEOUT`` / ``CANCELLED`` → ``expired``
+    （系统的决定，含客户端断开 / 进程收尾）。``PENDING``（理论上不该走到这）与读不到
+    审批行（策略拒绝这类没有卡的路径）都沿用调用方给的值：台账宁可少断言，也不能替
+    律师编一个决定。
+    """
+    # 延迟 import：理由见模块 docstring（顶层不引 Django）。
+    from ...models import AgentApproval
+
+    if approval is None:
+        return decision, (reason or "")[:NOTE_MAX]
+    if approval.status == AgentApproval.Status.REJECTED:
+        return DECISION_DENIED, (reason or "")[:NOTE_MAX]
+    if approval.status in (AgentApproval.Status.TIMEOUT, AgentApproval.Status.CANCELLED):
+        note = DENIAL_NOTE_SYSTEM_EXPIRED if not reason else f"{DENIAL_NOTE_SYSTEM_EXPIRED}：{reason}"
+        return DECISION_EXPIRED, note[:NOTE_MAX]
+    return decision, (reason or "")[:NOTE_MAX]
+
+
 async def record_denial(
     *,
     tool_name: str,
@@ -418,8 +455,9 @@ async def record_denial(
       有一行。``call_id = "approval:{approval_id}"`` 把「哪张卡被拒」写进了主键；
       没有 approval_id（策略拒绝 / 多栏并答这类不建卡的路径）时退回随机 id。
 
-    ``decision`` 默认 ``denied``，保留参数是为了让「超时未响应」这类系统判定也能
-    复用同一条落行路径（值由调用方给，本函数不猜）。
+    ``decision`` 是**调用方给的缺省值**：能读到 ``approval_id`` 对应的审批行时，真实的
+    决定以那一行的 ``status`` 为准（人拒绝 vs 超时/取消，见 :func:`_classify_denial`）；
+    读不到（策略拒绝这类没有卡的路径）才用它。
 
     Returns:
         是否**新落**了一行。``False`` 有三种来源：不在清单/风险档不符、重复拒绝、
@@ -448,6 +486,7 @@ async def record_denial(
         approval_uuid = _as_uuid(approval_id) if approval_id else None
         if approval_uuid is not None:
             approval = await AgentApproval.objects.filter(approval_id=approval_uuid).afirst()
+        effective_decision, decision_note = _classify_denial(approval=approval, decision=decision, reason=reason)
         _, created = await AgentUiAction.objects.aget_or_create(
             # 主键长度上限 64：``approval:`` + 32 位 hex = 41，够用；截断只为兜住
             # 调用方传进来的异常 id，不让一个脏参数把整条落行搞没。
@@ -460,8 +499,8 @@ async def record_denial(
                 "arguments_hash": arguments_hash_of(args),
                 "risk": action.risk,
                 "approval": approval,
-                "decision": decision,
-                "decision_note": (reason or "")[:NOTE_MAX],
+                "decision": effective_decision,
+                "decision_note": decision_note,
                 "decided_at": timezone.now(),
                 "batch_id": "",
                 # 没执行过：页面没收到任何东西，回执自然也不会有。
@@ -469,7 +508,7 @@ async def record_denial(
                 # ``outcome`` 跟着 ``decision`` 走：两者都是「从未执行」，差别只在
                 # 「谁判的」（人拒绝 / 系统超时）。不同步就会出现「决定说超时、结果说被拒」
                 # 这种自相矛盾的行，读表的人只会以为数据坏了。
-                "outcome": OUTCOME_DENIED if decision == DECISION_DENIED else OUTCOME_EXPIRED,
+                "outcome": OUTCOME_DENIED if effective_decision == DECISION_DENIED else OUTCOME_EXPIRED,
             },
         )
     except (DatabaseError, ValueError):

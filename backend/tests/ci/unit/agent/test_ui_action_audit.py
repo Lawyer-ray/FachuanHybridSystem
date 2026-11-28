@@ -419,6 +419,172 @@ async def test_denial_ignores_unlisted_or_safe_tools() -> None:
     assert await AgentUiAction.objects.acount() == 0
 
 
+async def _approval_denial(
+    user: Lawyer,
+    session: AgentSession,
+    *,
+    status: str,
+    reason: str,
+    decision: str = audit.DECISION_DENIED,
+) -> AgentUiAction:
+    """建一张指定状态的审批卡 → 走一次 ``record_denial`` → 把落下来的那一行查回来。
+
+    三条「人拒绝 / 系统超时」用例只有 ``status`` 不同，合成一个帮手是为了让每条用例
+    只剩下「我给它什么状态、台账该回什么」这一句断言。
+    """
+    approval = await AgentApproval.objects.acreate(
+        session=session,
+        tool_name=f"{tool_prefix()}{JUDGE.name}",
+        tool_args={"packId": 812, "target": "done"},
+        risk_level="high",
+        status=status,
+        decided_by=user,
+        decided_at=timezone.now(),
+        decision_reason=reason,
+    )
+    created = await audit.record_denial(
+        tool_name=f"{tool_prefix()}{JUDGE.name}",
+        tool_args={"packId": 812, "target": "done"},
+        session_id=str(session.session_id),
+        approval_id=approval.approval_id.hex,
+        reason=reason,
+        decision=decision,
+    )
+    assert created is True
+    row = await AgentUiAction.objects.filter(call_id=f"approval:{approval.approval_id.hex}").afirst()
+    assert row is not None, "被拒绝/超时的审批必须落一行（这是台账存在的理由）"
+    return row
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_rejected_approval_records_denied() -> None:
+    """① 审批行是 ``REJECTED`` → ``denied``（律师的决定）。
+
+    调用方给的 ``decision`` 在这里刻意填成 ``expired``：能读到审批行时**以那一行为准**，
+    而不是信调用方的猜测——两者要是能不一致，「他不同意」和「我们没人应答」就又能
+    混成一档（这正是真机手测暴露的那条：超时被记成了人拒绝）。
+    """
+    user = await _make_user("uiaudit-denial-rejected")
+    session = await _make_session(user)
+
+    row = await _approval_denial(
+        user,
+        session,
+        status=AgentApproval.Status.REJECTED,
+        reason="材料还没齐，先别归案",
+        decision=audit.DECISION_EXPIRED,
+    )
+
+    assert row.decision == "denied"
+    assert row.outcome == "denied", "outcome 跟着 decision 走（都表示从未执行）"
+    assert row.decision_note == "材料还没齐，先别归案", "律师的原话要留住"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_timeout_is_recorded_as_expired_not_denied() -> None:
+    """② 审批行是 ``TIMEOUT``（闸门等满上限）→ ``expired``，不是 ``denied``。
+
+    超时不是「他不同意」，是我们自己的 fail-closed。混成一档之后，「审批卡是不是形同
+    虚设」就再也量不出来：每一张没人看到的卡都会在报表里显示成「律师拒绝过」。
+    ``decision_note`` 必须自己说清这一点（它经常被单独导出给人看）。
+    """
+    user = await _make_user("uiaudit-denial-timeout")
+    session = await _make_session(user)
+
+    row = await _approval_denial(
+        user,
+        session,
+        status=AgentApproval.Status.TIMEOUT,
+        reason="用户拒绝或超时",
+    )
+
+    assert row.decision == "expired"
+    assert row.outcome == "expired", "没执行过，但不是人拒绝的"
+    assert "审批超时" in row.decision_note
+    assert "用户拒绝或超时" in row.decision_note, "原来的 reason 也要留着"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_cancelled_is_recorded_as_expired() -> None:
+    """③ 审批行是 ``CANCELLED``（客户端断开 / 进程收尾）→ 同样是 ``expired``。
+
+    这条与超时同属「系统判的」：卡片随会话一起消失了，律师没有被给过拒绝的机会。
+    """
+    user = await _make_user("uiaudit-denial-cancelled")
+    session = await _make_session(user)
+
+    row = await _approval_denial(
+        user,
+        session,
+        status=AgentApproval.Status.CANCELLED,
+        reason="会话已结束",
+    )
+
+    assert row.decision == "expired"
+    assert row.outcome == "expired"
+    assert "审批超时" in row.decision_note
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_denial_without_approval_row_keeps_caller_decision() -> None:
+    """④ 没有 ``approval_id``（策略拒绝这类不建卡的路径）→ 沿用调用方给的 ``decision``。
+
+    判据是「能不能读到审批行」，不是「有没有传 approval_id」：读不到就没有事实可依，
+    这时只能记调用方说的那个值（默认 ``denied``），台账不许自己编一个。
+    """
+    user = await _make_user("uiaudit-denial-no-card")
+    session = await _make_session(user)
+    common: dict[str, Any] = {
+        "tool_name": f"{tool_prefix()}{JUDGE.name}",
+        "tool_args": {"packId": 900, "target": "done"},
+        "session_id": str(session.session_id),
+        "reason": "策略拒绝",
+    }
+
+    assert await audit.record_denial(**common) is True
+    default_row = await AgentUiAction.objects.filter(decision="denied").afirst()
+    assert default_row is not None
+    assert default_row.outcome == "denied", "默认值就是 denied"
+    assert default_row.decision_note == "策略拒绝"
+
+    assert await audit.record_denial(**common, decision=audit.DECISION_EXPIRED) is True
+    expired_row = await AgentUiAction.objects.filter(decision="expired").afirst()
+    assert expired_row is not None
+    assert expired_row.outcome == "expired", "outcome 与 decision 不得脱钩"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_unknown_approval_id_still_writes_row() -> None:
+    """⑤ 关联到一张不存在的审批卡 → 不抛，仍落行（沿用调用方给的值）。
+
+    审批行可能已经被清理（换环境 / DB 重置 / 老数据），而「工具被拒过」这件事仍必须
+    留痕：为了查一张没有的卡而整行不落，等于让审计随审批表的生命周期一起消失。
+    """
+    user = await _make_user("uiaudit-denial-ghost-card")
+    session = await _make_session(user)
+    ghost_id = uuid.uuid4().hex
+
+    created = await audit.record_denial(
+        tool_name=f"{tool_prefix()}{JUDGE.name}",
+        tool_args={"packId": 901, "target": "done"},
+        session_id=str(session.session_id),
+        approval_id=ghost_id,
+        reason="审批卡已不存在",
+    )
+
+    assert created is True
+    row = await AgentUiAction.objects.filter(call_id=f"approval:{ghost_id}").afirst()
+    assert row is not None
+    assert row.approval_id is None, "关联不上就留空，不要指向一条不存在的行"
+    assert row.decision == "denied", "读不到审批行 → 沿用调用方给的默认值"
+    assert row.outcome == "denied"
+
+
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_receipt_within_window_updates_then_row_is_terminal(monkeypatch: pytest.MonkeyPatch) -> None:

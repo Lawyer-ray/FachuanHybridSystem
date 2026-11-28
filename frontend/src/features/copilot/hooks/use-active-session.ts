@@ -19,6 +19,18 @@ import { SESSIONS_QUERY_PREFIX, sessionsQueryOptions } from '../session-queries'
 import { useCopilot } from '../store'
 import { resolveCapabilities } from '../store/backends'
 
+/**
+ * 待审列表的补拉间隔（毫秒）。
+ *
+ * 为什么 8 秒：服务端审批闸门最多等 150 秒就 fail-closed 按拒绝处理（见
+ * `mcp_server/tool_approval_gate.py` 的 `MAX_WAIT_SECONDS`）。律师没在跟这个会话时
+ * 新卡只能靠补拉浮出来，所以间隔必须小到「一张卡在 150 秒窗口里一定能被看见」——
+ * 8 秒相对 150 秒有一个数量级的余量，最坏也只损失 5% 的窗口。再快没有收益：这个
+ * 端点的价值是「看到卡」，秒级延迟不会让律师更早做决定，只会给 `/approvals/pending`
+ * 多叠几倍请求。
+ */
+export const APPROVAL_POLL_INTERVAL_MS = 8_000
+
 /** 宿主头部要显示的派生信息（全部来自会话列表缓存 / 后端清单） */
 export interface ActiveSessionInfo {
   /** 当前会话标题；空串 = 列表还没回来，宿主自行回落默认标题 */
@@ -84,6 +96,24 @@ export function useActiveSession(): ActiveSessionInfo {
   useEffect(() => {
     if (!streaming) void loadPendingApprovals()
   }, [streaming, sessionId, loadPendingApprovals])
+
+  // 待审列表的**低频补拉**：上面那一次拉取只在 sessionId / streaming 变化时发生，于是
+  // 「面板开着、但律师没在跟某个会话」（那一栏不在流式输出）时，新弹的审批卡永远不会
+  // 浮出来——闸门等满 150 秒就按拒绝处理，律师看到的却是「AI 的动作被拒绝了」，而那张
+  // 卡他从头到尾没见过。这里补上「没人推的时候自己看」这一环。
+  //
+  // 为什么只在 !streaming 时轮询：流式时审批走 SSE 帧（本轮的卡随帧到达），重复拉是白
+  // 花请求；空闲态才是「没人推」的那种静默。清理必须在 cleanup 里做：sessionId 变化 /
+  // 转入流式 / 宿主关闭都要停表，否则人早走了、这个接口还在后台一直被敲。
+  useEffect(() => {
+    if (!sessionId || streaming) return
+    const timer = setInterval(() => {
+      // 切走浏览器标签时跳过这一次：人不在屏幕前，刷出来的卡也不会被看见。
+      if (document.visibilityState !== 'visible') return
+      void loadPendingApprovals()
+    }, APPROVAL_POLL_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [sessionId, streaming, loadPendingApprovals])
 
   // 待答提问同口径补拉：模型反问时若页面关着（后台任务/换设备），事件早已错过，
   // 但问题仍在服务端待答——不补拉的话模型只能按假设继续，律师事后无从得知
