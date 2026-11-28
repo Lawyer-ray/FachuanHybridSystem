@@ -143,11 +143,12 @@ export function CaseSection({
               </SegBtn>
             </span>
           )}
-          {view === 'logs' && (
-            <ActionButton sm onClick={() => onAddLog({ id: c.id, label: c.proc })} title="记一条项目日志（可顺手约一个期限）">
-              ＋ 记日志
-            </ActionButton>
-          )}
+          {/* 记日志**不跟着视图显隐**：它是「对这张卡所代表的案件」的创建动作，
+              而与时间轴同一级的 生成文书 一直都在。此前只在「日志」视图出现，
+              而默认视图是「文件夹」——等于默认看不到记日志的入口。 */}
+          <ActionButton sm onClick={() => onAddLog({ id: c.id, label: c.proc })} title="记一条项目日志（可顺手约一个期限）">
+            ＋ 记日志
+          </ActionButton>
         </span>
       </div>
       {ambiguous && (
