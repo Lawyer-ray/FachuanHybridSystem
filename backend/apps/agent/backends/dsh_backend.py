@@ -49,7 +49,7 @@ from typing import Any
 from asgiref.sync import sync_to_async
 
 from ..errors import project_message
-from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, StreamFrame
+from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, SkillDelivery, StreamFrame
 
 # 纯翻译函数住在 ``dsh_translate.py``（无 IO、无 self、无实例状态）。这里按**原名**
 # re-export：``tests/ci/unit/agent/test_dsh_backend.py`` 与 ``test_agent_error_codes.py``
@@ -500,6 +500,11 @@ class DshBackend:
         compaction=True,
         steer=False,
         concurrent_in_session=False,
+        # **硬锁 TOOL_ONLY，禁注入**：本栏没有人工审批闸门（``approval=False``，
+        # ``_APPROVAL_WIRED`` 恒 False），索引块会把「有哪些专项规范」告诉模型、
+        # 诱导它自主动作，而高危调用无人可拦。维持关闭直至 ``approval=True``。
+        # 见 ``HANDOFF-P1.md`` §7.1。
+        skill_delivery=SkillDelivery.TOOL_ONLY,
     )
 
     #: 按 ``run_id`` 归集的收尾事实。键控而不是单值——注册表里是单例，

@@ -42,7 +42,15 @@ from typing import Any, AsyncGenerator
 
 from asgiref.sync import sync_to_async
 
-from .base import BackendCapabilities, BackendError, BackendErrorKind, LiveBackendHandle, RunContext, StreamFrame
+from .base import (
+    BackendCapabilities,
+    BackendError,
+    BackendErrorKind,
+    LiveBackendHandle,
+    RunContext,
+    SkillDelivery,
+    StreamFrame,
+)
 from .gateway_cache import get_gateway_settings, resolve_gateway_target
 from .toolface import (
     SERVER_NAME,
@@ -220,6 +228,32 @@ class ClineHandle(LiveBackendHandle):
         return {}
 
 
+def _reject_unsupported_run_options(ctx: RunContext) -> None:
+    """cline 做不到的运行选项：显式报错，不静默忽略（``base.py`` 的硬要求）。
+
+    - ``system_prompt``：桥里写死了 ``CLINE_SYSTEM_PROMPT``，没有按轮替换的入口；
+    - ``max_turns``：桥与 ``@cline/core`` 都没有轮次上限参数。
+
+    ``ctx.isolated`` **当前不支持**：本后端每轮新会话上下文，但桥侧会话策略从未
+    用探针验证过——未验证的隔离逻辑比缺口更危险，所以只登记为缺口
+    （见 ``HANDOFF-P1.md`` §7.1）。
+    """
+    unsupported = [
+        name
+        for name, value in (
+            ("system_prompt", ctx.system_prompt is not None),
+            ("max_turns", ctx.max_turns is not None),
+        )
+        if value
+    ]
+    if unsupported:
+        raise BackendError(
+            BackendErrorKind.UNAVAILABLE,
+            f"cline 不支持本轮运行选项：{', '.join(unsupported)}；"
+            "请换用 pi / claude-agent / qoder / antigravity",
+        )
+
+
 class ClineBackend:
     """cline 运行时（每次 ``stream()`` 拉起一条 ``node cline_bridge.mjs``）。"""
 
@@ -236,6 +270,10 @@ class ClineBackend:
             compaction=False,  # 每轮新会话上下文，历史由编排层渲染
             steer=False,  # 只有 abort
             concurrent_in_session=True,
+            # **硬锁 TOOL_ONLY，修洞前不许升档**：``cline_bridge.mjs`` 的
+            # ``enableTools: true`` 未禁任何内置文件/shell 工具，且本后端无人工审批
+            # （``approval=False``）。见 ``HANDOFF-P1.md`` §7.1。
+            skill_delivery=SkillDelivery.TOOL_ONLY,
         )
         self._results = OrderedDict()
 
@@ -252,6 +290,7 @@ class ClineBackend:
         return self._stream(ctx)
 
     async def _stream(self, ctx: RunContext) -> AsyncGenerator[StreamFrame, None]:
+        _reject_unsupported_run_options(ctx)
         resolved = await self._resolve_gateway(ctx)
         run_dir = session_dir(str(ctx.session.session_id))
         mcp_url, mcp_headers = self._mcp(ctx, str(ctx.session.session_id))

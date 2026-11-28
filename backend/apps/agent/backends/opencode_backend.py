@@ -65,7 +65,15 @@ from typing import Any, AsyncGenerator
 
 from asgiref.sync import sync_to_async
 
-from .base import BackendCapabilities, BackendError, BackendErrorKind, LiveBackendHandle, RunContext, StreamFrame
+from .base import (
+    BackendCapabilities,
+    BackendError,
+    BackendErrorKind,
+    LiveBackendHandle,
+    RunContext,
+    SkillDelivery,
+    StreamFrame,
+)
 from .gateway_cache import get_gateway_settings, resolve_gateway_target
 from .toolface import (
     SERVER_NAME,
@@ -279,6 +287,24 @@ def _write_config(run_dir: Path, config: dict[str, Any], modules: Path | None) -
             link.symlink_to(modules, target_is_directory=True)
         except OSError:  # pragma: no cover - 软链失败不致命（会退化成「模型不可用」）
             logger.warning("共享 node_modules 软链失败：%s -> %s", link, modules)
+
+
+def _skill_block(ctx: RunContext) -> str | None:
+    """本轮要写进 ``agent.fachuan.prompt`` 的技能索引块（口径与 ``pi_backend`` 逐字一致）。
+
+    三道判据顺序不能换：
+
+    1. ``skill_block_override`` 优先——发布前试跑要的是「只装待审这一条」，不能被
+       ``ctx.skill_block`` 或 ``isolated`` 覆盖；
+    2. 隔离运行且无 override → 不注：综合结论是对几栏回答的客观合并，律师的个人
+       技能与所内索引会把无关工作流带进来（``base.py`` 的不变量门禁）；
+    3. 常规运行 → ``ctx.skill_block``（``None`` / 空串 = 不写入）。
+    """
+    return (
+        ctx.skill_block_override
+        if ctx.skill_block_override is not None
+        else (None if ctx.isolated else ctx.skill_block)
+    )
 
 
 @dataclass
@@ -513,7 +539,40 @@ def backend_capabilities() -> BackendCapabilities:
         compaction=True,
         steer=False,
         concurrent_in_session=True,
+        # 索引块写进 ``opencode.json`` 的 ``agent.fachuan.prompt``（见 ``_config_payload``）。
+        # TODO(探针 B)：``agent.<name>.prompt`` 尚未真机验证——它和顶层 ``tools`` 是
+        # 同一类“写了也可能被静默忽略”的风险面（见 ``FACHUAN_AGENT`` 的说明）。
+        # 探针 B 验证该字段真的进了系统提示之前，本行是「尽力而为」的事实声明。
+        skill_delivery=SkillDelivery.PROMPT,
     )
+
+
+def _reject_unsupported_run_options(ctx: RunContext) -> None:
+    """opencode 做不到的运行选项：显式报错，不静默忽略（``base.py`` 的硬要求）。
+
+    - ``system_prompt``：ACP 没有按轮替换 system prompt 的参数；能改的只有
+      ``opencode.json`` 的 ``agent.<name>.prompt``，而它是否真的覆盖系统提示
+      尚未真机验证（探针 B）；
+    - ``max_turns``：``session/prompt`` 没有轮次上限参数。
+
+    ``ctx.isolated`` **当前不支持**：本后端按会话复用稳定目录（``session_dir``）
+    并由 opencode 自己管历史，隔离需要另一套目录/会话策略，未验证前不硬塞——
+    缺口见 ``HANDOFF-P1.md`` §7.1。
+    """
+    unsupported = [
+        name
+        for name, value in (
+            ("system_prompt", ctx.system_prompt is not None),
+            ("max_turns", ctx.max_turns is not None),
+        )
+        if value
+    ]
+    if unsupported:
+        raise BackendError(
+            BackendErrorKind.UNAVAILABLE,
+            f"opencode 不支持本轮运行选项：{', '.join(unsupported)}；"
+            "请换用 pi / claude-agent / qoder / antigravity",
+        )
 
 
 class OpenCodeBackend:
@@ -552,6 +611,7 @@ class OpenCodeBackend:
     # ── 主流程 ──────────────────────────────────────────────────────────
 
     async def _stream(self, ctx: RunContext) -> AsyncGenerator[StreamFrame, None]:
+        _reject_unsupported_run_options(ctx)
         resolved = await self._resolve_gateway(ctx)
         state = _RunState()
         sid = str(ctx.session.session_id)
@@ -559,7 +619,7 @@ class OpenCodeBackend:
         conn: _AcpConnection | None = None
         session_id = ""
         try:
-            _write_config(run_dir, self._config_payload(resolved), shared_modules_dir())
+            _write_config(run_dir, self._config_payload(resolved, ctx), shared_modules_dir())
             proc = await self._spawn(run_dir)
             conn = _AcpConnection(proc, self._make_request_handler(ctx, state))
             await self._handshake(conn)
@@ -696,8 +756,19 @@ class OpenCodeBackend:
             "models": list(settings.models),
         }
 
-    def _config_payload(self, resolved: dict[str, Any]) -> dict[str, Any]:
-        """``opencode.json`` 的内容：provider + 审批策略。"""
+    def _config_payload(self, resolved: dict[str, Any], ctx: RunContext) -> dict[str, Any]:
+        """``opencode.json`` 的内容：provider + 审批策略 + 本轮技能索引块。
+
+        ## 为什么索引块写在 ``agent.<name>.prompt``
+
+        opencode 的系统提示按 agent 组装，ACP 侧没有逐轮传系统提示的参数，所以只能
+        落在配置文件的这个字段上。它是**追加到模型面向的系统提示**（opencode 自己的
+        provider 提示仍在），不是覆盖。
+
+        **未真机验证**：``agent.<name>.prompt`` 与顶层 ``tools`` 字段一样，存在
+        “写了被静默忽略”的风险（见 :data:`FACHUAN_AGENT` 的实测记录）。探针 B
+        通过前，本字段的能力声明只能视为尽力而为（``backend_capabilities`` 的 TODO）。
+        """
         payload = build_provider_config(
             base_url=resolved["base_url"],
             api_key=resolved["api_key"],
@@ -710,13 +781,17 @@ class OpenCodeBackend:
         payload["permission"] = {"*": effect}
         # 业务 agent：只留共享 MCP 的工具。``tools: false`` 是 V1 的写法
         # （V2 的 ``permissions`` 规则集会被 1.18.30 直接判非法并拒绝整个配置）。
-        payload["agent"] = {
-            FACHUAN_AGENT: {
-                "mode": "primary",
-                "description": "法穿业务助手：工具全部来自共享 MCP",
-                "tools": dict.fromkeys(sorted(BUILTIN_TOOLS), False),
-            }
+        agent: dict[str, Any] = {
+            "mode": "primary",
+            "description": "法穿业务助手：工具全部来自共享 MCP",
+            "tools": dict.fromkeys(sorted(BUILTIN_TOOLS), False),
         }
+        block = _skill_block(ctx)
+        if block:
+            # 字段名虽叫 ``prompt``，但它是**追加**在 opencode 自己的系统提示之后的
+            # 一段附加说明，不是把整段系统提示替换成索引块。
+            agent["prompt"] = block
+        payload["agent"] = {FACHUAN_AGENT: agent}
         return payload
 
     def _mcp_servers(self, ctx: RunContext, session_id: str) -> list[dict[str, Any]]:

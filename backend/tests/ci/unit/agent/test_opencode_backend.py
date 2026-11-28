@@ -193,19 +193,19 @@ class TestConfig:
         assert "glm53" in provider["models"]
 
     def test_agent_disables_all_builtin_tools(self) -> None:
-        payload = mod.OpenCodeBackend()._config_payload({"base_url": "u", "api_key": "k", "model": "m", "models": []})
+        payload = mod.OpenCodeBackend()._config_payload({"base_url": "u", "api_key": "k", "model": "m", "models": []}, _ctx())
         agent = payload["agent"][mod.FACHUAN_AGENT]
         assert agent["mode"] == "primary"
         assert set(agent["tools"]) == set(mod.BUILTIN_TOOLS)
         assert all(value is False for value in agent["tools"].values())
 
     def test_permission_is_ask_when_approval_on(self) -> None:
-        payload = mod.OpenCodeBackend()._config_payload({"base_url": "u", "api_key": "k", "model": "m", "models": []})
+        payload = mod.OpenCodeBackend()._config_payload({"base_url": "u", "api_key": "k", "model": "m", "models": []}, _ctx())
         assert payload["permission"] == {"*": "ask"}
 
     def test_permission_is_allow_when_approval_off(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(mod.APPROVAL_ENV, "0")
-        payload = mod.OpenCodeBackend()._config_payload({"base_url": "u", "api_key": "k", "model": "m", "models": []})
+        payload = mod.OpenCodeBackend()._config_payload({"base_url": "u", "api_key": "k", "model": "m", "models": []}, _ctx())
         assert payload["permission"] == {"*": "allow"}
 
     def test_env_strips_proxy(self, tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
