@@ -106,6 +106,22 @@ describe('CaseListPage · 三态', () => {
     expect(document.querySelectorAll('[data-skeleton-row="case"]')).toHaveLength(8)
   })
 
+  it('骨架自带真实表头（同源），数据到位时不会因为表头突然出现而整体位移', () => {
+    vi.useFakeTimers()
+    useCasesMock.mockReturnValue({ loading: true, error: null, data: null, reload: vi.fn() } as never)
+    render(<CaseListPage onOpen={() => {}} />)
+    // SkeletonStatus 默认 300ms 门控：推过去才有骨架可看（快请求本就不该看见它）
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+
+    // 表头由真组件 CaseListHeader 渲染（与列表同一份 CASE_ROW_COLUMNS），不是另抄一套
+    for (const label of ['案件', '阶段', '状态', '案号', '标的额']) {
+      expect(screen.getByText(label)).toBeTruthy()
+    }
+    expect(document.querySelectorAll('[data-skeleton-row="case"]')).toHaveLength(8)
+  })
+
   it('error 时显示错误并能重试', () => {
     const reload = vi.fn()
     mockCases([], { data: null, error: new Error('案件服务 502'), reload })
@@ -264,6 +280,22 @@ describe('CaseListPage · 分页', () => {
     expect(card?.className).toContain('opacity-60')
     // 请求在飞时两端都禁用，防连点翻过头
     expect(screen.getByRole('button', { name: '下一页 ›' }).hasAttribute('disabled')).toBe(true)
+  })
+
+  it('总数变小导致当前页越界时回夹到最后一页，而不是掉进「还没有案件」', () => {
+    // 场景：用户在第 1 页（此刻服务端 137 件 = 3 页），期间别人删了大半数据，
+    // 下一次取值只回来 50 件（1 页）。点「下一页」这个动作本身合法（按钮按旧 total 判定为可用），
+    // 但落地后 page=2 > totalPages=1，必须回夹。
+    mockCases([row({ id: 1, name: 'A' })], {}, 137)
+    render(<CaseListPage onOpen={() => {}} />)
+
+    // 数据在这一次 render 与下一次之间变小
+    mockCases([row({ id: 9, name: 'B' })], {}, 50)
+    fireEvent.click(screen.getByRole('button', { name: '下一页 ›' }))
+
+    // 回夹到第 1 页；页面仍在「有数据」而不是空态
+    expect(lastQuery().page).toBe(1)
+    expect(screen.queryByText('还没有案件，先受理一笔委托。')).toBeNull()
   })
 })
 

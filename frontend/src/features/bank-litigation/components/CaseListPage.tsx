@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import type { CaseListSort } from '../api'
 import { useCases } from '../hooks/use-cases'
 import { CasePager } from './CasePager'
-import { CASE_ROW_COLUMNS, CaseRow } from './CaseRow'
+import { CaseListHeader, CaseRow } from './CaseRow'
 import { CaseRowSkeleton } from './CaseRowSkeleton'
 
 /**
@@ -80,6 +80,16 @@ export function CaseListPage({ onOpen }: { onOpen: (caseId: number) => void }) {
   // 至少 1 页：0 件时「第 1 / 1 页」比「第 1 / 0 页」讲得通（分页条此时不渲染）
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
+  /**
+   * 页码越界回夹：数据被别人删掉（或筛选变严）后 `page > totalPages` 时，
+   * 不回夹就会落到"还没有案件"的空态——明明还有数据，却被当成没有。
+   * 只在请求落定后判（loading 中的 total 是旧的，回夹会打多余的一次请求）。
+   */
+  useEffect(() => {
+    if (loading) return
+    if (query.page > totalPages) setQuery((q) => ({ ...q, page: totalPages }))
+  }, [loading, query.page, totalPages])
+
   /** 清空关键词：页码一并回 1（防抖值落地时已同值，不会再多发一次请求） */
   function clearSearch() {
     setKeyword('')
@@ -139,16 +149,7 @@ export function CaseListPage({ onOpen }: { onOpen: (caseId: number) => void }) {
           loading && 'opacity-60',
         )}
       >
-        <div
-          className={`grid ${CASE_ROW_COLUMNS} items-center gap-3 border-b border-border bg-secondary/40 px-4 py-2 text-[11px] font-medium text-muted-foreground`}
-        >
-          <span>案件</span>
-          <span>阶段</span>
-          <span>状态</span>
-          <span>案号</span>
-          <span>标的额</span>
-          <span />
-        </div>
+        <CaseListHeader />
         {rows.map((c, i) => (
           <CaseRow key={c.id ?? `row-${i}`} c={c} onOpen={onOpen} />
         ))}

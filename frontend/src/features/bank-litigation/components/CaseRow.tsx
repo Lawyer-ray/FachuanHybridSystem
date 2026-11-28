@@ -25,6 +25,28 @@ export const CASE_ROW_COLUMNS = 'grid-cols-[1fr_72px_96px_120px_132px_28px]'
  */
 export const CASE_ROW_SHELL = `grid w-full ${CASE_ROW_COLUMNS} items-center gap-3 border-b border-border/60 px-4 py-2.5 text-left last:border-b-0`
 
+/**
+ * 列表表头。与真行 / 骨架行共用 `CASE_ROW_COLUMNS`，所以三者列基线永远对齐。
+ *
+ * 为什么抽成组件而不是写在页面里：骨架（`CaseRowSkeleton`）也要画**同一份**表头。
+ * 不画的话，首屏骨架少了这 ~29px，数据到位时整块列表向下位移；各写一份的话，
+ * 将来改列名 / 改列宽又会出现"表头与骨架各改各的"。这里是唯一来源。
+ */
+export function CaseListHeader() {
+  return (
+    <div
+      className={`grid ${CASE_ROW_COLUMNS} items-center gap-3 border-b border-border bg-secondary/40 px-4 py-2 text-[11px] font-medium text-muted-foreground`}
+    >
+      <span>案件</span>
+      <span>阶段</span>
+      <span>状态</span>
+      <span>案号</span>
+      <span>标的额</span>
+      <span />
+    </div>
+  )
+}
+
 /** 阶段 → 展示名与语气。与后端 CaseStage 枚举一一对应（含历史中文存量）。 */
 const STAGE_LABEL: Record<string, string> = {
   first_trial: '一审',

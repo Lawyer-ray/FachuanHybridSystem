@@ -1,6 +1,6 @@
 import { Skeleton } from '@/components/shared/Skeleton'
 
-import { CASE_ROW_SHELL } from './CaseRow'
+import { CASE_ROW_SHELL, CaseListHeader } from './CaseRow'
 
 /**
  * 案件列表的骨架行（首屏加载态）。
@@ -26,13 +26,14 @@ import { CASE_ROW_SHELL } from './CaseRow'
  *
  * 真列表在 `rounded-[10px] border border-border bg-card` 的卡里。骨架只换行不换框
  * 的话，数据到位时描边 / 圆角凭空出现、整块内容位移一下——正是要消除的那种跳。
- * 表头不画骨架：它在数据到位时出现并占 ~29px，但首次加载本来就藏在
- * `SkeletonStatus` 的 300ms 门控后面（快的请求根本看不见骨架），不值得为它
- * 再抽一套表头类。
+ *
+ * 表头也画：直接渲染真组件 `CaseListHeader`（同一个 `CASE_ROW_COLUMNS`），
+ * 所以骨架与真列表是**同一棵树**换皮，高度天然一致。表头是静态文案，不需要灰块。
  */
 export function CaseRowSkeleton({ count }: { count: number }) {
   return (
     <div className="overflow-hidden rounded-[10px] border border-border bg-card">
+      <CaseListHeader />
       {Array.from({ length: count }, (_, i) => (
         <div key={i} data-skeleton-row="case" className={CASE_ROW_SHELL}>
           <div className="min-w-0">
