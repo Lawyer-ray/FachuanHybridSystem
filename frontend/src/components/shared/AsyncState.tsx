@@ -65,7 +65,11 @@ export function EmptyBlock({
         className,
       )}
     >
-      {icon ? <div className="text-muted-foreground/60">{icon}</div> : null}
+      {icon ? (
+        <div className="inline-flex items-center justify-center rounded-[14px] border border-dashed border-border p-4 text-muted-foreground/60">
+          {icon}
+        </div>
+      ) : null}
       <div>{children}</div>
       {action ? <div className="pt-1">{action}</div> : null}
     </div>

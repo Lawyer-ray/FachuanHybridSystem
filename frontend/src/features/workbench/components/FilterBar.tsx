@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Search, SlidersHorizontal, X } from 'lucide-react'
+import { Check, Search, SlidersHorizontal, X } from 'lucide-react'
 
 import { DEFAULT_FILTER } from '../constants'
 import type { ContractFacetItem, ContractPageResponse, WorkbenchFilter } from '../types'
@@ -25,6 +25,7 @@ function Chip({ label, count, on, onClick }: { label: string; count: number; on:
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={on}
       className={
         'inline-flex items-center gap-1.5 rounded-full border px-3 py-[4.5px] text-xs transition-colors ' +
         (on
@@ -32,6 +33,7 @@ function Chip({ label, count, on, onClick }: { label: string; count: number; on:
           : 'border-border bg-card text-secondary-foreground hover:border-input hover:bg-secondary')
       }
     >
+      {on ? <Check className="size-3" aria-hidden /> : null}
       {label}
       <span className={'text-[10.5px] tabular-nums ' + (on ? 'text-background/55' : 'text-muted-foreground/70')}>
         {count}
