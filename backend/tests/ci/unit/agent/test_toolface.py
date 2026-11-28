@@ -80,7 +80,15 @@ class TestServerNameIsSingleSource:
         assert server["timeout"] == toolface.TOOL_TIMEOUT_SECONDS
 
 
+@pytest.mark.django_db
 class TestPiMcpJsonServerKey:
+    """两个写入口都**要读库**（LLMProvider / 元典设置），所以整类标 ``django_db``。
+
+    不标的表现不是「断言失败」而是 ``RuntimeError: Database access not allowed``
+    或（读库被降级时）多出元典 server 的 ``mcpServers`` 键——两者都与本文件
+    想守的「``fachuan`` 这个键只此一份」无关。
+    """
+
     def test_written_mcp_json_uses_server_name(self, tmp_path: Path) -> None:
         """``write_pi_mcp_config`` 写出的 ``mcpServers`` 键 == ``SERVER_NAME``。
 

@@ -15,6 +15,7 @@ from .base import (
     BackendErrorKind,
     LiveBackendHandle,
     RunContext,
+    SkillDelivery,
     StreamFrame,
 )
 from .registry import available_kinds, clear, get, register
@@ -28,6 +29,7 @@ __all__ = [
     "BackendErrorKind",
     "LiveBackendHandle",
     "RunContext",
+    "SkillDelivery",
     "available_kinds",
     "clear",
     "get",

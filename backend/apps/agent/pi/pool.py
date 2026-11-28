@@ -262,6 +262,7 @@ class PiProcessPool:
         tool_selection: str | None = None,
         tool_exclude: frozenset[str] | None = None,
         skill_paths: list[str] | None = None,
+        append_system_prompt: str | None = None,
         api_key: str | None = None,
         isolated: bool = False,
         system_prompt: str | None = None,
@@ -275,7 +276,12 @@ class PiProcessPool:
                 models.json 同源，不会失配）。
             skill_paths: 本会话注入的 Agent Skills 目录（``--skill``）。
                 ``None`` 表示不注入任何技能（配合 rpc_client 恒定的
-                ``--no-skills``，宿主机用户级技能不会混进来）。
+                ``--no-skills``，宿主机用户级技能不会混进来）。方案 A 之后生产
+                恒传 ``[]``（技能不落盘），保留参数仅为兼容旧单测与手工调试。
+            append_system_prompt: 本轮技能索引块（``RunContext.skill_block`` /
+                ``skill_block_override``），原样转给 ``PiRpcSession`` → pi 的
+                ``--append-system-prompt``。``None`` / 空串 = 不加 addendum，
+                启动参数与引入本参数前逐字一致。
             api_key: 本轮编排层指定的网关 key（``RunContext.api_key``），原样转交
                 ``write_pi_config`` 写进 models.json；``None`` 时仍由写函数按
                 ``_next_key`` 轮转（旧行为）。
@@ -376,6 +382,7 @@ class PiProcessPool:
                         tool_selection=tool_selection,
                         exclude_tools=tool_exclude,
                         skill_paths=skill_paths,
+                        append_system_prompt=append_system_prompt,
                         memory_injection=not isolated,
                     )
                     await session.start()

@@ -353,7 +353,9 @@ async def steer_running_session(  # pragma: no cover
             return SteerOut(**forwarded)
 
     try:
-        disposition = await steer_session(session_id=session_id, message=payload.message)
+        # user_id 必传：插话里的 ``/skill:`` 要走 ``resolve_for_user`` 展开，
+        # 不传就只能认内置技能（律师点名的个人/所内技能静默不生效）。
+        disposition = await steer_session(session_id=session_id, message=payload.message, user_id=_user_id(request))
     except (SessionNotLiveError, PiError) as exc:
         raise _live_session_error(exc) from exc
     return SteerOut(success=True, disposition=disposition)
@@ -372,7 +374,7 @@ async def follow_up_running_session(  # pragma: no cover
     if not payload.message.strip():
         raise HttpError(400, "追加内容不能为空")
     try:
-        disposition = await follow_up_session(session_id=session_id, message=payload.message)
+        disposition = await follow_up_session(session_id=session_id, message=payload.message, user_id=_user_id(request))
     except (SessionNotLiveError, PiError) as exc:
         raise _live_session_error(exc) from exc
     return SteerOut(success=True, disposition=disposition)

@@ -21,14 +21,11 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 from .skills import flags, library, resolve, user_skills
 from .skills.constants import NAME_RE
 from .skills.errors import SkillNotFound
-
-logger = logging.getLogger(__name__)
 
 
 def skills_root() -> Path:
@@ -54,18 +51,6 @@ def deliverable_skills(user_id: int) -> list[dict]:
 def user_skills_mode() -> str:
     """总开关当前档位（``on`` / ``dry`` / ``off``，见 ``skills/flags.py``）。"""
     return flags.user_skills_mode()
-
-
-def enabled_skill_paths(user_id: int) -> list[str]:
-    """**已废弃**：永远返回空列表。
-
-    方案 A 取消了技能磁盘物化（``--skill`` 在 pi 1.6.0 既带不来自主发现、也压不住
-    锚点前缀导致的原生 ``/skill:`` 失效），技能改由 ``expand`` / ``prompt_block`` /
-    MCP 三条通道交付。保留这个签名只为让还在过渡期的调用点导入不炸；
-    新代码请直接用 ``deliverable_skills``。函数体与调用点会在同一批清理中一起删除。
-    """
-    logger.debug("enabled_skill_paths 已废弃（用户 %s），技能不再落盘", user_id)
-    return []
 
 
 def set_skill_enabled(user_id: int, key: str, enabled: bool) -> dict[str, object]:

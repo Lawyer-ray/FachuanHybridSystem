@@ -1,4 +1,4 @@
-"""skill_service 门面单测 —— 内置库扫描、偏好合并、非法名拒绝、零磁盘副作用。"""
+"""skill_service 单测 —— 扫描、偏好合并、非法名拒绝、注入路径。"""
 
 from __future__ import annotations
 
@@ -9,6 +9,10 @@ import pytest
 
 from apps.agent.models import AgentSkillPreference
 from apps.agent.services import skill_service
+
+#: 仓库内真实技能库（4 份 SKILL.md 随代码发布）；测试不造假目录，直接用真的——
+#: 顺带守住「技能库被误删/改名」这类部署事故。
+REAL_ROOT = Path(skill_service.__file__).resolve().parents[1] / "pi" / "skills"
 
 
 @pytest.fixture
@@ -27,7 +31,7 @@ class TestListSkills:
     def test_lists_repo_skills_with_frontmatter(self) -> None:
         skills = skill_service.list_skills()
         names = [s["name"] for s in skills]
-        # 随代码发布的技能必须在列（名字即目录名，``/skill:`` 补全与 MCP 按名读取依赖同名）
+        # 随代码发布的技能必须在列（名字即目录名，pi 侧 /skill: 补全依赖同名）
         assert "web-research" in names
         assert "deadline-queries" in names
         web = next(s for s in skills if s["name"] == "web-research")
@@ -49,20 +53,6 @@ class TestUserPreferences:
         mine = {s["name"]: s["enabled"] for s in skill_service.skills_for_user(user.pk)}
         assert mine["web-research"] is False
         assert mine["deadline-queries"] is True
-
-    def test_enabled_skill_paths_is_empty_and_writes_nothing(
-        self, user: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """方案 A：技能不再物化到磁盘，``enabled_skill_paths`` 恒空且零写盘。
-
-        把技能库根指到空目录再调一次：如果函数还残留任何目录创建/拷贝，这里就会
-        看到新文件。``--skill <dir>`` 在 pi 1.6.0 既带不来自主发现，也压不住案件页
-        前置的 ``[当前业务：…]`` 锚点，所以它连「兼容保留」的价值都没有。
-        """
-        monkeypatch.setenv("FACHUAN_AGENT_SKILLS_DIR", str(tmp_path))
-        AgentSkillPreference.objects.create(user=user, skill_key="builtin:web-research", enabled=False)
-        assert skill_service.enabled_skill_paths(user.pk) == []
-        assert list(tmp_path.rglob("*")) == []
 
     def test_set_skill_enabled_roundtrip(self, user: Any) -> None:
         result = skill_service.set_skill_enabled(user.pk, "web-research", False)

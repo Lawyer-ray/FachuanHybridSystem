@@ -565,16 +565,19 @@ POST /tasks {message, title?, case_id?}
 
 - **注入面**：`rpc_client` 启动参数**恒定 `--no-skills`**——pi 默认会无条件自动
   发现宿主机 `~/.agents/skills`（开发机上实测 203 个安全渗透技能）注入系统提示词，
-  这是必须关死的污染面；然后按「该用户启用的技能」逐个 `--skill <目录>` 显式注入
-  （`chat_service` 每轮经 `skill_service.enabled_skill_paths(user_id)` 计算）。
+  这是必须关死的污染面。用户/共享技能**不再落盘、不再走 `--skill`**：索引块由
+  `services/skills/prompt_block.py` 渲染，编排层经 `RunContext.skill_block` 下发，
+  后端起 pi 时用 `--append-system-prompt <块>` 注进系统提示的 addendum 段。
 - **用户偏好**：`AgentSkillPreference`（user × skill_name × enabled），只记
   `enabled=False` 的差异行，没行 = 默认启用；admin 只读（审计「谁关了什么」）。
 - **安全红线**：SKILL.md 会以完全受信指令的身份进入对话（`/skill:` 展开即注入），
   等价于提示注入载体——**技能库目录的写权限只属于部署管道**，绝不开放用户上传；
   名称校验（正则 + 库内实存双检）防路径穿越。
-- **展开语义**：`/skill:名字 参数` 由 pi 在**发给模型前**展开为
-  `<skill name=... location=...>` 全文块 + 用户参数——模型无需任何文件读取工具
-  （这也是本系统工具面刻意不声明 read/bash 的前提下，用户点名通道仍可用的原因）。
+- **展开语义**：`/skill:名字 参数` 由**编排层**（`services/skills/expand.py`）在发给
+  模型前展开为 `<skill name=... scope=...>` 全文块 + 用户参数，所有后端统一——模型
+  无需任何文件读取工具（这也是本系统工具面刻意不声明 read/bash 的前提下，用户点名
+  通道仍可用的原因）。不用 pi 原生展开：它只认 `text.startsWith("/skill:")`，详情页
+  每轮前置的 `[当前业务：…]` 会把它顶离行首，且命中时会把宿主机绝对路径送进上下文。
 
 ## 5.3 后端矩阵：六个 agent 同题并答
 

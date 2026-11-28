@@ -24,13 +24,15 @@ class TestCompactionTranslation:
 
 class TestChatServiceImports:
     def test_stream_chat_accepts_skill_paths_wiring(self) -> None:
-        """chat_service 必须 import 了 enabled_skill_paths（接线断言：防将来重构丢线）。
+        """chat_service 门面必须仍重导出编排符号（接线断言：防将来重构丢线）。
 
         不真跑 stream_chat（要起 pi）；只验证符号存在——丢 import 会在运行时
-        才炸，且症状是「技能静默不注入」，没有任何报错。
+        才炸。技能面不再靠 ``--skill`` 目录（那个已废弃的目录计算函数已删除），
+        技能的送达改由 ``RunContext.skill_block`` 经系统提示注入，
+        接线断言在 ``test_skill_delivery_wiring.py``。
         """
         import apps.agent.services.chat_service as chat_service
 
-        assert hasattr(chat_service, "enabled_skill_paths")
+        assert hasattr(chat_service, "stream_chat")
         assert hasattr(chat_service, "_persist_compaction_message")
         assert hasattr(chat_service, "parse_context_usage")
