@@ -4,8 +4,28 @@
 
 一次对话里 ``safe`` 动作（跳页、开面板、切筛选）能连发五六条，而它们**没有任何业务
 副作用**：写下来只会让表随对话线性膨胀，事后追责要查的永远是「这一次写库 / 上传是谁
-点的头」。所以写入口（``services/ui_action/audit.record_dispatch``）自己按 ``risk``
+点的头」。所以写入口（``services/ui_action/audit.reserve_dispatch``）自己按 ``risk``
 挡掉 safe——调用方不可能漏判。
+
+## 为什么「同一动作同参数只允许一个在飞」是数据库约束，而不是下发前的一次查询
+
+下发前「查一眼台账」挡不住两个 worker 同时下发同一条动作：两边都查空，于是同一个写库
+被执行两遍。判据因此交给数据库：:class:`Meta` 里的 ``constraints`` 声明了一条**部分**
+唯一索引 ``(session, action, arguments_hash) WHERE outcome='unknown'``，一次 ``acreate``
+就是占位，冲突（``IntegrityError``）就是「已经有一条在飞」（见
+``services/ui_action/audit.reserve_dispatch``）。三个取舍写在这里，免得后来人把索引改坏：
+
+- **为什么是部分索引而不是全表唯一**：全表唯一会让「同一个材料包判过 done」永远不能再
+  判一次——而同一动作本来就可以合法地做很多遍（律师改主意、换目标、先判错再纠正）。
+  加上 ``outcome='unknown'`` 这个条件之后，一结算（``ok`` / ``error`` / ``denied`` /
+  ``aborted`` / ``expired`` 任一）索引项就消失：约束只约束「在飞」，不约束历史。
+- **为什么键里不放 ``call_id``**：``call_id`` 每次下发都现场生成（``uuid.uuid4().hex``），
+  放进唯一键等于每条都不同——约束永远成立，也就永远没用。
+- **为什么没有会话时约束不生效**：``session`` 可为 NULL（后台任务 / 未挂会话的直连
+  调用），而 PostgreSQL 的唯一索引默认是 ``NULLS DISTINCT``——两个 NULL 互不相等，
+  所以 NULL 会话的行一条都进不了这棵索引。这一点是可接受的：没有会话的下发本来就没有
+  可竞争的上下文（同一页面对应一个会话），而给这些行编一个假会话只会让审计撒谎。
+  也正因如此，「同一键只有一条在飞」只在有会话时成立，测试要分别覆盖两种情形。
 
 ## 为什么 ``outcome`` 默认 ``unknown`` 而不是 ``ok``
 
@@ -54,7 +74,8 @@ class AgentUiAction(models.Model):
 
     写入方只有三处，全部走 ``services/ui_action/audit.py``：
 
-    1. :func:`audit.record_dispatch` —— 下发成功时插一行 ``outcome="unknown"``；
+    1. :func:`audit.reserve_dispatch` —— **下发前**插一行占位（``outcome="unknown"``），
+       并由 ``Meta.constraints`` 的部分唯一索引保证同键只有一条在飞；
     2. :func:`audit.record_denial` —— 审批未通过时插一行（``outcome`` 与 ``decision``
        都是 ``denied``）——被拒绝的审批也是一条必须留痕的事实：事后要能回答
        「他明确拒绝过什么」；
@@ -95,7 +116,7 @@ class AgentUiAction(models.Model):
     arguments_hash = models.CharField(max_length=64, blank=True, default="", verbose_name="参数哈希")
     #: 风险档（``confirm`` / ``guarded``；``safe`` 不入库，见模块 docstring）。
     risk = models.CharField(max_length=16, verbose_name="风险档")
-    #: 放行这次动作的审批人。best-effort 关联（见 ``audit.record_dispatch``）：
+    #: 放行这次动作的审批人。best-effort 关联（见 ``audit.reserve_dispatch``）：
     #: 找不到审批行就留空，**不要**因此拒写审计——下发已经发生，那是事实。
     approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -154,6 +175,21 @@ class AgentUiAction(models.Model):
             # （每次写入多维护一份），所以这里**故意**不再声明。
             # 会话维度的索引服务「这个会话里 AI 干过什么」——按时间倒序扫最新几条。
             models.Index(fields=["session", "-created_at"], name="agent_uiaction_session_idx"),
+        ]
+        constraints = [
+            # 服务端幂等的**唯一**真相：同一会话里，同一个动作 + 同一份参数最多一条
+            # 「未结算」（``outcome="unknown"``）。用部分索引而不是全表唯一，是因为「同一
+            # 动作同参数」可以合法地做很多遍（律师改主意），结算之后约束必须自然解除；
+            # 键里不放 ``call_id``，因为它每次下发都不同（放进去等于没有约束）；
+            # ``session`` 为 NULL 时 PostgreSQL 认为 NULL 互不相等，约束不生效
+            # （没有会话的下发没有可竞争的上下文）——三条取舍的详细论证见模块 docstring。
+            # 条件里的 ``"unknown"`` 与 ``audit.OUTCOME_UNKNOWN`` 同值：模型层不 import
+            # 服务层（服务层已经 import 模型，反向会成环），所以改值时必须两处一起改。
+            models.UniqueConstraint(
+                fields=["session", "action", "arguments_hash"],
+                condition=models.Q(outcome="unknown"),
+                name="agent_uiaction_unsettled_uniq",
+            ),
         ]
 
     def __str__(self) -> str:

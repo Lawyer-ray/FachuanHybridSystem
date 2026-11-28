@@ -2,9 +2,13 @@
 
 ## 写入口只有三个，且判定都收在本模块里
 
-- :func:`record_dispatch`：下发成功后插一行（``outcome="unknown"``）；
+- :func:`reserve_dispatch`：**下发前**插一行占位（``outcome="unknown"``）——插进去就是
+  「我抢到了这个键」，冲突就是「已经有一条在飞」；
 - :func:`record_denial`：审批**未通过**时插一行（``outcome=decision="denied"``）；
 - :func:`apply_receipt` / :func:`apply_verification`：回执与核实结论到达后就地更新那一行。
+
+另有 :func:`mark_delivered` 把「有没有页面在收听」补写到占位行上（占位必须早于下发，
+而送达与否只有下发回来才知道，所以是两步）。
 
 **为什么把「该不该写」放进写入口而不是调用方**：判定散在调用侧，早晚出现一条新路径
 忘了判——那张表就不是「高危动作台账」，而是「谁知道要写就写」的抽样。收在这里之后，
@@ -33,6 +37,23 @@ OpenHands 的 ``UserRejectObservation`` 带 ``rejection_reason``）。拒绝是*
 迟到的回执只做一件事：把那一行落成 ``expired`` 并把真实结局记进 ``decision_note``
 （它仍然是有价值的事实：「页面后来说它成功了，但那时候我们已经按超时处理」）。
 
+## 「同一动作同参数只允许一个在飞」为什么靠数据库约束 + 过期扫描
+
+上一版在下发前「查一眼台账」（30 秒内同键仍是 ``unknown`` 的行）。两个 worker 同时下发
+同一条动作时**两边都会查空**——于是同一个写库被执行两遍，而那是丢数据 / 重复写库的
+最后一道门。所以判据交给数据库：``AgentUiAction`` 带一条部分唯一索引
+``(session, action, arguments_hash) WHERE outcome='unknown'``（见 ``models/ui_action.py``），
+:func:`reserve_dispatch` 的 ``acreate`` 就是占位，``IntegrityError`` 就是「已有在飞」。
+
+**为什么占位前必经扫一遍过期**：唯一能解除占位的条件是那一行结算掉，而「页面永不回执」
+时没有任何人会把 ``expires_at`` 之后的 ``unknown`` 推进终态（:func:`apply_receipt` 只在
+回执到达时才动弹）。不扫的话一条永不结算的旧行会**永久占死这个键**，「律师真想再做
+一次」也就永远做不成——所以写之前必须先把同键的过期行落成 ``expired``。
+
+**为什么仍然不新建 pending 表**：台账里 ``unknown`` 那一行本身就是「已下发、还没有结局」
+的事实，另建表等于养两个真相，补拉 / 超时清理 / 进程重启后的对账都要在两张表之间对齐，
+而两张表总有一张会先漏。
+
 ## 审计失败绝不打断下发
 
 ``publish_ui_action`` 的返回值是模型唯一的视野：为了写一行审计而抛异常，等于为了
@@ -41,6 +62,10 @@ OpenHands 的 ``UserRejectObservation`` 带 ``rejection_reason``）。拒绝是*
 ``test_exception_ratchet`` 禁止扩大 ``except Exception``，而这两类正好覆盖「库挂了 /
 参数不可序列化」全部真实失败形态（不可序列化在进库前就被 :func:`sanitize_arguments` /
 :func:`arguments_hash_of` 收敛成字符串了）。
+
+``IntegrityError`` 虽然也是 ``DatabaseError`` 的子类，但它是**预期内的信号**而不是故障，
+所以在 :func:`reserve_dispatch` 里单独分支：去把在飞那条的 ``call_id`` 查回来交给调用方
+（模型据此取那一次的结果），而不是当失败处理。
 
 ## 为什么模块顶层没有 Django 符号
 
@@ -79,13 +104,6 @@ APPROVAL_WINDOW = timedelta(minutes=10)
 #: 5 分钟远宽于 ack 的 2s 等待（那个窗口只决定「模型这一次看不看得到结果」），
 #: 覆盖前端重试与律师缓慢操作；同时短到「一周后的迟到回执」不可能翻掉当时的判断。
 RECEIPT_TTL = timedelta(seconds=300)
-
-#: 下发去重窗口：同一会话 + 同一动作 + 同一参数在这个时长内**仍未结算**时，
-#: 第二次下发直接判 ``duplicate``（见 :func:`find_unsettled`）。
-#: 30 秒的来历：ack 只等 2 秒（没拿到回执模型就会原样重发），积压 TTL 60 秒；
-#: 而律师自己「过一会儿再判一次」远不止 30 秒——窗口要长到盖住模型的重发，
-#: 又不该长到把律师真的要再执行一次也拦掉。
-DISPATCH_DEDUPE_WINDOW = timedelta(seconds=30)
 
 #: ``outcome`` 的初始值。**不是** ``ok``：回执可能永远不到，默认成功就是撒谎。
 OUTCOME_UNKNOWN = "unknown"
@@ -165,55 +183,28 @@ def _short_action_name(tool_name: str) -> str:
     return tool_name[len(prefix) :] if tool_name.startswith(prefix) else tool_name
 
 
-async def find_unsettled(
-    *,
-    session_id: str,
-    action: str,
-    arguments_hash: str,
-    window: timedelta = DISPATCH_DEDUPE_WINDOW,
-) -> str | None:
-    """同一会话、同一动作、同一参数、**仍未结算**的最近一条下发的 ``call_id``。
+async def _unsettled_call_id(*, session: Any, action: str, arguments_hash: str) -> str:
+    """同键仍在飞那一条的 ``call_id``（查不到返回空串）。
 
-    这是「这个动作还在飞吗」的唯一判据，而它不需要一张 pending 表：台账里
-    ``outcome="unknown"`` 那一行本身就是「已下发、还没有结局」的事实。另建一张表等于
-    养出两个真相，补拉 / 超时清理 / 进程重启之后的核对全要在两张表之间对齐；而
-    ``publish_ui_action`` 在发出去时**已经**写了这行（写在等回执之前，回执才找得到它）。
+    只在 :func:`reserve_dispatch` 撞上 ``IntegrityError`` 之后调用：约束只告诉了我们
+    「插不进去」，模型要知道的是「那一次是谁」。
 
-    ``outcome`` 只认 :data:`OUTCOME_UNKNOWN`：``denied`` / ``expired`` 是「从未执行」的
-    终态，``ok`` / ``error`` / ``aborted`` 已有结局——它们都不该拦住下一次下发。
-
-    **查询失败只 warn 返回 ``None``**：去重是防重发的优化，让一次查询故障挡住所有写动作
-    下发，等于把优化变成可用性故障（与 :func:`record_dispatch` 同一个口径）。
-
-    Args:
-        session_id: ``AgentSession.session_id``（UUID 字符串）；非法值直接返回 ``None``。
-        action: 清单里的动作名（与台账 ``action`` 列同口径）。
-        arguments_hash: :func:`arguments_hash_of` 算出的原始参数指纹。
-        window: 只看这么久之内创建的台账行，默认 :data:`DISPATCH_DEDUPE_WINDOW`。
-
-    Returns:
-        最近一条未结算下发的 ``call_id``；没有匹配、或查询失败时 ``None``。
+    查不到的情形存在且必须处理：冲突不是来自这条部分唯一索引（``call_id`` 主键撞车、
+    会话在查询与插入之间被删）。那时说不出谁在飞，只能返回空串让调用方按「没有台账」
+    继续下发——凭空编一个 ``call_id`` 交给模型，等于让它去取一份不存在的回执。
     """
     # 延迟 import：理由见模块 docstring。
     from django.db import DatabaseError
-    from django.utils import timezone
 
     from ...models import AgentUiAction
-    from ..session_service import _as_uuid
 
-    normalized = _as_uuid(session_id) if session_id else None
-    if normalized is None:
-        return None
     try:
-        return await (
+        existing = await (
             AgentUiAction.objects.filter(
-                # 按会话的 UUID 外键过滤（走 Meta 里的 session + -created_at 索引），
-                # 不先查一次 AgentSession：这里只要 call_id，多一次查询没有意义。
-                session__session_id=normalized,
+                session=session,
                 action=action,
                 arguments_hash=arguments_hash,
                 outcome=OUTCOME_UNKNOWN,
-                created_at__gte=timezone.now() - window,
             )
             .order_by("-created_at")
             .values_list("call_id", flat=True)
@@ -221,31 +212,42 @@ async def find_unsettled(
         )
     except (DatabaseError, ValueError):
         logger.warning(
-            "UI 动作去重查询失败（按「没有在飞的动作」处理，去重失效但不挡下发）: session=%s action=%s",
-            session_id,
+            "UI 动作占位冲突后查在飞行失败（按「说不出是谁」处理）: action=%s",
             action,
             exc_info=True,
         )
-        return None
+        return ""
+    return existing or ""
 
 
-async def record_dispatch(
+async def reserve_dispatch(
     *,
     call_id: str,
     action_name: str,
     arguments: dict[str, Any],
     risk: str,
     session_id: str | None,
-    delivered: bool,
     batch_id: str = "",
-) -> bool:
-    """插入一行「动作已下发」；返回是否真的落库。
+) -> tuple[bool, str]:
+    """占位：返回 ``(是否抢到, 台账 call_id)``；抢不到时第二项是**已在飞那条**的 call_id。
 
-    ``session_id`` 为空时 ``session`` / ``user`` 留空：后台任务、未挂会话的直连调用
-    都可能下发动作，这种行仍然有审计价值（谁在什么时候让 AI 干了什么）。
+    为什么是「占位」而不是「先查后写」：同一会话 + 同一动作 + 同一参数上，两个 worker
+    可能同时在跑，先查后写时**两边都会查空**，于是同一个写库被执行两遍。这里把判据交给
+    数据库的部分唯一索引（``(session, action, arguments_hash) WHERE outcome='unknown'``，
+    见 ``models/ui_action.py``）：``acreate`` 成功 = 抢到；``IntegrityError`` = 已有在飞。
 
-    ``batch_id`` 是批量下发注入的批次身份（单步动作传空串）：审核「这一批 5 步」时
-    要有东西能把它们串起来，否则只能靠 ``created_at`` 相近去猜。
+    **抢位前先把同键的过期行扫成 ``expired``**：唯一解除占位的条件是那一行结算掉，而
+    「页面永不回执」时没有任何人会把 ``expires_at`` 之后的 ``unknown`` 推进终态
+    （:func:`apply_receipt` 只在回执到达时才动弹）。不扫的话一条永不回执的旧行会永久
+    占死这个键，「律师真想再做一次」就永远做不成——所以写之前必须有人推动它过期。
+
+    ``session_id`` 为空时 ``session`` / ``user`` 留空：后台任务、未挂会话的直连调用都可能
+    下发动作，这种行仍然有审计价值（谁在什么时候让 AI 干了什么）。代价是这些行进不了
+    那条部分索引（PostgreSQL 唯一索引里 NULL 互不相等），也就是**没有去重**——可接受：
+    没有会话的下发本来就没有可竞争的上下文。
+
+    ``batch_id`` 是批量下发注入的批次身份（单步动作传空串）：审核「这一批 5 步」时要有
+    东西能把它们串起来，否则只能靠 ``created_at`` 相近去猜。
 
     **审批关联是 best-effort**：同会话、已批准、工具名以本动作名结尾、且决定时间在
     :data:`APPROVAL_WINDOW` 内的最近一条 ``AgentApproval``。找不到就留空而不是拒写——
@@ -254,24 +256,42 @@ async def record_dispatch(
     ``approved_by``/``approved_at`` 保留是因为历史行与列表接口还在用它们。
 
     Returns:
-        本行是否写入成功。``False`` 有两种来源：``safe`` 档刻意不写，或写库失败。
-        调用方（``publish_ui_action``）**不检查**返回值：审计不该有权力否决下发。
+        ``(True, call_id)`` = 抢到（占位行已写入，可以下发）；
+        ``(False, 在飞那条的 call_id)`` = 同键已有一条在飞，**不要**下发；
+        ``(True, "")`` 有两种来源，都是「没有台账行、但下发不该被拦」：``safe`` 档
+        （刻意不写台账）与写库失败（审计没有否决下发的权力）。调用方据此跳过
+        :func:`mark_delivered`——没有那一行可补。
     """
     if risk not in AUDITED_RISKS:
-        return False
+        # safe 档不占位：量太大、无审计价值，重复执行也无害（见模块 docstring）。
+        return True, ""
 
     # 延迟 import：本模块要能在无 Django settings 的进程里被 import（见模块 docstring）。
-    from django.db import DatabaseError
+    from django.db import DatabaseError, IntegrityError
     from django.utils import timezone
 
     from ...models import AgentApproval, AgentSession, AgentUiAction
     from ..session_service import _as_uuid
 
+    arguments_hash = arguments_hash_of(arguments)
+    now = timezone.now()
+    session = None
     try:
-        session = None
         normalized = _as_uuid(session_id) if session_id else None
         if normalized is not None:
             session = await AgentSession.objects.filter(session_id=normalized).afirst()
+        if session is not None:
+            # 先扫过期（理由见 docstring）：条件与唯一键逐字段一致，只多一个「已过期」。
+            await AgentUiAction.objects.filter(
+                session=session,
+                action=action_name,
+                arguments_hash=arguments_hash,
+                outcome=OUTCOME_UNKNOWN,
+                expires_at__lt=now,
+            ).aupdate(
+                outcome=OUTCOME_EXPIRED,
+                decision_note="超过回执窗口仍未结算，占位在下一次下发前被扫成过期"[:NOTE_MAX],
+            )
         approved_by_id: int | None = None
         approved_at: datetime | None = None
         approval = None
@@ -281,7 +301,7 @@ async def record_dispatch(
                     session=session,
                     status=AgentApproval.Status.APPROVED,
                     tool_name__endswith=action_name,
-                    decided_at__gte=timezone.now() - APPROVAL_WINDOW,
+                    decided_at__gte=now - APPROVAL_WINDOW,
                 )
                 .order_by("-decided_at")
                 .afirst()
@@ -296,27 +316,80 @@ async def record_dispatch(
             action=action_name,
             # 脱敏后的参数进库（与快照同口径），指纹按原始参数算（见 arguments_hash_of）。
             arguments=sanitize_arguments(arguments),
-            arguments_hash=arguments_hash_of(arguments),
+            arguments_hash=arguments_hash,
             risk=risk,
             approved_by_id=approved_by_id,
             approved_at=approved_at,
             approval=approval,
             decision=DECISION_APPROVED if approval is not None else "",
             decided_at=approved_at,
-            expires_at=timezone.now() + RECEIPT_TTL,
+            expires_at=now + RECEIPT_TTL,
             batch_id=(batch_id or "")[:64],
-            delivered=delivered,
+            # 送达与否由 :func:`mark_delivered` 在下发之后补写：占位必须早于下发。
+            delivered=False,
             outcome=OUTCOME_UNKNOWN,
         )
-    except (DatabaseError, ValueError):
+    except IntegrityError:
+        # 预期内的信号，不是故障：同键已经有一条在飞（多半是另一个 worker 刚占的）。
+        existing = await _unsettled_call_id(session=session, action=action_name, arguments_hash=arguments_hash)
+        if existing:
+            logger.info(
+                "UI 动作占位冲突（同键已有在飞，判为重复）: session=%s action=%s existing=%s",
+                session_id,
+                action_name,
+                existing,
+            )
+            return False, existing
+        # 冲突不是来自「同键在飞」（call_id 撞车 / 会话刚被删）：说不出谁在飞，只能按
+        # 「没有台账」继续下发——这一行台账确实缺了，但审计没有否决下发的权力。
         logger.warning(
-            "UI 动作审计落库失败（下发不受影响，只是少了这一行台账）: call_id=%s action=%s",
+            "UI 动作占位冲突但查不到在飞行（按无台账继续下发）: call_id=%s action=%s",
             call_id,
             action_name,
             exc_info=True,
         )
+        return True, ""
+    except (DatabaseError, ValueError):
+        logger.warning(
+            "UI 动作审计占位失败（按无台账继续下发，去重失效但下发不受影响）: call_id=%s action=%s",
+            call_id,
+            action_name,
+            exc_info=True,
+        )
+        return True, ""
+    return True, call_id
+
+
+async def mark_delivered(call_id: str, delivered: bool) -> bool:
+    """把「这一次下发有没有页面在收听」补写到占位行上；返回是否真的改写了一行。
+
+    与占位分两步是必然的：占位必须在**下发之前**（否则前端 200ms 内的回执会落在不存在的
+    行上），而送达与否只有 ``bus.publish`` 回来才知道。
+
+    条件里带着 ``delivered=False``：回执可能比这次补写更早到（跨进程 SSE + 浏览器执行完
+    只要几百毫秒），而 :func:`apply_receipt` 会把 ``delivered`` 记成 ``True``——那是更强的
+    事实（有人收到并在执行），不能被这次「没确认送达」的补写冲掉。因此「回执抢先了」时
+    返回 ``False`` 不是失败，只是没东西可补。
+
+    写库失败只 warn：送达标记是台账的一个字段，不值得为它改掉下发结果。
+    """
+    # 延迟 import：理由见模块 docstring。
+    from django.db import DatabaseError
+
+    from ...models import AgentUiAction
+
+    try:
+        updated = await AgentUiAction.objects.filter(call_id=call_id, delivered=False).aupdate(
+            delivered=bool(delivered)
+        )
+    except (DatabaseError, ValueError):
+        logger.warning(
+            "UI 动作送达标记落库失败（下发不受影响，只是台账少记一个字段）: call_id=%s",
+            call_id,
+            exc_info=True,
+        )
         return False
-    return True
+    return bool(updated)
 
 
 async def record_denial(

@@ -13,12 +13,13 @@
 
 回执本身的语义（幂等/超时/积压）在 ``test_ui_action_ack.py``，本文件只管下发契约。
 
-最后四组用例钓「下发去重」：同一会话 + 同一非幂等动作 + 同一参数还在飞（台账里仍是
-``outcome="unknown"``）时，第二次下发必须返回 ``duplicate`` 而不是再发一帧——模型
-没在 2s 窗口里拿到回执时会原样重发，而前端的 5s 同参窗只管同一标签页。这批用例必须
-建库（判据就是台账那行），``django_db(transaction=True)`` 的理由同
-``test_ui_action_audit.py``：async ORM 在 asgiref 执行器连接上跑，普通事务包裹下看不见
-用例里创建的行。
+最后五组用例钓「服务端幂等」：同一会话 + 同一 ``confirm`` 动作 + 同一参数还在飞（台账里
+仍是 ``outcome="unknown"``）时，第二次下发必须返回 ``duplicate`` 而不是再发一帧——模型
+没在 2s 窗口里拿到回执时会原样重发，而前端的 5s 同参窗只管同一标签页。判据不是「出去
+前查一眼台账」（两个 worker 同时下发时两边都会查空），而是台账那条部分唯一索引
+（见 ``test_ui_action_audit.py`` ⑥）：占位插不进去就是重复。这批用例必须建库，
+``django_db(transaction=True)`` 的理由同 ``test_ui_action_audit.py``：async ORM 在 asgiref
+执行器连接上跑，普通事务包裹下看不见用例里创建的行。
 """
 
 from __future__ import annotations
@@ -36,7 +37,7 @@ from apps.organization.models import Lawyer
 
 NAVIGATE: UiAction = next(action for action in UI_ACTIONS if action.name == "ui_navigate")
 SET_STAGE: UiAction = next(action for action in UI_ACTIONS if action.name == "ui_material_prep_set_stage")
-#: 清单里唯一的 ``confirm`` 动作（``idempotent=False``）：去重只对这类动作生效。
+#: 清单里唯一的 ``confirm`` 动作：服务端幂等（占位）只对需要审计的档生效。
 JUDGE: UiAction = next(action for action in UI_ACTIONS if action.name == "ui_material_prep_judge")
 
 
@@ -217,11 +218,11 @@ async def test_delivered_false_when_nobody_listens(monkeypatch: pytest.MonkeyPat
     assert len(bus.published) == 1
 
 
-# ── 下发去重：用台账反推「还在飞」 ──────────────────────────────────────
+# ── 服务端幂等：占位（部分唯一索引）挡住同键的第二条在飞 ─────────────────
 
 
 async def _make_session(username: str) -> AgentSession:
-    """建真会话：只有 ``session_id`` 是真 UUID，台账行才会挂到会话上（去重按会话查）。
+    """建真会话：只有 ``session_id`` 是真 UUID，台账行才会挂到会话上（占位的键含会话）。
 
     不设口令：本文件不测登录，任何口令字面量都会被 detect-secrets 拦。
     """
@@ -232,7 +233,7 @@ async def _make_session(username: str) -> AgentSession:
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_same_confirm_action_twice_is_deduplicated(monkeypatch: pytest.MonkeyPatch) -> None:
-    """① 同一会话 + 同一 confirm 动作 + 同参数连发两次：第二次 ``duplicate``，总线只多一帧。
+    """⑦ 同一会话 + 同一 confirm 动作 + 同参数连发两次：第二次 ``duplicate``，总线只多一帧。
 
     返回里必须带**第一次**的 ``call_id``：模型下一步是去取那一次的结果
     （``ui_action_results``），而不是再发一遍、把同一个写动作做两次。
@@ -250,15 +251,18 @@ async def test_same_confirm_action_twice_is_deduplicated(monkeypatch: pytest.Mon
     assert second["call_id"] == first["call_id"], "要交回那一次的 call_id，模型才知道去取谁"
     assert second["delivered"] is False
     assert "ui_action_results" in second["note"] and "不要原样重发" in second["note"]
+    assert "仍在执行中" in second["note"], "文案要能区分「在飞」与「已经做过」"
     assert len(bus.published) == 1, "被去重的那次一帧都不该发"
+    # 占位行只有一条：第二次连「照抄一行再标重复」都不该发生（它会撞约束）。
+    assert await AgentUiAction.objects.acount() == 1
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_settled_action_can_be_dispatched_again(monkeypatch: pytest.MonkeyPatch) -> None:
-    """② 第一次结算（``outcome`` 落成 ``ok``）之后，同参数第三次正常下发。
+    """⑧ 第一次结算（``outcome`` 落成 ``ok``）之后，同参数第三次正常下发。
 
-    去重只看 ``outcome="unknown"``：已有结局的行不许拦住下一次——否则「同一个材料包
+    约束的条件是 ``outcome="unknown"``：已有结局的行不许拦住下一次——否则「同一个材料包
     先判 done、律师改主意再判 filed」会被当成重复挡掉，而它是一次新的决定。
     """
     session = await _make_session("uidispatch-settled")
@@ -276,18 +280,19 @@ async def test_settled_action_can_be_dispatched_again(monkeypatch: pytest.Monkey
 
 
 @pytest.mark.asyncio
-async def test_idempotent_action_is_never_deduplicated(monkeypatch: pytest.MonkeyPatch) -> None:
-    """③ 幂等动作（navigate）连发两次都要下发：重复执行无害，拦它只会弄坏律师的操作。
+async def test_safe_action_is_never_reserved(monkeypatch: pytest.MonkeyPatch) -> None:
+    """⑨ ``ui_navigate``（safe）连发两次都要下发：重复执行无害，拦它只会弄坏律师的操作。
 
-    直接把 ``find_unsettled`` 换成炸弹性替身：幂等动作**连查都不该查**——否则
-    「同参数」的跳页/开面板会被自己的上一条堵住。
+    把 ``reserve_dispatch`` 换成炸弹性替身：safe 动作**连占位都不该占**——它不写台账，
+    也就不会撞上那条部分唯一索引。这条用例同时钉住了「幂等动作永不被去重」的实现方式：
+    不是靠 ``action.idempotent`` 再判一次，而是因为它根本不进占位这条路径。
     """
     bus = _install_bus(monkeypatch, _FakeBus())
 
-    async def _boom(**kwargs: Any) -> str | None:
-        raise AssertionError("幂等动作不该去查「还在飞」")
+    async def _boom(**kwargs: Any) -> tuple[bool, str]:
+        raise AssertionError("safe 动作不该占位（不写台账，也不该被拦）")
 
-    monkeypatch.setattr("apps.agent.services.ui_action.audit.find_unsettled", _boom)
+    monkeypatch.setattr("apps.agent.services.ui_action.audit.reserve_dispatch", _boom)
     session_id = _session_id()
 
     first = await publish_ui_action(action=NAVIGATE, arguments={"path": "/material-prep"}, session_id=session_id)
@@ -295,13 +300,14 @@ async def test_idempotent_action_is_never_deduplicated(monkeypatch: pytest.Monke
 
     assert first["status"] == "dispatched"
     assert second["status"] == "dispatched"
+    assert first["call_id"] != second["call_id"]
     assert len(bus.published) == 2
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_different_arguments_are_not_deduplicated(monkeypatch: pytest.MonkeyPatch) -> None:
-    """④ 参数不同（packId 815）→ 正常下发：去重是「同一份参数」，不是「同一个动作」。"""
+    """⑩ 参数不同（packId 815）→ 正常下发：去重是「同一份参数」，不是「同一个动作」。"""
     session = await _make_session("uidispatch-args")
     bus = _install_bus(monkeypatch, _FakeBus())
     session_id = str(session.session_id)
@@ -317,16 +323,16 @@ async def test_different_arguments_are_not_deduplicated(monkeypatch: pytest.Monk
 
 @pytest.mark.asyncio
 async def test_no_channel_never_reaches_dedupe(monkeypatch: pytest.MonkeyPatch) -> None:
-    """⑤ 没有会话 → 仍是 ``no_channel``，且**不进去重**（去重按会话查，无会话无从查起）。
+    """⑪ 没有会话 → 仍是 ``no_channel``，且**不进占位**（无会话无从竞争，也不该白写一行台账）。
 
-    分支顺序也是断言：``no_channel`` 排在去重前面，没通道时连台账都不该碰。
+    分支顺序也是断言：``no_channel`` 排在占位前面，没通道时连台账都不该碰。
     """
     bus = _install_bus(monkeypatch, _FakeBus())
 
-    async def _boom(**kwargs: Any) -> str | None:
-        raise AssertionError("没有会话时不该去查「还在飞」")
+    async def _boom(**kwargs: Any) -> tuple[bool, str]:
+        raise AssertionError("没有会话时不该去占位")
 
-    monkeypatch.setattr("apps.agent.services.ui_action.audit.find_unsettled", _boom)
+    monkeypatch.setattr("apps.agent.services.ui_action.audit.reserve_dispatch", _boom)
 
     result = await publish_ui_action(action=JUDGE, arguments={"packId": 814, "target": "done"}, session_id=None)
 

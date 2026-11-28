@@ -10,7 +10,9 @@
 - 重复/迟到回执覆盖第一份 → 记下一次从未发生（或早已作废）的执行；
 - 查询不过滤用户 → 谁都能看见别人按过哪些高危按钮；
 - 审批关联串批 → 把上一次批准当成这一次的授权；
-- 参数不脱敏 / 不记指纹 → 律师填的账号原样留在审计表里，或「批 A 执行 B」无从发现。
+- 参数不脱敏 / 不记指纹 → 律师填的账号原样留在审计表里，或「批 A 执行 B」无从发现；
+- 同键可以有两条在飞 / 结算与过期后依旧抢不到位 → 同一个写库被执行两遍，或律师想再做
+  一次永远做不成（两个方向都是错，所以占位用例要成对钉住）。
 
 回执通道本身的语义（等待 / 积压 / 幂等唤醒）在 ``test_ui_action_ack.py``，下发契约在
 ``test_ui_action_publish.py``，服务端效果核实（``verified``）在
@@ -28,6 +30,7 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
+from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.agent.backends.toolface import tool_prefix
@@ -124,8 +127,9 @@ async def _make_session(user: Lawyer) -> AgentSession:
 async def test_safe_action_writes_no_audit_row(monkeypatch: pytest.MonkeyPatch) -> None:
     """``safe`` 档不落库：它没有业务副作用，量还大（台账只留高危）。
 
-    判定的位置也是断言的一部分：调用方（``publish_ui_action``）不判，由
-    ``audit.record_dispatch`` 自己挡——所以这里必须真的走一遍下发链路。
+    判定的位置也是断言的一部分：``publish_ui_action`` 只对 ``audit.AUDITED_RISKS`` 占位，
+    而 ``audit.reserve_dispatch`` 自己也按 ``risk`` 再挡一道（两道都不是调用方随手写的
+    if）——所以这里必须真的走一遍下发链路。
     """
     user = await _make_user("uiaudit-safe")
     session = await _make_session(user)
@@ -218,22 +222,24 @@ async def test_history_only_shows_own_rows() -> None:
     my_session = await _make_session(mine)
     stranger_session = await _make_session(stranger)
 
-    assert await audit.record_dispatch(
-        call_id=uuid.uuid4().hex,
-        action_name=CONFIRM.name,
-        arguments={"pack_id": 1},
-        risk="confirm",
-        session_id=str(my_session.session_id),
-        delivered=True,
-    )
-    assert await audit.record_dispatch(
-        call_id=uuid.uuid4().hex,
-        action_name=CONFIRM.name,
-        arguments={"pack_id": 2},
-        risk="guarded",
-        session_id=str(stranger_session.session_id),
-        delivered=False,
-    )
+    assert (
+        await audit.reserve_dispatch(
+            call_id=uuid.uuid4().hex,
+            action_name=CONFIRM.name,
+            arguments={"pack_id": 1},
+            risk="confirm",
+            session_id=str(my_session.session_id),
+        )
+    )[0]
+    assert (
+        await audit.reserve_dispatch(
+            call_id=uuid.uuid4().hex,
+            action_name=CONFIRM.name,
+            arguments={"pack_id": 2},
+            risk="guarded",
+            session_id=str(stranger_session.session_id),
+        )
+    )[0]
 
     items = await audit.list_recent_for_user(mine)
 
@@ -461,14 +467,15 @@ async def test_arguments_are_sanitized_before_storage() -> None:
     session = await _make_session(await _make_user("uiaudit-scrub"))
     raw: dict[str, Any] = {"pack_id": 7, "account": "北京某某公司账户"}
 
-    assert await audit.record_dispatch(
-        call_id=uuid.uuid4().hex,
-        action_name=CONFIRM.name,
-        arguments=raw,
-        risk="confirm",
-        session_id=str(session.session_id),
-        delivered=True,
-    )
+    assert (
+        await audit.reserve_dispatch(
+            call_id=uuid.uuid4().hex,
+            action_name=CONFIRM.name,
+            arguments=raw,
+            risk="confirm",
+            session_id=str(session.session_id),
+        )
+    )[0]
 
     row = await AgentUiAction.objects.order_by("-created_at").afirst()
     assert row is not None
@@ -504,19 +511,22 @@ async def test_history_filters() -> None:
     unknown_id = uuid.uuid4().hex
     ok_id = uuid.uuid4().hex
     error_id = uuid.uuid4().hex
-    for call_id, action_name, risk in (
-        (unknown_id, CONFIRM.name, "confirm"),
-        (ok_id, CONFIRM.name, "guarded"),
-        (error_id, "ui_other_write", "confirm"),
+    # 三行给不同的 ``pack_id``：同一会话里「同动作同参数」只能有一条在飞（占位的部分唯一
+    # 索引），本用例要的是三条互不相干的台账行。
+    for call_id, action_name, risk, pack_id in (
+        (unknown_id, CONFIRM.name, "confirm", 1),
+        (ok_id, CONFIRM.name, "guarded", 2),
+        (error_id, "ui_other_write", "confirm", 1),
     ):
-        assert await audit.record_dispatch(
-            call_id=call_id,
-            action_name=action_name,
-            arguments={"pack_id": 1},
-            risk=risk,
-            session_id=str(session.session_id),
-            delivered=True,
-        )
+        assert (
+            await audit.reserve_dispatch(
+                call_id=call_id,
+                action_name=action_name,
+                arguments={"pack_id": pack_id},
+                risk=risk,
+                session_id=str(session.session_id),
+            )
+        )[0]
     assert await audit.apply_receipt(ok_id, outcome="ok", code="", location="/a")
     assert await audit.apply_receipt(error_id, outcome="error", code="route_unreachable", location="/b")
 
@@ -534,3 +544,154 @@ async def test_history_filters() -> None:
     assert item["verified"] is None, "没核实过就是 None（不是 False）"
     assert item["verify_note"] == ""
     assert item["batch_id"] == ""
+
+
+# ── 服务端幂等：占位的部分唯一索引 ────────────────────────────────
+# 下面六条钉的是「同一动作同参数只允许一个在飞」的两个方向：冲突时必须挡住（①⑥），
+# 而结算 / 过期 / 换键 / 无会话时必须放行（②③④⑤）——少一半就是「永远只能做一次」。
+
+
+async def _reserve(
+    session: AgentSession,
+    call_id: str,
+    *,
+    arguments: dict[str, Any] | None = None,
+) -> tuple[bool, str]:
+    """一条占位的最小参数（本组用例只关心唯一键的那四列）。"""
+    return await audit.reserve_dispatch(
+        call_id=call_id,
+        action_name=CONFIRM.name,
+        arguments=arguments if arguments is not None else {"pack_id": 7},
+        risk="confirm",
+        session_id=str(session.session_id),
+    )
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_reserve_twice_on_same_key_only_first_wins() -> None:
+    """① 同 (session, action, hash) 连占两次：第一次抢到，第二次被数据库挡下并交回在飞的 call_id。
+
+    这一条钉的正是「先查后写」换成「先占位再下发」的理由：两个 worker 同时下发时**都会
+    查空**（旧 ``find_unsettled`` 的洞），而 ``acreate`` 只能有一个成功。
+    """
+    session = await _make_session(await _make_user("uiaudit-reserve-twice"))
+    first_id, second_id = uuid.uuid4().hex, uuid.uuid4().hex
+
+    ok_first, ledger_first = await _reserve(session, first_id)
+    ok_second, ledger_second = await _reserve(session, second_id)
+
+    assert ok_first is True
+    assert ledger_first == first_id, "抢到时交回自己的 call_id（占位行、下发帧、回执是同一个 id）"
+    assert ok_second is False, "同键仍在飞：第二次占位必须插不进去"
+    assert ledger_second == first_id, "抢不到时交回**在飞那条**的 call_id（模型据此取结果）"
+    assert await AgentUiAction.objects.acount() == 1, "冲突不该多写一行"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_settled_row_releases_the_key() -> None:
+    """② 第一行结算（``outcome="ok"``）后再占位 → 抢到：约束只约束「在飞」，不约束历史。"""
+    session = await _make_session(await _make_user("uiaudit-reserve-settled"))
+    first_id, second_id = uuid.uuid4().hex, uuid.uuid4().hex
+
+    assert (await _reserve(session, first_id))[0] is True
+    await AgentUiAction.objects.filter(call_id=first_id).aupdate(outcome="ok")
+
+    ok_second, ledger_second = await _reserve(session, second_id)
+
+    assert ok_second is True
+    assert ledger_second == second_id
+    assert await AgentUiAction.objects.acount() == 2
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_expired_row_is_swept_before_reserving() -> None:
+    """③ 旧行过期后再占位 → 抢到，且旧行被扫成 ``expired``。
+
+    ``expires_at`` 是唯一解除占位的条件，而「页面永不回执」时没有任何人会推动它——所以
+    写之前必须扫一遍，否则一条永不结算的旧行会把这个键**永久占死**（律师想再做一次永远
+    做不成）。
+    """
+    session = await _make_session(await _make_user("uiaudit-reserve-expired"))
+    first_id, second_id = uuid.uuid4().hex, uuid.uuid4().hex
+
+    assert (await _reserve(session, first_id))[0] is True
+    await AgentUiAction.objects.filter(call_id=first_id).aupdate(expires_at=timezone.now() - timedelta(seconds=1))
+
+    ok_second, ledger_second = await _reserve(session, second_id)
+
+    assert ok_second is True
+    assert ledger_second == second_id
+    old = await AgentUiAction.objects.filter(call_id=first_id).afirst()
+    assert old is not None
+    assert old.outcome == "expired", "过期行必须落成终态，否则它还在索引里（键依旧被占死）"
+    assert "占位" in old.decision_note, "为什么被判过期要留痕（否则事后只看到一行莫名的 expired）"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_different_session_or_arguments_do_not_conflict() -> None:
+    """④ 不同会话 / 不同参数 → 都能抢到：去重键是「会话 + 动作 + 参数」，不是「动作」。"""
+    user = await _make_user("uiaudit-reserve-keys")
+    first_session = await _make_session(user)
+    second_session = await _make_session(user)
+    same_args = {"pack_id": 7}
+    other_args = {"pack_id": 8}
+
+    assert (await _reserve(first_session, uuid.uuid4().hex, arguments=same_args))[0] is True
+    assert (await _reserve(first_session, uuid.uuid4().hex, arguments=other_args))[0] is True, (
+        "换参数就是另一次决定，不该被自己的上一条堵住"
+    )
+    assert (await _reserve(second_session, uuid.uuid4().hex, arguments=same_args))[0] is True, (
+        "别的会话里没有在飞的那一条（跨会话不该互相堵）"
+    )
+    assert await AgentUiAction.objects.acount() == 3
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_null_session_never_conflicts() -> None:
+    """⑤ 没有会话（``session_id=None``）→ 两次都抢到：NULL 不进那条部分唯一索引。
+
+    PostgreSQL 的唯一索引里 NULL 互不相等（``NULLS DISTINCT``），所以约束对这些行**不生效**。
+    可接受：没有会话的下发本来就没有可竞争的上下文（同一页面对应一个会话）。这条用例同时
+    防止后来人「顺手」把 session 改成非空来「修好」它——代价是丢掉无会话下发的审计。
+    """
+
+    async def _reserve_without_session() -> tuple[bool, str]:
+        return await audit.reserve_dispatch(
+            call_id=uuid.uuid4().hex,
+            action_name=CONFIRM.name,
+            arguments={"pack_id": 7},
+            risk="confirm",
+            session_id=None,
+        )
+
+    assert (await _reserve_without_session())[0] is True
+    assert (await _reserve_without_session())[0] is True
+    assert await AgentUiAction.objects.filter(session__isnull=True).acount() == 2
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_partial_unique_index_rejects_second_unsettled_row() -> None:
+    """⑥ 约束真的在数据库里：直接插两行同键 ``unknown`` → 第二条 ``IntegrityError``。
+
+    绕开 ``reserve_dispatch`` 直插，是为了证明「同一动作同参数只允许一个在飞」不是应用层
+    的巧合（某个分支忘了查），而是库自己拒绝：以后谁新开一条写入口，也逃不出这棵索引。
+    """
+    session = await _make_session(await _make_user("uiaudit-reserve-index"))
+    shared: dict[str, Any] = {
+        "session": session,
+        "action": CONFIRM.name,
+        "arguments": {"pack_id": 7},
+        "arguments_hash": audit.arguments_hash_of({"pack_id": 7}),
+        "risk": "confirm",
+        "expires_at": timezone.now() + audit.RECEIPT_TTL,
+    }
+
+    await AgentUiAction.objects.acreate(call_id=uuid.uuid4().hex, **shared)
+    with pytest.raises(IntegrityError):
+        await AgentUiAction.objects.acreate(call_id=uuid.uuid4().hex, **shared)
