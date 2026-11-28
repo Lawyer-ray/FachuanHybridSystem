@@ -80,7 +80,6 @@ from typing import Any
 
 from . import ack, audit
 from .manifest import UiAction
-from .schema import validate_arguments
 
 # 纯 re-export（含发布路径在用的 ``_attach_verification``）：测试直接 import 过这些私有名，
 # 名字与所在模块保持不变，别删。
@@ -92,6 +91,7 @@ from .result import (
     _unobserved_note,
     _verified_note,
 )
+from .schema import validate_arguments
 
 logger = logging.getLogger(__name__)
 

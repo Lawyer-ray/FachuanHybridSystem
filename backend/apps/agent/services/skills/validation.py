@@ -17,13 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from .constants import (
-    MAX_BODY_BYTES,
-    MAX_DESCRIPTION,
-    MAX_TITLE,
-    NAME_RE,
-    RESERVED_COMMANDS,
-)
+from .constants import MAX_BODY_BYTES, MAX_DESCRIPTION, MAX_TITLE, NAME_RE, RESERVED_COMMANDS
 from .library import builtin_names
 
 

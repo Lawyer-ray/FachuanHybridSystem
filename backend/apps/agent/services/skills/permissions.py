@@ -88,7 +88,7 @@ def is_author(lawyer: Any, skill_row: Any) -> bool:
     created_by = getattr(skill_row, "created_by_id", None)
     if created_by is not None and created_by == lawyer_id:
         return True
-    return getattr(skill_row, "lawyer_id", None) == lawyer_id
+    return bool(getattr(skill_row, "lawyer_id", None) == lawyer_id)
 
 
 def can_view(lawyer: Any, skill_row: Any) -> bool:

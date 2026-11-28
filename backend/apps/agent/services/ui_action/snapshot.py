@@ -60,8 +60,10 @@ async def register(request_id: str) -> asyncio.Future[dict[str, Any]]:
 async def resolve(request_id: str, payload: dict[str, Any]) -> bool:
     """应答的唯一入口：本进程唤醒 + 写共享缓存；**幂等**（不覆盖第一份，前端会重试）。"""
     future = _FUTURES.get(request_id)
+    # 写成直接 `if` 而不是「先算一个布尔再判它」：mypy 只按表达式本身收窄类型，
+    # 走布尔变量那条路会把 future 留成 `Future | None`（union-attr 报错）。
     woken = future is not None and not future.done()
-    if woken:
+    if future is not None and woken:
         future.set_result(payload)
     stored = _write(request_id, payload)
     return woken or stored

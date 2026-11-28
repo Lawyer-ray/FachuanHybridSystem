@@ -230,7 +230,9 @@ class AuthorizationMaterialGenerationService:
         try:
             identity_docs = self.client_service.get_identity_docs_by_client_internal(client.id)
         except Exception:
-            logger.exception("authorization_material_generation_service._zip_add_identity_docs_flat: 读取客户身份材料失败")
+            logger.exception(
+                "authorization_material_generation_service._zip_add_identity_docs_flat: 读取客户身份材料失败"
+            )
             identity_docs = []
 
         uploaded_types: set[str] = set()

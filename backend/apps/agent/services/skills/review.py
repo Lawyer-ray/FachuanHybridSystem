@@ -36,6 +36,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -251,7 +252,8 @@ def diff_versions(*, user_id: int, key: str, v1: int | None = None, v2: int | No
             raise SkillInvalid([{"field": "version", "message": f"没有 v{version} 这个版本"}])
         return revision.body, revision.version
 
-    left_version = v1 if v1 is not None else (skill.published_revision.version if skill.published_revision_id else None)
+    published = skill.published_revision
+    left_version = v1 if v1 is not None else (published.version if published is not None else None)
     right_version = v2
     left_text, left_no = _text(left_version)
     right_text, right_no = _text(right_version)
@@ -285,7 +287,7 @@ def prune_revisions(skill: AgentSkill) -> None:
 # ── 内部工具 ──────────────────────────────────────────────────
 
 
-def _lawyer(user_id: int) -> object:
+def _lawyer(user_id: int) -> Any:
     from apps.organization.models import Lawyer
 
     lawyer = Lawyer.objects.select_related("law_firm").prefetch_related("lawyer_teams").filter(pk=user_id).first()
@@ -307,7 +309,7 @@ def _locked_skill(user_id: int, key: str) -> AgentSkill:
 
 
 def _promote_scope(
-    lawyer: object,
+    lawyer: Any,
     skill: AgentSkill,
     target_scope: str,
     *,
@@ -321,7 +323,7 @@ def _promote_scope(
     ``IntegrityError`` 会把整轮事务变成 500，而作者需要的是一句「目标层已有同名
     技能，换个名字」。
     """
-    owner_field: dict[str, object]
+    owner_field: dict[str, Any]
     if target_scope == AgentSkill.Scope.LAW_FIRM:
         if not permissions.can_create_firm(lawyer):
             raise SkillForbidden("只有本所管理员可以把技能发布到所内")
@@ -357,7 +359,7 @@ def _promote_scope(
         raise SkillConflict(f"目标层已有同名技能「{final_name}」，请换一个名字") from exc
 
 
-def _target_team(lawyer: object, team_id: int | None) -> object | None:
+def _target_team(lawyer: Any, team_id: int | None) -> Any | None:
     """选定落位团队：给了 ``team_id`` 就用它（必须在自己的律师团队里），否则取第一个。"""
     teams_attr = getattr(lawyer, "lawyer_teams", None)
     teams = [team for team in teams_attr.all() if getattr(team, "team_type", "") == "lawyer"] if teams_attr else []
@@ -423,7 +425,7 @@ def _scan(*, title: str, description: str, body: str) -> tuple[list, list]:
     return hard, soft
 
 
-def _detail(skill: AgentSkill, lawyer: object) -> dict:
+def _detail(skill: AgentSkill, lawyer: Any) -> dict:
     """生命周期动作的回执（管理面字段 + 工作区正文）。"""
     from .user_skills import entry_for_row
 

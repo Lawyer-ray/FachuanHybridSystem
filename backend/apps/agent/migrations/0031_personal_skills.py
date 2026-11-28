@@ -25,13 +25,14 @@
 """
 
 import uuid
+from typing import Any
 
 import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
 
 
-def backfill_skill_key(apps, schema_editor):
+def backfill_skill_key(apps: Any, schema_editor: Any) -> None:
     """所有现存偏好行都是内置技能：``skill_name`` → ``builtin:<name>``。"""
     Preference = apps.get_model("agent", "AgentSkillPreference")
     for preference in Preference.objects.all().iterator():
@@ -39,7 +40,7 @@ def backfill_skill_key(apps, schema_editor):
         preference.save(update_fields=["skill_key"])
 
 
-def restore_skill_name(apps, schema_editor):
+def restore_skill_name(apps: Any, schema_editor: Any) -> None:
     """反向：``builtin:`` 剥前缀回填；``skill:<uuid>`` 是 P0 之后才有的行，删除。"""
     Preference = apps.get_model("agent", "AgentSkillPreference")
     for preference in Preference.objects.all().iterator():
@@ -51,7 +52,6 @@ def restore_skill_name(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("agent", "0030_uiaction_unsettled_unique"),
         ("organization", "0012_lawfirm_name_unique"),

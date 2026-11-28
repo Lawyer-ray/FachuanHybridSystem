@@ -33,6 +33,7 @@ import logging
 import secrets
 import string
 import uuid
+from typing import Any
 
 from django.db import IntegrityError, connection, transaction
 
@@ -41,22 +42,16 @@ from apps.agent.models import AgentSkill, AgentSkillPreference, AgentSkillRevisi
 from . import flags, library, permissions, resolve, review, validation
 from .constants import (
     BUILTIN_PREFIX,
-    UNAVAILABLE_DISABLED,
-    UNAVAILABLE_MISSING,
-    UNAVAILABLE_NOT_PUBLISHED,
     CONTENT_PAGE_BYTES,
     MAX_SHARED_SKILLS,
     MAX_TITLE,
     MAX_USER_SKILLS,
+    UNAVAILABLE_DISABLED,
+    UNAVAILABLE_MISSING,
+    UNAVAILABLE_NOT_PUBLISHED,
     USER_PREFIX,
 )
-from .errors import (
-    SkillConflict,
-    SkillForbidden,
-    SkillInvalid,
-    SkillNotFound,
-    SkillQuotaExceeded,
-)
+from .errors import SkillConflict, SkillForbidden, SkillInvalid, SkillNotFound, SkillQuotaExceeded
 from .render import render_skill_body, render_skill_md
 
 logger = logging.getLogger(__name__)
@@ -404,7 +399,7 @@ def duplicate_builtin(*, user_id: int, key: str) -> dict:
 # ── 供 review / API 复用 ──────────────────────────────────────
 
 
-def entry_for_row(skill: AgentSkill, lawyer: object | None = None) -> dict:
+def entry_for_row(skill: AgentSkill, lawyer: Any | None = None) -> dict:
     """ORM 行 → 管理面条目（字段集见 CONTRACT §2）。
 
     ``lawyer`` 传进来才带 ``can_*``：动作权限必须服务端算（前端不得自判
@@ -507,7 +502,7 @@ def _require_editable(skill: AgentSkill) -> None:
         raise SkillConflict("这条技能已下线，请先恢复再编辑")
 
 
-def _owner_fields(lawyer: object, scope: str, team_id: int | None) -> dict:
+def _owner_fields(lawyer: Any, scope: str, team_id: int | None) -> dict:
     """按作用域给出归属字段（CHECK 约束要求恰好一个非空）。"""
     if lawyer is None:
         raise SkillNotFound("技能不存在")
@@ -525,7 +520,7 @@ def _owner_fields(lawyer: object, scope: str, team_id: int | None) -> dict:
     raise SkillInvalid([{"field": "scope", "message": "作用域只能是 lawyer / team / law_firm"}])
 
 
-def _team_for(lawyer: object, team_id: int | None) -> object | None:
+def _team_for(lawyer: Any, team_id: int | None) -> Any | None:
     from apps.organization.models import Team
 
     teams = getattr(lawyer, "lawyer_teams", None)
@@ -544,12 +539,12 @@ def _check_shared_quota(scope: str, owner: dict) -> None:
     if scope == AgentSkill.Scope.LAW_FIRM:
         queryset = queryset.filter(law_firm_id=owner.get("law_firm_id"))
     else:
-        queryset = queryset.filter(team_id=owner.get("team_id"))
+        queryset = queryset.filter(team_id=owner["team_id"])
     if queryset.count() >= limit:
         raise SkillQuotaExceeded(f"这一层最多 {limit} 条技能，请先下线不用的")
 
 
-def _lawyer_or_none(user_id: int | None) -> object | None:
+def _lawyer_or_none(user_id: int | None) -> Any | None:
     if user_id is None:
         return None
     from apps.organization.models import Lawyer

@@ -14,9 +14,8 @@ from typing import Any
 
 import pytest
 
-from apps.agent.backends import BackendCapabilities, RunContext, SkillDelivery
-from apps.agent.backends import registry
-from apps.agent.models import AgentSkill, AgentMessage, AgentSkillTrial
+from apps.agent.backends import BackendCapabilities, RunContext, SkillDelivery, registry
+from apps.agent.models import AgentMessage, AgentSkill, AgentSkillTrial
 from apps.agent.services.skills import prompt_block, trial, trial_ledger
 from apps.organization.models import LawFirm, Lawyer, Team
 

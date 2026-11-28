@@ -247,7 +247,8 @@ async def stats_for_user(
         # ── approval_to_dispatch_ms：唯一一段 python 侧排序取秩，理由见 docstring ──
         samples = sorted(
             [
-                max(0, int((created_at - decided_at).total_seconds() * 1000))
+                # ``decided_at`` 已被 filter 排除 null；``or created_at`` 只是让 mypy 满意
+                max(0, int((created_at - (decided_at or created_at)).total_seconds() * 1000))
                 async for decided_at, created_at in base.filter(decided_at__isnull=False)
                 .values_list("decided_at", "created_at")
                 .order_by()

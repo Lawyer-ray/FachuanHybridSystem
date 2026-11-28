@@ -92,11 +92,10 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any
 
-from .manifest import UI_ACTIONS
-
 # 纯 re-export：调用方 ``api/ui_api.py`` 与测试都按 ``audit.list_recent_for_user`` 取用，
 # ``LIST_MAX_LIMIT`` 也随查询搬走但保持 ``audit.LIST_MAX_LIMIT`` 可取，别删。
 from .audit_query import LIST_MAX_LIMIT, list_recent_for_user
+from .manifest import UI_ACTIONS
 
 logger = logging.getLogger(__name__)
 

@@ -25,7 +25,7 @@ pi 进程、用完即关，取消路径走 ``abort_running=True``，``session_sh
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,9 @@ def extract_session_memories(session_id: str) -> dict[str, Any]:
     from . import memory_service
 
     try:
-        return memory_service.extract_memories_from_session(session_id)
+        # ``memory_service`` 那个函数没有返回注解（返回 Any）；这里显式收窄，
+        # 否则 mypy 全量门会以 no-any-return 报错（该红项在 main 上已存在）。
+        return cast("dict[str, Any]", memory_service.extract_memories_from_session(session_id))
     # worker 必须收口所有异常，否则任务状态永远卡在 running
     except Exception as exc:
         logger.exception("记忆抽取任务失败 session=%s", session_id)

@@ -38,12 +38,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 
 from apps.agent.services.ui_action import verify
-from apps.agent.services.ui_action.manifest import (
-    CONFIRM_ACTION_NAMES,
-    DIRECT_ACTION_NAMES,
-    UI_ACTIONS,
-    UiAction,
-)
+from apps.agent.services.ui_action.manifest import CONFIRM_ACTION_NAMES, DIRECT_ACTION_NAMES, UI_ACTIONS, UiAction
 from apps.message_hub.models import InboxMessage, MessageSource
 from mcp_server.tool_tiers import build_tool_exposure
 from mcp_server.tools.ui.register import _register_actions

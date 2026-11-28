@@ -327,4 +327,3 @@ class TestReadonlyToolSelection:
             assert short not in BUILTIN_FILE_TOOLS, f"只读白名单里出现内置文件工具: {entry}"
             for banned in BUILTIN_FILE_TOOLS:
                 assert f"+{banned}" not in entry and f"-{banned}" not in entry
-

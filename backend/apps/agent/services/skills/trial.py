@@ -79,9 +79,7 @@ MODES: tuple[str, ...] = (MODE_AUTO, MODE_INLINE, MODE_INDEX)
 
 #: ``inline`` 块里的一句硬话：不说它，模型会去调 ``get_agent_skill`` 取一条还没发布的
 #: 技能，得到一个 404，然后交出一段与技能无关的回答。
-INLINE_NO_FETCH_LINE = (
-    "本技能全文已在上方给出，**不要**调用 `get_agent_skill` 去取它（它还没发布，取会失败）。"
-)
+INLINE_NO_FETCH_LINE = "本技能全文已在上方给出，**不要**调用 `get_agent_skill` 去取它（它还没发布，取会失败）。"
 
 #: 试跑块的首行。带「试跑」字样，和正常索引块（`## 可用技能（法穿）`）区分开：
 #: 万一这段内容出现在日志/会话里，一眼能认出是试跑而不是真实配置。
@@ -541,7 +539,7 @@ def _default_backend_kind() -> str:
     return "pi"
 
 
-def _lawyer(user_id: int) -> object:
+def _lawyer(user_id: int) -> Any:
     from apps.organization.models import Lawyer
 
     lawyer = Lawyer.objects.select_related("law_firm").prefetch_related("lawyer_teams").filter(pk=user_id).first()
@@ -550,7 +548,7 @@ def _lawyer(user_id: int) -> object:
     return lawyer
 
 
-def _readable_skill(user_id: int, key: str, lawyer: object) -> AgentSkill:
+def _readable_skill(user_id: int, key: str, lawyer: Any) -> AgentSkill:
     """取要试跑的那一行，并校验「能编辑或能审批」。
 
     作者能试跑自己的稿子，审批人能试跑待审稿——这两类之外的人没有理由让服务器替他

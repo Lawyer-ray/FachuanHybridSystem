@@ -249,8 +249,7 @@ def _reject_unsupported_run_options(ctx: RunContext) -> None:
     if unsupported:
         raise BackendError(
             BackendErrorKind.UNAVAILABLE,
-            f"cline 不支持本轮运行选项：{', '.join(unsupported)}；"
-            "请换用 pi / claude-agent / qoder / antigravity",
+            f"cline 不支持本轮运行选项：{', '.join(unsupported)}；请换用 pi / claude-agent / qoder / antigravity",
         )
 
 
