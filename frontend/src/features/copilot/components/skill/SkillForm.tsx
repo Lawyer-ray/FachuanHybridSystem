@@ -5,14 +5,21 @@
  * `SkillEditor`。做成纯展示的字段区，新建态与编辑态才不会各长一套校验与保存。
  *
  * 字段顺序就是律师的思考顺序：显示名（列表里靠它辨认）→ 技能名（`/skill:` 后面的
- * 命令名）→ 描述（一句话适用场景）→ 正文（AI 执行的做法）。描述不承诺「AI 会自己
- * 判断何时用它」——P0 只做 `/skill:` 点名展开，索引注入落地后再放开措辞。
+ * 命令名）→ 描述（一句话适用场景）→ 正文（AI 执行的做法）。
+ *
+ * 描述的两种用处都要写准：它是 `/` 菜单与抽屉里的辨认文案，也是系统提示里「技能
+ * 索引」的一行——但只有 `prompt` / `native` 后端会注入（`tool_only` 后端不注入，
+ * 见 CONTRACT §9），所以措辞按「AI 能据此判断何时取全文」写，不承诺一定会被注入。
+ *
+ * 正文下方常驻字节数：两个上限（16KB 分段 / 32KB 硬拒绝）都是字节，中文一字 3 字节，
+ * 按字符数提示会让律师在「才 5 千字」时被 422 挡住（口径见 `skill-body-size.ts`）。
  */
 
 import type { ReactNode } from 'react'
 
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { skillBodySize } from './skill-body-size'
 
 /** slug 规则与后端 `NAME_RE` 同口径：小写字母/数字/连字符，字母或数字打头 */
 export const NAME_RE = /^[a-z0-9][a-z0-9-]{0,63}$/
@@ -24,6 +31,18 @@ export interface SkillFormValues {
   title: string
   description: string
   body: string
+}
+
+/** 正文字节数：随输入实时刷新（`aria-live` 让屏幕阅读器也能听到档位变化） */
+function SkillBodyMeter({ body }: { body: string }) {
+  const size = skillBodySize(body)
+  const tone =
+    size.level === 'over' ? 'text-destructive' : size.level === 'segment' ? 'text-status-yellow' : 'text-muted-foreground'
+  return (
+    <p className={`mt-1 text-[10.5px] leading-relaxed ${tone}`} aria-live="polite">
+      {size.bytes} 字节{size.hint ? ` · ${size.hint}` : ''}
+    </p>
+  )
 }
 
 /** 字段壳：标签 + 控件 + 提示/错误二选一（错误优先） */
@@ -89,7 +108,7 @@ export function SkillForm({
       <Field
         id="skill-description"
         label="描述（一句话说清它管什么）"
-        hint="写适用场景与产出，不要换行；抽屉与 / 菜单里靠它辨认，点名使用时也随技能一起交给 AI"
+        hint="写适用场景与产出，不要换行；抽屉与 / 菜单里靠它辨认，也是系统提示里技能索引的一行（是否注入取决于后端）"
         error={errors.description}
       >
         <Input
@@ -112,6 +131,7 @@ export function SkillForm({
           className="min-h-40 resize-y font-mono text-[12px]"
           aria-invalid={Boolean(errors.body)}
         />
+        <SkillBodyMeter body={values.body} />
       </Field>
     </>
   )

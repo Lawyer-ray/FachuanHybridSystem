@@ -1,16 +1,19 @@
 // @vitest-environment jsdom
 /**
- * 技能抽屉测试（jsdom）。
+ * 技能抽屉测试（jsdom）：编辑与「不丢东西」的那几条。
  *
- * 只覆盖真正会出事的几条：
- * 1. **两个 tab** 各列各的来源，空态有「新建技能」而不是死路；
- * 2. **权限在界面上**：内置行只能「复制为我的」+ 启停，个人行才有编辑/删除；
- * 3. **开关乐观更新**：点了立即变色，失败回滚到请求前的值；
- * 4. **保存前先校验**：服务端字段错误落到对应字段下方，草稿不丢；
- * 5. **首次保存前的一次性告知**：确认后才真的发创建请求，localStorage 记一次；
- * 6. **未保存离开要二次确认**；
- * 7. **`dirty` 不能说谎**：新建态的初始名只生成一次，空表单/改回原样都不算未保存
- *    （render 期间生成名字会让任意重渲染都换名，`dirty` 被永久锁死为真）。
+ * 只覆盖真正会出事的路径：
+ * 1. **行内动作按服务端能力给**：个人行有编辑/删除，内置行只有「复制为我的」；
+ * 2. **开关乐观更新**：点了立即变色，失败回滚到请求前的值；
+ * 3. **保存前先校验**：服务端字段错误落到对应字段下方，草稿不丢；
+ * 4. **首次保存前的一次性告知**：确认后才真的发创建请求，localStorage 记一次；
+ * 5. **未保存离开要二次确认**（取消按钮与抽屉 X 两条路都要）；
+ * 6. **`dirty` 不能说谎**：新建态的初始名只生成一次，空表单/改回原样都不算未保存
+ *    （render 期间生成名字会让任意重渲染都换名，`dirty` 被永久锁死为真）；
+ * 7. **新建带作用域**：在「所内」tab 建的是所内草稿（`scope='law_firm'`）。
+ *
+ * tab 切换 / 双轨徽标 / 覆盖提示 / 配额条 / 字节提示在 `SkillTabs.dom.test.tsx`
+ * （按被测关注点分文件，避免一个文件里混两种判据）。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -21,6 +24,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const apiMock = vi.hoisted(() => ({
   fetchAgentSkills: vi.fn(),
   fetchAgentSkill: vi.fn(),
+  fetchAgentSkillQuota: vi.fn(),
   createAgentSkill: vi.fn(),
   updateAgentSkill: vi.fn(),
   deleteAgentSkill: vi.fn(),
@@ -35,6 +39,7 @@ import type { AgentSkill } from '../../types'
 import { SkillDrawer } from './SkillDrawer'
 import { SkillEditor } from './SkillEditor'
 
+/** 内置技能：只读、可复制 */
 function builtin(overrides: Partial<AgentSkill> = {}): AgentSkill {
   return {
     key: 'builtin:web-research',
@@ -43,25 +48,54 @@ function builtin(overrides: Partial<AgentSkill> = {}): AgentSkill {
     description: '联网搜索与网页原文抓取',
     enabled: true,
     source: 'builtin',
-    scope: '',
+    scope: 'builtin',
+    scope_weight: -1,
     editable: false,
     version: 0,
+    status: 'active',
+    review_status: 'none',
+    review_note: '',
+    published_version: 0,
+    has_unpublished_changes: false,
+    shadowed: [],
+    effective: true,
+    shadowed_by: null,
+    can_edit: false,
+    can_submit: false,
+    can_review: false,
+    can_archive: false,
+    can_restore: false,
     ...overrides,
   }
 }
 
+/** 个人技能：本人可编辑 */
 function mine(overrides: Partial<AgentSkill> = {}): AgentSkill {
-  return {
+  return builtin({
     key: 'skill:mine-1',
     name: 'contract-review',
     title: '合同审查三段式',
     description: '按四段核对买卖合同',
-    enabled: true,
     source: 'user',
     scope: 'lawyer',
+    scope_weight: 0,
     editable: true,
+    can_edit: true,
     version: 2,
     ...overrides,
+  })
+}
+
+/** 配额回执：只有个人层给满额度，共享层为 0 → 不显示共享层配额条（旧后端口径） */
+function quota(overrides: Partial<{ used: number; max: number; can_create_firm: boolean }> = {}) {
+  const used = overrides.used ?? 1
+  const max = overrides.max ?? 20
+  return {
+    max_skills: max,
+    used,
+    by_scope: { lawyer: used, team: 0, law_firm: 0 },
+    max_by_scope: { lawyer: max, team: 0, law_firm: 0 },
+    can_create_firm: overrides.can_create_firm ?? false,
   }
 }
 
@@ -84,39 +118,17 @@ beforeEach(() => {
   localStorage.clear()
   useSkillDrawer.setState({ open: true })
   apiMock.fetchAgentSkills.mockResolvedValue({ skills: [builtin(), mine()] })
+  apiMock.fetchAgentSkillQuota.mockResolvedValue(quota())
   apiMock.fetchAgentSkill.mockResolvedValue({ ...mine(), body: '1. 主体\n2. 标的' })
   apiMock.setAgentSkillEnabled.mockResolvedValue({ key: 'skill:mine-1', enabled: false })
   apiMock.validateAgentSkill.mockResolvedValue({ ok: true, errors: [], preview: '---\nname: contract-review' })
   apiMock.createAgentSkill.mockResolvedValue(mine())
+  apiMock.updateAgentSkill.mockResolvedValue(mine())
   apiMock.deleteAgentSkill.mockResolvedValue(undefined)
-  apiMock.duplicateAgentSkill.mockResolvedValue(builtin({ key: 'skill:copy-1', source: 'user', editable: true }))
+  apiMock.duplicateAgentSkill.mockResolvedValue(mine({ key: 'skill:copy-1', name: 'web-research-copy' }))
 })
 
-describe('SkillDrawer：两个 tab 与空态', () => {
-  it('「我的」列个人技能，「系统」列内置技能', async () => {
-    renderDrawer()
-    expect(await screen.findByText('合同审查三段式')).toBeTruthy()
-    expect(screen.queryByText('web-research')).toBeNull()
-
-    fireEvent.click(screen.getByRole('tab', { name: '系统' }))
-    // 标题与 slug 都是 web-research（一行两个字位），用 AllBy 避开展开歧义
-    expect((await screen.findAllByText('web-research')).length).toBeGreaterThan(0)
-    expect(screen.queryByText('合同审查三段式')).toBeNull()
-  })
-
-  it('空态给「新建技能」而不是「暂无数据」死路', async () => {
-    apiMock.fetchAgentSkills.mockResolvedValue({ skills: [] })
-    renderDrawer()
-    expect(await screen.findByText(/还没有自己的技能/)).toBeTruthy()
-
-    fireEvent.click(screen.getByRole('button', { name: '新建技能' }))
-    // 进入编辑器：名字已自动生成一份可改的 skill-xxxx
-    const nameInput = screen.getByLabelText('技能名（/skill: 后面的命令名）') as HTMLInputElement
-    expect(nameInput.value).toMatch(/^skill-[a-z0-9]{4}$/)
-  })
-})
-
-describe('SkillDrawer：行内动作按来源区分', () => {
+describe('SkillDrawer：行内动作按服务端能力给', () => {
   it('个人行有编辑/删除；内置行只有「复制为我的」', async () => {
     renderDrawer()
     await screen.findByText('合同审查三段式')
@@ -153,12 +165,16 @@ describe('SkillDrawer：启停', () => {
     fireEvent.click(toggle)
 
     // 请求还没回来，开关已经翻面（等往返再变色会被当成没点到）
-    await waitFor(() => expect(screen.getByRole('switch', { name: '启用 合同审查三段式' }).getAttribute('aria-checked')).toBe('false'))
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: '启用 合同审查三段式' }).getAttribute('aria-checked')).toBe('false'),
+    )
 
     await act(async () => {
       rejectToggle(new Error('boom'))
     })
-    await waitFor(() => expect(screen.getByRole('switch', { name: '停用 合同审查三段式' }).getAttribute('aria-checked')).toBe('true'))
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: '停用 合同审查三段式' }).getAttribute('aria-checked')).toBe('true'),
+    )
   })
 })
 
@@ -197,6 +213,34 @@ describe('SkillDrawer：编辑器', () => {
     fireEvent.click(screen.getByRole('button', { name: '我知道了，继续保存' }))
     await waitFor(() => expect(apiMock.createAgentSkill).toHaveBeenCalled())
     expect(localStorage.getItem('fachuan:skill-notice:v1')).toBe('1')
+  })
+
+  it('在「所内」tab 新建：创建请求带 scope=law_firm，保存后回到「所内」', async () => {
+    // 管理员首次进抽屉：还没有所内条目，但服务端允许直建 → 所内 tab 必须出现
+    apiMock.fetchAgentSkills.mockResolvedValue({ skills: [mine()] })
+    apiMock.fetchAgentSkillQuota.mockResolvedValue({
+      ...quota(),
+      can_create_firm: true,
+      by_scope: { lawyer: 1, team: 0, law_firm: 0 },
+      max_by_scope: { lawyer: 20, team: 30, law_firm: 60 },
+    })
+    apiMock.createAgentSkill.mockResolvedValue(mine({ key: 'skill:firm-1', scope: 'law_firm', scope_weight: 2, source: 'law_firm' }))
+    renderDrawer()
+
+    fireEvent.click(await screen.findByRole('tab', { name: '所内' }))
+    fireEvent.click(await screen.findByRole('button', { name: '新建所内技能' }))
+    expect(screen.getByText(/建在所内/)).toBeTruthy()
+    fillDraft({ title: '所内合同审查', name: 'firm-review', description: '所内统一口径', body: '1. 主体' })
+
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    fireEvent.click(await screen.findByRole('button', { name: '我知道了，继续保存' }))
+    await waitFor(() =>
+      expect(apiMock.createAgentSkill).toHaveBeenCalledWith(
+        expect.objectContaining({ scope: 'law_firm', name: 'firm-review', title: '所内合同审查' }),
+      ),
+    )
+    // 保存成功回到条目所在的 tab（所内），否则新技能在「我的」里看不见
+    await waitFor(() => expect(screen.getByRole('tab', { name: '所内' }).getAttribute('aria-selected')).toBe('true'))
   })
 
   it('有未保存改动时点「取消」要二次确认，确认后回到列表', async () => {
@@ -244,7 +288,9 @@ describe('SkillEditor：dirty 只说真话', () => {
   function renderEditor(onDirtyChange: (dirty: boolean) => void) {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
     const wrap = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>
-    return render(<SkillEditor target={{ mode: 'create' }} onClose={() => {}} onDirtyChange={onDirtyChange} />, { wrapper: wrap })
+    return render(<SkillEditor target={{ mode: 'create', scope: 'lawyer' }} onClose={() => {}} onDirtyChange={onDirtyChange} />, {
+      wrapper: wrap,
+    })
   }
 
   it('新建态重渲染不换初始名（初始名只生成一次）', () => {
@@ -255,7 +301,7 @@ describe('SkillEditor：dirty 只说真话', () => {
     expect(first).toMatch(/^skill-[a-z0-9]{4}$/)
 
     // 外部重渲染（抽屉切 tab、清单刷新都会触发）：名字不能被换掉，dirty 不能变真
-    rerender(<SkillEditor target={{ mode: 'create' }} onClose={() => {}} onDirtyChange={onDirtyChange} />)
+    rerender(<SkillEditor target={{ mode: 'create', scope: 'lawyer' }} onClose={() => {}} onDirtyChange={onDirtyChange} />)
     expect(nameInput().value).toBe(first)
     expect(onDirtyChange).toHaveBeenLastCalledWith(false)
   })

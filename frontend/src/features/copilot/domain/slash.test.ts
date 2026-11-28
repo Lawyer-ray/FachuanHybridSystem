@@ -3,18 +3,48 @@ import { describe, expect, it } from 'vitest'
 import type { AgentSkill } from '../types'
 import { buildSlashMenuItems, filterSlashMenuItems, slashMenuQuery } from './slash'
 
-/** 技能清单项（P0 契约 §1.6 的形状；测试只关心 name/source/enabled） */
+/**
+ * 技能清单项（CONTRACT §2 的完整字段集）。测试只关心 name/title/source/enabled/
+ * effective，其余给「内置技能」的缺省值；每处按需覆盖。
+ */
 function skill(overrides: Partial<AgentSkill> & Pick<AgentSkill, 'name' | 'description'>): AgentSkill {
   return {
     key: `builtin:${overrides.name}`,
     title: overrides.name,
     enabled: true,
     source: 'builtin',
-    scope: '',
+    scope: 'builtin',
+    scope_weight: -1,
     editable: false,
     version: 0,
+    status: 'active',
+    review_status: 'none',
+    review_note: '',
+    published_version: 0,
+    has_unpublished_changes: false,
+    shadowed: [],
+    effective: true,
+    shadowed_by: null,
+    can_edit: false,
+    can_submit: false,
+    can_review: false,
+    can_archive: false,
+    can_restore: false,
     ...overrides,
   }
+}
+
+/** 个人技能的缺省值（`source` 是交付面的说法、`scope` 是层级，两者同一条命的两面） */
+function mine(overrides: Partial<AgentSkill> & Pick<AgentSkill, 'name' | 'description'>): AgentSkill {
+  return skill({
+    key: `skill:${overrides.name}`,
+    source: 'user',
+    scope: 'lawyer',
+    scope_weight: 0,
+    editable: true,
+    can_edit: true,
+    ...overrides,
+  })
 }
 
 describe('slash 菜单（build/filter/query）', () => {
@@ -22,15 +52,7 @@ describe('slash 菜单（build/filter/query）', () => {
     skill({ name: 'web-research', description: '联网搜索' }),
     skill({ name: 'deadline-queries', description: '期限查询' }),
     skill({ name: 'off-skill', description: '已停用', enabled: false }),
-    skill({
-      key: 'skill:8f3a',
-      name: 'contract-review',
-      description: '合同审查三段式',
-      source: 'user',
-      scope: 'lawyer',
-      editable: true,
-      version: 3,
-    }),
+    mine({ name: 'contract-review', description: '合同审查三段式', version: 3 }),
   ]
 
   it('构建：命令在前、技能只列启用的；无会话时 compact 禁用、manage-skills 仍可用', () => {
@@ -55,11 +77,46 @@ describe('slash 菜单（build/filter/query）', () => {
     expect(badgeOf('manage-skills')).toBeUndefined()
   })
 
+  it('来源徽标覆盖四层：团队「团队」、所内「所内」', () => {
+    const items = buildSlashMenuItems(
+      [
+        skill({ name: 'firm-checklist', description: '所内清单', source: 'law_firm', scope: 'law_firm', scope_weight: 2 }),
+        skill({ name: 'team-checklist', description: '团队清单', source: 'team', scope: 'team', scope_weight: 1 }),
+      ],
+      true,
+    )
+    expect(items.find((i) => i.id === 'firm-checklist')?.badge).toBe('所内')
+    expect(items.find((i) => i.id === 'team-checklist')?.badge).toBe('团队')
+  })
+
+  it('被遮蔽（effective=false）与已下线的技能不进菜单', () => {
+    const items = buildSlashMenuItems(
+      [
+        mine({ name: 'contract-review', description: '我的同名（赢家）' }),
+        // 同名的所内条目被「我的」顶掉：`/skill:contract-review` 展开的是我的正文，
+        // 把它也列出来会让徽标（所内）与正文（我的）对不上
+        skill({
+          key: 'skill:firm-1',
+          name: 'contract-review',
+          description: '所内同名（被遮蔽）',
+          source: 'law_firm',
+          scope: 'law_firm',
+          scope_weight: 2,
+          effective: false,
+          shadowed_by: { key: 'skill:contract-review', scope: 'lawyer', title: '合同审查' },
+        }),
+        skill({ name: 'archived-skill', description: '已下线', effective: false }),
+      ],
+      true,
+    )
+    expect(items.filter((i) => i.kind === 'skill').map((i) => i.key)).toEqual(['skill-skill:contract-review'])
+  })
+
   it('列表 key 用技能身份（key）而非名字：个人与内置同名时不会撞 key', () => {
     const items = buildSlashMenuItems(
       [
         skill({ name: 'contract-review', description: '内置同名' }),
-        skill({ key: 'skill:aa11', name: 'contract-review', description: '我的同名', source: 'user', scope: 'lawyer', editable: true, version: 1 }),
+        mine({ name: 'contract-review', description: '我的同名', version: 1 }),
       ],
       true,
     )

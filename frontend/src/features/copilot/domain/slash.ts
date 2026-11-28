@@ -2,19 +2,34 @@
  * `/` 命令菜单的纯函数：命令清单、技能 + 命令合并、输入过滤与触发判定。
  */
 
-import type { AgentSkill, SlashMenuItem } from '../types'
+import type { AgentSkill, AgentSkillSource, SlashMenuItem } from '../types'
 
 /** 内置命令（不走 `/skill:` 文本协议：RPC 模式下 pi 内置命令不是文本，由前端直调端点） */
 export const SLASH_COMMANDS: Array<Pick<SlashMenuItem, 'kind' | 'id' | 'label' | 'description'>> = [
   { kind: 'command', id: 'compact', label: '压缩上下文', description: '总结当前会话历史，释放上下文空间（保留案号/期限等锚点）' },
-  { kind: 'command', id: 'manage-skills', label: '管理技能', description: '查看、新建、编辑我的技能' },
+  { kind: 'command', id: 'manage-skills', label: '管理技能', description: '查看、新建、编辑与提审技能' },
 ]
+
+/** 来源 → 菜单徽标：一条 `/skill:名` 到底来自哪一层，点之前就该看得见 */
+const SOURCE_BADGE: Record<AgentSkillSource, string> = {
+  builtin: '系统',
+  user: '我的',
+  team: '团队',
+  law_firm: '所内',
+}
 
 /**
  * 技能清单 + 内置命令 → 菜单项。
  *
- * 技能只列已启用的，并带 `badge`（我的 / 系统）——同名时用户要能分清这条
- * `/skill:名` 是自己写的还是内置的。compact 无活动会话时禁用；`manage-skills`
+ * 只列「启用且实际胜出」的技能：`/skill:名字` 由服务端按级联展开成**赢家**的全文，
+ * 把被遮蔽的条目也列出来会让律师发出 `/skill:名` 后拿到另一条的正文（徽标写着
+ * 「所内」、展开的却是「我的」版本）。已下线 / 停用同理不进菜单。
+ *
+ * `effective` 用 `!== false` 而不是 `=== true`：旧后端的清单只有赢家、不带这个字段，
+ * 缺省按「生效」处理；严格判 true 会让这一版菜单在旧后端上整块消失。
+ *
+ * `badge` 写清来源（我的 / 所内 / 团队 / 系统）——同名时用户要能分清这条
+ * `/skill:名` 是哪一层写的。compact 无活动会话时禁用；`manage-skills`
  * 与弹抽屉的入口不依赖会话，恒可用。
  *
  * `title` 必须带过来：律师给技能起的是中文名，`/` 菜单要显示它、也要能搜到它
@@ -22,7 +37,7 @@ export const SLASH_COMMANDS: Array<Pick<SlashMenuItem, 'kind' | 'id' | 'label' |
  */
 export function buildSlashMenuItems(skills: AgentSkill[], hasSession: boolean): SlashMenuItem[] {
   const skillItems: SlashMenuItem[] = skills
-    .filter((s) => s.enabled)
+    .filter((s) => s.enabled && s.effective !== false)
     .map((s) => ({
       key: `skill-${s.key}`,
       kind: 'skill' as const,
@@ -30,7 +45,7 @@ export function buildSlashMenuItems(skills: AgentSkill[], hasSession: boolean): 
       label: s.name,
       title: s.title,
       description: s.description,
-      badge: s.source === 'user' ? '我的' : '系统',
+      badge: SOURCE_BADGE[s.source],
     }))
   const commandItems: SlashMenuItem[] = SLASH_COMMANDS.map((c) => ({
     key: `command-${c.id}`,
