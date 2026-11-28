@@ -74,7 +74,15 @@ def list_visible_skills(*, user_id: int) -> list[dict]:
     静默消失。
     """
     lawyer = _lawyer(user_id)
-    entries = _candidates(user_id, include_unpublished=True, lawyer=lawyer)
+    candidates = _candidates(user_id, include_unpublished=True, lawyer=lawyer)
+    # 可见性不是「候选集里有」就算：管理者例外（查看草稿/待审/已下线）必须逐条
+    # 过 ``permissions.can_view``。不过这道闸门的话，全所每一条别人的草稿都会出现
+    # 在每个人的抽屉里——那比不发布更糟（半成品指令最容易被误当规范照做）。
+    entries = [
+        entry
+        for entry in candidates
+        if entry.get("_row") is None or permissions.can_view(lawyer, entry["_row"])
+    ]
     winners = {entry["name"]: entry for entry in _cascade([e for e in entries if e["enabled"]])}
 
     result: list[dict] = []
@@ -101,8 +109,13 @@ def list_visible_skills(*, user_id: int) -> list[dict]:
 
 
 def _public(entry: dict) -> dict:
-    """去掉内部字段（``_row`` 是 ORM 实例，不能跨层传也不会被序列化）。"""
-    return {key: value for key, value in entry.items() if not key.startswith("_")}
+    """去掉内部字段与服务端专用的正文。
+
+    ``_row`` 是 ORM 实例（不能跨层传也不会被序列化）；``body`` 是交付正文，
+    清单里不需要——所内 60 条 × 32KB 会把抽屉的首屏响应拖成兆级，而抽屉真正
+    要正文时走 ``get_detail``（单条）或 ``content_for_ref``（运行时）。
+    """
+    return {key: value for key, value in entry.items() if key not in ("body",) and not key.startswith("_")}
 
 
 # ── 候选集 ────────────────────────────────────────────────────
@@ -111,22 +124,15 @@ def _public(entry: dict) -> dict:
 def _lawyer(user_id: int | None) -> Any:
     if user_id is None:
         return None
-    from apps.organization.models import Lawyer  # noqa: PLC0415 - 避免 agent↔organization 循环导入
+    from apps.organization.models import Lawyer
 
-    return (
-        Lawyer.objects.select_related("law_firm")
-        .prefetch_related("lawyer_teams")
-        .filter(pk=user_id)
-        .first()
-    )
+    return Lawyer.objects.select_related("law_firm").prefetch_related("lawyer_teams").filter(pk=user_id).first()
 
 
 def _candidates(user_id: int | None, *, include_unpublished: bool = False, lawyer: Any = None) -> list[dict]:
     """候选集（未过滤偏好、未去重）。顺序无关——后面两步都会重排。"""
     builtin_disabled = _disabled_builtin_keys(user_id) if user_id is not None else set()
-    entries: list[dict] = [
-        {**entry, "enabled": entry["key"] not in builtin_disabled} for entry in builtin_skills()
-    ]
+    entries: list[dict] = [{**entry, "enabled": entry["key"] not in builtin_disabled} for entry in builtin_skills()]
     if user_id is None or not flags.user_skills_enabled():
         # 无用户身份 = 无偏好、无团队归属；总开关 off = 只留内置（面盘回滚）。
         return entries
@@ -169,7 +175,7 @@ def _shared_entries(lawyer: Any, *, include_unpublished: bool, disabled_keys: se
     if firm_id is None:
         # 无律所律师不参与任何共享作用域。绝不能把 law_firm_id=None 当成一个租户去匹配。
         return []
-    team_ids = permissions._team_ids(lawyer)  # noqa: SLF001 - 同包内的作用域判据只有一份实现
+    team_ids = permissions._team_ids(lawyer)
 
     queryset = (
         AgentSkill.objects.select_related("team", "published_revision")
@@ -202,7 +208,7 @@ def _shared_entries(lawyer: Any, *, include_unpublished: bool, disabled_keys: se
 
 
 def _shared_scope_filter(*, team_ids: set[int], firm_id: int) -> Any:
-    from django.db.models import Q  # noqa: PLC0415 - 只在候选集构造时需要
+    from django.db.models import Q
 
     condition = Q(scope=AgentSkill.Scope.LAW_FIRM, law_firm_id=firm_id)
     if team_ids:
@@ -290,8 +296,7 @@ def _cascade(entries: list[dict]) -> list[dict]:
         group.sort(key=_winner_sort_key)
         winner = dict(group[0])
         winner["shadowed"] = [
-            {"key": loser["key"], "scope": loser["scope"], "title": loser["title"]}
-            for loser in group[1:]
+            {"key": loser["key"], "scope": loser["scope"], "title": loser["title"]} for loser in group[1:]
         ]
         winners.append(winner)
     return winners

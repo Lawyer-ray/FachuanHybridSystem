@@ -121,6 +121,12 @@ def builtin_skills() -> list[dict]:
                 "version": 0,
                 "status": "active",
                 "review_status": "none",
+                # 下面三个字段恒为「无意义」值：内置技能不参与双轨发布。补在这里
+                # 而不是让 API 层给默认值，是为了让「内置条目」与「数据库条目」
+                # 形状完全一致——形状不一致时前端一定会在某个分支上读到 undefined。
+                "review_note": "",
+                "published_version": 0,
+                "has_unpublished_changes": False,
             }
         )
     _cache[cache_key] = (mtime, results)

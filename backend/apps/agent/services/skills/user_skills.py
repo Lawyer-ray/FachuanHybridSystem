@@ -78,11 +78,15 @@ def quota_for_user(user_id: int) -> dict:
     }
     lawyer = _lawyer_or_none(user_id)
     if lawyer is not None and getattr(lawyer, "law_firm_id", None) is not None:
-        by_scope["law_firm"] = AgentSkill.objects.filter(
-            scope=AgentSkill.Scope.LAW_FIRM,
-            law_firm_id=lawyer.law_firm_id,
-        ).exclude(status=AgentSkill.Status.ARCHIVED).count()
-        team_ids = permissions._team_ids(lawyer)  # noqa: SLF001 - 作用域判据只有一份实现
+        by_scope["law_firm"] = (
+            AgentSkill.objects.filter(
+                scope=AgentSkill.Scope.LAW_FIRM,
+                law_firm_id=lawyer.law_firm_id,
+            )
+            .exclude(status=AgentSkill.Status.ARCHIVED)
+            .count()
+        )
+        team_ids = permissions._team_ids(lawyer)
         if team_ids:
             by_scope["team"] = (
                 AgentSkill.objects.filter(scope=AgentSkill.Scope.TEAM, team_id__in=team_ids)
@@ -110,9 +114,7 @@ def get_detail(user_id: int, key: str) -> dict:
             **builtin,
             "enabled": _builtin_enabled(user_id, builtin["name"]),
             "body": body,
-            "preview": render_skill_body(
-                scope="builtin", name=builtin["name"], title=builtin["title"], body=body
-            ),
+            "preview": render_skill_body(scope="builtin", name=builtin["name"], title=builtin["title"], body=body),
         }
     skill = _resolve_skill_row(user_id, key)
     lawyer = _lawyer_or_none(user_id)
@@ -121,9 +123,7 @@ def get_detail(user_id: int, key: str) -> dict:
     return {
         **entry_for_row(skill),
         "body": skill.body,
-        "preview": render_skill_body(
-            scope=str(skill.scope), name=skill.name, title=skill.title, body=skill.body
-        ),
+        "preview": render_skill_body(scope=str(skill.scope), name=skill.name, title=skill.title, body=skill.body),
     }
 
 
@@ -467,7 +467,7 @@ def _owner_fields(lawyer: object, scope: str, team_id: int | None) -> dict:
 
 
 def _team_for(lawyer: object, team_id: int | None) -> object | None:
-    from apps.organization.models import Team  # noqa: PLC0415 - 避免循环导入
+    from apps.organization.models import Team
 
     teams = getattr(lawyer, "lawyer_teams", None)
     available = list(teams.all()) if teams is not None else []
@@ -493,20 +493,15 @@ def _check_shared_quota(scope: str, owner: dict) -> None:
 def _lawyer_or_none(user_id: int | None) -> object | None:
     if user_id is None:
         return None
-    from apps.organization.models import Lawyer  # noqa: PLC0415 - 避免循环导入
+    from apps.organization.models import Lawyer
 
-    return (
-        Lawyer.objects.select_related("law_firm")
-        .prefetch_related("lawyer_teams")
-        .filter(pk=user_id)
-        .first()
-    )
+    return Lawyer.objects.select_related("law_firm").prefetch_related("lawyer_teams").filter(pk=user_id).first()
 
 
 def _scan_findings(payload: dict[str, str]) -> list[dict]:
     """安全闸门的 API 形态（``/skills/validate`` 直接把结果给前端就地提示）。"""
     try:
-        from .safety import scan_skill  # noqa: PLC0415 - 模块可独立演进
+        from .safety import scan_skill
     except ImportError:  # pragma: no cover - 仅模块缺失期
         return []
     findings = scan_skill(title=payload["title"], description=payload["description"], body=payload["body"])
@@ -554,11 +549,7 @@ def _taken_names(user_id: int) -> set[str]:
 
 def _quota_used(user_id: int, scope: str) -> int:
     """配额占用（**排除**已归档：下线的不该继续占配额）。"""
-    return (
-        AgentSkill.objects.filter(lawyer_id=user_id, scope=scope)
-        .exclude(status=AgentSkill.Status.ARCHIVED)
-        .count()
-    )
+    return AgentSkill.objects.filter(lawyer_id=user_id, scope=scope).exclude(status=AgentSkill.Status.ARCHIVED).count()
 
 
 def _name_conflict(name: str, taken: set[str]) -> str:
