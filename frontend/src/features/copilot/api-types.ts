@@ -161,3 +161,33 @@ export interface AgentCompactReceipt {
   context_used_tokens: number | null
   context_total_tokens: number | null
 }
+
+/**
+ * GET /agent/ui-actions 的列表行：一次 UI 动作的审计投影（新 → 旧）。
+ *
+ * 只含 `confirm` / `guarded` 档（`safe` 的只读动作不入库），也只含**当前律师
+ * 自己**的行。字段口径与后端 `audit_query.list_recent_for_user` 一一对应；
+ * 时间字段是 ISO 8601 字符串，无值时为空串；`verified` 保持三态（`null` = 无法核实）。
+ */
+export interface UiActionHistoryItem {
+  session_id: string
+  action: string
+  risk: string
+  /** `ok` / `error` / `denied` / `aborted` / `expired` / `unknown`（展示口径见 domain/ui-action-history） */
+  outcome: string
+  /** `approved` / `denied` / `expired`；空串 = 没有审批判定 */
+  decision: string
+  decided_at: string
+  /** 服务端核实：true 真成功 / false 页面报成功但库里没变 / null 无法核实 */
+  verified: boolean | null
+  verify_note: string
+  approved_by_name: string
+  created_at: string
+  observed_location: string
+}
+
+/** GET /agent/ui-actions 的响应体（`count` = 本次返回条数） */
+export interface UiActionHistoryResponse {
+  items: UiActionHistoryItem[]
+  count: number
+}

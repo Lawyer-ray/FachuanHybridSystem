@@ -19,13 +19,20 @@
  * AssistantPage）都只传 kind，为一个标题后缀把 label 串过两层 props 只会让
  * 宿主各存一份派生值，故这里直接读同一个 slice（不是第二份数据源：清单只有
  * store 一份，selector 拿到的还是同一个数组引用）。
+ *
+ * 「历史」按钮把 UI 动作审计台账（`GET /agent/ui-actions`）摆到律师眼前：AI 动过
+ * 什么、他批还是拒了、页面报的成功在库里是否真的发生了。台账按律师查、与当前
+ * 会话无关，所以打开状态是本组件的本地 state（没有第二个读者）；面板也只在
+ * 打开后挂载——没打开就不发请求。
  */
 
-import { Columns2, FolderTree, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Plus, Sparkles, SquareStack, X } from 'lucide-react'
+import { useState } from 'react'
+import { Columns2, FolderTree, History, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Plus, Sparkles, SquareStack, X } from 'lucide-react'
 
 import { useCopilot } from '../store'
 import { findBackend } from '../store/backends'
 import type { CopilotContext } from '../types'
+import { UiActionHistory } from './UiActionHistory'
 
 export interface CopilotHeaderProps {
   /** 会话栏是否常驻（宽屏展开态）；窄屏时开关作用于覆盖式列表 */
@@ -96,6 +103,7 @@ export function CopilotHeader({
   onExitFullscreen,
 }: CopilotHeaderProps) {
   const backends = useCopilot((s) => s.backends)
+  const [historyOpen, setHistoryOpen] = useState(false)
   // 已有会话的后端名：清单没到（或拉取失败）时退回 kind 原文，宁可显示 `pi` 也不空着
   const sessionAgentLabel = currentAgentKind
     ? (findBackend(backends, currentAgentKind)?.label ?? currentAgentKind)
@@ -185,12 +193,23 @@ export function CopilotHeader({
       <button
         type="button"
         className="flex h-7 flex-none items-center gap-1 rounded-[8px] px-2 text-[12.5px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        onClick={() => setHistoryOpen(true)}
+        aria-label="AI 操作历史"
+        title="查看 AI 需要审批的操作记录：谁批的、页面报的成功是否真的在库里发生"
+      >
+        <History className="h-3.5 w-3.5" />
+        历史
+      </button>
+      <button
+        type="button"
+        className="flex h-7 flex-none items-center gap-1 rounded-[8px] px-2 text-[12.5px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         onClick={onNewSession}
         title="需要换后端请新建对话——后端在建会话时确定，中途更换会丢失上下文"
       >
         <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
         新对话
       </button>
+      {historyOpen && <UiActionHistory open onOpenChange={setHistoryOpen} />}
       {onExitFullscreen && (
         <button
           type="button"

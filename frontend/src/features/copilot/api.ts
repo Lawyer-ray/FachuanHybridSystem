@@ -14,6 +14,7 @@
  */
 
 import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
+import type { UiActionHistoryItem, UiActionHistoryResponse } from './api-types'
 
 import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, PendingQuestionItem, QuestionAnswerItem, QuestionAnswerReceipt, QoderAuthState, QoderByokState, QoderLoginState, UsageSummary } from './types'
 // 回执的线上契约归执行层所有（与 `UiToolErrorCode` 同级的事实），这里只借用类型：
@@ -126,6 +127,18 @@ export function decideApproval(approvalId: string, approved: boolean, reason = '
  */
 export function submitUiActionResult(payload: UiActionResultAck): Promise<UiActionResultReceipt> {
   return api.post('agent/ui-action-results', { json: payload }).json<UiActionResultReceipt>()
+}
+
+/**
+ * 当前律师自己的 UI 动作审计历史（`GET /agent/ui-actions`，新 → 旧）。
+ *
+ * 只含 `confirm` / `guarded` 档的行，也只含**自己**——动作历史不是会话共享资产
+ * （见后端 `audit_query.list_recent_for_user`）。面板不做分页/筛选，默认 50 条
+ * 足够回答「AI 最近动过什么」；后端每页硬上限 200，传大了也不会全表拉回。
+ */
+export async function fetchUiActionHistory(limit = 50): Promise<UiActionHistoryItem[]> {
+  const page = await api.get('agent/ui-actions', { searchParams: { limit } }).json<UiActionHistoryResponse>()
+  return page.items
 }
 
 /**
