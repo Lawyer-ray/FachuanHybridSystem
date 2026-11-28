@@ -11,12 +11,12 @@
  * 这里，由 `UiActionBanner` 读出来显示「AI 正在操作」，转录一个字都不写
  * （08 §9 / 04 §8 的刻意取舍）。
  *
- * ## 为什么去重表与批次闸门在模块级而不是 state
+ * ## 模块级状态在哪（`./ui-dedupe.ts` 与 `./ui-batch-gate.ts`）
  *
- * `seenCallIds` 与「非幂等动作的同参 5 秒窗」只服务执行期守卫，没有组件要订阅它们；
- * 放进 `CopilotState` 的代价是每次动作都触发一遍全局订阅者比较。批次闸门同理（没有组件
- * 关心「哪一批在排队」）。打断标记 `abortedAt` 相反——横幅要据它决定还挂不挂「停下」，
- * 所以它在 state 里。
+ * 去重表与批次闸门只服务执行期守卫，没有组件要订阅它们；为什么不做成 state、为什么按
+ * callId 幂等、为什么有 5 秒同参窗、为什么同批要串行 —— 详细论证跟着代码搬到了这两个
+ * 模块的文件头。打断标记 `abortedAt` 相反——横幅要据它决定还挂不挂「停下」，所以它在
+ * state 里。
  *
  * ## 为什么失败必须 toast
  *
@@ -24,16 +24,10 @@
  * 两次都没发出去，也可能要等模型下一次 poll 才被读到。律师此刻看得见的只有页面，
  * 静默失败的后果是 AI 在对话里说「已经帮你打开了」，而页面一动不动、也没有任何解释。
  *
- * ## 批次（`ui_action_batch`）为什么在这里排队
+ * ## 批次（`ui_action_batch`）的排队与「失败即中止」见 `./ui-batch-gate.ts` 文件头
  *
- * 一次确认可以带 2~5 步，帧是连着到的，而每一步都要落运行记录、发回执。同批的语义
- * **有先后**（先跳页再切 stage ≠ 先切 stage 再跳页），并发执行会让审批卡上那句「将按
- * 顺序执行」变成假承诺。所以同 `batchId` 的后一条要等前一条**结算**（不是「已发起」）。
- * 不同批次互不阻塞（两批本来就是两件互不相干的事），但跨批的**写**动作仍受写锁约束
- * ——见下一节。
- *
- * 失败即中止：同批任一步失败、或律师按下「停下」，**后续步骤一律标 aborted 并回执**，
- * 不做「跳过它继续跑剩下的」——律师看到的是「一半动了」，而模型没法判断页面停在哪。
+ * 一句话结论：同批后一条等前一条**结算**才跑（审批卡那句「将按顺序执行」才不是假话），
+ * 任一步失败或被打断则后续一律 aborted（不做「跳过继续」）。
  *
  * ## 为什么写动作必须互斥（`writeTail` —— 不是体验问题，是丢数据）
  *
@@ -55,7 +49,7 @@
  *
  * ## 多标签页（见 `./ui-action-claim.ts` 文件头）
  *
- * 两个标签页都会收到同一条帧，`seenCallIds` 各一份挡不住对方——先抢占的那个执行，
+ * 两个标签页都会收到同一条帧，`./ui-dedupe.ts` 的 `seenCallIds` 各一份挡不住对方——先抢占的那个执行，
  * 抢不到就静默返回（不落运行记录、不回执）；为什么必须抢占与 TTL 为什么 15 秒见该模块。
  */
 
@@ -73,52 +67,26 @@ import type { UiToolRun } from '../state-types'
 import type { CopilotState } from '../types'
 import type { Slice } from './slice'
 import { claimUiActionExecution } from './ui-action-claim'
+import { runThroughBatchGate } from './ui-batch-gate'
+import { allowNonIdempotent, rememberCallId } from './ui-dedupe'
 import { confirmGuardedAction } from './ui-guarded-confirm'
 
 /** 清单项类型从清单自己推导：动作字段与生成物永远一致，不另抄一份 */
 type UiToolSpec = (typeof UI_TOOL_SPECS)[number]
 
-/** 幂等键 LRU 上限（08 §6）：够覆盖一轮长对话的重放，又不会无界增长 */
-const SEEN_CALLID_LIMIT = 200
-/** 非幂等动作的同参去重窗口（08 §6）：模型重试与「律师真想再点一次」只能靠时间区分 */
-const NON_IDEMPOTENT_WINDOW_MS = 5_000
 /** 运行记录的保留条数：横幅只读最近一条，长会话里没必要越攒越多 */
 const RUN_LOG_LIMIT = 50
-/** 同一批最多几步（与后端 `MAX_BATCH_STEPS` 对齐）：等待队列的上限，超限说明契约已漂移 */
-const BATCH_LIMIT = 5
 /** 写动作的排队上限（在飞的 1 个之外还能有几个在等）：超限说明模型在乱发写动作 */
 const MAX_WRITE_QUEUE = 3
 /** 排队超限的回执文案：一句话说清「这一步没执行」，模型才知道不该原样重发 */
 const WRITE_QUEUE_FULL_DETAIL = '写动作太多，排队超限，这一步没有执行'
 
-/** 已受理过的 callId（LRU：Set 保持插入序，超限时删最旧的） */
-const seenCallIds = new Set<string>()
-/** 非幂等动作最近一次执行时刻（键 = 动作名 + 稳定序列化参数） */
-const recentNonIdempotent = new Map<string, number>()
-
-/**
- * 一条批次闸门（键 = `batchId`）。
- *
- * `tail` 是「前一条的结算时刻」：后一条 await 它就实现了同批串行。`stopped` 一旦置位，
- * 同批后续步骤一律 aborted——失败即中止，不做「跳过继续」。
- */
-interface BatchGate {
-  /** 已受理的步骤数（判等待队列上限） */
-  accepted: number
-  /** 同批已有步骤失败 / 被停下 → 后续步骤不再执行 */
-  stopped: boolean
-  /** 前一条的结算时刻 */
-  tail: Promise<void>
-}
-/** 打开的批次。最后一条结算时删掉，否则长会话按批次数无限长大 */
-const batchGates = new Map<string, BatchGate>()
-
 /**
  * 写动作互斥的队尾：`writeTail` 是「最后一个取了写锁的动作的结算时刻」，新的写动作
  * await 它就实现了「同一时刻只有一个写动作在飞」（理由见文件头）。
  *
- * 与 `BatchGate.tail` 同一套写法，但管的是两件事：批次闸门管**同一批**的先后
- * （业务顺序，审批卡上的承诺），写锁管**所有写动作**的互斥（丢更新）。
+ * 与 `./ui-batch-gate.ts` 的 `BatchGate.tail` 同一套写法，但管的是两件事：批次闸门管
+ * **同一批**的先后（业务顺序，审批卡上的承诺），写锁管**所有写动作**的互斥（丢更新）。
  * 取锁顺序全局一致——**先批次闸门、后写锁**，且写锁的持有者此时不等待任何批次闸门
  * （它只等执行器结账），所以两把锁不会互相死等。改顺序前先把这句话读一遍。
  */
@@ -158,47 +126,6 @@ function specOf(action: string): UiToolSpec | undefined {
   return UI_TOOL_SPECS.find((spec) => spec.name === action)
 }
 
-/** 稳定序列化：键排序后再序列化，参数书写顺序不同不该算成两个不同的动作 */
-function stableKey(action: string, args: Record<string, unknown>): string {
-  const pairs = Object.keys(args)
-    .sort()
-    .map((key) => [key, args[key]] as const)
-  return `${action}:${JSON.stringify(pairs)}`
-}
-
-/** 记一次 callId；返回 true = 之前已见过（重复投递 / 事件重放） */
-function rememberCallId(callId: string): boolean {
-  if (seenCallIds.has(callId)) return true
-  seenCallIds.add(callId)
-  if (seenCallIds.size > SEEN_CALLID_LIMIT) {
-    const oldest = seenCallIds.values().next().value
-    if (oldest !== undefined) seenCallIds.delete(oldest)
-  }
-  return false
-}
-
-/** 非幂等动作的同参去重：true = 允许执行（顺带清掉过窗的旧记录，Map 才不胀） */
-function allowNonIdempotent(action: string, args: Record<string, unknown>, now: number): boolean {
-  for (const [key, at] of recentNonIdempotent) {
-    if (now - at > NON_IDEMPOTENT_WINDOW_MS) recentNonIdempotent.delete(key)
-  }
-  const key = stableKey(action, args)
-  const last = recentNonIdempotent.get(key)
-  if (last !== undefined && now - last <= NON_IDEMPOTENT_WINDOW_MS) return false
-  recentNonIdempotent.set(key, now)
-  return true
-}
-
-/** 本条所属批次的闸门；单步动作（没有批次）返回 null —— 不排队，立即执行 */
-function gateOf(batchId: string | null | undefined): BatchGate | null {
-  if (typeof batchId !== 'string' || batchId === '') return null
-  const existing = batchGates.get(batchId)
-  if (existing) return existing
-  const gate: BatchGate = { accepted: 0, stopped: false, tail: Promise.resolve() }
-  batchGates.set(batchId, gate)
-  return gate
-}
-
 /**
  * 这条动作要不要占写锁：只有清单里明确写 `safe` 的才放行。
  *
@@ -213,9 +140,9 @@ function isWriteAction(action: string): boolean {
 /**
  * 取写锁：轮到自己时返回 `release`，排队超限返回 `null`（调用方据此落失败 + 回执）。
  *
- * 用「自己的结算 Promise 接到队尾」而不是信号量计数，与 `BatchGate.tail` 同一路子：
- * 先到先得、不必维护「谁是当前持有者」。`release` 必须进 finally——少放一次整条队尾
- * 就永远卡住，而表现只是「AI 之后的写动作全都没反应」。
+ * 用「自己的结算 Promise 接到队尾」而不是信号量计数，与 `./ui-batch-gate.ts` 的
+ * `BatchGate.tail` 同一路子：先到先得、不必维护「谁是当前持有者」。`release` 必须进
+ * finally——少放一次整条队尾就永远卡住，而表现只是「AI 之后的写动作全都没反应」。
  */
 async function acquireWriteLock(): Promise<(() => void) | null> {
   // 占用者**含在飞的那 1 个**，所以上限是 1 + MAX_WRITE_QUEUE。不把「在飞」与「排队」
@@ -276,7 +203,7 @@ export const createUiToolSlice: Slice<UiToolSlice> = (set, get) => {
     ackResult(req, detail === undefined ? { outcome: 'aborted' } : { outcome: 'aborted', detail })
   }
 
-  /** 执行一条动作：幂等 / 打断 / 失败落态 / 回执。批次排队在外层 `runUiAction`（见文件头） */
+  /** 执行一条动作：幂等 / 打断 / 失败落态 / 回执。批次排队在外层 `runUiAction`（见 `./ui-batch-gate.ts`） */
   const runOne = async (req: UiActionRequest): Promise<void> => {
     const startedAt = Date.now()
     const base = runMeta(req, startedAt)
@@ -312,9 +239,7 @@ export const createUiToolSlice: Slice<UiToolSlice> = (set, get) => {
       ack({ outcome: 'error', code: 'executor_error', detail: '界面动作宿主（面板 / 助手页）未挂载' })
       return
     }
-    // 非幂等动作的同参重试按 5 秒窗挡掉（08 §6）。命中就静默丢：它本来就是「同一次
-    // 操作被重发」，再弹一次错误提示反而制造噪音。
-    // 也不回执：这一次**什么都没执行**，回 ok 是撒谎，而契约里没有「已去重」这个码。
+    // 非幂等动作的同参重试按 5 秒窗挡掉（论证见 ./ui-dedupe.ts）：命中就静默丢、不回执。
     if (!spec.idempotent && !allowNonIdempotent(req.action, req.args, startedAt)) return
 
     // `guarded`（不可逆 / 对外系统 / 涉及凭证）：执行器调用前再要一次律师的本地确认。
@@ -385,58 +310,28 @@ export const createUiToolSlice: Slice<UiToolSlice> = (set, get) => {
     abortedAt: null,
 
     runUiAction: async (req: UiActionRequest) => {
-      // 同一 callId 只执行一次：模型重试与事件重放都会再来一遍。重复导航只是白跳一下，
-      // 重复执行一次写库动作就是事故，所以从第一档起就按最严的口径挡。
-      // 重复投递不回执：第一次投递已经发过，再发一遍只会让后端的 pending 表多一条假结算。
-      // 也在排队之前挡：重放的帧不该占掉一个队位。
+      // 同一 callId 只执行一次（论证见 ./ui-dedupe.ts）。也在排队之前挡：重放的帧不该占掉
+      // 一个队位。
       if (rememberCallId(req.callId)) return
       // 多标签页：同一条动作两个标签页都收到，抢不到执行权就静默返回（不落记录、不回执）
       if (!claimUiActionExecution(req.callId)) return
 
-      const batchId = req.batchId
-      const gate = gateOf(batchId)
-      if (!gate) {
-        await runWithWriteLock(req)
-        return
-      }
-      if (gate.accepted >= BATCH_LIMIT) {
-        // 契约外（后端一批最多 5 步）：既不无限排队，也不悄悄丢——留失败记录 + 回执
-        const now = Date.now()
-        writeRun(req.callId, { ...runMeta(req, now), state: 'error', code: 'executor_error', endedAt: now })
-        ackResult(req, {
-          outcome: 'error',
-          code: 'executor_error',
-          detail: `同一批最多 ${BATCH_LIMIT} 步，这一步没有执行`,
-        })
-        gate.stopped = true
-        return
-      }
-      gate.accepted += 1
-
-      // 排队：自己的结算 Promise 接到队尾，后一条就等它（同批串行，见文件头）
-      const previous = gate.tail
-      let release: () => void = () => {}
-      const own = new Promise<void>((resolve) => {
-        release = resolve
-      })
-      gate.tail = own
-      try {
-        await previous
-        if (gate.stopped) {
-          markAborted(req, '同批已有步骤失败或被停下，这一步没有执行')
-          return
-        }
-        // 批次闸门已放行，再取写锁（顺序固定：先闸门、后写锁，见 writeTail 注释）
-        await runWithWriteLock(req)
-      } finally {
+      // 批次排队 / 超限 / 失败即中止的语义全在 ./ui-batch-gate.ts，这里只接四根线。
+      await runThroughBatchGate(req.batchId, {
+        run: () => runWithWriteLock(req),
+        abort: (detail) => markAborted(req, detail),
+        refuse: (detail) => {
+          const now = Date.now()
+          writeRun(req.callId, { ...runMeta(req, now), state: 'error', code: 'executor_error', endedAt: now })
+          ackResult(req, { outcome: 'error', code: 'executor_error', detail })
+        },
         // 判据看运行记录而不是返回值：runOne 有多条 return，改一处就会漏一处。
         // 只有 `ok` 才算通过；没有记录 = 什么都没执行（同参去重），不算失败。
-        const run = get().uiToolRuns[req.callId]
-        if (run && run.state !== 'ok') gate.stopped = true
-        release()
-        // 最后一条结算完就把闸门删掉（没人再等它），否则长会话按批次数无限长大
-        if (batchId && gate.tail === own) batchGates.delete(batchId)
-      }
+        passed: () => {
+          const run = get().uiToolRuns[req.callId]
+          return !run || run.state === 'ok'
+        },
+      })
     },
 
     abortUiActions: () => {
