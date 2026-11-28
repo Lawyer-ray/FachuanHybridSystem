@@ -12,7 +12,13 @@ from mcp_server.tools.core.agent_memory import (
     save_case_note,
     save_project_note,
 )
-from mcp_server.tools.core.agent_skills import get_agent_skill
+from mcp_server.tools.core.agent_skills import (
+    delete_user_skill,
+    get_agent_skill,
+    list_my_skills,
+    save_user_skill,
+    submit_skill_for_review,
+)
 from mcp_server.tools.core.ask_user import ask_user
 from mcp_server.tools.core.dashboard import get_dashboard_stats
 from mcp_server.tools.core.identity import get_current_user, get_server_time
@@ -92,6 +98,12 @@ __all__ = [
     "save_project_note",
     "save_case_note",
     "confirm_project_fact",
+    # 技能（内置 / 个人 / 所内）：读半边零副作用，写半边全部 HIGH 审批
+    "get_agent_skill",
+    "list_my_skills",
+    "save_user_skill",
+    "delete_user_skill",
+    "submit_skill_for_review",
     # 异步任务统一状态
     "get_async_task_status",
     "list_doc_converter_jobs",

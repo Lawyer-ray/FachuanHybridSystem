@@ -49,15 +49,13 @@ import os
 # （同 ``mcp_server/server.py`` 对 ``apps.agent.services.approval`` 的 import）；
 # 这里**不**自己改 ``sys.path``——那会让「能不能 import」取决于谁先执行，
 # 并掩盖真正的路径问题。``toolface`` 只依赖 stdlib，不拖 Django / pi 依赖树。
-from apps.agent.backends.toolface import SERVER_NAME, skill_prefix, tool_prefix
+from apps.agent.backends.toolface import SERVER_NAME, tool_prefix
 from apps.agent.services.ui_action.manifest import CONFIRM_ACTION_NAMES, DIRECT_ACTION_NAMES
 
 logger = logging.getLogger(__name__)
 
 #: 业务 MCP server 的工具全名前缀（``mcp__fachuan__``）。
 TOOL_NAME_PREFIX = tool_prefix()
-#: skill server 的工具全名前缀（``mcp__skill__``）。
-SKILL_TOOL_PREFIX = skill_prefix()
 
 TOOL_TIERS_ENV = "FACHUAN_MCP_TOOL_TIERS"
 

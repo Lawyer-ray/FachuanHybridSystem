@@ -47,6 +47,12 @@ DANGER_PATTERNS: tuple[str, ...] = (
     "apply_document_revisions",
     "add_document_comments",
     "create_folder_file",
+    # 技能写面（2026-11-28 P3）：``save_user_skill`` 的名字只命中小写前缀
+    # ``save_``（= WRITE_PREFIXES → MEDIUM = **静默执行、不弹窗**），但它落库的是
+    # 一段「此后每轮对话都带给模型」的指令——被提示注入的会话可以借此静默持久化
+    # 恶意指令。显式升 HIGH 后审批卡会把 title/description/body 全文展示给律师。
+    # 与 ``approval-rules.ts`` 的 ``HIGH_RISK_PATTERNS`` 逐字一致（parity 测试守）。
+    "save_user_skill",
     "delete",
     "remove_",
     "destroy",
