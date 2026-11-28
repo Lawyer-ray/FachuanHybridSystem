@@ -77,7 +77,12 @@ def test_live_trial_echoes_marker(firm_row: Any = None) -> None:
     )
 
     before = AgentMessage.objects.count()
-    result = asyncio.run(trial.run_trial(user_id=lawyer.pk, key=f"skill:{skill.pk}"))
+    # 显式 ``inline``：这条技能是 active 的，``auto`` 会走真实索引 → 模型得自己去调
+    # ``get_agent_skill`` 取全文。但**测试库**里那条 REST 请求打到的是共享 MCP 进程，
+    # 而它连的是 ``fachuan_dev``（另一个库），于是必然 404。这是测试环境的数据库错位、
+    # 不是产品缺陷——它也顺带证明了 index 模式的失败路径是对的：模型没有编造，
+    # 而是回「技能正文取不到」，并把工具错误报给审批人（tool_errors 非空）。
+    result = asyncio.run(trial.run_trial(user_id=lawyer.pk, key=f"skill:{skill.pk}", mode="inline"))
     after = AgentMessage.objects.count()
 
     print("\n===== 试跑回执 =====")  # noqa: T201 - 真机验收脚本，输出要人看
