@@ -22,7 +22,28 @@
 
 记忆的团队层允许任一团队成员策展（``services/memory/scopes.py``）；技能是
 **行为指令**，一次误发布会让整个团队的 AI 按错流程走且当事人难以察觉，所以
-P0 之后的团队/所内层必须走管理员审批（字段与状态先预留，逻辑不在 P0 范围）。
+团队/所内层必须走管理员审批（见 ``services/skills/review.py``）。
+
+## 双轨发布：``status`` 与 ``review_status`` 必须正交
+
+共享技能（team / law_firm）在编辑后**不能**把新正文就地写进线上槽位：
+那一行同时承载「线上生效版」与「工作区最新版」两个真相，任何一次原地改
+都会同时破坏两件事——线上立刻换成没审过的内容，或者为保住线上而丢掉作者
+刚写的东西。
+
+所以这里把两件事拆成两个字段：
+
+- ``status`` 只表示**线上槽位**生命周期（``draft`` / ``active`` / ``archived``），
+  永远不出现「待审」这个值；
+- ``review_status`` 表示**修订流**状态（``none`` / ``pending`` / ``rejected``）；
+- ``published_revision`` 指向**当前线上生效的那份已审批快照**。
+
+编辑一份生效中的共享技能 = 改工作区字段 + 写新 ``AgentSkillRevision`` +
+``review_status=pending``，而 ``status`` 保持 ``active``、``published_revision``
+纹丝不动。运行时交付路径（``resolve.resolve_for_user``）**只读
+``published_revision``**，所以审批期间线上零中断、驳回也毫发无损。
+
+个人技能不需要这套：``published_revision`` 恒为空，读路径直接读本体。
 """
 
 from __future__ import annotations
@@ -47,6 +68,17 @@ class AgentSkill(models.Model):
         DRAFT = "draft", "草稿"
         ACTIVE = "active", "生效"
         ARCHIVED = "archived", "已下线"
+
+    class ReviewStatus(models.TextChoices):
+        """修订流状态（与 ``Status`` 正交，见模块 docstring）。
+
+        个人技能恒为 ``none``——自己的技能自己说了算，走审批只会让个人技能
+        变成没人用的摆设。
+        """
+
+        NONE = "none", "无待审"
+        PENDING = "pending", "待审核"
+        REJECTED = "rejected", "已驳回"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     scope = models.CharField(max_length=16, choices=Scope.choices, default=Scope.LAWYER)
@@ -84,6 +116,34 @@ class AgentSkill(models.Model):
     body = models.TextField(verbose_name="正文")
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE)
     enabled = models.BooleanField(default=True, verbose_name="启用")
+
+    # ── 双轨发布（仅共享技能有意义）──────────────────────────────
+    #: 修订流状态；个人技能恒 ``none``
+    review_status = models.CharField(
+        max_length=16, choices=ReviewStatus.choices, default=ReviewStatus.NONE, verbose_name="审核状态"
+    )
+    #: 驳回理由：审批人要写清「哪里不行」，否则作者只能盲改
+    review_note = models.TextField(blank=True, default="", verbose_name="审核备注")
+    #: 当前线上生效的已审批快照（共享技能的运行时唯一正文来源）
+    published_revision = models.ForeignKey(
+        "AgentSkillRevision",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        verbose_name="线上生效版本",
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        verbose_name="审核人",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name="审核时间")
+    #: 本次发布真正生效的时刻（审核时间与生效时间可能不同：审核后还要勾选确认）
+    activated_at = models.DateTimeField(null=True, blank=True, verbose_name="生效时间")
     source = models.CharField(max_length=16, default="manual", verbose_name="来源")
     version = models.PositiveIntegerField(default=1, verbose_name="版本")
     created_by = models.ForeignKey(
@@ -107,6 +167,8 @@ class AgentSkill(models.Model):
             models.Index(fields=["team", "status"], name="agent_skill_team_status_idx"),
             # 个人解析主路径：按人取启用行
             models.Index(fields=["lawyer", "enabled"], name="agent_skill_lawyer_enabled_idx"),
+            # 审批面板主路径：本所/本团队的待审条目
+            models.Index(fields=["status", "review_status"], name="agent_skill_review_queue_idx"),
         ]
         constraints: ClassVar[list[models.BaseConstraint]] = [
             # scope 与归属字段必须自洽，且恰好一个非空
@@ -139,6 +201,21 @@ class AgentSkill(models.Model):
 
     def __str__(self) -> str:
         return f"[{self.get_scope_display()}] {self.title}（{self.name}）"
+
+    @property
+    def is_shared(self) -> bool:
+        """是否共享作用域（团队 / 所内）——决定走不走双轨发布与审批。"""
+        return self.scope in (self.Scope.TEAM, self.Scope.LAW_FIRM)
+
+    @property
+    def has_unpublished_changes(self) -> bool:
+        """工作区版本是否领先于线上生效版本（审批面板据此显示「有待审修改」）。
+
+        个人技能恒 ``False``：它们没有线上/工作区之分。
+        """
+        if self.published_revision is None:
+            return False
+        return self.published_revision.version != self.version
 
 
 class AgentSkillRevision(models.Model):

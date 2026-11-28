@@ -1,17 +1,22 @@
-"""技能面门面：内置库 + 个人技能 + 用户偏好（既有 import 路径的唯一入口）。
+"""技能面门面：内置库 + 数据库技能 + 用户偏好（既有 import 路径的唯一入口）。
 
-## 技能面与工具面的分工
+## 技能面的三条交付通道
 
-- **工具面**（mcp_server）：``get_agent_skill`` 按名读技能全文——模型在
-  对话中**自主**判断场景后查阅，路径在 ``mcp_server/tools/core/agent_skills.py``。
-- **技能面**（本模块 + rpc_client）：把技能目录经 ``--skill`` 注入 pi，
-  使律师能在输入框用 ``/skill:名字`` **显式点名**（pi 在发给模型前展开全文）。
+方案 A 之后，技能到模型的路径只有三条，全部由 ``services/skills/`` 提供：
+
+1. **显式点名**：``services/skills/expand.py`` 在编排层把 ``/skill:名字`` 展开成
+   正文（锚点感知，全后端统一——pi 原生展开会被 ``[当前业务：…]`` 前缀打断）。
+2. **自主发现**：``services/skills/prompt_block.py`` 渲染索引块，后端经系统提示
+   注入（pi 走 ``--append-system-prompt``）。
+3. **按需取全文**：MCP ``get_agent_skill`` → ``GET /agent/skills/resolve/{ref}/content``。
+
+**没有第四条**：不再有「把技能目录物化到磁盘再 ``--skill`` 注入 pi」这条路。
+详见 ``services/skills/user_skills.py`` 模块 docstring 的取证。
 
 ## 为什么这个文件只是一层门面
 
-``pi_backend.py:43`` 与 ``api/skill_api.py`` 依赖这里的公开签名，实现整体
-搬进 ``services/skills/`` 子包（P0-BRIEF §1.3），本文件只做转发。
-``AgentSkillPreference`` 只记差异：内置技能没有数据库行，偏好缺省即启用。
+``pi_backend.py`` 与 ``api/skill_api.py`` 依赖这里的公开签名，实现整体在
+``services/skills/`` 子包（P0-BRIEF §1.3），本文件只做转发。
 """
 
 from __future__ import annotations
@@ -19,7 +24,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from .skills import library, resolve, store, user_skills
+from .skills import flags, library, resolve, user_skills
 from .skills.constants import NAME_RE
 from .skills.errors import SkillNotFound
 
@@ -37,37 +42,30 @@ def list_skills() -> list[dict]:
 
 
 def skills_for_user(user_id: int) -> list[dict]:
-    """技能清单：内置 + 个人（含禁用项与 ``shadowed``，字段见 P0-BRIEF §1.6）。"""
+    """技能清单：该律师可见的全部条目（含禁用项与 ``shadowed``）。"""
     return user_skills.list_for_user(user_id)
 
 
-def enabled_skill_paths(user_id: int) -> list[str]:
-    """该用户启用的技能目录绝对路径（逐个 ``--skill`` 注入 pi）。
+def deliverable_skills(user_id: int) -> list[dict]:
+    """本轮可交付的技能（已启用 + 已生效，共享取线上已审批版）。"""
+    return resolve.resolve_for_user(user_id)
 
-    个人技能的目录由 ``transaction.on_commit`` 物化；这里**不写盘**，目录缺失
-    就跳过并告警（``skills_reconcile`` 可重建）。缺失不报错是刻意的：一个用户
-    的磁盘问题不该让整轮对话挂掉。
+
+def user_skills_mode() -> str:
+    """总开关当前档位（``on`` / ``dry`` / ``off``，见 ``skills/flags.py``）。"""
+    return flags.user_skills_mode()
+
+
+def enabled_skill_paths(user_id: int) -> list[str]:
+    """**已废弃**：永远返回空列表。
+
+    方案 A 取消了技能磁盘物化（``--skill`` 在 pi 1.6.0 既带不来自主发现、也压不住
+    锚点前缀导致的原生 ``/skill:`` 失效），技能改由 ``expand`` / ``prompt_block`` /
+    MCP 三条通道交付。保留这个签名只为让还在过渡期的调用点导入不炸；
+    新代码请直接用 ``deliverable_skills``。函数体与调用点会在同一批清理中一起删除。
     """
-    skills = resolve.resolve_for_user(user_id)
-    personal_root: Path | None = None
-    if any(s["source"] != "builtin" for s in skills):
-        try:
-            # 只取路径，**不建目录**（见 store.root_path 的注释）：本函数在每轮
-            # 对话的热路径上，磁盘异常不能让整轮挂掉。
-            personal_root = store.root_path(int(user_id))
-        except OSError:
-            logger.warning("个人技能根目录不可用，本轮只注入内置技能", exc_info=True)
-    paths: list[str] = []
-    for skill in skills:
-        root = skills_root() if skill["source"] == "builtin" else personal_root
-        candidate = root / skill["name"] if root is not None else None
-        if candidate is not None and candidate.is_dir():
-            paths.append(str(candidate))
-        elif skill["source"] != "builtin":
-            logger.warning("个人技能目录缺失，已跳过注入（运行 manage.py skills_reconcile 可修复）: %s", candidate)
-        else:
-            logger.warning("内置技能目录缺失，已跳过注入: %s", candidate)
-    return paths
+    logger.debug("enabled_skill_paths 已废弃（用户 %s），技能不再落盘", user_id)
+    return []
 
 
 def set_skill_enabled(user_id: int, key: str, enabled: bool) -> dict[str, object]:
@@ -75,16 +73,20 @@ def set_skill_enabled(user_id: int, key: str, enabled: bool) -> dict[str, object
 
     Raises:
         ValueError: 内置技能名非法或不在库内（与改造前的公开行为一致）。
+        SkillNotFound: 数据库技能不存在或不在可见范围内。
+        SkillForbidden: 运营开关关闭，或该技能已下线。
     """
     normalized = (key or "").strip()
     if normalized.startswith("skill:"):
-        try:
-            return user_skills.set_enabled(user_id=user_id, key=normalized, enabled=enabled)
-        except SkillNotFound as exc:
-            raise ValueError(str(exc)) from exc
-    name = normalized[len("builtin:") :] if normalized.startswith("builtin:") else normalized
-    if not NAME_RE.fullmatch(name):
+        return user_skills.set_enabled(user_id=user_id, key=normalized, enabled=enabled)
+    builtin_name = normalized[len("builtin:") :] if normalized.startswith("builtin:") else normalized
+    if not NAME_RE.fullmatch(builtin_name or ""):
         raise ValueError(f"非法技能名: {key!r}")
-    if name not in library.builtin_names():
-        raise ValueError(f"未知技能: {key!r}")
-    return user_skills.set_enabled(user_id=user_id, key=f"builtin:{name}", enabled=enabled)
+    builtin = {skill["name"]: skill for skill in library.builtin_skills()}
+    if builtin_name not in builtin:
+        # 裸名字还可能是数据库技能（前端旧版只传 name）：再试一次，仍失败才报错。
+        try:
+            return user_skills.set_enabled(user_id=user_id, key=builtin_name, enabled=enabled)
+        except SkillNotFound:
+            raise ValueError(f"未知技能: {key!r}") from None
+    return user_skills.set_enabled(user_id=user_id, key=f"builtin:{builtin_name}", enabled=enabled)
