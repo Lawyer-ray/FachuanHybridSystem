@@ -6,6 +6,39 @@
  */
 
 /**
+ * 后端技能送达方式（与后端 `SkillDelivery` 枚举同形，见契约 §9）。
+ *
+ * - `tool_only`：不注索引块，模型只能按需调 `list_my_skills` 自己找——
+ *   「自主命中」因此不稳定，前端要提示律师改用 `/skill:名字` 点名；
+ * - `prompt`：索引块拼进系统提示（pi / claude-agent / qoder / antigravity / opencode）；
+ * - `native`：后端自带的原生技能目录。
+ */
+export type SkillDelivery = 'tool_only' | 'prompt' | 'native'
+
+/**
+ * 后端能力声明（`GET /agent/backends` 的 `capabilities`，与后端 `BackendCapabilities` 同形）。
+ *
+ * 为什么不再是 `Record<string, boolean>`：`skill_delivery` 是字符串枚举，锁成布尔只能把
+ * 「这一档怎么降级」压成 true/false，前端无法区分「注了索引」和「只能靠工具取」。
+ *
+ * 布尔字段全部**可选**：字段缺失一律按 `false` 处理（与 `noApprovalWarn` 的
+ * 「没声明＝没闸门」同一披露纪律），老部署少报字段不会让类型对不上；末尾的
+ * `unknown` 索引签名让后端新增能力字段时前端不必同步加类型。
+ */
+export interface BackendCapabilities {
+  streaming?: boolean
+  tool_calls?: boolean
+  approval?: boolean
+  compaction?: boolean
+  steer?: boolean
+  concurrent_in_session?: boolean
+  /** 缺省按 `tool_only`（老后端没声明＝没注索引），归一在 `store/backends.skillDeliveryOf` */
+  skill_delivery?: SkillDelivery
+  /** 后端将来新增的能力字段：前端不认识的键不参与判定，也不需要这里跟着加 */
+  [key: string]: unknown
+}
+
+/**
  * GET /agent/backends 的可选后端项（新建会话时的后端切换器数据源）。
  *
  * `available=false` 时必须读 `reason` 并置灰：用户若选中它，报错会发生在**建完
@@ -20,8 +53,8 @@ export interface AgentBackendOption {
   available: boolean
   /** 不可用原因；`available=true` 时为空串 */
   reason: string
-  /** 能力声明（字段见后端 `BackendCapabilities`），前端据此隐藏插话框等 */
-  capabilities: Record<string, boolean>
+  /** 能力声明，前端据此隐藏插话框、提示技能送达降级等 */
+  capabilities: BackendCapabilities
   /**
    * 该后端可选的模型（`GET /agent/backends` 的 `models`）。
    *

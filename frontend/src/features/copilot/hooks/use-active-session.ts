@@ -17,6 +17,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { COPILOT_LAUNCH_EVENT, takePendingLaunchContext, type CopilotLaunchContext } from '../launch'
 import { SESSIONS_QUERY_PREFIX, sessionsQueryOptions } from '../session-queries'
 import { useCopilot } from '../store'
+import type { BackendCapabilities } from '../backend-types'
 import { resolveCapabilities } from '../store/backends'
 
 /**
@@ -40,7 +41,7 @@ export interface ActiveSessionInfo {
   /** 当前会话的后端 kind；null = 还没有会话（后端可自由选） */
   currentAgentKind: string | null
   /** 当前会话（或将要新建的会话）所用后端的能力声明 */
-  currentCapabilities: Record<string, boolean>
+  currentCapabilities: BackendCapabilities
 }
 
 export function useActiveSession(): ActiveSessionInfo {

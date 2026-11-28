@@ -13,12 +13,15 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import type { RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
+import { toast } from 'sonner'
 
 import { fetchAgentSkills } from '../api'
 import { applyMention, detectMentionToken } from '../domain'
 import { useSkillDrawer } from '../skill-drawer'
 import { useCopilot } from '../store'
+import { SKILL_DELIVERY_HINTS, classifySkillDelivery } from '../store/backends'
+import { resolveAnswerAgents } from '../store/turn'
 import { useSlashMenu } from './use-slash-menu'
 
 export interface UseSkillSlashOptions {
@@ -37,13 +40,25 @@ export function useSkillSlash({ text, setText, textareaRef, setCaret }: UseSkill
   const messageCount = useCopilot((s) => s.messages.length)
   const compactContext = useCopilot((s) => s.compactContext)
   const openSkillDrawer = useSkillDrawer((s) => s.openDrawer)
+  const backends = useCopilot((s) => s.backends)
+  const answerAgents = useCopilot((s) => s.answerAgents)
+  const selectedAgentKind = useCopilot((s) => s.selectedAgentKind)
 
   // 技能清单（`/` 菜单数据源）：键与 `use-skill-mutations` 的 `SKILLS_QUERY_KEY` 必须同键
   // ——抽屉里改完失效它，这里的候选才跟着变。
   const skillsQuery = useQuery({ queryKey: ['agent-skills'], queryFn: () => fetchAgentSkills(), staleTime: 5 * 60_000, retry: false })
   const skills = skillsQuery.data?.skills ?? []
 
-  return useSlashMenu({
+  // 本轮真正在跑的后端（已按可用性/流式过滤，见 store/turn.resolveAnswerAgents）。
+  // 一个都没勾时这一轮跑会话默认后端：store 里只有「新建会话用谁」的偏好
+  // （会话自身的 `agent_kind` 只活在会话列表缓存，见 use-active-session），
+  // 新对话与按偏好建的会话两种最常见情形下两者一致。
+  const picked = resolveAnswerAgents({ backends, answerAgents })
+  const running = picked.length > 0 ? picked : selectedAgentKind ? [selectedAgentKind] : []
+  const tier = classifySkillDelivery(backends, running)
+  const deliveryHint = tier === 'mixed' || tier === 'tool_only' ? SKILL_DELIVERY_HINTS[tier] : null
+
+  const menu = useSlashMenu({
     text,
     skills,
     // 无会话（或还没有消息）时 `compact` 禁用：没有上下文可压
@@ -72,4 +87,17 @@ export function useSkillSlash({ text, setText, textareaRef, setCaret }: UseSkill
       else void compactContext()
     },
   })
+
+  // `/` 菜单是律师唯一会主动问「我有哪些技能」的入口，降级提示只能挂在这里。
+  // 用 toast 而不是菜单里嵌一行：SlashMenu / Composer 不在本 lane 的文件边界内；
+  // 同一档位一次挂载只提示一次，否则反复打开菜单会反复弹。
+  const hintedRef = useRef<string | null>(null)
+  const menuOpen = menu.open
+  useEffect(() => {
+    if (!menuOpen || !deliveryHint || hintedRef.current === deliveryHint) return
+    hintedRef.current = deliveryHint
+    toast(deliveryHint)
+  }, [menuOpen, deliveryHint])
+
+  return menu
 }

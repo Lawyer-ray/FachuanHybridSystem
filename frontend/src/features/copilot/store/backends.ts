@@ -21,8 +21,9 @@
  */
 
 import * as copilotApi from '../api'
+import type { AgentBackendOption, BackendCapabilities, SkillDelivery } from '../backend-types'
 import { readStoredAgentKind, storeAgentKind } from '../persistence'
-import type { AgentBackendOption, CopilotState } from '../types'
+import type { CopilotState } from '../types'
 import type { Slice } from './slice'
 
 export type BackendsSlice = Pick<
@@ -53,13 +54,16 @@ export function defaultAgentKind(backends: AgentBackendOption[]): string {
  * 先看到「没有插话框」再突然出现，比短暂多显示一个按钮糟糕得多。而且空清单的
  * 默认后端就是 pi（见 `defaultAgentKind`），放行才是真的对齐。
  */
-export const DEFAULT_CAPABILITIES: Record<string, boolean> = {
+export const DEFAULT_CAPABILITIES: BackendCapabilities = {
   streaming: true,
   tool_calls: true,
   approval: true,
   compaction: true,
   steer: true,
   concurrent_in_session: false,
+  // 清单没拉到时默认后端就是 pi（见上文 `defaultAgentKind`），它把技能索引
+  // 拼进系统提示；这里写 `prompt` 才是真的对齐，写 `tool_only` 会让冷启动闪一次假降级
+  skill_delivery: 'prompt',
 }
 
 /**
@@ -68,8 +72,60 @@ export const DEFAULT_CAPABILITIES: Record<string, boolean> = {
  * UI 据此隐藏入口，而不是硬编码 `if (agentKind === 'pi')`：新后端注册后只要
  * 如实声明能力，前端不需要跟着改。
  */
-export function resolveCapabilities(backends: AgentBackendOption[], kind: string): Record<string, boolean> {
+export function resolveCapabilities(backends: AgentBackendOption[], kind: string): BackendCapabilities {
   return findBackend(backends, kind)?.capabilities ?? DEFAULT_CAPABILITIES
+}
+
+/**
+ * 某后端的技能送达方式；`null` = 清单里查不到这个 kind（判不了，**不要**按最差档告警）。
+ *
+ * 两种缺失必须分开：
+ * - **清单里没有这个后端**（还没拉 / 拉失败 / 历史里的未知 kind）：返回 `null`。
+ *   那一刻所有 kind 都查不到，按 `tool_only` 提示会让 pi 也闪一遍假降级——
+ *   与 {@link noApprovalWarn} 同一条纪律：误报一次，之后每次真报都成噪声；
+ * - **查到了但没声明 `skill_delivery`**（老后端）：归一到 `tool_only`。契约 §9 的
+ *   缺省口径就是它，绝不能当 `prompt`——那等于替后端许诺它没做的事。
+ */
+export function skillDeliveryOf(backends: AgentBackendOption[], kind: string): SkillDelivery | null {
+  const option = findBackend(backends, kind)
+  if (!option) return null
+  const declared = option.capabilities?.skill_delivery
+  return declared === 'prompt' || declared === 'native' ? declared : 'tool_only'
+}
+
+/** 技能送达的三态：全支持 / 部分只能靠工具 / 全是工具 */
+export type SkillDeliveryTier = 'full' | 'mixed' | 'tool_only'
+
+/**
+ * 按「这一轮真正在跑的后端」聚合技能送达档位（`/` 菜单的降级提示数据源）。
+ *
+ * `runningKinds` 必须是已经过 `store/turn.resolveAnswerAgents` 可用性过滤的那一份：
+ * 不可用的后端这一轮根本不会跑，把它算进来会让提示与界面对不上。
+ *
+ * 返回 `null` = 判不了（一个都不跑 / 清单里查不到其中的 kind）——**不提示**，
+ * 理由同 {@link skillDeliveryOf}：宁可不报，也不要制造假降级。
+ */
+export function classifySkillDelivery(
+  backends: AgentBackendOption[],
+  runningKinds: readonly string[],
+): SkillDeliveryTier | null {
+  if (runningKinds.length === 0) return null
+  const deliveries = runningKinds.map((kind) => skillDeliveryOf(backends, kind))
+  if (deliveries.includes(null)) return null
+  const toolOnly = deliveries.filter((d) => d === 'tool_only').length
+  if (toolOnly === 0) return 'full'
+  return toolOnly === deliveries.length ? 'tool_only' : 'mixed'
+}
+
+/**
+ * 降级档位的用户提示（`full` 不需要提示，故不在这张表里）。
+ *
+ * 两档文案刻意不同：`tool_only` 要给出**可执行的绕法**（`/skill:名字` 点名，
+ * 或让模型自己调 `list_my_skills`）；`mixed` 只是「命中率不一致」，没有单一补救动作。
+ */
+export const SKILL_DELIVERY_HINTS: Record<Exclude<SkillDeliveryTier, 'full'>, string> = {
+  mixed: '部分后端只能靠工具按需取技能，自主命中可能不一致',
+  tool_only: '当前后端不支持技能索引：请用 /skill:名字 点名，或让 AI 调 list_my_skills',
 }
 
 /**
