@@ -120,6 +120,32 @@ describe('①-b 没选中材料包 → 告诉模型这一页现在判不了（bl
   })
 })
 
+describe('①-c 私有那一半（private_state）：阅读器是不是开着、开的是哪一包', () => {
+  it('列表页 = 没开阅读器；详情页 = 开着，带的是那一条的原始路由', () => {
+    const list = renderHost('todo', 812)
+
+    expect(readPageState('material-prep')?.privateState).toEqual({ openDetail: ROUTES.materialPrep })
+    list.unmount()
+
+    // 真实形态：点开一条材料包后地址变成 `/material-prep/571?stage=todo`（见 DeskPage.openAt）
+    const detail = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[`${ROUTES.materialPrep}/571?stage=todo`]}>
+          <Host stage="todo" selected={812} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(readPageState('material-prep')?.privateState).toEqual({ openDetail: '/material-prep/571' })
+    // 它**不能**出现在 state 里：模型会把「律师正在看 571」读成「律师已把它定为 done」
+    expect(readPageState('material-prep')?.state).not.toHaveProperty('openDetail')
+
+    detail.unmount()
+    // 卸载即清：下一个实例读到的不能是上一个实例的草稿 / 路由
+    expect(readPageState('material-prep')).toBeNull()
+  })
+})
+
 describe('② 判决广播 → 重拉列表 + toast', () => {
   it('收到 PACK_STATUS_CHANGED_EVENT 后用 PACKS_KEY invalidate，并说清改成了什么', async () => {
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')

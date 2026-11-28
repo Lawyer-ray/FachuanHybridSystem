@@ -23,6 +23,8 @@
  *         selected === null
  *           ? [{ name: 'ui_material_prep_judge', reason: '当前没有选中材料包：先让律师选一条' }]
  *           : [],
+ *       // 不进模型上下文的那一半：未提交草稿 / 原始 id / 调试字段（这里放的是原始地址）
+ *       privateState: { openDetail: location.pathname },
  *     },
  *   )
  *   // ...页面其余部分
@@ -43,13 +45,24 @@ import { useEffect, useRef } from 'react'
 // 页面引本 hook 的那一刻就会把 registry + 整张 eager glob 表拉进自己的 chunk，还从 discover
 // 回转到本 feature——「页面 → copilot/ui-tools → discover → 本 feature」的回头路。
 // 页面侧的统一入口是 `ui-tools/contract.ts`（它只转出这些轻符号）。
-import { clearPageBlockedActions, registerPageState, setPageBlockedActions, unregisterPageState } from '../ui-tools/page-state'
+import {
+  clearPageBlockedActions,
+  clearPagePrivateState,
+  registerPageState,
+  setPageBlockedActions,
+  setPagePrivateState,
+  unregisterPageState,
+} from '../ui-tools/page-state'
 import type { BlockedAction } from '../ui-tools/page-state'
 
 export function useUiPageState(
   page: string,
   state: Record<string, unknown>,
-  options?: { blockedActions?: BlockedAction[] },
+  options?: {
+    blockedActions?: BlockedAction[]
+    /** 不进模型上下文的那一半（未提交草稿 / 原始 id / 调试字段）；缺省 = 空对象 */
+    privateState?: Record<string, unknown>
+  },
 ): void {
   const latest = useRef(state)
   // 先同步最新值（同一 commit 内 effects 按声明序执行）：首帧就被问也能读到真值。
@@ -62,6 +75,9 @@ export function useUiPageState(
     // 这一份也不像 `state` 那样需要 ref：`state` 留的是**稍后才被读**的 getter，而这里
     // 本帧读本帧写，直接推给模块表就已经是最新值。
     setPageBlockedActions(page, options?.blockedActions ?? [])
+    // 私有那一半同一条理由：随渲染更新（草稿在变），只在挂载时写一次就永远是旧草稿。
+    // 它不进模型上下文，所以频繁写的坏处只是多一次 Map 赋值；不写的坏处是日志里一份过期快照。
+    setPagePrivateState(page, options?.privateState ?? {})
   })
   useEffect(() => {
     const provider = (): Record<string, unknown> => latest.current
@@ -69,5 +85,12 @@ export function useUiPageState(
     return () => unregisterPageState(page, provider)
   }, [page])
   // 卸载 / 换页即撤：页面没了还回旧原因，等于让模型对着不存在的页面下结论。
-  useEffect(() => () => clearPageBlockedActions(page), [page])
+  // 私有那一半同理：上一个实例的草稿属于上一个实例，挂在表里就是假事实。
+  useEffect(
+    () => () => {
+      clearPageBlockedActions(page)
+      clearPagePrivateState(page)
+    },
+    [page],
+  )
 }

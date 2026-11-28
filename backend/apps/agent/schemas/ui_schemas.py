@@ -35,6 +35,11 @@ _CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
 _MAX_TEXT = 200
 #: 页面状态快照序列化后的字符上限（超了直接拒，理由见 :class:`UiSnapshotIn`）。
 _MAX_SNAPSHOT_STATE = 2000
+#: ``private_state`` 序列化后的字符上限。比 ``state`` 宽一倍：它**不进模型上下文**，只进日志，
+#: 所以「占掉模型的 token 预算」这个理由在它身上不成立。留这一档余量是为了让页面有地方放
+#: 「不该给模型看的东西」，而不是为了塞进 2000 字又把它搬回 ``state``——那正是本条通道要防的事。
+#: 超限同样**直接拒**（与 ``state`` 同一理由：截断后结构缺键，比拒收更难解释）。
+_MAX_SNAPSHOT_PRIVATE_STATE = 4000
 #: 单个动作名（``available_actions`` / ``blocked_actions[].name``）的长度上限（真名都是
 #: ``ui_xxx`` 量级，64 字已经宽裕）。
 _MAX_ACTION_NAME = 64
@@ -119,6 +124,12 @@ class UiSnapshotIn(Schema):
     像真名（:data:`_ACTION_NAME_RE`），``reason`` 必须非空：一条「没有原因」的 blocked 项对模型
     等于「这条不许用」，它只会照此放弃，而律师看到的是 AI 莫名其妙不做。所以形状不对的项整条
     丢掉，而不是留个半句。
+
+    **``private_state`` 是页面的另一半**：页面用它放**不该给模型看**的东西（律师还没提交的草稿、
+    原始主键 id、排查用的调试字段）。它**永远不会出现在工具返回值里**——``snapshot.request_snapshot``
+    只按白名单挑键（``MODEL_FACING_KEYS``），``private_state`` 不在白名单上。它与 ``state`` 同口径
+    先脱敏（它也会进日志），上限见 :data:`_MAX_SNAPSHOT_PRIVATE_STATE`（比 ``state`` 宽一倍），
+    超限同样直接拒。
     """
 
     #: 页面主动声明的那部分状态（``ui-tools/page-state.ts`` 的注册表产物）。
@@ -132,6 +143,9 @@ class UiSnapshotIn(Schema):
     #: 本页**有、但此刻做不了**的动作与原因（``[{"name", "reason"}]``）。与 ``available_actions``
     #: 互补：那边说能做，这边说做不了以及为什么（如「还没选中材料包」），模型据此先补前置。
     blocked_actions: list[dict] = Field(default_factory=list)
+    #: 页面**不给模型看**的那半条通道（未提交草稿 / 原始 id / 调试字段）。唯一的可观测面是
+    #: ``accept_snapshot`` 那条 info 日志：**只有键名与字节数，不打值**。
+    private_state: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("route", "note")
     @classmethod
@@ -189,12 +203,25 @@ class UiSnapshotIn(Schema):
         return cleaned
 
     @model_validator(mode="after")
-    def _check_state_size(self) -> UiSnapshotIn:
+    def _scrub_and_limit_state(self) -> UiSnapshotIn:
+        """两半都脱敏，各自限量；超限直接拒（理由见类 docstring）。
+
+        上限不同只因为去处不同：``state`` 会拼进模型上下文，``private_state`` 只进日志。
+        脱敏相同则是因为**两者都会进日志**——私有不等于可信。
+        """
         self.state = scrub_for_storage(self.state)
         encoded = json.dumps(self.state, ensure_ascii=False)
         if len(encoded) > _MAX_SNAPSHOT_STATE:
             raise ValueError(
                 f"页面状态序列化后 {len(encoded)} 字，超过 {_MAX_SNAPSHOT_STATE} 字上限，已拒绝（不静默截断："
                 "缺键会被模型当成页面上确实没有该字段）。请页面只声明判断下一步真正要用的字段。"
+            )
+        self.private_state = scrub_for_storage(self.private_state)
+        encoded_private = json.dumps(self.private_state, ensure_ascii=False)
+        if len(encoded_private) > _MAX_SNAPSHOT_PRIVATE_STATE:
+            raise ValueError(
+                f"页面私有状态序列化后 {len(encoded_private)} 字，超过 {_MAX_SNAPSHOT_PRIVATE_STATE} 字上限，"
+                "已拒绝（不静默截断：缺键比拒收更难解释）。这条通道不进模型上下文、只进日志——超限说明"
+                "页面把整份内部状态搬了过来，请只放『有话要说但不想让模型看见』的那几个字段。"
             )
         return self

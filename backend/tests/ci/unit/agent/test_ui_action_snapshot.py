@@ -350,12 +350,13 @@ def test_malformed_blocked_actions_dropped() -> None:
 
 
 @pytest.mark.asyncio
-async def test_endpoint_passes_blocked_actions_through(monkeypatch: pytest.MonkeyPatch) -> None:
-    """⑨ 端点那一行透传（``api/ui_api.py``）：漏了它，契约层洗得再干净也永远到不了模型。
+async def test_endpoint_passes_actions_and_private_state_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    """⑨ 端点那一行透传（``api/ui_api.py``）：漏了它，契约层洗得再干净也永远到不了模型/日志。
 
-    这个字段的失效形态特别安静：``accept_snapshot(blocked_actions=...)`` 有默认空表，
-    少传一个关键字既不报错也不变更任何已有断言，只是模型永远读到「没什么做不了」——
-    而这正是本字段存在要防的那件事。所以这里直接调端点，钉「HTTP 那一层传了」。
+    这组字段的失效形态特别安静：``accept_snapshot(blocked_actions=..., private_state=...)`` 都有
+    默认空值，少传一个关键字既不报错也不变更任何已有断言，只是模型永远读到「没什么做不了」、
+    日志里永远没有私有状态——而这正是这些字段存在要防的那件事。所以这里直接调端点，
+    钉「HTTP 那一层逐个传了」。
     """
     from apps.agent.api import ui_api
 
@@ -378,6 +379,7 @@ async def test_endpoint_passes_blocked_actions_through(monkeypatch: pytest.Monke
         route="/material-prep",
         available_actions=["ui_material_prep_judge"],
         blocked_actions=[{"name": "ui_material_prep_judge", "reason": "先让律师选一条材料包"}],
+        private_state={"openDetail": "/material-prep/571"},
     )
     await ui_api.submit_ui_snapshot(object(), "req-through", body)
 
@@ -385,6 +387,8 @@ async def test_endpoint_passes_blocked_actions_through(monkeypatch: pytest.Monke
     assert captured["blocked_actions"] == [{"name": "ui_material_prep_judge", "reason": "先让律师选一条材料包"}]
     # 两个字段成对：只测 blocked 的话，下一次改动里 available 被漏掉也不会有人发现
     assert captured["available_actions"] == ["ui_material_prep_judge"]
+    # 私有那一半也要在端点层被钉住：少了这一行，它到不了日志（唯一的可观测面）
+    assert captured["private_state"] == {"openDetail": "/material-prep/571"}
 
 
 @pytest.mark.asyncio
@@ -404,6 +408,102 @@ async def test_invalid_request_id_rejected() -> None:
 
     assert result["accepted"] is False
     assert "request_id" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_private_state_is_accepted_but_never_reaches_the_model(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """⑩ ``private_state`` 全链路：契约层收下 → 进 payload → **绝不进**模型看到的返回体。
+
+    这是整条改动存在的理由：页面需要有地方放「未提交草稿 / 原始 id / 调试字段」。一旦它漏进
+    ``request_snapshot`` 的返回值，页面就再没有这样的地方了——而漏进去不会有任何报错，只会让
+    模型把草稿当既成事实（同 ``blocked_actions`` 漏传的那种静默失效）。所以这里同时钉两件事：
+    返回体里**没有这个键**，而它进日志时**只有键名、没有值**。
+    """
+    bus = _install_bus(monkeypatch, _FakeBus())
+    draft = "律师还没提交的草稿：甲公司与乙公司于 2025 年签约"
+
+    async def answer() -> dict[str, Any]:
+        while not bus.published:
+            await asyncio.sleep(0.01)
+        body = UiSnapshotIn(
+            state={"stage": "todo"},
+            route="/material-prep",
+            private_state={"draftId": "d-7", "draftText": draft},
+        )
+        return await snapshot.accept_snapshot(
+            bus.published[0][1]["request_id"],
+            state=body.state,
+            route=body.route,
+            private_state=body.private_state,
+        )
+
+    with caplog.at_level("INFO"):
+        answering = asyncio.create_task(answer())
+        result = await snapshot.request_snapshot("material-prep", _session_id(), timeout_s=1.0)
+        receipt = await answering
+
+    assert receipt["accepted"] is True and receipt["success"] is True
+    assert result["status"] == "ok"
+    assert result["state"] == {"stage": "todo"}
+    # 钉死：返回体里既没有这个键，也没有它的任何值（键名与值都查一遍，防止换个键名漏进来）。
+    assert "private_state" not in result
+    assert draft not in json.dumps(result, ensure_ascii=False)
+    assert "draftId" not in json.dumps(result, ensure_ascii=False)
+    # 唯一的可观测面：一条 info 日志，带键名与字节数，不带值。
+    logged = [record.getMessage() for record in caplog.records if "private_state" in record.getMessage()]
+    assert len(logged) == 1
+    assert "draftId" in logged[0] and "draftText" in logged[0]
+    assert "bytes=" in logged[0]
+    assert draft not in logged[0]
+
+
+@pytest.mark.asyncio
+async def test_accept_snapshot_carries_private_state_in_the_payload() -> None:
+    """``private_state`` 要进 payload：那是它跨进程交给等待方的唯一路径（日志之外）。
+
+    这条与上一条是**一对**：上面钉「模型看不到」，这条钉「没在出口前就被扔掉」。
+    """
+    request_id = uuid.uuid4().hex
+    await snapshot.register(request_id)
+
+    await snapshot.accept_snapshot(
+        request_id, state={"stage": "todo"}, route="/material-prep", private_state={"draftId": "d-7"}
+    )
+
+    payload = await snapshot.wait(request_id, 0.1)
+    assert payload is not None
+    assert payload["private_state"] == {"draftId": "d-7"}
+    snapshot._FUTURES.pop(request_id, None)
+
+
+@pytest.mark.asyncio
+async def test_private_state_is_scrubbed_before_logging() -> None:
+    """隐私不等于可信：这条通道也会进日志，所以与 ``state`` 同口径脱敏。"""
+    payload = UiSnapshotIn(private_state={_SENSITIVE_FIELD: _SENSITIVE_VALUE}, route="/x")
+
+    assert payload.private_state[_SENSITIVE_FIELD] == "ab***34"
+
+
+def test_oversized_private_state_rejected_by_contract() -> None:
+    """⑪ ``private_state`` 上限 4000 字（比 ``state`` 宽一倍：不进模型上下文、只进日志）。
+
+    超限同样**直接拒**而不是截断：截断后的结构缺键，比一句「超量了」更难解释。
+    """
+    with pytest.raises(ValidationError) as excinfo:
+        UiSnapshotIn(private_state={f"字段{i}": f"内容 {i}" for i in range(600)}, route="/x")
+
+    message = str(excinfo.value)
+    assert "4000" in message
+    assert "超过" in message
+
+
+def test_missing_private_state_keeps_the_existing_body() -> None:
+    """⑫ 没传 ``private_state`` 时什么都不变（与原契约逐字一致，页面不上报就是空对象）。"""
+    payload = UiSnapshotIn(state={"stage": "todo"}, route="/material-prep")
+
+    assert payload.private_state == {}
 
 
 def test_oversized_state_rejected_by_contract() -> None:

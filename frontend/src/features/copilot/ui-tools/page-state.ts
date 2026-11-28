@@ -16,6 +16,12 @@
  * `availableActions` 是按路由静态算的（清单里这一页有什么），不知道「选中了哪一条」，
  * 所以两者**不互斥**；同一条两边都在时以 `blockedActions` 为准（理由：前置没满足）。
  * 没有它，模型分不清「页面没实现」与「有但此刻不可用」，会自己编一个 `packId` 硬调。
+ *
+ * 快照分**两半**：`state` 进模型上下文，`privateState`（后端 `private_state`）**绝不进**。
+ * 页面用它放不该给模型看的东西——律师还没提交的草稿、原始主键 id、排查用的调试字段。
+ * 分开的理由很务实：只有一条通道时，页面总有理由把「先塞进去再说」的东西也塞进 `state`，
+ * 而模型会把草稿当既成事实转述给律师。`privateState` 只进日志（键名 + 字节数，不打值；
+ * 上限 4000 字，比 `state` 宽一倍，超限后端直接拒）。
  */
 
 import { UI_TOOL_SPECS } from './generated'
@@ -57,6 +63,8 @@ export type PageStateRead = {
   availableActions: string[]
   /** 有、但此刻做不了的动作与原因（截 10 条；空表 = 本页没报） */
   blockedActions: BlockedAction[]
+  /** 不进模型上下文的那一半（未提交草稿 / 原始 id / 调试字段）；空对象 = 本页没报 */
+  privateState: Record<string, unknown>
 }
 
 /** 最近一次被问的结果（`state=null` = 没有任何页面声明状态）。 */
@@ -66,6 +74,7 @@ export type PageStateAnswer = {
   state: Record<string, unknown> | null
   availableActions: string[]
   blockedActions: BlockedAction[]
+  privateState: Record<string, unknown>
 }
 
 /** 页名 → 已挂载的 provider（Set 保持插入序，最后一个 = 当前实例）；`order` 记注册顺序。 */
@@ -81,6 +90,15 @@ const listeners = new Set<(answer: PageStateAnswer) => void>()
  * 是「这一刻」的事实，两个实例看到的选择本来就可能不同，合并只会造出一份谁都没见过的清单。
  */
 const blockedByPage = new Map<string, BlockedAction[]>()
+
+/**
+ * 页名 → 「**不给模型看**的那一半」状态（未提交草稿 / 原始主键 id / 调试字段）。
+ *
+ * 与 `blockedByPage` 同款写法（模块级 Map + 页面推 + 卸载清），**不另立一套机制**：两半走同一条
+ * 上行通道（`handlers/ui-action-handler.ts` 一次应答带上两半），只是后端把它们分到模型上下文
+ * 与日志两个去处。多实例同样是后写者胜——它是「这一刻」的事实，合并只会造出谁都没见过的快照。
+ */
+const privateByPage = new Map<string, Record<string, unknown>>()
 
 /** 读出那一刻的地址（pathname + search）；非浏览器环境返回空串（node 单测）。 */
 export function currentRoute(): string {
@@ -109,6 +127,21 @@ export function setPageBlockedActions(page: string, list: BlockedAction[]): void
 /** 页面卸载 / 重新挂载时清掉这条登记（旧原因留着 = 让模型对着不存在的页面下结论）。 */
 export function clearPageBlockedActions(page: string): void {
   blockedByPage.delete(page)
+}
+
+/**
+ * 页面上报「不进模型上下文」的那一半（由 `useUiPageState` 每次渲染推过来）。
+ *
+ * 不做合并：后写者胜（同 `setPageBlockedActions`）。它**不保证**与 `state` 同一次提交——
+ * 所以页面别把这里当唯一真相，它只是「不想给模型看，但希望出问题时能查到」的落脚点。
+ */
+export function setPagePrivateState(page: string, value: Record<string, unknown>): void {
+  privateByPage.set(page, value)
+}
+
+/** 页面卸载 / 重新挂载时清掉：上一个实例的私有状态属于上一个实例，留着就是假事实。 */
+export function clearPagePrivateState(page: string): void {
+  privateByPage.delete(page)
 }
 
 /** 页面卸载：注销这个 provider（同页还有别的实例时不摘页名）。 */
@@ -140,13 +173,21 @@ export function readPageState(page?: string): PageStateRead | null {
         state,
         availableActions: availableActionsForPath(route),
         blockedActions: (blockedByPage.get(target) ?? []).slice(0, MAX_BLOCKED_ACTIONS),
+        privateState: privateByPage.get(target) ?? {},
       }
     }
   }
   // 没声明状态时**不给**动作名（含「做不了」那份）：页面都没对上，此刻算出来的清单只能算猜，
   // 而模型会照着它去调一个页面根本没实现的动作。后端那条路上同样不带
   // （见 handlers/ui-action-handler.ts）。
-  const answer: PageStateAnswer = result ?? { page: null, route, state: null, availableActions: [], blockedActions: [] }
+  const answer: PageStateAnswer = result ?? {
+    page: null,
+    route,
+    state: null,
+    availableActions: [],
+    blockedActions: [],
+    privateState: {},
+  }
   for (const listener of listeners) listener(answer)
   return result
 }

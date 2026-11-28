@@ -70,6 +70,11 @@ export function createUiActionHandler(ctx: TurnHandlerContext): Pick<StreamHandl
  *
  * **`blocked_actions` 同一条口径**：页面登记过的「有、但此刻做不了」原样带上（空表也要发）。
  * 少了它，模型分不清「页面没实现」与「有但此刻不可用」，会自己编一个 `packId` 去硬调。
+ *
+ * **`private_state` 是另一半，同一条应答带上、但去向相反**：后端只记日志，永不放进
+ * `ui_page_state` 的返回值。两半在这里汇合是刻意的（一次上行只发一份），分开就变成两条
+ * 需要各自对齐的通道；而把 `read.privateState` 错填到 `state` 里就等于把草稿交给模型当
+ * 既成事实——`streaming.ui-snapshot.test.ts` 钉死了这件事不发生。
  */
 export function createUiSnapshotHandler(): Pick<StreamHandlers, 'onUiSnapshotRequest'> {
   return {
@@ -81,6 +86,7 @@ export function createUiSnapshotHandler(): Pick<StreamHandlers, 'onUiSnapshotReq
             route: read.route,
             available_actions: read.availableActions,
             blocked_actions: read.blockedActions,
+            private_state: read.privateState,
           }
         : {
             state: {},
@@ -88,6 +94,8 @@ export function createUiSnapshotHandler(): Pick<StreamHandlers, 'onUiSnapshotReq
             note: NO_PAGE_STATE_NOTE,
             available_actions: [],
             blocked_actions: [],
+            // 页面都没声明：私有那一半同样只能发空对象（不许按当前地址编一份猜的）
+            private_state: {},
           }
       void submitUiPageSnapshot(event.request_id, reply).catch((error: unknown) => {
         console.warn(`[ui-snapshot] 快照应答未送达（request_id=${event.request_id}）：${String(error)}`)

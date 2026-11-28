@@ -9,7 +9,9 @@
  * 3. **≤10 且无重复**：`MAX_AVAILABLE_ACTIONS` 与后端同一上限，前端超发只是让后端白截一次；
  * 4. **页面没声明状态时不给动作名**：那时的清单只能是猜的，模型会照着它调不存在的动作；
  * 5. **`blockedActions` 跟着页面走**：页面登记了才带出、页面卸载/清掉就不再带（否则模型在
- *    一个已经能做的页面上仍然读「先选一条」，会白问律师一句）。
+ *    一个已经能做的页面上仍然读「先选一条」，会白问律师一句）；
+ * 6. **`privateState` 与 `state` 分两半存**：私有的那一半只进日志、**不混进 `state`**
+ *    （混进去就是把律师没提交的草稿交给模型当既成事实）；没登记时是 `{}`，不是 `undefined`。
  *
  * node 环境（本目录默认）：`currentRoute()` 是空串，「当前地址」只能由入参给——这正是把
  * `availableActionsForPath(pathname)` 做成**纯函数**的收益，判定逻辑不必挂在浏览器上。
@@ -21,11 +23,13 @@ import { UI_TOOL_SPECS } from './generated'
 import {
   availableActionsForPath,
   clearPageBlockedActions,
+  clearPagePrivateState,
   MAX_AVAILABLE_ACTIONS,
   MAX_BLOCKED_ACTIONS,
   readPageState,
   registerPageState,
   setPageBlockedActions,
+  setPagePrivateState,
   subscribePageStateReads,
   unregisterPageState,
 } from './page-state'
@@ -44,9 +48,11 @@ let registered: (() => Record<string, unknown>) | null = null
 afterEach(() => {
   if (registered !== null) unregisterPageState('x', registered)
   registered = null
-  // blocked 表是模块级 Map：漏清一条会让下一条用例读到上一条的原因
+  // blocked / private 表都是模块级 Map：漏清一条会让下一条用例读到上一条的原因 / 草稿
   clearPageBlockedActions('x')
   clearPageBlockedActions('y')
+  clearPagePrivateState('x')
+  clearPagePrivateState('y')
 })
 
 describe('availableActionsForPath：本页动作在前、全局动作在后', () => {
@@ -185,5 +191,54 @@ describe('blockedActions：页面说「有但此刻做不了」的那份清单',
     setPageBlockedActions('never-registered', [blockedJudge()])
 
     expect(readPageState('never-registered')).toBeNull()
+  })
+})
+
+describe('privateState：不进模型上下文的那一半（未提交草稿 / 原始 id / 调试字段）', () => {
+  it('页面登记了就一并读出来，且**不混进 state**', () => {
+    const provider = (): Record<string, unknown> => ({ stage: 'todo' })
+    registered = provider
+    registerPageState('x', provider)
+    setPagePrivateState('x', { openDetail: '/material-prep/571' })
+
+    const read = readPageState('x')
+
+    expect(read?.privateState).toEqual({ openDetail: '/material-prep/571' })
+    // 分开存是这条通道存在的全部意义：混进 state 就等于把草稿交给了模型
+    expect(read?.state).toEqual({ stage: 'todo' })
+  })
+
+  it('清掉之后不再带（上一个实例的私有状态属于上一个实例）', () => {
+    const provider = (): Record<string, unknown> => ({ v: 1 })
+    registered = provider
+    registerPageState('x', provider)
+    setPagePrivateState('x', { draftText: '未提交' })
+    expect(readPageState('x')?.privateState).toEqual({ draftText: '未提交' })
+
+    clearPagePrivateState('x')
+
+    expect(readPageState('x')?.privateState).toEqual({})
+  })
+
+  it('页面没声明状态时通知里是空对象（不是 undefined：调用方不必再判空）', () => {
+    const answers: PageStateAnswer[] = []
+    const off = subscribePageStateReads((answer) => answers.push(answer))
+
+    expect(readPageState('never-registered')).toBeNull()
+    off()
+
+    expect(answers[0]?.state).toBeNull()
+    expect(answers[0]?.privateState).toEqual({})
+  })
+
+  it('按页分开：给 x 登记不影响 y', () => {
+    const provider = (): Record<string, unknown> => ({ v: 1 })
+    registered = provider
+    registerPageState('x', provider)
+    registerPageState('y', provider)
+    setPagePrivateState('x', { draftText: '未提交' })
+
+    expect(readPageState('y')?.privateState).toEqual({})
+    unregisterPageState('y', provider)
   })
 })

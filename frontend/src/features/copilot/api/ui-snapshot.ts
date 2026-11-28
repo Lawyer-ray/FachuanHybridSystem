@@ -31,6 +31,15 @@ export interface UiPageSnapshotReply {
    * 页面没声明状态时传空数组（同 `available_actions`：那一刻不知道本页有什么可做）。
    */
   blocked_actions: BlockedAction[]
+  /**
+   * 页面**不给模型看**的那一半（字段名逐字 `private_state`，后端 `UiSnapshotIn` 同一拼法）：
+   * 未提交草稿 / 原始 id / 调试字段。后端只把它写进一条 info 日志（键名 + 字节数，不打值），
+   * **永不放进 `ui_page_state` 的返回值**。
+   *
+   * **必填**（与 `blocked_actions` 同口径）：页面没声明就发 `{}`。显式发而不是可选，是为了让
+   * 「页面说了没东西」只有一种表示法（`{}`），不会多出「没这个键」第二种。
+   */
+  private_state: Record<string, unknown>
 }
 
 /** 快照应答的回执。`success=false` 不是失败：等待方（≤3s）可能已经超时。 */

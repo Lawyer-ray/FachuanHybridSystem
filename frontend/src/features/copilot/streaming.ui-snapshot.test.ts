@@ -12,7 +12,9 @@
  * - 页面**声明了**状态 → 原样回 `state + route`；
  * - 页面**没声明** → 回 `note`（后端转成 `no_page_state`），**不许**把 `{}` 当空页面；
  * - `blocked_actions` 恒发（有声明 = 那份清单、没声明 = 空数组）：模型靠它区分「页面没实现」
- *   与「有但此刻不可用」，不发就等于让它去编一个 `packId` 硬调。
+ *   与「有但此刻不可用」，不发就等于让它去编一个 `packId` 硬调；
+ * - `private_state` 与 `state` **不会混**：它恒发（有声明 = 那份、没声明 = `{}`），但只进日志、
+ *   不进模型上下文；handler 把两半接反了就等于把律师没提交的草稿交给了模型，而不会有任何报错。
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -23,9 +25,11 @@ import { consumeAgentStream } from './streaming'
 import type { StreamHandlers } from './streaming'
 import {
   clearPageBlockedActions,
+  clearPagePrivateState,
   readPageState,
   registerPageState,
   setPageBlockedActions,
+  setPagePrivateState,
   unregisterPageState,
 } from './ui-tools/page-state'
 
@@ -121,8 +125,29 @@ describe('页面状态应答', () => {
       available_actions: expect.any(Array),
       // 页面没登记「做不了什么」= 空数组（不是不带键：模型要能区分「没有」与「没问到」）
       blocked_actions: [],
+      // 私有那一半恒发（没登记 = 空对象）：一次应答带两半，不用再维护一条要各自对齐的通道
+      private_state: {},
     })
     unregisterPageState('material-prep', provider)
+  })
+
+  it('页面登记了私有状态：带在 private_state 里，且**不混进 state**', () => {
+    const provider = () => ({ stage: 'todo' })
+    const privateState = { draftText: '律师还没提交的草稿', openDetail: '/material-prep/571' }
+    registerPageState('material-prep', provider)
+    setPagePrivateState('material-prep', privateState)
+
+    createUiSnapshotHandler().onUiSnapshotRequest?.(FRAME, ORIGIN)
+
+    const reply = sentReply()[1]
+    expect(reply.private_state).toEqual(privateState)
+    // 两半混回去是本条通道最坏的失效形态：它不会报错，只会让模型把草稿当既成事实。
+    // 逐个键查，防止以后有人在 handler 里展开合并（`...read`）时把它一并带进 state。
+    expect(reply.state).toEqual({ stage: 'todo' })
+    for (const key of Object.keys(privateState)) expect(reply.state).not.toHaveProperty(key)
+
+    unregisterPageState('material-prep', provider)
+    clearPagePrivateState('material-prep')
   })
 
   it('页面登记了做不了的动作：blocked_actions 原样带上原因', () => {
@@ -148,6 +173,8 @@ describe('页面状态应答', () => {
       // 页面没声明状态 = 不知道它有哪些动作，回空表而不是编一份猜的清单
       available_actions: [],
       blocked_actions: [],
+      // 私有那一半同理：不许按当前地址编一份猜的
+      private_state: {},
     })
   })
 

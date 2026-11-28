@@ -147,8 +147,12 @@ async def submit_ui_snapshot(
 ) -> dict[str, Any]:  # pragma: no cover
     """前端回传一次页面状态快照（仅会话所有者）。
 
-    契约（脱敏、2000 字上限）在 ``UiSnapshotIn`` 里；本端点只做归属校验与转交。
+    契约（脱敏、``state`` 2000 字 / ``private_state`` 4000 字上限）在 ``UiSnapshotIn`` 里；
+    本端点只做归属校验与转交。
     ``success=False`` 不是失败：等待方（≤3s）可能已经超时，模型会按「没问到」继续。
+
+    往下转交的六个字段（漏一个就是一条静默失效的通道）：``state`` / ``route`` / ``note`` /
+    ``available_actions`` / ``blocked_actions`` / ``private_state``。
     """
     user = _current_user(request)
     if user is None:
@@ -159,6 +163,10 @@ async def submit_ui_snapshot(
     if rejection is not None:
         return {"accepted": False, "success": False, "error": rejection}
 
+    # 这里**逐个关键字**传参是刻意的：新增字段必须在此显式接上，``accept_snapshot`` 的默认值
+    # 不是「接上了」——它只是让漏传不抛 TypeError，于是漏传表现为「这条通道永远没有数据」，
+    # 既不报错也没有断言会红（``blocked_actions`` 当初就是这么漏的）。端点用例
+    # ``test_endpoint_passes_actions_and_private_state_through`` 钉住这几个关键字真的传了下去。
     return await snapshot.accept_snapshot(
         request_id,
         state=payload.state,
@@ -169,4 +177,6 @@ async def submit_ui_snapshot(
         # 与 ``available_actions`` 成对：漏一行就等于这个字段永远拿不到（``accept_snapshot``
         # 的默认值是空表，缺了不报错，只会让模型一直看到「没有什么做不了」）。
         blocked_actions=payload.blocked_actions,
+        # 页面的另一半（未提交草稿 / 原始 id / 调试字段）：进日志、**不进**模型上下文。
+        private_state=payload.private_state,
     )

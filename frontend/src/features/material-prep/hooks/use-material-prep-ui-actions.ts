@@ -63,6 +63,18 @@ export function useMaterialPrepUiActions({
           },
         ]
       : []
+
+  // 快照的**另一半** `privateState`：阅读器是不是开着、开的是哪一包。这里放的是详情路由的
+  // **原始值**（`/material-prep/571` = 阅读器开着、看的是 571）。
+  //
+  // 为什么它不进 `state`：这条事实随时会被后退 / 切页 / 另一个标签页改掉，而模型最爱把
+  // 「律师正在看 571」读成「律师已经把 571 定为 done」。它只进日志（键名 + 字节数，不打值），
+  // 排查「AI 为什么说他正在看 571」时才有据可查。
+  //
+  // 注意：这条路径**不保证渲染与 `state` 同步**（路由替换与阅读器打开不是同一次提交），
+  // 所以别把业务判断只放在这里——真相在 `state` 与后端，它只是日志面。
+  const privateState: Record<string, unknown> = { openDetail: location.pathname }
+
   useUiPageState(
     PAGE_NAME,
     {
@@ -72,7 +84,7 @@ export function useMaterialPrepUiActions({
       selected,
       counts,
     },
-    { blockedActions },
+    { blockedActions, privateState },
   )
 
   const refreshPacks = useCallback(

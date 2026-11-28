@@ -6,6 +6,10 @@
 超时不是错误（同 ``ask_user`` 的 ``timed_out``）：3 秒没等到，唯一确定的事实是「没问到」，
 **不是**「页面是空的」——混成一个返回值，模型会把一辆空白页面当事实转述给律师。超限
 直接拒（不截断）的理由见 ``UiSnapshotIn``。
+
+页面回的东西分**两半**：``state`` 进模型上下文，``private_state`` **永远不进**（页面放未提交
+草稿 / 原始 id / 调试字段的地方）。保证只有一处：:func:`request_snapshot` 按
+:data:`MODEL_FACING_KEYS` 挑键，绝不对 payload 做 ``**`` 透传（理由见 ``_model_facing``）。
 """
 
 from __future__ import annotations
@@ -35,6 +39,12 @@ DEFAULT_TIMEOUT_SECONDS = 3.0
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 #: 可重试的缓存异常（与 ``ack._CACHE_ERRORS`` 同口径：这两处失败本来就该降级）。
 _CACHE_ERRORS: tuple[type[BaseException], ...] = (OSError, ValueError, TypeError, RuntimeError)
+
+#: 允许进**模型上下文**的应答键（白名单）。``private_state`` 刻意不在里面：它一旦漏进去，页面
+#: 就再没有一个「有话要说但不想让模型看见」的地方了。
+MODEL_FACING_KEYS: frozenset[str] = frozenset(
+    {"status", "state", "route", "note", "available_actions", "blocked_actions"}
+)
 
 #: 进程内等待表：``request_id → Future``（只做同 worker 快路径，跨 worker 走共享缓存）。
 _FUTURES: dict[str, asyncio.Future[dict[str, Any]]] = {}
@@ -110,16 +120,29 @@ async def accept_snapshot(
     route: str,
     available_actions: Sequence[str] = (),
     blocked_actions: Sequence[dict] = (),
+    private_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """把契约层（``UiSnapshotIn``）已脱敏、已限量的快照交给等待方。
     ``success=False`` 不是失败：模型只等 3 秒，律师慢一步就是超时（与回执同口径）。
 
-    ``available_actions`` / ``blocked_actions`` 必须带默认值：缺省让它与 ``state`` / ``route`` 不同，
-    是可选的——页面没报、或调用方还没接上这个字段，都退化成一个空表，而不是把一个 TypeError
-    抛进一条本来只该降级的链路。
+    ``available_actions`` / ``blocked_actions`` / ``private_state`` 必须带默认值：缺省让它与
+    ``state`` / ``route`` 不同，是可选的——页面没报、或调用方还没接上这个字段，都退化成一个空表，
+    而不是把一个 TypeError 抛进一条本来只该降级的链路。
+
+    ``private_state`` 进 payload（等待方按白名单挑键，见 :func:`_model_facing`），**唯一的可观测面
+    是本函数这一条 info 日志**：只有键名与字节数，**不打值**。这条日志是「页面有话要说但不想让
+    模型看见」时唯一的排查面——缺了它，那份数据就彻底是黑洞。
     """
     if not _REQUEST_ID_RE.match(request_id or ""):
         return {"accepted": False, "success": False, "error": "request_id 不合法（限字母/数字/下划线/短横，≤64）"}
+    private = private_state or {}
+    if private:
+        # 只记键名 + 字节数：值可能就是律师没提交的草稿，抄进日志等于开第二条泄漏面。
+        logger.info(
+            "页面快照带 private_state keys=%s bytes=%d（不进模型上下文，只留这一条日志）",
+            sorted(private),
+            len(json.dumps(private, ensure_ascii=False, default=str).encode("utf-8")),
+        )
     found = await resolve(
         request_id,
         {
@@ -127,6 +150,7 @@ async def accept_snapshot(
             "route": route,
             "available_actions": list(available_actions),
             "blocked_actions": list(blocked_actions),
+            "private_state": private,
         },
     )
     return {
@@ -145,6 +169,9 @@ async def request_snapshot(
     ``ok`` / ``no_page_state`` 带 ``route`` / ``available_actions`` / ``blocked_actions``（页面没报
     就是空表）；``no_channel`` / ``timeout`` 只有状态本身——**没问到就不带字段**，空表会被模型读成
     「页面上没有可做的动作」、或读成「这页什么都做得了」。
+
+    **返回体绝不带 ``private_state``**（这是整条改动存在的理由），且保证方式是结构性的：两个
+    返回分支都过 :func:`_model_facing`，按 :data:`MODEL_FACING_KEYS` 挑键。
     """
     if not session_id:
         return {"status": "no_channel"}
@@ -181,21 +208,35 @@ async def request_snapshot(
     if note:
         # 前端明确说「页面没有声明状态」：**不许**当成空对象，模型据此会误判页面为空。
         # 但 blocked 仍可能是真的（页面只是没声明字段，并不是没有动作），所以照带。
-        return {
-            "status": "no_page_state",
+        return _model_facing(
+            {
+                "status": "no_page_state",
+                "route": route,
+                "note": note,
+                "available_actions": actions,
+                "blocked_actions": blocked,
+            }
+        )
+    state = payload.get("state")
+    return _model_facing(
+        {
+            "status": "ok",
             "route": route,
-            "note": note,
+            "state": state if isinstance(state, dict) else {},
             "available_actions": actions,
             "blocked_actions": blocked,
         }
-    state = payload.get("state")
-    return {
-        "status": "ok",
-        "route": route,
-        "state": state if isinstance(state, dict) else {},
-        "available_actions": actions,
-        "blocked_actions": blocked,
-    }
+    )
+
+
+def _model_facing(fields: dict[str, Any]) -> dict[str, Any]:
+    """只放行 :data:`MODEL_FACING_KEYS` 里的键——``private_state`` 不进模型上下文的那道锁。
+
+    **刻意不对 payload 做 ``**`` 透传**：payload 是跨进程收到的一份字典，将来往里加字段
+    （比如再开一条私有通道）时，透传会让它**自动**出现在模型上下文里，而没有任何断言会红。
+    白名单的坏处是「新字段忘了加就不出现」，那是可见的、测试能钉住的失败方向。
+    """
+    return {key: value for key, value in fields.items() if key in MODEL_FACING_KEYS}
 
 
 def _available_actions(payload: dict[str, Any]) -> list[str]:
