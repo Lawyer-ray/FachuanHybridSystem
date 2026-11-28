@@ -1,14 +1,33 @@
-"""Agent 技能 API —— 个人技能增删改查 + 启停 + 校验 + 复制内置。
+"""Agent 技能 API —— 管理抽屉（清单/详情/CRUD）+ 双轨发布生命周期 + 运行时正文出口。
 
-端点前缀：``/api/v1/agent``（技能子域）。消息以 ``/skill:名字 参数`` 触发，
-pi 在发给模型前展开全文。
+端点前缀：``/api/v1/agent``（技能子域）。律师用 ``/skill:名字 参数`` 点名技能，
+模型也可以经 MCP ``get_agent_skill`` 按需取全文——后者打的就是
+``GET /skills/resolve/{ref}/content``。
 
-## 两条实现纪律
+## 三条实现纪律
 
-1. **路由顺序**：``/skills/quota``、``/skills/validate`` 必须注册在
-   ``/skills/{key}`` 之前，否则会被路径参数吞掉。
-2. **API 层零 ORM**（四层棘轮）：所有查询/校验/写盘在 ``services/skills/``；
-   这里只做参数装配与把领域异常翻译成 HTTP 状态码。
+1. **路由顺序**：``/skills``、``/skills/quota``、``/skills/validate``、
+   ``/skills/resolve/{ref}/content`` 必须注册在 ``/skills/{key}`` **之前**。ninja 的
+   URL 按声明顺序匹配，``{key}`` 的 ``[^/]+`` 会把后面的字面量段吞成参数值
+   （症状是路由「永远 404」或「恒 405」，且没有任何报错）。
+2. **API 层零 ORM**（四层棘轮）：查询、校验、权限、事务全在 ``services/skills/``；
+   这里只做参数装配与「领域异常 → HTTP 状态码」的翻译。
+3. **错误码有语义分工**：404 不存在/无权（不区分，避免探测）/ 403 越权 /
+   409 冲突 / 422 字段级 / 429 配额 / **503 运营开关关闭**。
+
+## 为什么 503 不能靠 ``SkillForbidden`` 翻出来
+
+``services/skills/flags.py`` 关闭时服务层抛 ``SkillForbidden``，那会被翻译成 403。
+但 403 的语义是「你没有这个权限」，前端据此会把律师引去申请权限——而这时候真正
+该做的是找管理员打开开关。所以写端点在调服务层**之前**先看一眼开关（``_require_writes``）。
+给 ``errors`` 新增 ``SkillDisabled`` 更干净，但 ``errors.py`` 不在本 lane 的边界内。
+
+## 为什么 ``PATCH`` 单独留一条 ``ValueError`` 转换
+
+``skill_service.set_skill_enabled`` 沿用了改造前「非法/未知内置名 → ``ValueError``」的
+公开行为（它的调用方不止 API）。这条转换**只**留在启停端点：通用 ``_invoke`` 里宽捕
+``ValueError`` 会把服务层任何笔误（例如 ``int("x")``）都翻译成 404，把真 bug 藏成
+「技能不存在」。
 """
 
 from __future__ import annotations
@@ -22,12 +41,17 @@ from ninja.errors import HttpError
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..schemas import (
+    SkillContentOut,
     SkillCreateIn,
     SkillDetailOut,
+    SkillDiffOut,
     SkillFieldError,
     SkillListOut,
     SkillOut,
     SkillQuotaOut,
+    SkillReviewIn,
+    SkillSafetyFinding,
+    SkillSubmitIn,
     SkillToggleIn,
     SkillToggleOut,
     SkillUpdateIn,
@@ -36,17 +60,25 @@ from ..schemas import (
 )
 from ..services import skill_service
 from ..services.skills import errors as skill_errors
-from ..services.skills import user_skills
+from ..services.skills import flags, user_skills
+from ..services.skills import review as skill_review
+from ..services.skills.constants import CONTENT_PAGE_BYTES
 from ._helpers import _user_id
 
 router = Router(tags=["Agent 技能"], auth=JWTOrSessionAuth())
+
+#: ``GET /skills?scope=`` 的合法取值。``all`` 是缺省（返回全部可见条目）。
+_SCOPE_FILTERS = frozenset({"all", "lawyer", "team", "law_firm", "builtin"})
+
+#: ``POST /skills/{key}/review`` 的合法决策
+_REVIEW_DECISIONS = frozenset({"approve", "reject"})
 
 
 async def _invoke(func: Any, **kwargs: Any) -> Any:
     """在线程里跑同步 service，并把领域错误翻译成 ``HttpError``。
 
-    ``ValueError`` 是 ``skill_service.set_skill_enabled`` 的兼容行为（改造前就用
-    它表示「非法/未知技能名」），对前端都是 404。
+    ``thread_sensitive=True``：这些调用会进 ``transaction.atomic()``，必须回到主线程
+    的单连接上跑，否则同一请求里的行锁与快照在两个连接上各说各话。
     """
     try:
         return await sync_to_async(func, thread_sensitive=True)(**kwargs)
@@ -60,27 +92,59 @@ async def _invoke(func: Any, **kwargs: Any) -> Any:
         raise HttpError(429, str(exc)) from exc
     except skill_errors.SkillInvalid as exc:
         raise HttpError(422, skill_errors.as_message(exc.errors)) from exc
+
+
+def _require_writes() -> None:
+    """写端点前置拦截：运营开关 ``off`` 时 503（见模块 docstring 第 3 条）。"""
+    if not flags.writes_enabled():
+        raise HttpError(503, "技能写入已被运营开关关闭，请联系管理员")
+
+
+async def _invoke_write(func: Any, **kwargs: Any) -> Any:
+    """写端点的统一入口：先过总开关，再走 ``_invoke``。"""
+    _require_writes()
+    return await _invoke(func, **kwargs)
+
+
+async def _invoke_toggle(func: Any, **kwargs: Any) -> Any:
+    """启停专用：写开关 + ``ValueError → 404`` 兼容（见模块 docstring 末段）。"""
+    _require_writes()
+    try:
+        return await _invoke(func, **kwargs)
     except ValueError as exc:
         raise HttpError(404, str(exc)) from exc
 
 
+# ── 静态段路由（必须排在 /skills/{key} 之前）────────────────────
+
+
 @router.get("/skills", response=SkillListOut)
-async def list_skills(request: Any) -> SkillListOut:
-    """当前律师可见的技能清单（内置 + 个人，含禁用项）。"""
+async def list_skills(request: Any, scope: str = "all") -> SkillListOut:
+    """管理抽屉清单：该律师可见的**全部**条目（含被遮蔽、草稿、待审）。
+
+    ``scope`` 过滤在 API 侧做：``list_visible_skills`` 一次算出全部可见条目（含
+    ``effective`` / ``shadowed_by`` / ``can_*``），按层过滤只是对同一份结果切片——
+    放到服务层意味着每个 tab 都要重跑一遍级联。
+    """
+    wanted = (scope or "all").strip()
+    if wanted not in _SCOPE_FILTERS:
+        raise HttpError(422, f"scope 只能是 {' / '.join(sorted(_SCOPE_FILTERS))}")
     skills = await _invoke(user_skills.list_for_user, user_id=_user_id(request) or 0)
+    if wanted != "all":
+        skills = [item for item in skills if item["scope"] == wanted]
     return SkillListOut(skills=[SkillOut(**item) for item in skills])
 
 
 @router.get("/skills/quota", response=SkillQuotaOut)
 async def skill_quota(request: Any) -> SkillQuotaOut:
-    """个人技能配额（前端进度条）。"""
+    """配额占用：个人与共享分开计数（前端进度条与「本所还剩几条」提示）。"""
     quota = await _invoke(user_skills.quota_for_user, user_id=_user_id(request) or 0)
     return SkillQuotaOut(**quota)
 
 
 @router.post("/skills/validate", response=SkillValidateOut)
 async def validate_skill(request: Any, payload: SkillValidateIn) -> SkillValidateOut:
-    """字段级校验 + 渲染预览（不落库）。"""
+    """字段级校验 + 渲染预览 + 安全命中（不落库，不写盘，不占开关）。"""
     result = await _invoke(
         user_skills.validate_form,
         user_id=_user_id(request) or 0,
@@ -93,34 +157,67 @@ async def validate_skill(request: Any, payload: SkillValidateIn) -> SkillValidat
         ok=bool(result["ok"]),
         errors=[SkillFieldError(**error) for error in result["errors"]],
         preview=str(result["preview"]),
+        safety=[SkillSafetyFinding(**finding) for finding in result["safety"]],
     )
+
+
+@router.get("/skills/resolve/{ref}/content", response=SkillContentOut)
+async def skill_content(
+    request: Any,
+    ref: str,
+    start: int = 0,
+    limit: int = CONTENT_PAGE_BYTES,
+) -> SkillContentOut:
+    """**运行时**正文（MCP ``get_agent_skill`` 的数据源），按字节分段。
+
+    ``ref`` 同时接受 ``builtin:<name>`` / ``skill:<uuid>`` / 裸 ``name``：模型只
+    知道名字，路径参数却常带 key。严格走 ``resolve_for_user``——已停用 / 草稿 /
+    无权一律 404，这条出口给的是模型，不能像管理面那样把工作区草稿返出去。
+    """
+    content = await _invoke(
+        user_skills.content_for_ref,
+        user_id=_user_id(request) or 0,
+        ref=ref,
+        start=start,
+        limit=limit,
+    )
+    return SkillContentOut(**content)
+
+
+# ── 单条路由（``{key}`` 只能出现在静态段之后）────────────────────
 
 
 @router.get("/skills/{key}", response=SkillDetailOut)
 async def get_skill(request: Any, key: str) -> SkillDetailOut:
-    """技能详情（含正文）。``key`` 可含 ``:``（``builtin:web-research``）。"""
+    """技能详情（管理面）：**工作区**最新正文，作者要能接着编辑自己的稿子。
+
+    ``key`` 可含 ``:``（``builtin:web-research``）。运行时正文走
+    ``/skills/resolve/{ref}/content``，两者刻意分开：一个是工作区，一个是线上。
+    """
     detail = await _invoke(user_skills.get_detail, user_id=_user_id(request) or 0, key=key)
     return SkillDetailOut(**detail)
 
 
 @router.post("/skills", response={201: SkillDetailOut})
 async def create_skill(request: Any, payload: SkillCreateIn) -> Any:
-    """新建个人技能；``name`` 省略时后端生成。"""
-    detail = await _invoke(
+    """新建技能（缺省个人）；``scope=law_firm`` / ``team`` 的服务端权限闸门在 service。"""
+    detail = await _invoke_write(
         user_skills.create_skill,
         user_id=_user_id(request) or 0,
         name=payload.name,
         title=payload.title,
         description=payload.description,
         body=payload.body,
+        scope=(payload.scope or "lawyer").strip(),
+        team_id=payload.team_id,
     )
     return Status(201, SkillDetailOut(**detail))
 
 
 @router.put("/skills/{key}", response=SkillDetailOut)
 async def update_skill(request: Any, key: str, payload: SkillUpdateIn) -> SkillDetailOut:
-    """更新正文与描述；``version`` 不符返回 409。"""
-    detail = await _invoke(
+    """更新**工作区**（共享技能编辑不换线上：``version`` 不符 409）。"""
+    detail = await _invoke_write(
         user_skills.update_skill,
         user_id=_user_id(request) or 0,
         key=key,
@@ -134,8 +231,8 @@ async def update_skill(request: Any, key: str, payload: SkillUpdateIn) -> SkillD
 
 @router.patch("/skills/{key}", response=SkillToggleOut)
 async def toggle_skill(request: Any, key: str, payload: SkillToggleIn) -> SkillToggleOut:
-    """启停（下一轮对话生效：注入面按用户偏好逐个 ``--skill``）。"""
-    result = await _invoke(
+    """启停。共享技能只 upsert 本人偏好行（``AgentSkill.enabled`` 是全所共用的一行）。"""
+    result = await _invoke_toggle(
         skill_service.set_skill_enabled,
         user_id=_user_id(request) or 0,
         key=key,
@@ -146,13 +243,81 @@ async def toggle_skill(request: Any, key: str, payload: SkillToggleIn) -> SkillT
 
 @router.delete("/skills/{key}", response={204: None})
 async def delete_skill(request: Any, key: str) -> Any:
-    """删除个人技能（内置技能 403）。"""
-    await _invoke(user_skills.delete_skill, user_id=_user_id(request) or 0, key=key)
+    """删除个人技能（内置 403；别人的 404；共享只能由本所管理员删）。"""
+    await _invoke_write(user_skills.delete_skill, user_id=_user_id(request) or 0, key=key)
     return Status(204, None)
 
 
 @router.post("/skills/{key}/duplicate", response={201: SkillDetailOut})
 async def duplicate_skill(request: Any, key: str) -> Any:
-    """「复制为我的」：仅内置技能可复制。"""
-    detail = await _invoke(user_skills.duplicate_builtin, user_id=_user_id(request) or 0, key=key)
+    """「复制为我的」：仅内置技能可复制（内置名是保留字，副本名加 ``-copy``）。"""
+    detail = await _invoke_write(user_skills.duplicate_builtin, user_id=_user_id(request) or 0, key=key)
     return Status(201, SkillDetailOut(**detail))
+
+
+@router.get("/skills/{key}/diff", response=SkillDiffOut)
+async def diff_skill(request: Any, key: str, v1: int | None = None, v2: int | None = None) -> SkillDiffOut:
+    """两版对比，缺省「线上生效版 vs 工作区」。
+
+    只读接口（作者与审批人都要看）：所以不过写开关。
+    """
+    diff = await _invoke(skill_review.diff_versions, user_id=_user_id(request) or 0, key=key, v1=v1, v2=v2)
+    return SkillDiffOut(**diff)
+
+
+@router.post("/skills/{key}/submit", response=SkillDetailOut)
+async def submit_skill(request: Any, key: str, payload: SkillSubmitIn) -> SkillDetailOut:
+    """提审：置 ``review_status=pending``，**不动线上**（生效的唯一入口是 approve）。"""
+    detail = await _invoke_write(
+        skill_review.submit,
+        user_id=_user_id(request) or 0,
+        key=key,
+        target_scope=(payload.target_scope or "").strip(),
+        note=payload.note,
+        acknowledged_firm_wide=payload.acknowledged_firm_wide,
+    )
+    return SkillDetailOut(**detail)
+
+
+@router.post("/skills/{key}/review", response=SkillDetailOut)
+async def review_skill(request: Any, key: str, payload: SkillReviewIn) -> SkillDetailOut:
+    """审批：``approve`` 把最新快照提为线上版；``reject`` 只改修订流（线上纹丝不动）。"""
+    decision = (payload.decision or "").strip().lower()
+    if decision not in _REVIEW_DECISIONS:
+        raise HttpError(422, f"decision 只能是 {' / '.join(sorted(_REVIEW_DECISIONS))}")
+    if decision == "approve":
+        detail = await _invoke_write(
+            skill_review.approve,
+            user_id=_user_id(request) or 0,
+            key=key,
+            acknowledged_firm_wide=payload.acknowledged_firm_wide,
+        )
+    else:
+        detail = await _invoke_write(
+            skill_review.reject,
+            user_id=_user_id(request) or 0,
+            key=key,
+            note=payload.note,
+        )
+    return SkillDetailOut(**detail)
+
+
+@router.post("/skills/{key}/archive", response=SkillDetailOut)
+async def archive_skill(request: Any, key: str) -> SkillDetailOut:
+    """下线：立刻退出交付面，但保留 ``published_revision`` 供审计追溯。"""
+    detail = await _invoke_write(skill_review.archive, user_id=_user_id(request) or 0, key=key)
+    return SkillDetailOut(**detail)
+
+
+@router.post("/skills/{key}/restore", response=SkillDetailOut)
+async def restore_skill(request: Any, key: str) -> SkillDetailOut:
+    """恢复：``archived → draft``，**必须重走审批**（恢复即生效等于绕过一次审批）。"""
+    detail = await _invoke_write(skill_review.restore, user_id=_user_id(request) or 0, key=key)
+    return SkillDetailOut(**detail)
+
+
+@router.post("/skills/{key}/discard-draft", response=SkillDetailOut)
+async def discard_draft(request: Any, key: str) -> SkillDetailOut:
+    """放弃工作区：把线上已批准版回填到工作区，清掉待审/驳回态。"""
+    detail = await _invoke_write(skill_review.discard_draft, user_id=_user_id(request) or 0, key=key)
+    return SkillDetailOut(**detail)

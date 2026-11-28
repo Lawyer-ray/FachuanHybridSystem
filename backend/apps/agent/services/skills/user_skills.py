@@ -113,6 +113,10 @@ def get_detail(user_id: int, key: str) -> dict:
         return {
             **builtin,
             "enabled": _builtin_enabled(user_id, builtin["name"]),
+            # ``library.builtin_skills()`` 没有覆盖关系（只有 ``list_visible_skills``
+            # 跑过级联才知道谁遮蔽谁），但详情回执必须与 ``entry_for_row`` 同形——
+            # 形状不一致时前端一定会在某个分支上读到 ``undefined``。
+            "shadowed": [],
             "body": body,
             "preview": render_skill_body(scope="builtin", name=builtin["name"], title=builtin["title"], body=body),
         }
@@ -145,8 +149,13 @@ def content_for_ref(user_id: int, ref: str, *, start: int = 0, limit: int = CONT
     winner = _find_deliverable(user_id, ref)
     if winner is None:
         raise SkillNotFound("技能不存在或未启用")
+    # 内置条目来自 ``library.builtin_skills()``，那份字典刻意不带正文（它带 mtime
+    # 缓存，正文进缓存会让律师正在改的大文件常驻内存），所以这里单独读文件。
+    body = winner.get("body")
+    if body is None:
+        body = library.read_body(winner["name"])
     rendered = render_skill_body(
-        scope=winner["scope"], name=winner["name"], title=winner["title"], body=winner.get("body", "")
+        scope=winner["scope"], name=winner["name"], title=winner["title"], body=body
     )
     payload = rendered.encode("utf-8")
     total = len(payload)
@@ -388,7 +397,14 @@ def _resolve_skill_row(user_id: int, key: str, *, for_update: bool = False) -> A
         SkillNotFound: 找不到，或不在该律师的可见范围内（不区分两者：不泄漏存在性）。
     """
     queryset = AgentSkill.objects.select_related("team", "published_revision")
-    queryset = queryset.select_for_update() if for_update else queryset
+    if for_update:
+        # ``team`` / ``published_revision`` 都是可空外键，``select_related`` 会拼
+        # LEFT OUTER JOIN，而 PostgreSQL 的 ``FOR UPDATE`` 不允许作用在 outer join
+        # 的可空侧（NotSupportedError: FOR UPDATE cannot be applied to the nullable
+        # side of an outer join）。``of=("self",)`` 把加锁范围限定在主表：join 侧只读
+        # 不锁，一条 SQL 仍拿全关联对象（不会退化成 N+1）。这条路径覆盖 PUT / PATCH /
+        # submit / approve / reject / archive / restore / discard-draft 全部写端点。
+        queryset = queryset.select_for_update(of=("self",))
     raw = (key or "").strip()
     skill: AgentSkill | None = None
     if raw.startswith(USER_PREFIX):

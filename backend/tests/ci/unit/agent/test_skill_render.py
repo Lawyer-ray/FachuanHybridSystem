@@ -1,15 +1,21 @@
-"""SKILL.md 渲染：frontmatter 白名单（安全红线）+ YAML 可解析。
+"""``render`` 的两条出口：管理预览（frontmatter 白名单）+ 运行时正文（无 frontmatter）。
 
 ``allowed-tools`` 是 pi 的实验性预授权工具列表——一旦被用户写进物化文件，等于
-让技能自己关掉高危审批。渲染函数是唯一写入点，这里用测试钉死「只写 name /
-description」，任何新增字段都会让本文件变红。
+让技能自己关掉高危审批。``render_skill_md`` 是唯一写入点，这里用测试钉死「只写
+name / description」，任何新增字段都会让本文件变红。
+
+第二条出口 ``render_skill_body`` 供 ``/skill:`` 展开与 MCP ``get_agent_skill`` 共用：
+它**不带** frontmatter——输出直接进模型上下文，多一段 ``---`` 只会让模型以为正文里
+藏了 YAML。来源声明必须按作用域动态化（个人技能与所内规范冲突时所内赢，所内技能
+则是全所强制），写死一句「个人工作习惯」会让所内技能在模型眼里降级成建议。
 """
 
 from __future__ import annotations
 
+import pytest
 import yaml
 
-from apps.agent.services.skills.render import PREAMBLE, render_skill_md
+from apps.agent.services.skills.render import render_skill_body, render_skill_md, scope_preamble
 
 
 def _frontmatter_block(text: str) -> str:
@@ -63,6 +69,40 @@ class TestDescriptionSerialization:
 class TestPreamble:
     def test_preamble_present_before_body(self) -> None:
         text = render_skill_md("mine", "描述", "# 正文")
-        assert PREAMBLE in text
-        assert text.index(PREAMBLE) < text.index("# 正文")
-        assert "所内规范" in PREAMBLE
+        preamble = scope_preamble("lawyer")
+        assert preamble in text
+        assert text.index(preamble) < text.index("# 正文")
+        assert "所内规范" in preamble
+
+    def test_render_md_honours_given_scope(self) -> None:
+        """预览要说出这份正文**实际属于哪一层**，否则作者会按错的优先级写指令。"""
+        text = render_skill_md("mine", "描述", "# 正文", scope="law_firm")
+        assert scope_preamble("law_firm") in text
+        assert scope_preamble("lawyer") not in text
+
+
+class TestRenderSkillBody:
+    @pytest.mark.parametrize(
+        ("scope", "marker"),
+        [("lawyer", "个人工作习惯"), ("law_firm", "全所统一规范"), ("builtin", "随系统发布")],
+    )
+    def test_scope_preamble_differs_per_scope(self, scope: str, marker: str) -> None:
+        """三档作用域各自说明来源与优先级；都不带 frontmatter。"""
+        text = render_skill_body(scope=scope, name="contract-review", title="合同审查", body="# 做法")
+        assert text.startswith(scope_preamble(scope))
+        assert marker in text
+        assert "# 做法" in text
+        assert not text.startswith("---")
+        assert "description:" not in text
+
+    def test_three_scopes_produce_three_distinct_outputs(self) -> None:
+        """同一段正文在三档下必须是三段不同的文字（否则优先级声明形同虚设）。"""
+        rendered = {
+            scope: render_skill_body(scope=scope, name="contract-review", title="合同审查", body="# 做法")
+            for scope in ("lawyer", "law_firm", "builtin")
+        }
+        assert len(set(rendered.values())) == 3
+
+    def test_exact_shape_is_preamble_then_body(self) -> None:
+        text = render_skill_body(scope="law_firm", name="contract-review", title="合同审查", body="# 做法\n1. 看主体")
+        assert text == f"{scope_preamble('law_firm')}\n\n# 做法\n1. 看主体\n"
