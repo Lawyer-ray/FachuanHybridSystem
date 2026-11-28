@@ -36,7 +36,7 @@ from apps.core.security.auth import JWTOrSessionAuth
 from ..schemas import UiActionResultIn, UiSnapshotIn
 from ..services.event_bus import redis_cache_enabled
 from ..services.session_service import get_session
-from ..services.ui_action import ack, audit, snapshot
+from ..services.ui_action import ack, audit, audit_query, snapshot
 from ._helpers import _current_user
 
 logger = logging.getLogger(__name__)
@@ -118,27 +118,67 @@ async def list_ui_actions(
     action: str = "",
     outcome: str = "",
     risk: str = "",
+    decision: str = "",
+    since_days: int = 0,
 ) -> dict[str, Any]:  # pragma: no cover
     """当前用户的 UI 动作审计历史（仅 ``confirm`` / ``guarded`` 档，见 ``audit``）。
 
     只给**自己的**行：动作历史不是会话共享资产，同一会话被转交后新负责人也不该看见
     前任按过哪些高危按钮。也就因此不经 ``_rejection_reason``：读的不是某个请求的回执。
 
-    ``action`` / ``outcome`` / ``risk`` 是精确匹配的过滤条件，**空串 = 不过滤**（默认全给）。
-    为什么是这三个：它们恰好对应事后最常问的三句话——「这个动作我批过几次」（action）、
-    「哪些最后没执行成」（outcome 含 ``denied`` / ``expired``）、「高危档里我拒过什么」（risk）。
+    ``action`` / ``outcome`` / ``risk`` / ``decision`` 是精确匹配的过滤条件，**空串 =
+    不过滤**（默认全给）。为什么是这几个：它们恰好对应事后最常问的几句话——「这个动作我
+    批过几次」（action）、「哪些最后没执行成」（outcome 含 ``denied`` / ``expired``）、
+    「高危档里我拒过什么」（risk）、「我到底同不同意」（decision = approved / denied /
+    expired，与 outcome 是两个主体的问题）。``since_days``（1~90）再叠一道时间窗，
+    **0 = 不过滤**（这个参数是后加的，不传等于老行为）。
     过滤在库里做，不在 API 层过滤：后者会先把整页拉进内存再筛，分页一上就是错的。
 
     Returns:
         ``{"items": [...], "count": n}``；未登录返回空列表 + ``error``（与同文件其余
         端点的「未登录不报 401、给空结果」口径一致）。每项含 ``decision`` / ``decided_at`` /
-        ``verified`` / ``verify_note`` / ``batch_id``（字段口径见 ``audit.list_recent_for_user``）。
+        ``verified`` / ``verify_note`` / ``batch_id``（字段口径见
+        ``audit_query.list_recent_for_user``）。
     """
     user = _current_user(request)
     if user is None:
         return {"items": [], "count": 0, "error": "未登录"}
-    items = await audit.list_recent_for_user(user, limit=limit, action=action, outcome=outcome, risk=risk)
+    items = await audit.list_recent_for_user(
+        user,
+        limit=limit,
+        action=action,
+        outcome=outcome,
+        risk=risk,
+        decision=decision,
+        since_days=since_days,
+    )
     return {"items": items, "count": len(items)}
+
+
+@router.get("/ui-actions/stats")
+async def ui_action_stats(
+    request: Any,
+    days: int = audit_query.STATS_WINDOW_DAYS_DEFAULT,
+    action: str = "",
+) -> dict[str, Any]:  # pragma: no cover
+    """当前用户最近 ``days`` 天的动作汇总 —— 「AI 这段时间帮我做了多少事」。
+
+    逐条列表回答不了这个问题（翻 50 行也数不出「成了几个、我拒过几个」），这里只出聚合。
+    全部口径（哪些行算进来、``verified_rate`` 的分母、``not_checked`` 与「核实失败」
+    为什么分开、``approval_to_dispatch_ms`` **不是**执行耗时、2000 行截断）逐条写在
+    ``audit_query.stats_for_user`` 的 docstring 里——那是唯一权威口径，本层只做鉴权与转交。
+
+    ``days`` clamp 到 1~90（``days=0`` / ``days=999`` 都是夹到边界上继续算，不是 500），
+    ``action`` 精确匹配、空串 = 不过滤。
+
+    Returns:
+        见 ``audit_query.empty_stats`` 的形状；未登录返回全零结构 + ``error``（与同文件
+        其余端点的「未登录不报 401、给空结果」口径一致）。
+    """
+    user = _current_user(request)
+    if user is None:
+        return {**audit_query.empty_stats(days), "error": "未登录"}
+    return await audit_query.stats_for_user(user, days=days, action=action)
 
 
 @router.post("/ui-snapshots/{request_id}")
