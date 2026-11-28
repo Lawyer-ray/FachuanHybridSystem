@@ -280,7 +280,7 @@ class Command(BaseCommand):
         try:
             proc.wait(timeout=5)
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("smoke_check._check_django_q: 等待 django-q 进程退出失败")
             proc.kill()
         raise CommandError("django-q 冒烟失败:任务未在超时时间内完成")
 

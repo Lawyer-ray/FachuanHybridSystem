@@ -18,6 +18,15 @@ function SourceIcon({ row }: { row: InboxRow }) {
 }
 
 /**
+ * 行容器结构类（尺寸 / 间距 / 对齐），骨架行 `InboxRowSkeleton` 用同一串。
+ *
+ * 只放结构：`group`（交互态标记）、`relative`（整行按钮的定位上下文）、
+ * `text-left` / `transition-colors` 留在 InboxRowItem 自己身上——骨架不需要它们。
+ * 骨架与真行共用同一常量是「数据到位不跳」的前提，不要再复制一份。
+ */
+export const INBOX_ROW_SHELL = 'flex w-full items-start gap-3 px-4 py-3'
+
+/**
  * 收件箱单行。
  *
  * 视觉四要素：未读色条（左）、来源徽章 + 主题（中）、附件小样 + 时间（右）。
@@ -61,7 +70,8 @@ export const InboxRowItem = memo(function InboxRowItem({
   return (
     <li
       className={cn(
-        'group relative flex w-full items-start gap-3 px-4 py-3 text-left transition-colors',
+        'group relative text-left transition-colors',
+        INBOX_ROW_SHELL,
         active ? 'bg-secondary/70' : 'hover:bg-secondary/40',
         !row.is_read && 'font-medium',
       )}
@@ -94,7 +104,8 @@ export const InboxRowItem = memo(function InboxRowItem({
         <span className="flex items-center gap-2">
           <span
             className={cn(
-              'truncate text-[13px] leading-[1.35]',
+              // 窄屏给主题两行：一行只够十来个字，收件箱里最先要看的就是主题
+              'truncate text-[13px] leading-[1.35] max-[520px]:line-clamp-2 max-[520px]:whitespace-normal',
               row.is_read ? 'text-foreground/85' : 'text-foreground',
               !row.is_read && 'font-semibold',
             )}
@@ -118,7 +129,7 @@ export const InboxRowItem = memo(function InboxRowItem({
           >
             {SOURCE_LABEL[row.source_type] ?? row.source_name}
           </span>
-          <span className="truncate" title={rowSubtitle(row)}>
+          <span className="min-w-0 truncate" title={rowSubtitle(row)}>
             {rowSubtitle(row)}
           </span>
         </span>
@@ -151,13 +162,15 @@ export const InboxRowItem = memo(function InboxRowItem({
             )
           )}
           {/* 可转但未转：给一个极简提示，不放大成按钮（行本身就是入口） */}
+          {/* 窄屏收起这两个次要徽标：它们把主题/发送人挤成五六个字，
+              而「能不能转」在点开的抽屉里同样看得到 */}
           {convertible && (
-            <span className="rounded-[4px] border border-border px-1 py-px text-[10px] text-muted-foreground">
+            <span className="rounded-[4px] border border-border px-1 py-px text-[10px] text-muted-foreground max-[520px]:hidden">
               可转材料包
             </span>
           )}
           {packSource && (
-            <span className="rounded-[4px] border border-border px-1 py-px text-[10px] text-muted-foreground">
+            <span className="rounded-[4px] border border-border px-1 py-px text-[10px] text-muted-foreground max-[520px]:hidden">
               材料包
             </span>
           )}

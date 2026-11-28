@@ -230,7 +230,9 @@ class AuthorizationMaterialGenerationService:
         try:
             identity_docs = self.client_service.get_identity_docs_by_client_internal(client.id)
         except Exception:
-            logger.exception("操作失败")
+            logger.exception(
+                "authorization_material_generation_service._zip_add_identity_docs_flat: 读取客户身份材料失败"
+            )
             identity_docs = []
 
         uploaded_types: set[str] = set()
@@ -293,7 +295,7 @@ class AuthorizationMaterialGenerationService:
         try:
             assignments = list(case.assignments.select_related("lawyer").all())
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("authorization_material_generation_service._zip_add_entrust_docs: 读取案件律师指派失败")
             assignments = []
 
         seen: set[int] = set()
@@ -314,7 +316,7 @@ class AuthorizationMaterialGenerationService:
                 with license_field.open("rb") as f:
                     zf.writestr(arc_name, f.read())
             except (TypeError, ValueError):
-                logger.exception("操作失败")
+                logger.exception("authorization_material_generation_service._zip_add_entrust_docs: 读取律师执业证失败")
                 missing_lines.append(f"缺少{lawyer_name}的律师执业证")
 
     def _zip_add_missing_markdown(self, zf: zipfile.ZipFile, *, missing_lines: list[str]) -> None:
@@ -591,7 +593,7 @@ class AuthorizationMaterialGenerationService:
         try:
             parties = list(case.parties.select_related("client").all())
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("authorization_material_generation_service._count_our_parties: 读取案件当事人失败")
 
             return 0
         count = 0

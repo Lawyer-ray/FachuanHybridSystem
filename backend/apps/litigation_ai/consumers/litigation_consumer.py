@@ -190,7 +190,7 @@ class LitigationConsumer(AsyncWebsocketConsumer):
             parsed = await DocumentTypeParseChain().arun(user_input=content, allowed_types=list(allowed_types))
             parsed_type = parsed.document_type
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("litigation_consumer._handle_document_type_step: 文书类型识别失败")
 
             parsed_type = ""
 

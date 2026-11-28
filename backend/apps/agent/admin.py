@@ -14,7 +14,16 @@ from django.http import HttpRequest
 
 from apps.core.admin.filters import date_filter
 
-from .models import AgentApproval, AgentApprovalPolicy, AgentMemory, AgentRun, AgentSession, AgentSkillPreference
+from .models import (
+    AgentApproval,
+    AgentApprovalPolicy,
+    AgentMemory,
+    AgentRun,
+    AgentSession,
+    AgentSkill,
+    AgentSkillPreference,
+    AgentSkillRevision,
+)
 
 
 @admin.register(AgentRun)
@@ -119,9 +128,9 @@ class AgentSkillPreferenceAdmin(admin.ModelAdmin):
     「谁关了哪个技能」；手改这里绕过了技能名校验，所以禁增改。
     """
 
-    list_display = ("user", "skill_name", "enabled", "updated_at")
+    list_display = ("user", "skill_key", "enabled", "updated_at")
     list_filter = ("enabled",)
-    search_fields = ("skill_name", "user__username")
+    search_fields = ("skill_key", "user__username")
     ordering = ("-updated_at",)
 
     def has_add_permission(self, request: HttpRequest) -> bool:
@@ -183,3 +192,96 @@ class AgentMemoryAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[AgentMemory]:
         return super().get_queryset(request).select_related("lawyer", "team", "law_firm", "created_by")
+
+
+@admin.register(AgentSkill)
+class AgentSkillAdmin(admin.ModelAdmin):
+    """技能注册表（只读审计视图）。
+
+    **正文只给截断预览**：技能正文是可写的系统提示，编辑必须走
+    ``services/skills/``（渲染白名单 + 长度上限 + 版本快照），在 admin 直接改
+    会绕过全部校验。这里只用来查「谁建了什么、什么状态」。
+    """
+
+    list_display = (
+        "title",
+        "name",
+        "scope",
+        "status",
+        "review_status",
+        "published_version_display",
+        "enabled",
+        "updated_at",
+    )
+    list_filter = ("scope", "status", "review_status", "enabled", "law_firm")
+    search_fields = ("name", "title")
+    ordering = ("-updated_at",)
+    list_select_related = ("published_revision",)
+    readonly_fields = (
+        "id",
+        "body_preview",
+        "published_version_display",
+        "has_unpublished_changes",
+        "reviewed_by",
+        "reviewed_at",
+        "activated_at",
+        "created_at",
+        "updated_at",
+    )
+    #: ``body`` 不能进表单字段：它同时出现在 ``body_preview`` 里，两个渲染会让
+    #: 整个页面的正文拖两遍（老问题：截断预览与全文同时渲染）。
+    exclude = ("body",)
+
+    @admin.display(description="正文预览")
+    def body_preview(self, obj: AgentSkill) -> str:
+        return obj.body[:300] + ("…" if len(obj.body) > 300 else "")
+
+    @admin.display(description="线上生效版本")
+    def published_version_display(self, obj: AgentSkill) -> str:
+        """线上生效的已审批版本号；``—`` = 还没发布（共享技能此时不交付）。
+
+        为什么审计要看这个而不是 ``version``：``version`` 是**工作区**的版本，
+        共享技能被编辑后会一直领先于线上，光看它无法回答「全所现在真正在用的是
+        哪一版」——而那正是合规要回答的那个问题。
+        """
+        if obj.published_revision is None:
+            return "—"
+        return f"v{obj.published_revision.version}"
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        return False
+
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        return False
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet[AgentSkill]:
+        return super().get_queryset(request).select_related("lawyer", "team", "law_firm", "created_by")
+
+
+@admin.register(AgentSkillRevision)
+class AgentSkillRevisionAdmin(admin.ModelAdmin):
+    """技能版本快照（只读）：审批/回滚的审计证据，任何入口都不许手改。"""
+
+    list_display = ("skill", "version", "status", "edited_by", "created_at")
+    list_filter = ("status",)
+    #: 版本快照的正文可以看全文：它是审计证据，不是要被「防止误改」的上游内容
+    #: （这个 admin 全字段只读，不存在绕过渲染白名单的路径）。
+    fields = ("skill", "version", "title", "description", "body", "status", "edited_by", "created_at")
+    search_fields = ("skill__name", "skill__title")
+    ordering = ("-created_at",)
+    readonly_fields = ("skill", "version", "title", "description", "body", "status", "edited_by", "created_at")
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        return False
+
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        return False
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet[AgentSkillRevision]:
+        return super().get_queryset(request).select_related("skill", "edited_by")

@@ -8,7 +8,8 @@
  */
 
 import type { components } from '@/types/api-schema'
-import type { EngineDisagreement, EngineName } from './engine-types'
+import type { EngineDisagreement } from './engine-types'
+import type { RecognitionPrefs } from './recognition-prefs'
 import type { Inconsistency, JudgeState, PageAnomalyByMi, PageQuality, PageQualityByMi } from './quality-types'
 
 export type { JudgeGateReason, JudgeState } from './quality-types'
@@ -277,86 +278,6 @@ export interface DraftState {
   recognition?: RecognitionPrefs
 }
 
-/**
- * 自动分段的可选解析引擎（勾选集合的元素）。
- *
- * 取值与后端 `cloud_backend` / `dual_engines` 的字符串逐字一致，也与
- * `EngineName`（双引擎分歧数据里的引擎码）同一套拼写——两处若不一致，
- * 「勾了 PaddleOCR-VL」与「分歧里出现 paddleocr_vl」就对不上。
- *
- * 定义在域根 types.ts 而不是 `components/reader/platform-selection.ts`：
- * 阅读器会话契约（reader-state.ts）与 store 都在域根层，根层不该反向指向子目录。
- */
-export type CloudEngine = EngineName | 'deepseek'
-
-/** 勾选的引擎集合。**空数组 = 自动容灾**（不勾任何引擎时的默认行为） */
-export type CloudSelection = CloudEngine[]
-
-/** 菜单里的固定顺序：MinerU 在最前，因为它也是双引擎的正主（见 `resolveBackendRequest`）。
- *
- *  `deepseek` 排最后且**不参与交叉比对**（后端 `DUAL_ENGINE_CHOICES` 里没有它）：
- *  它只能当 `cloud_backend` 用，所以勾了它之后要么是正主、要么是 auto 链上的兜底。
- *  它的真实价值是「MinerU/Textin 整批失败时把结果捞回来」，不是第二意见。 */
-export const CLOUD_ENGINES: readonly CloudEngine[] = ['mineru', 'paddleocr_vl', 'textin', 'deepseek']
-
-function isCloudEngine(v: unknown): v is CloudEngine {
-  return typeof v === 'string' && (CLOUD_ENGINES as readonly string[]).includes(v)
-}
-
-/**
- * 把任意来源的值收窄成引擎集合。
- *
- * 为什么要收窄：选择集来自 store（`localStorage` 持久化 / 旧会话留下的单值 `'auto'`），
- * 不是可信形状。旧值 `'auto'`、`null`、未知引擎名一律当「没勾」（= 容灾）——
- * 宁可回到安全的默认行为，也不要带着一个不存在的引擎去请求云端。
- *
- * 同时去重并按 `CLOUD_ENGINES` 固定排序：勾选顺序不该影响标题文案与正主选择。
- *
- * 定义在域根而不是 `components/reader/platform-selection.ts`：store 与
- * reader-state 都在域根层，根层不该反向指向子目录（E6）。
- */
-export function normalizeCloudSelection(raw: unknown): CloudSelection {
-  if (!Array.isArray(raw)) return []
-  const picked = new Set(raw.filter(isCloudEngine))
-  return CLOUD_ENGINES.filter((e) => picked.has(e))
-}
-
-/** 勾上 / 取消一个引擎。返回**新数组**（zustand 靠引用变化触发订阅） */
-export function toggleCloudEngine(selection: CloudSelection, engine: CloudEngine): CloudSelection {
-  const has = selection.includes(engine)
-  const next = has ? selection.filter((e) => e !== engine) : [...selection, engine]
-  return normalizeCloudSelection(next)
-}
-
-/**
- * 分段策略：粒度 / 成本 / 稳定性三者的取舍。取值与后端 `PdfSplitSegmentStrategy` 逐字一致。
- *
- * · batch —— 逐批摘要再合并切边界。稳、大卷宗不会撞 LLM 超时；看得不全，可能把两份并成一份
- * · wholebook —— 整本一次看完再切。边界更准；大卷宗可能超时（后端会自动退回 batch）
- * · wholebook_cross —— 两种都跑，边界不一致的段标「两种切法不一致」交人工。**分段 LLM 调用翻倍**
- */
-export type SegmentStrategy = 'batch' | 'wholebook' | 'wholebook_cross'
-
-export const SEGMENT_STRATEGIES: readonly SegmentStrategy[] = ['batch', 'wholebook', 'wholebook_cross']
-
-/** 脏值一律回落 `batch`：它是唯一不会放大成本的取值，也是后端默认。 */
-export function normalizeSegmentStrategy(raw: unknown): SegmentStrategy {
-  return SEGMENT_STRATEGIES.includes(raw as SegmentStrategy) ? (raw as SegmentStrategy) : 'batch'
-}
-
-/** 材料包级的识别成本选择（`DraftState.recognition`） */
-export interface RecognitionPrefs {
-  /** fast_text = 电子页只抽文本层（不计费、无坐标）；layout = 电子页也上云（更准、更慢、按页计费） */
-  layoutMode?: 'fast_text' | 'layout'
-  /** 勾选的云端引擎：空 = 自动容灾；1 个 = 锁定；≥2 个**可比对的** = 交叉比对
-   *  （多付一次云端费用）。`deepseek` 不参与比对，见 `DUAL_CAPABLE`。 */
-  engines?: CloudSelection
-  /** 分段策略（见 `SegmentStrategy`）。缺省 = batch */
-  segmentStrategy?: SegmentStrategy
-  /** 分歧自动裁定：两个引擎读得不一样时，用打分器判「哪一侧与图上的字相符」。
-   *  默认 **true**；但**只在 ≥2 个可比对引擎时才有分歧可判**，单引擎下开着也是空转。 */
-  judge?: boolean
-}
 
 /**
  * 会回写到后端 draft_state 的草稿形状。
@@ -390,57 +311,6 @@ export interface AssignInfo {
   contractFields?: Record<string, string>
 }
 
-/** OCR 识别出的文字块（坐标为归一化 0-1 相对值；生成物 OcrBlockOut） */
-export type OcrBlock = components['schemas']['OcrBlockOut']
-
-/** OCR 整页结果（生成物 OcrResultOut） */
-export type OcrResult = components['schemas']['OcrResultOut']
-
-/** OCR 框选取字：页面上拖出的一个待确认框（坐标归一化 0-1） */
-export interface OcrPending {
-  mi: number
-  p: number
-  rect: { x: number; y: number; w: number; h: number }
-  text: string
-  loading: boolean
-}
-
-/** 案件搜索行（来自 /cases/search，生成物 CaseOut）。
- *  消费子集投影；id 覆写为必有（生成物按 ModelSchema 口径可选可空）。 */
-export type CaseRow = Pick<
-  components['schemas']['CaseOut'],
-  'name' | 'filing_number' | 'case_numbers'
-> & { id: number }
-
-/** 后端 /clients 检索命中的当事人（客户库），用于委托人/对方当事人填入。
- *  基于生成物 PartyListOut；client_type 为 schema 未声明的额外字段，按可选保留 */
-export type ClientHit = components['schemas']['PartyListOut'] & {
-  client_type?: string | null
-}
-
-/** 收件箱附件元信息（生成物 AttachmentMeta）。
- *  PDF 页数（page_count）由后端上传时/详情读取时回填算好；缺失时前端下载 PDF 自行数页数兜底 */
-// expanded_from：压缩包展开产物的来源压缩包名（后端 get_public_attachments_meta
-// 透出，openapi 生成物未覆盖该字段，这里本地扩展）
-export type AttachmentMeta = components['schemas']['AttachmentMeta'] & {
-  expanded_from?: string | null
-}
-
-/** 收件箱消息列表项（生成物 InboxMessageOut；status 收窄为材料包三态，
- *  后端实际取值即来自本域写入 draft_state 的枚举） */
-export type InboxMessage = Omit<components['schemas']['InboxMessageOut'], 'status'> & {
-  status: PackStatus
-}
-
-/** 收件箱消息详情（生成物 InboxMessageDetailOut，仅覆写两处）：
- *  · status 同 InboxMessage 收窄；
- *  · draft_state 是前端自有草稿语义。从未进过阅读器的包后端返回 {}
- *   （空对象，不满足 DraftState 形状），消费方必须按「可能没有有效草稿」处理
- *   （store.open / setPackStatusRemote 均如此）。 */
-export type InboxMessageDetail = Omit<
-  components['schemas']['InboxMessageDetailOut'],
-  'status' | 'draft_state'
-> & {
-  status: PackStatus
-  draft_state: DraftState | Record<string, never>
-}
+export type { AttachmentMeta, CaseRow, ClientHit, InboxMessage, InboxMessageDetail, OcrBlock, OcrPending, OcrResult } from './api-rows'
+export type { CloudEngine, CloudSelection, RecognitionPrefs, SegmentStrategy } from './recognition-prefs'
+export { CLOUD_ENGINES, SEGMENT_STRATEGIES, normalizeCloudSelection, normalizeSegmentStrategy, toggleCloudEngine } from './recognition-prefs'

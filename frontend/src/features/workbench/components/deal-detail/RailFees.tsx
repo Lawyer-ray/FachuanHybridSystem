@@ -233,7 +233,19 @@ export function RailFees({
 
       {/* 发票：票的档案（重命名后的文件可一键复制直发微信），按收款分组、行内可改挂 */}
       <Subhead title="发票" count={invoices.length} />
-      {invoices.length === 0 ? (
+      {invoicesQ.isError ? (
+        /* 读取失败曾被渲染成「没有发票 + 拖入上传」：律师会以为票丢了、再传一遍 */
+        <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-muted-foreground">
+          <span>发票列表读取失败</span>
+          <button
+            type="button"
+            className="cursor-pointer underline underline-offset-2 hover:text-foreground"
+            onClick={() => void invoicesQ.refetch()}
+          >
+            重试
+          </button>
+        </div>
+      ) : invoices.length === 0 ? (
         <button
           type="button"
           className="w-full rounded-[8px] border border-dashed border-border py-2 text-[11.5px] text-muted-foreground/80 transition-colors hover:border-ring/50 hover:bg-secondary/40"
@@ -259,6 +271,7 @@ export function RailFees({
                       key={inv.id}
                       inv={inv}
                       busy={busyId === inv.id}
+                      locked={busyId != null}
                       payments={payTargets}
                       onLink={(paymentId) => void relink(inv, paymentId)}
                       onUnlink={() => void unlink(inv)}

@@ -27,6 +27,14 @@ export function InvoicePoolDialog({
   const qc = useQueryClient()
   const [uploading, setUploading] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  /**
+   * 待确认删除的发票 id。
+   *
+   * 原来点一下垃圾桶就删：记录 + 磁盘文件一起没（后端 `invoice_file_service`
+   * 连 media 一起删），没有撤销。同一页的文件夹删除却是「行内确认 + 移入
+   * _已删除可找回」——同一个「删除」两套口径，用户当然会按错。
+   */
+  const [confirmId, setConfirmId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
 
@@ -71,6 +79,7 @@ export function InvoicePoolDialog({
     try {
       await deletePaymentInvoice(invoiceId)
       toast.success('发票已删除')
+      setConfirmId(null)
       refresh()
     } catch (e) {
       setError(errMessage(e, '删除失败，请重试'))
@@ -112,6 +121,20 @@ export function InvoicePoolDialog({
 
         {error && <p className="mt-2 text-[11.5px] break-words text-status-red">{error}</p>}
 
+        {poolQ.isPending && <p className="mt-3 text-[11.5px] text-muted-foreground">正在读取发票…</p>}
+        {poolQ.isError && (
+          <p className="mt-3 flex flex-wrap items-center gap-2 text-[11.5px] text-muted-foreground">
+            发票列表读取失败
+            <button
+              type="button"
+              className="cursor-pointer underline underline-offset-2 hover:text-foreground"
+              onClick={() => void poolQ.refetch()}
+            >
+              重试
+            </button>
+          </p>
+        )}
+
         {pool.length > 0 && (
           <div className="mt-3">
             <div className="mb-1 text-[11px] font-[650] text-muted-foreground">未关联收款 · {pool.length} 张</div>
@@ -123,15 +146,41 @@ export function InvoicePoolDialog({
                   </span>
                   <span className="font-[620] tabular-nums">{inv.total_amount ? '¥' + inv.total_amount : '金额未识别'}</span>
                   <CopyInvoiceFileButton invoiceId={inv.id} filename={inv.display_filename} />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-[22px] px-1.5 text-muted-foreground hover:text-status-red"
-                    disabled={deletingId != null}
-                    onClick={() => void doDelete(inv.id)}
-                  >
-                    {deletingId === inv.id ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
-                  </Button>
+                  {confirmId === inv.id ? (
+                    <span className="flex flex-none items-center gap-1">
+                      <span className="text-[10.5px] text-status-red" title="记录与磁盘上的文件都会被删除，不能撤销">
+                        删除？
+                      </span>
+                      <button
+                        type="button"
+                        className="rounded-[5px] bg-status-red px-1.5 py-0.5 text-[10.5px] font-[620] text-white"
+                        disabled={deletingId != null}
+                        onClick={() => void doDelete(inv.id)}
+                      >
+                        {deletingId === inv.id ? <Loader2 className="size-3 animate-spin" /> : '删除'}
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-[5px] px-1.5 py-0.5 text-[10.5px] text-muted-foreground hover:bg-secondary"
+                        disabled={deletingId != null}
+                        onClick={() => setConfirmId(null)}
+                      >
+                        取消
+                      </button>
+                    </span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-[22px] px-1.5 text-muted-foreground hover:text-status-red"
+                      disabled={deletingId != null}
+                      title="删除这张发票（记录与文件都会被删除）"
+                      aria-label="删除这张发票"
+                      onClick={() => setConfirmId(inv.id)}
+                    >
+                      <Trash2 className="size-3" />
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>

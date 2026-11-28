@@ -42,7 +42,22 @@ export function useFolderDrop(
   upload: (subpath: string, files: File[]) => void,
   expand: (subpath: string) => void,
 ) {
-  /** 拖拽悬停高亮的 subpath（'' = 绑定根空白区，null = 无） */
+  /**
+ * 这串拖拽是不是「树内引用」（拖给自己的 AI 助手的目录/文件引用）。
+ *
+ * 以前不分：内部拖拽一经过树，目标就亮起投放环、光标显示「可放」，松手却什么
+ * 都不发生——看起来支持「拖拽移动文件」，实际是个空操作。
+ * 判据用 `types`（拖动时只有类型可见，`getData` 在 drop 前读不到）。
+ * `types` 缺失（老浏览器 / 测试替身）按「不是内部拖拽」处理，保持旧行为。
+ */
+function isInternalRefDrag(e: DragEvent): boolean {
+  const types = e.dataTransfer?.types
+  if (!types || types.length === 0) return false
+  const all = Array.from(types)
+  return all.includes(FOLDER_REF_MIME) && !all.includes('Files')
+}
+
+/** 拖拽悬停高亮的 subpath（'' = 绑定根空白区，null = 无） */
   const [dropOn, setDropOn] = useState<string | null>(null)
 
   // 返回值按依赖稳定化：消费方（FolderTree 的 TreeCtx memo）把它当依赖，
@@ -54,6 +69,7 @@ export function useFolderDrop(
       /** 拖到空白区 = 上传到绑定根（行级 drop 已 stopPropagation，不会重复触发） */
       rootDropProps: {
         onDragOver: (e: DragEvent) => {
+          if (isInternalRefDrag(e)) return
           e.preventDefault()
           setDropOn('')
         },
@@ -68,6 +84,7 @@ export function useFolderDrop(
       /** 文件夹行作为投放目标（isOpen 决定投放前是否需要展开） */
       folderDropProps: (subpath: string, isOpen: boolean): DropHandlers => ({
         onDragOver: (e) => {
+          if (isInternalRefDrag(e)) return
           e.preventDefault()
           e.stopPropagation()
           setDropOn(subpath)

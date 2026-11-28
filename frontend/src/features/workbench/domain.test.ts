@@ -42,8 +42,8 @@ function makeContract(partial: Partial<ContractListItem> = {}): ContractListItem
     total_invoiced: 0,
     unpaid_amount: 30000,
     contract_parties: [
-      { id: 1, contract: 1, client: 1, role: 'PRINCIPAL', role_label: '委托人', client_detail: { id: 1, name: '张三', is_our_client: true, phone: '13800000000', address: null, client_type: 'natural', client_type_label: '自然人', id_number: '4401***', legal_representative: null, legal_representative_id_number: null, identity_docs: [] } }, // privacy-allow 虚构号码
-      { id: 2, contract: 1, client: 2, role: 'OPPOSING', role_label: '对方当事人', client_detail: { id: 2, name: '李四公司', is_our_client: false, phone: null, address: '广州市', client_type: 'legal', client_type_label: '法人', id_number: null, legal_representative: '王五', legal_representative_id_number: null, identity_docs: [] } },
+      { id: 1, contract: 1, client: 1, role: 'PRINCIPAL', role_label: '委托人', client_detail: { id: 1, name: '张三', is_our_client: true, phone: '13800000000', address: null, id_number: '4401***', legal_representative: null } }, // privacy-allow 虚构号码
+      { id: 2, contract: 1, client: 2, role: 'OPPOSING', role_label: '对方当事人', client_detail: { id: 2, name: '李四公司', is_our_client: false, phone: null, address: '广州市', id_number: null, legal_representative: '王五' } },
     ],
     assignments: [{ id: 1, lawyer_id: 9, lawyer_name: '', is_primary: true, order: 0 }],
     primary_lawyer: { id: 9, username: 'zhao', real_name: '赵律师', phone: '13900000000', law_firm_name: '某律所' }, // privacy-allow 虚构号码
@@ -241,12 +241,8 @@ describe('buildDeals', () => {
                 is_our_client: true,
                 phone: null,
                 address: null,
-                client_type: 'natural',
-                client_type_label: '自然人',
                 id_number: null,
                 legal_representative: null,
-                legal_representative_id_number: null,
-                identity_docs: [],
               },
             },
           ],

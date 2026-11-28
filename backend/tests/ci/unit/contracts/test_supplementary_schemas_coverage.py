@@ -35,9 +35,10 @@ class TestPartyOutResolveClientDetail:
             "id": 1,
             "name": "A公司",
             "is_our_client": True,
-            "client_type": "company",
-            "client_type_label": "公司",
-            "identity_docs": [],
+            "phone": None,
+            "address": None,
+            "id_number": None,
+            "legal_representative": "李代表",
         }
         result = SupplementaryAgreementPartyOut.resolve_client_detail({"client_detail": detail})
         assert result is not None
@@ -60,7 +61,7 @@ class TestPartyOutResolveClientDetail:
         with pytest.MonkeyPatch.context() as mp:
             mock_client_out = MagicMock()
             mock_client_out.from_model.return_value = expected
-            mp.setattr(f"{SCHEMA_MOD}.ClientOut", mock_client_out)
+            mp.setattr(f"{SCHEMA_MOD}.ClientBriefOut", mock_client_out)
             result = SupplementaryAgreementPartyOut.resolve_client_detail(obj)
         mock_client_out.from_model.assert_called_once_with(obj.client)
         assert result is expected

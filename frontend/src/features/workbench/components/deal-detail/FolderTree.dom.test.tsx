@@ -35,6 +35,8 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.f
 
 import { toast } from 'sonner'
 
+import { FOLDER_REF_MIME } from '@/lib/folder-ref'
+
 import { FolderTree } from './FolderTree'
 
 function entries(folders: string[] = [], files: string[] = []) {
@@ -247,7 +249,15 @@ describe('FolderTree：文件交互', () => {
     )
     fireEvent.click(row)
 
-    await waitFor(() => expect(onOpenFile).toHaveBeenCalledWith({ subpath: 'a.docx', name: 'a.docx' }))
+    // 元信息一并带出去：预览卡底部的「日期 · 大小」就是这个（此前恒为空）
+    await waitFor(() =>
+      expect(onOpenFile).toHaveBeenCalledWith({
+        subpath: 'a.docx',
+        name: 'a.docx',
+        size: 100,
+        modified_at: '2026-10-20T10:00:00',
+      }),
+    )
     expect(openSpy).not.toHaveBeenCalled()
     vi.unstubAllGlobals()
     container.remove()
@@ -738,6 +748,67 @@ describe('FolderTree：空态与创建态边界', () => {
 })
 
 // ============ 拖拽高亮 / 输入取消 / 文件行按钮（覆盖率补测） ============
+
+describe('FolderTree：后端说「不可浏览」时不许装成空文件夹', () => {
+  it('透出后端 message（硬盘路径掉了 / 没权限），不显示「文件夹是空的」', async () => {
+    apiMock.listFolderEntries.mockResolvedValue({
+      ...entries(),
+      browsable: false,
+      message: '硬盘路径不可达：/Volumes/x',
+    })
+    const { container } = renderTree()
+
+    expect(await waitFor(() => within(container).getByText(/硬盘路径不可达/))).toBeTruthy()
+    expect(within(container).queryByText('文件夹是空的')).toBeNull()
+    container.remove()
+  })
+})
+
+describe('FolderTree：投放环只给「外部文件」', () => {
+  it('树内引用拖到自己身上不亮环（那是给 AI 的目录引用，不是上传）', async () => {
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('文件夹是空的')).toBeTruthy())
+    const root = container.firstElementChild as HTMLElement
+
+    const ref = createEvent.dragOver(root, { dataTransfer: { files: [], types: [FOLDER_REF_MIME] } })
+    Object.defineProperty(ref, 'currentTarget', { value: root })
+    fireEvent(root, ref)
+    // 松手也不会发生任何事，就别先亮起来骗人
+    expect(root.className).not.toContain('ring-1')
+
+    const files = createEvent.dragOver(root, { dataTransfer: { files: [], types: ['Files'] } })
+    Object.defineProperty(files, 'currentTarget', { value: root })
+    fireEvent(root, files)
+    expect(root.className).toContain('ring-1')
+    container.remove()
+  })
+})
+
+describe('FolderTree：改名/删除要往上报（否则画布指着不存在的路径）', () => {
+  it('重命名成功后回调带旧路径 → 新路径', async () => {
+    apiMock.listFolderEntries.mockResolvedValue(entries(['旧名']))
+    apiMock.renameFolderEntry.mockResolvedValue({})
+    const onEntryMutated = vi.fn()
+    const { container } = renderTree({ onEntryMutated })
+    await waitFor(() => expect(within(container).getByText('旧名')).toBeTruthy())
+
+    fireEvent.click(within(container).getByRole('button', { name: '重命名' }))
+    const input = await waitFor(() => container.querySelector('input[placeholder="新名称"]') as HTMLInputElement)
+    fireEvent.change(input, { target: { value: '新名' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() =>
+      expect(onEntryMutated).toHaveBeenCalledWith({
+        type: 'rename',
+        kind: 'case',
+        ownerId: 1,
+        from: '旧名',
+        to: '新名',
+      }),
+    )
+    container.remove()
+  })
+})
 
 describe('FolderTree：面板拖拽高亮与取消', () => {
   it('拖到根空白处高亮，离开后取消', async () => {

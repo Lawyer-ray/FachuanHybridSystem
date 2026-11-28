@@ -3462,6 +3462,58 @@
               "type": "integer"
             },
             "required": false
+          },
+          {
+            "in": "query",
+            "name": "slim",
+            "schema": {
+              "default": false,
+              "title": "Slim",
+              "type": "boolean"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "with_total",
+            "schema": {
+              "default": false,
+              "title": "With Total",
+              "type": "boolean"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sort"
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -3470,17 +3522,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/CaseOut"
-                  },
-                  "title": "Response",
-                  "type": "array"
+                  "anyOf": [
+                    {
+                      "items": {
+                        "$ref": "#/components/schemas/CaseOut"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "items": {
+                        "$ref": "#/components/schemas/CaseSlimOut"
+                      },
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response"
                 }
               }
             }
           }
         },
-        "description": "获取案件列表（contract_id 可按合同过滤，供前端详情按需加载）\n\n限额策略（返回信封保持裸数组，供前端 workbench/material-prep 现状消费）：\n- 显式传 limit 时按它截断，上限 2000（向后兼容，上限内任意 limit 均生效）；\n- 未传 limit 时应用默认上限 200——含带过滤参数的宽过滤（如 status=active），\n  防止单请求全表序列化。窄过滤消费方（contract_id 明细）结果集远小于 200，不受影响。\n- offset（默认 0）供 MCP 信封 truncated=true 时续取；不传行为不变。",
+        "description": "获取案件列表（contract_id 可按合同过滤，供前端详情按需加载）\n\n限额策略（返回信封保持裸数组，供前端 workbench/material-prep 现状消费）：\n- 显式传 limit 时按它截断，上限 2000（向后兼容，上限内任意 limit 均生效）；\n- 未传 limit 时应用默认上限 200——含带过滤参数的宽过滤（如 status=active），\n  防止单请求全表序列化。窄过滤消费方（contract_id 明细）结果集远小于 200，不受影响。\n- offset（默认 0）供 MCP 信封 truncated=true 时续取；不传行为不变。\n\n瘦身与总数（两个都是**可选增量**，不传时与历史响应逐字节一致）：\n- slim=true：列表项换成 CaseSlimOut（标量列与 CaseOut 同口径，剔除 7 个嵌套\n  集合：parties / assignments / logs / case_numbers / supervising_authorities /\n  chats / contacts）。预取同步裁剪，否则 SQL 一条也不省。\n- with_total=true：总量走**响应头 X-Total-Count**（真实总数，不受 limit/offset\n  影响），响应体不变。\n\n服务端分页的两个下推参数（同样不传时行为不变）：\n- search=<kw>：name 或 cause_of_action 含关键词（icontains，大小写不敏感）。\n- sort=filable_first：待立案优先（无案号且 status=active 的排在前，同组内\n  id DESC）；其他值一律当作没传，保持默认 -id。\n**为什么下推**：列表页要做服务端分页，如果关键词过滤与「待立案优先」还留在\n前端，它们只会作用于当前页——分页一上，前端过滤就是在错误的子集上过滤。\n两个参数都必须同时进 list_cases 与 count_cases（同一套过滤口径），否则\nX-Total-Count 与翻页对不上。case_number 分支保持历史行为（不切片、不排序），\n这两个参数只作用于列表分支。\n\n╔═ 为什么不把裸数组改成 {items, total} 信封 ═╗\n║ 本端点已有 4 个消费方直接按裸数组消费：                      ║\n║   frontend/src/features/bank-litigation/api/cases.ts:29  listCases()  ║\n║   frontend/src/features/workbench（按 contract_id 拉案件明细）      ║\n║   frontend/src/features/material-prep                          ║\n║   MCP 信封（旧 offset 续取路径）                                ║\n║ 明文改信封 = 四个消费方同时红，且前端类型是生成物。总数是新增的     ║\n║ 可选信息，放在响应头就能拿到，没必要为它换整个信封。              ║\n╚════════════════════════════════════════════╝",
         "tags": [
           "案件管理"
         ],
@@ -17149,6 +17211,16 @@
               "type": "integer"
             },
             "required": false
+          },
+          {
+            "in": "query",
+            "name": "slim",
+            "schema": {
+              "default": false,
+              "title": "Slim",
+              "type": "boolean"
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -17167,7 +17239,7 @@
             }
           }
         },
-        "description": "收件箱消息列表（limit 截取前 N 条；收件箱持续增长，服务端兜底默认 500，\n需要更大结果集的消费方显式传 limit——不传即全量的旧行为会让「打开收件箱」\n随表增长恶化为全站最重请求，每行还要跑 7 个 draft_state resolver）。\n\n安全审计（2026Q4 M-6）：``limit<=0`` 时原先不做切片 → 全表序列化\n（含 N+1 的 draft_state resolver），用户上传大量材料包后可自我放大为 DoS。\n此处把 limit 收敛到 [1, 1000]。offset（默认 0）供 MCP 信封续取。",
+        "description": "收件箱消息列表（limit 截取前 N 条；收件箱持续增长，服务端兜底默认 500，\n需要更大结果集的消费方显式传 limit——不传即全量的旧行为会让「打开收件箱」\n随表增长恶化为全站最重请求，每行还要跑 7 个 draft_state resolver）。\n\n安全审计（2026Q4 M-6）：``limit<=0`` 时原先不做切片 → 全表序列化\n（含 N+1 的 draft_state resolver），用户上传大量材料包后可自我放大为 DoS。\n此处把 limit 收敛到 [1, 1000]。offset（默认 0）供 MCP 信封续取。\n\n``slim=true``：按 ``InboxMessageSlimOut`` 只回行级摘要（剔除收件箱行不\n消费的 15 个字段，实测全量 492 行 481.1 KB → 325.3 KB，-32.4%）。响应体仍是裸数组，\n不带 ``slim`` 时**逐字节不变**（仍由 ``response=list[InboxMessageOut]``\n序列化整个 QuerySet）。正文本来就不在本接口：详情正文走 ``GET /messages/{id}``。",
         "tags": [
           "收件箱"
         ],
@@ -27717,6 +27789,202 @@
         ]
       }
     },
+    "/api/v1/agent/ui-action-results": {
+      "post": {
+        "operationId": "apps_agent_api_ui_api_submit_ui_action_result",
+        "summary": "Submit Ui Action Result",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "前端提交一次 UI 动作的执行结果（仅会话所有者）。\n\n``success=False`` 不一定是错误：等待方可能已经超时（模型只等 2 秒）。前端应提示\n「结果已记录，但本轮已按超时继续」，而不是当成失败重试——重试也只会命中\n:func:`ack.resolve` 的幂等分支（第二次提交不生效）。",
+        "tags": [
+          "Agent UI 动作"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UiActionResultIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/ui-actions": {
+      "get": {
+        "operationId": "apps_agent_api_ui_api_list_ui_actions",
+        "summary": "List Ui Actions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "schema": {
+              "default": "",
+              "title": "Action",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "schema": {
+              "default": "",
+              "title": "Outcome",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "risk",
+            "schema": {
+              "default": "",
+              "title": "Risk",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "decision",
+            "schema": {
+              "default": "",
+              "title": "Decision",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "since_days",
+            "schema": {
+              "default": 0,
+              "title": "Since Days",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "当前用户的 UI 动作审计历史（仅 ``confirm`` / ``guarded`` 档，见 ``audit``）。\n\n只给**自己的**行：动作历史不是会话共享资产，同一会话被转交后新负责人也不该看见\n前任按过哪些高危按钮。也就因此不经 ``_rejection_reason``：读的不是某个请求的回执。\n\n``action`` / ``outcome`` / ``risk`` / ``decision`` 是精确匹配的过滤条件，**空串 =\n不过滤**（默认全给）。为什么是这几个：它们恰好对应事后最常问的几句话——「这个动作我\n批过几次」（action）、「哪些最后没执行成」（outcome 含 ``denied`` / ``expired``）、\n「高危档里我拒过什么」（risk）、「我到底同不同意」（decision = approved / denied /\nexpired，与 outcome 是两个主体的问题）。``since_days``（1~90）再叠一道时间窗，\n**0 = 不过滤**（这个参数是后加的，不传等于老行为）。\n过滤在库里做，不在 API 层过滤：后者会先把整页拉进内存再筛，分页一上就是错的。\n\nReturns:\n    ``{\"items\": [...], \"count\": n}``；未登录返回空列表 + ``error``（与同文件其余\n    端点的「未登录不报 401、给空结果」口径一致）。每项含 ``decision`` / ``decided_at`` /\n    ``verified`` / ``verify_note`` / ``batch_id``（字段口径见\n    ``audit_query.list_recent_for_user``）。",
+        "tags": [
+          "Agent UI 动作"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/ui-actions/stats": {
+      "get": {
+        "operationId": "apps_agent_api_ui_api_ui_action_stats",
+        "summary": "Ui Action Stats",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "default": 7,
+              "title": "Days",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "schema": {
+              "default": "",
+              "title": "Action",
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "当前用户最近 ``days`` 天的动作汇总 —— 「AI 这段时间帮我做了多少事」。\n\n逐条列表回答不了这个问题（翻 50 行也数不出「成了几个、我拒过几个」），这里只出聚合。\n全部口径（哪些行算进来、``verified_rate`` 的分母、``not_checked`` 与「核实失败」\n为什么分开、``approval_to_dispatch_ms`` **不是**执行耗时、2000 行截断）逐条写在\n``audit_query.stats_for_user`` 的 docstring 里——那是唯一权威口径，本层只做鉴权与转交。\n\n``days`` clamp 到 1~90（``days=0`` / ``days=999`` 都是夹到边界上继续算，不是 500），\n``action`` 精确匹配、空串 = 不过滤。\n\nReturns:\n    见 ``audit_query.empty_stats`` 的形状；未登录返回全零结构 + ``error``（与同文件\n    其余端点的「未登录不报 401、给空结果」口径一致）。",
+        "tags": [
+          "Agent UI 动作"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/ui-snapshots/{request_id}": {
+      "post": {
+        "operationId": "apps_agent_api_ui_api_submit_ui_snapshot",
+        "summary": "Submit Ui Snapshot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "前端回传一次页面状态快照（仅会话所有者）。\n\n契约（脱敏、``state`` 2000 字 / ``private_state`` 4000 字上限）在 ``UiSnapshotIn`` 里；\n本端点只做归属校验与转交。\n``success=False`` 不是失败：等待方（≤3s）可能已经超时，模型会按「没问到」继续。\n\n往下转交的六个字段（漏一个就是一条静默失效的通道）：``state`` / ``route`` / ``note`` /\n``available_actions`` / ``blocked_actions`` / ``private_state``。",
+        "tags": [
+          "Agent UI 动作"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UiSnapshotIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/agent/review/options": {
       "get": {
         "operationId": "apps_agent_api_review_api_review_options",
@@ -28524,7 +28792,18 @@
       "get": {
         "operationId": "apps_agent_api_skill_api_list_skills",
         "summary": "List Skills",
-        "parameters": [],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scope",
+            "schema": {
+              "default": "all",
+              "title": "Scope",
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -28537,7 +28816,71 @@
             }
           }
         },
-        "description": "当前律师可见的技能清单（偏好只记差异，缺省全启用）。",
+        "description": "管理抽屉清单：该律师可见的**全部**条目（含被遮蔽、草稿、待审）。\n\n``scope`` 过滤在 API 侧做：``list_visible_skills`` 一次算出全部可见条目（含\n``effective`` / ``shadowed_by`` / ``can_*``），按层过滤只是对同一份结果切片——\n放到服务层意味着每个 tab 都要重跑一遍级联。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "apps_agent_api_skill_api_create_skill",
+        "summary": "Create Skill",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillDetailOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "新建技能（缺省个人）；``scope=law_firm`` / ``team`` 的服务端权限闸门在 service。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/skills/quota": {
+      "get": {
+        "operationId": "apps_agent_api_skill_api_skill_quota",
+        "summary": "Skill Quota",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillQuotaOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "配额占用：个人与共享分开计数（前端进度条与「本所还剩几条」提示）。",
         "tags": [
           "Agent 技能"
         ],
@@ -28548,16 +28891,222 @@
         ]
       }
     },
-    "/api/v1/agent/skills/{skill_name}": {
+    "/api/v1/agent/skills/trial-quota": {
+      "get": {
+        "operationId": "apps_agent_api_skill_api_trial_quota",
+        "summary": "Trial Quota",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillTrialQuotaOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "今日试跑余量（试跑按钮的「今天还能试几次」与恢复时刻）。\n\n只读接口，**不过写开关**：开关关掉时试跑端点自己会 503，而配额数字仍然需要\n可读（前端据此隐藏或置灰按钮，而不是让律师点一下才发现不行）。\n\n路由必须留在 ``/skills/{key}`` 之前（见模块 docstring 第 1 条）。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/skills/validate": {
+      "post": {
+        "operationId": "apps_agent_api_skill_api_validate_skill",
+        "summary": "Validate Skill",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillValidateOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "字段级校验 + 渲染预览 + 安全命中（不落库，不写盘，不占开关）。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillValidateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/skills/resolve/{name}/content": {
+      "get": {
+        "operationId": "apps_agent_api_skill_api_skill_content",
+        "summary": "Skill Content",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "schema": {
+              "default": 0,
+              "title": "Start",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 16000,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillContentOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "**运行时**正文（MCP ``get_agent_skill`` 的数据源），按字节分段。\n\n``name`` 这个路径段同时接受 ``builtin:<name>`` / ``skill:<uuid>`` / 裸 ``name``：\n模型只知道名字，而调用方手里常是 key。叫 ``name`` 而不是 ``ref`` 是有意的——\nMCP 工具面对模型暴露的参数就叫 ``name``，两边**同名**才能让「工具签名是否暴露了\n后端必填参数」这道跨语言契约门禁自动对齐（``test_output_contract``）；换个名字\n会让门禁只能靠注释说服人，而它本该靠签名说服人。\n\n严格走 ``resolve_for_user``——已停用 / 草稿 / 无权一律 404，这条出口给的是模型，\n不能像管理面那样把工作区草稿返出去。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/skills/{key}": {
+      "get": {
+        "operationId": "apps_agent_api_skill_api_get_skill",
+        "summary": "Get Skill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillDetailOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "技能详情（管理面）：**工作区**最新正文，作者要能接着编辑自己的稿子。\n\n``key`` 可含 ``:``（``builtin:web-research``）。运行时正文走\n``/skills/resolve/{name}/content``，两者刻意分开：一个是工作区，一个是线上。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "apps_agent_api_skill_api_update_skill",
+        "summary": "Update Skill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillDetailOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "更新**工作区**（共享技能编辑不换线上：``version`` 不符 409）。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillUpdateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
       "patch": {
         "operationId": "apps_agent_api_skill_api_toggle_skill",
         "summary": "Toggle Skill",
         "parameters": [
           {
             "in": "path",
-            "name": "skill_name",
+            "name": "key",
             "schema": {
-              "title": "Skill Name",
+              "title": "Key",
               "type": "string"
             },
             "required": true
@@ -28575,7 +29124,7 @@
             }
           }
         },
-        "description": "启停一个技能（下一轮对话生效：注入面按用户偏好逐个 ``--skill``）。",
+        "description": "启停。共享技能只 upsert 本人偏好行（``AgentSkill.enabled`` 是全所共用的一行）。",
         "tags": [
           "Agent 技能"
         ],
@@ -28589,6 +29138,401 @@
           },
           "required": true
         },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "apps_agent_api_skill_api_delete_skill",
+        "summary": "Delete Skill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "description": "删除个人技能（内置 403；别人的 404；共享只能由本所管理员删）。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/skills/{key}/duplicate": {
+      "post": {
+        "operationId": "apps_agent_api_skill_api_duplicate_skill",
+        "summary": "Duplicate Skill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillDetailOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "「复制为我的」：仅内置技能可复制（内置名是保留字，副本名加 ``-copy``）。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/skills/{key}/diff": {
+      "get": {
+        "operationId": "apps_agent_api_skill_api_diff_skill",
+        "summary": "Diff Skill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "v1",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "V1"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "v2",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "V2"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillDiffOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "两版对比，缺省「线上生效版 vs 工作区」。\n\n只读接口（作者与审批人都要看）：所以不过写开关。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/skills/{key}/submit": {
+      "post": {
+        "operationId": "apps_agent_api_skill_api_submit_skill",
+        "summary": "Submit Skill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillDetailOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "提审：置 ``review_status=pending``，**不动线上**（生效的唯一入口是 approve）。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillSubmitIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/skills/{key}/trial": {
+      "post": {
+        "operationId": "apps_agent_api_skill_api_trial_skill",
+        "summary": "Trial Skill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillTrialOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "发布前试跑：真跑一轮，把模型回复交给审批人（**不写会话历史、不可能写业务**）。\n\n这是个**慢端点**（起一个 pi 子进程 + 一轮模型调用，默认上限 45 秒——再往上就\n要同时调网关的 ``proxy_read_timeout``，见 ``services/skills/trial.py``）。前端必须\n给它独立的等待态，不能沿用列表操作那种「点完就回来」的交互。\n\n失败路径也要回 200（``ok=false`` + ``error``）：超时与后端报错是审批人要看的\n事实，不是「这个按钮坏了」。选项/限流类问题才是 4xx（422 / 429）。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillTrialIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/skills/{key}/review": {
+      "post": {
+        "operationId": "apps_agent_api_skill_api_review_skill",
+        "summary": "Review Skill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillDetailOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "审批：``approve`` 把最新快照提为线上版；``reject`` 只改修订流（线上纹丝不动）。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/skills/{key}/archive": {
+      "post": {
+        "operationId": "apps_agent_api_skill_api_archive_skill",
+        "summary": "Archive Skill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillDetailOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "下线：立刻退出交付面，但保留 ``published_revision`` 供审计追溯。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/skills/{key}/restore": {
+      "post": {
+        "operationId": "apps_agent_api_skill_api_restore_skill",
+        "summary": "Restore Skill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillDetailOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "恢复：``archived → draft``，**必须重走审批**（恢复即生效等于绕过一次审批）。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/skills/{key}/discard-draft": {
+      "post": {
+        "operationId": "apps_agent_api_skill_api_discard_draft",
+        "summary": "Discard Draft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillDetailOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "放弃工作区：把线上已批准版回填到工作区，清掉待审/驳回态。",
+        "tags": [
+          "Agent 技能"
+        ],
         "security": [
           {
             "JWTOrSessionAuth": []
@@ -34824,7 +35768,7 @@
             "title": "诉讼地位"
           },
           "client_detail": {
-            "$ref": "#/components/schemas/ClientLiteOut"
+            "$ref": "#/components/schemas/ClientBriefOut"
           }
         },
         "required": [
@@ -34835,49 +35779,8 @@
         "title": "CasePartyOut",
         "type": "object"
       },
-      "ClientIdentityDocLiteOut": {
-        "properties": {
-          "doc_type": {
-            "title": "Doc Type",
-            "type": "string"
-          },
-          "file_path": {
-            "title": "File Path",
-            "type": "string"
-          },
-          "uploaded_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ],
-            "title": "Uploaded At"
-          },
-          "media_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Media Url"
-          }
-        },
-        "required": [
-          "doc_type",
-          "file_path",
-          "uploaded_at"
-        ],
-        "title": "ClientIdentityDocLiteOut",
-        "type": "object"
-      },
-      "ClientLiteOut": {
+      "ClientBriefOut": {
+        "description": "当事人快照（内嵌在合同/案件/补充协议的 `client_detail` 里）。\n\n刻意**不含** `identity_docs` 与 `client_type_label`：证件列表只在客户自身端点\n（GET /clients/{client_id}）出参，内嵌一份会让每个当事人的每份证件各补一条 SQL\n（实测占合同列表响应 9.8KB/139KB，前端生产代码 0 处消费）；`client_type_label`\n是 choices 衍生字段，同样无人读。字段集 = 前端生产代码实际读到的字段 + id/name。",
         "properties": {
           "id": {
             "title": "Id",
@@ -34913,10 +35816,6 @@
             ],
             "title": "Address"
           },
-          "client_type": {
-            "title": "Client Type",
-            "type": "string"
-          },
           "id_number": {
             "anyOf": [
               {
@@ -34938,39 +35837,14 @@
               }
             ],
             "title": "Legal Representative"
-          },
-          "legal_representative_id_number": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Legal Representative Id Number"
-          },
-          "client_type_label": {
-            "title": "Client Type Label",
-            "type": "string"
-          },
-          "identity_docs": {
-            "items": {
-              "$ref": "#/components/schemas/ClientIdentityDocLiteOut"
-            },
-            "title": "Identity Docs",
-            "type": "array"
           }
         },
         "required": [
           "id",
           "name",
-          "is_our_client",
-          "client_type",
-          "client_type_label",
-          "identity_docs"
+          "is_our_client"
         ],
-        "title": "ClientLiteOut",
+        "title": "ClientBriefOut",
         "type": "object"
       },
       "LawyerOutFromDTO": {
@@ -35153,7 +36027,161 @@
         "title": "SupervisingAuthorityOut",
         "type": "object"
       },
+      "CaseSlimOut": {
+        "additionalProperties": false,
+        "description": "案件列表轻量投影：标量列与 CaseOut 一致，不含任何嵌套集合。\n\n中文标签口径必须与 CaseOut 一致（status / current_stage 走 get_*_display）：\n列表页拿 `c.status === '在办'` 判「待立案优先」、直接渲染 status 文案，\n返回代码值（active）会让这一页半英半中。两个 resolver 因此直接转调 CaseOut。",
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "ID"
+          },
+          "name": {
+            "maxLength": 255,
+            "title": "案件名称",
+            "type": "string"
+          },
+          "status": {
+            "default": "active",
+            "maxLength": 32,
+            "title": "案件状态",
+            "type": "string"
+          },
+          "is_filed": {
+            "default": false,
+            "title": "是否已建档",
+            "type": "boolean"
+          },
+          "filing_number": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "格式: {年份}_{案件类型}_{AJ}_{序号}",
+            "title": "建档编号"
+          },
+          "case_type": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "civil",
+            "title": "案件类型"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "收案日期",
+            "type": "string"
+          },
+          "effective_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "生效日期"
+          },
+          "specified_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "指定日期"
+          },
+          "target_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "涉案金额"
+          },
+          "preservation_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "财产保全金额"
+          },
+          "cause_of_action": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "",
+            "title": "案由"
+          },
+          "current_stage": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "",
+            "title": "当前阶段"
+          },
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          }
+        },
+        "required": [
+          "name",
+          "contract_id"
+        ],
+        "title": "CaseSlimOut",
+        "type": "object"
+      },
       "CaseIn": {
+        "description": "建案入参。\n\n`contract_id` 必须显式声明：`Case.contract` 是 FK，但 ModelSchema 的 fields\n白名单里没有它，而 `CaseCommandService.create_case` 读的正是 `data[\"contract_id\"]`\n——既拿它做合同有效性校验，也拿它解析并校验代理阶段。漏了这一个字段，\nREST 建出来的案件会挂空合同（前端「新建下一程序案件」等于白建）。",
         "properties": {
           "name": {
             "maxLength": 255,
@@ -35261,6 +36289,29 @@
               }
             ],
             "title": "指定日期"
+          },
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
           }
         },
         "required": [
@@ -38526,7 +39577,7 @@
         "type": "object"
       },
       "ContractListPageOut": {
-        "description": "合同分页列表输出 Schema（GET /contracts/contracts 实际返回形状）。\n\n与 ContractPaginatedOut 不同：本 Schema 按 list_contracts_page 服务返回定形\n（facets 计数而非 total_pages）；items 在 slim=true 时剔除 finalized_materials\n（由端点 exclude_unset=True 实现，此处声明保持全集）。",
+        "description": "合同分页列表输出 Schema（GET /contracts/contracts 实际返回形状）。\n\n与 ContractPaginatedOut 不同：本 Schema 按 list_contracts_page 服务返回定形\n（facets 计数而非 total_pages）；slim=true 时不再查/构建 finalized_materials，\n但该键仍以 [] 出现在响应里（端点 exclude_unset=True 实测无键可剔，见\n`_serialize_contract` 注释）——判 slim 请看请求参数，不要看键是否存在。",
         "properties": {
           "items": {
             "items": {
@@ -38920,7 +39971,7 @@
             "type": "string"
           },
           "client_detail": {
-            "$ref": "#/components/schemas/ClientLiteOut"
+            "$ref": "#/components/schemas/ClientBriefOut"
           },
           "role_label": {
             "title": "Role Label",
@@ -39191,7 +40242,7 @@
             "type": "string"
           },
           "client_detail": {
-            "$ref": "#/components/schemas/ClientLiteOut"
+            "$ref": "#/components/schemas/ClientBriefOut"
           },
           "client_name": {
             "title": "Client Name",
@@ -60407,6 +61458,87 @@
         "title": "QuestionAnswerItem",
         "type": "object"
       },
+      "UiActionResultIn": {
+        "description": "前端提交一次 UI 动作的执行结果。\n\n``outcome`` 用 ``Literal`` 而不是自由字符串：它不是给人看的说明，而是模型据以\n决定下一步的**状态机输入**（``ok`` 才能说「已完成」）。多一个拼写变体就等于\n多一条没人测过的分支，还会静默落进积压表被当成 ``unknown`` 转述出去。",
+        "properties": {
+          "call_id": {
+            "title": "Call Id",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "ok",
+              "error",
+              "aborted"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "code": {
+            "default": "",
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "observed_location": {
+            "default": "",
+            "title": "Observed Location",
+            "type": "string"
+          }
+        },
+        "required": [
+          "call_id",
+          "outcome"
+        ],
+        "title": "UiActionResultIn",
+        "type": "object"
+      },
+      "UiSnapshotIn": {
+        "description": "前端回传的一次页面状态快照（``POST /agent/ui-snapshots/{request_id}``）。\n\n``state`` 会被**原样拼进模型上下文**、也会进日志，所以与 ``detail`` 同口径按不可信\n输入处理：先脱敏（密钥类字段遮成 ``***``）再限量。\n\n**``state`` 超限直接拒、不截断**：截断后的结构体会缺键，而模型会把缺的键当成「页面上确实\n没有这个字段」——比拒绝更误导。拒绝时把实际字数与上限写进错误，页面作者据此收窄\n自己声明的字段（模型拿到的仍是「没问到」，不会变成假的空页面）。\n\n**``available_actions`` 相反：名字可以截断**（去控制字符 → strip → 截 64 字 → 丢空串\n→ 去重 → 最多 10 条，超出只截断，不拒收）。两者口径不同是因为坏处的形状不同：名字是\n**查表用的不透明标识**，截短后匹配不到任何动作，模型也就不会（也无法）调它——失败方向是\n「少了一个提示」，**不构成假事实**；而截断状态会凭空造出「页面上没有这个字段」。所以前者\n容错、后者拒收。\n\n**``blocked_actions`` 同 ``available_actions`` 的口径**（清洗 + 截断 + 限量，不拒收）：它\n也是「查表用的标识 + 一句解释」，坏一条只少一条提示。但比名字多一条硬要求——``name`` 必须\n像真名（:data:`_ACTION_NAME_RE`），``reason`` 必须非空：一条「没有原因」的 blocked 项对模型\n等于「这条不许用」，它只会照此放弃，而律师看到的是 AI 莫名其妙不做。所以形状不对的项整条\n丢掉，而不是留个半句。\n\n**``private_state`` 是页面的另一半**：页面用它放**不该给模型看**的东西（律师还没提交的草稿、\n原始主键 id、排查用的调试字段）。它**永远不会出现在工具返回值里**——``snapshot.request_snapshot``\n只按白名单挑键（``MODEL_FACING_KEYS``），``private_state`` 不在白名单上。它与 ``state`` 同口径\n先脱敏（它也会进日志），上限见 :data:`_MAX_SNAPSHOT_PRIVATE_STATE`（比 ``state`` 宽一倍），\n超限同样直接拒。",
+        "properties": {
+          "state": {
+            "additionalProperties": true,
+            "title": "State",
+            "type": "object"
+          },
+          "route": {
+            "default": "",
+            "title": "Route",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "available_actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Available Actions",
+            "type": "array"
+          },
+          "blocked_actions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Blocked Actions",
+            "type": "array"
+          },
+          "private_state": {
+            "additionalProperties": true,
+            "title": "Private State",
+            "type": "object"
+          }
+        },
+        "title": "UiSnapshotIn",
+        "type": "object"
+      },
       "ReviewOptions": {
         "description": "触发评审前前端要问的可选项（契约 §C1）。",
         "properties": {
@@ -61235,33 +62367,657 @@
         "type": "object"
       },
       "SkillOut": {
-        "description": "技能清单项。``description`` 来自 SKILL.md frontmatter。",
+        "description": "管理抽屉清单项（``resolve.list_visible_skills`` 的完整字段集，CONTRACT §2）。",
         "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
           "name": {
             "title": "Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
             "type": "string"
           },
           "description": {
             "title": "Description",
             "type": "string"
           },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "scope_weight": {
+            "title": "Scope Weight",
+            "type": "integer"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
           "enabled": {
             "title": "Enabled",
+            "type": "boolean"
+          },
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "review_status": {
+            "title": "Review Status",
+            "type": "string"
+          },
+          "review_note": {
+            "title": "Review Note",
+            "type": "string"
+          },
+          "published_version": {
+            "title": "Published Version",
+            "type": "integer"
+          },
+          "has_unpublished_changes": {
+            "title": "Has Unpublished Changes",
+            "type": "boolean"
+          },
+          "shadowed": {
+            "items": {
+              "$ref": "#/components/schemas/SkillShadowRef"
+            },
+            "title": "Shadowed",
+            "type": "array"
+          },
+          "effective": {
+            "title": "Effective",
+            "type": "boolean"
+          },
+          "shadowed_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SkillShadowRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "can_edit": {
+            "title": "Can Edit",
+            "type": "boolean"
+          },
+          "can_submit": {
+            "title": "Can Submit",
+            "type": "boolean"
+          },
+          "can_review": {
+            "title": "Can Review",
+            "type": "boolean"
+          },
+          "can_archive": {
+            "title": "Can Archive",
+            "type": "boolean"
+          },
+          "can_restore": {
+            "title": "Can Restore",
+            "type": "boolean"
+          },
+          "can_promote": {
+            "title": "Can Promote",
             "type": "boolean"
           }
         },
         "required": [
+          "key",
           "name",
+          "title",
           "description",
-          "enabled"
+          "scope",
+          "scope_weight",
+          "source",
+          "enabled",
+          "editable",
+          "version",
+          "status",
+          "review_status",
+          "review_note",
+          "published_version",
+          "has_unpublished_changes",
+          "shadowed",
+          "effective",
+          "shadowed_by",
+          "can_edit",
+          "can_submit",
+          "can_review",
+          "can_archive",
+          "can_restore",
+          "can_promote"
         ],
         "title": "SkillOut",
         "type": "object"
       },
-      "SkillToggleOut": {
+      "SkillShadowRef": {
+        "description": "覆盖关系里的对手身份（``shadowed`` 的元素与 ``shadowed_by`` 同形）。",
         "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "scope",
+          "title"
+        ],
+        "title": "SkillShadowRef",
+        "type": "object"
+      },
+      "SkillDetailOut": {
+        "description": "单条详情与写操作回执：工作区正文 + 详情出口算得出的字段（见模块 docstring）。",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
           "name": {
             "title": "Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "scope_weight": {
+            "title": "Scope Weight",
+            "type": "integer"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "review_status": {
+            "title": "Review Status",
+            "type": "string"
+          },
+          "review_note": {
+            "title": "Review Note",
+            "type": "string"
+          },
+          "published_version": {
+            "title": "Published Version",
+            "type": "integer"
+          },
+          "has_unpublished_changes": {
+            "title": "Has Unpublished Changes",
+            "type": "boolean"
+          },
+          "shadowed": {
+            "items": {
+              "$ref": "#/components/schemas/SkillShadowRef"
+            },
+            "title": "Shadowed",
+            "type": "array"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "can_edit": {
+            "title": "Can Edit",
+            "type": "boolean"
+          },
+          "can_submit": {
+            "title": "Can Submit",
+            "type": "boolean"
+          },
+          "can_review": {
+            "title": "Can Review",
+            "type": "boolean"
+          },
+          "can_archive": {
+            "title": "Can Archive",
+            "type": "boolean"
+          },
+          "can_restore": {
+            "title": "Can Restore",
+            "type": "boolean"
+          },
+          "can_promote": {
+            "title": "Can Promote",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "title",
+          "description",
+          "scope",
+          "scope_weight",
+          "source",
+          "enabled",
+          "editable",
+          "version",
+          "status",
+          "review_status",
+          "review_note",
+          "published_version",
+          "has_unpublished_changes",
+          "shadowed",
+          "body",
+          "can_edit",
+          "can_submit",
+          "can_review",
+          "can_archive",
+          "can_restore",
+          "can_promote"
+        ],
+        "title": "SkillDetailOut",
+        "type": "object"
+      },
+      "SkillCreateIn": {
+        "description": "新建：缺省个人技能；``scope=law_firm`` / ``team`` 需要对应管理权限。",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "scope": {
+            "default": "lawyer",
+            "title": "Scope",
+            "type": "string"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id"
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "body"
+        ],
+        "title": "SkillCreateIn",
+        "type": "object"
+      },
+      "SkillQuotaOut": {
+        "properties": {
+          "max_skills": {
+            "title": "Max Skills",
+            "type": "integer"
+          },
+          "used": {
+            "title": "Used",
+            "type": "integer"
+          },
+          "by_scope": {
+            "$ref": "#/components/schemas/SkillScopeCounts"
+          },
+          "max_by_scope": {
+            "$ref": "#/components/schemas/SkillScopeCounts"
+          },
+          "can_create_firm": {
+            "title": "Can Create Firm",
+            "type": "boolean"
+          },
+          "promotable_scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Promotable Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "max_skills",
+          "used",
+          "by_scope",
+          "max_by_scope",
+          "can_create_firm",
+          "promotable_scopes"
+        ],
+        "title": "SkillQuotaOut",
+        "type": "object"
+      },
+      "SkillScopeCounts": {
+        "description": "按作用域的计数（``by_scope`` 与 ``max_by_scope`` 同形；内置不占配额）。",
+        "properties": {
+          "lawyer": {
+            "title": "Lawyer",
+            "type": "integer"
+          },
+          "team": {
+            "title": "Team",
+            "type": "integer"
+          },
+          "law_firm": {
+            "title": "Law Firm",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lawyer",
+          "team",
+          "law_firm"
+        ],
+        "title": "SkillScopeCounts",
+        "type": "object"
+      },
+      "SkillTrialQuotaOut": {
+        "description": "今日试跑余量（``GET /skills/trial-quota``）。\n\n``reset_at`` 是**明日本地零点**的 ISO 8601：前端拿它渲染「XX 后恢复」，不要自己\n算「明天」——跨时区/夏令时的时候，前端算出来的与服务端真正放行的时刻会对不上。",
+        "properties": {
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "used": {
+            "title": "Used",
+            "type": "integer"
+          },
+          "remaining": {
+            "title": "Remaining",
+            "type": "integer"
+          },
+          "reset_at": {
+            "title": "Reset At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "limit",
+          "used",
+          "remaining",
+          "reset_at"
+        ],
+        "title": "SkillTrialQuotaOut",
+        "type": "object"
+      },
+      "SkillFieldError": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ],
+        "title": "SkillFieldError",
+        "type": "object"
+      },
+      "SkillSafetyFinding": {
+        "description": "安全闸门的一条命中（``level`` 为 ``hard`` 拦发布 / ``soft`` 仅告警）。",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "level": {
+            "title": "Level",
+            "type": "string"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "level",
+          "field",
+          "message",
+          "excerpt"
+        ],
+        "title": "SkillSafetyFinding",
+        "type": "object"
+      },
+      "SkillValidateOut": {
+        "description": "校验结果：``preview`` 是渲染后 AI 实际读到的内容，``safety`` 是 PII/注入命中。",
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/SkillFieldError"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "preview": {
+            "title": "Preview",
+            "type": "string"
+          },
+          "safety": {
+            "items": {
+              "$ref": "#/components/schemas/SkillSafetyFinding"
+            },
+            "title": "Safety",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "errors",
+          "preview",
+          "safety"
+        ],
+        "title": "SkillValidateOut",
+        "type": "object"
+      },
+      "SkillValidateIn": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "body"
+        ],
+        "title": "SkillValidateIn",
+        "type": "object"
+      },
+      "SkillContentOut": {
+        "description": "运行时正文分段（MCP ``get_agent_skill`` 的直接数据源）。\n\n``total_bytes`` 是渲染后正文的字节数（不是字符数），``next_start`` 为 ``None``\n表示已到末尾；两者一起让调用方能「按字节续读」而不必猜分页边界。",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "integer"
+          },
+          "total_bytes": {
+            "title": "Total Bytes",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "next_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Start"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "title",
+          "scope",
+          "version",
+          "content",
+          "start",
+          "total_bytes",
+          "truncated",
+          "next_start"
+        ],
+        "title": "SkillContentOut",
+        "type": "object"
+      },
+      "SkillUpdateIn": {
+        "description": "``version`` 是乐观锁：不符 → 409。``name`` 建后不可改（改名会断偏好与审计链）。",
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "body",
+          "version"
+        ],
+        "title": "SkillUpdateIn",
+        "type": "object"
+      },
+      "SkillToggleOut": {
+        "properties": {
+          "key": {
+            "title": "Key",
             "type": "string"
           },
           "enabled": {
@@ -61270,7 +63026,7 @@
           }
         },
         "required": [
-          "name",
+          "key",
           "enabled"
         ],
         "title": "SkillToggleOut",
@@ -61287,6 +63043,260 @@
           "enabled"
         ],
         "title": "SkillToggleIn",
+        "type": "object"
+      },
+      "SkillDiffHunk": {
+        "description": "一段逐行差异：``op`` 为 ``equal`` / ``ins`` / ``del``。",
+        "properties": {
+          "op": {
+            "title": "Op",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lines",
+            "type": "array"
+          }
+        },
+        "required": [
+          "op",
+          "lines"
+        ],
+        "title": "SkillDiffHunk",
+        "type": "object"
+      },
+      "SkillDiffOut": {
+        "properties": {
+          "v1": {
+            "title": "V1",
+            "type": "integer"
+          },
+          "v2": {
+            "title": "V2",
+            "type": "integer"
+          },
+          "hunks": {
+            "items": {
+              "$ref": "#/components/schemas/SkillDiffHunk"
+            },
+            "title": "Hunks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "v1",
+          "v2",
+          "hunks"
+        ],
+        "title": "SkillDiffOut",
+        "type": "object"
+      },
+      "SkillSubmitIn": {
+        "description": "提审：个人技能必须给 ``target_scope``（提升到团队/所内）。\n\n``name`` 与 ``team_id`` 都是可选的，存在的理由是**目标层可能已经有同名技能**：\n``uniq_agent_skill_firm_name`` / ``uniq_agent_skill_team_name`` 会让改名前的\n提升直接撞唯一约束。提审是这个唯一能改名的时机（``name`` 建后不可改的规则\n针对的是「已落库的身份」，而跨层提升本质上是一次新的落位）。",
+        "properties": {
+          "target_scope": {
+            "default": "",
+            "title": "Target Scope",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "acknowledged_firm_wide": {
+            "default": false,
+            "title": "Acknowledged Firm Wide",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id"
+          }
+        },
+        "title": "SkillSubmitIn",
+        "type": "object"
+      },
+      "SkillToolError": {
+        "description": "试跑里失败的一次工具调用（``message`` 只留前 200 字，不返正文）。",
+        "properties": {
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool",
+          "message"
+        ],
+        "title": "SkillToolError",
+        "type": "object"
+      },
+      "SkillTrialOut": {
+        "description": "试跑回执。\n\n``injected`` 是**实际注入给模型的那段文字**——审批人必须能看见「我们到底让模型\n看了什么」，否则一个奇怪的回答无法归因（技能写得不好？还是注入时拼错了？）。\n``mode`` 是实际用的注入层（``auto`` 已解析）；``tool_calls`` 是模型真的调了哪些\n工具（只读工具面，不会有写操作）；``tool_errors`` 是其中失败的调用。\n``trial_id`` 指向这次的入账行（成本账）。",
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "backend": {
+            "title": "Backend",
+            "type": "string"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "skill_key": {
+            "title": "Skill Key",
+            "type": "string"
+          },
+          "skill_name": {
+            "title": "Skill Name",
+            "type": "string"
+          },
+          "skill_scope": {
+            "title": "Skill Scope",
+            "type": "string"
+          },
+          "skill_version": {
+            "title": "Skill Version",
+            "type": "integer"
+          },
+          "injected": {
+            "title": "Injected",
+            "type": "string"
+          },
+          "tool_calls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tool Calls",
+            "type": "array"
+          },
+          "tool_errors": {
+            "items": {
+              "$ref": "#/components/schemas/SkillToolError"
+            },
+            "title": "Tool Errors",
+            "type": "array"
+          },
+          "trial_id": {
+            "title": "Trial Id",
+            "type": "string"
+          },
+          "error": {
+            "title": "Error",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "text",
+          "backend",
+          "mode",
+          "model",
+          "duration_ms",
+          "skill_key",
+          "skill_name",
+          "skill_scope",
+          "skill_version",
+          "injected",
+          "tool_calls",
+          "tool_errors",
+          "trial_id",
+          "error"
+        ],
+        "title": "SkillTrialOut",
+        "type": "object"
+      },
+      "SkillTrialIn": {
+        "description": "试跑请求：不给问题就用服务端默认探针问法。",
+        "properties": {
+          "question": {
+            "default": "",
+            "title": "Question",
+            "type": "string"
+          },
+          "backend": {
+            "default": "",
+            "title": "Backend",
+            "type": "string"
+          },
+          "mode": {
+            "default": "auto",
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "title": "SkillTrialIn",
+        "type": "object"
+      },
+      "SkillReviewIn": {
+        "description": "审批：``decision`` 二选一；``reject`` 必须带 ``note``（否则作者只能盲改）。",
+        "properties": {
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "acknowledged_firm_wide": {
+            "default": false,
+            "title": "Acknowledged Firm Wide",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "SkillReviewIn",
         "type": "object"
       },
       "UsageOut": {

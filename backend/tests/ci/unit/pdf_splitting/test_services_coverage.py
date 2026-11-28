@@ -403,7 +403,12 @@ class TestSerializeSegment:
         segment.get_review_flag_display.return_value = "正常"
         segment.source_method = "text"
 
-        with patch("apps.pdf_splitting.services.job_service.get_segment_label", return_value="合同"):
+        # `_segment_display_label` 已随确认后的 md 重建一起搬到 split/confirmed_markdown.py，
+        # 该符号的调用点随之迁移，patch 必须打在真正持有点上（打在旧的 job_service 上会失效）。
+        with patch(
+            "apps.pdf_splitting.services.split.confirmed_markdown.get_segment_label",
+            return_value="合同",
+        ):
             result = svc._serialize_segment(segment)
             assert result["order"] == 1
             assert result["confidence"] == 0.95

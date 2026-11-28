@@ -33,6 +33,9 @@ class CaseQueryService(PermissionMixin):
             Case.objects.select_related("contract")
             .prefetch_related(
                 "parties__client",
+                # 同 get_case_queryset：CaseOut 的 client_detail 是 ClientOut，
+                # 会读 client.identity_docs，只预取到 client 这一层就是每当事人一条补查。
+                "parties__client__identity_docs",
                 "assignments__lawyer__law_firm",
                 "logs",
                 "case_numbers",
@@ -62,8 +65,16 @@ class CaseQueryService(PermissionMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
+        slim: bool = False,
+        search: str | None = None,
+        sort: str | None = None,
     ) -> QuerySet[Case, Case]:
-        """获取案件列表（带权限过滤；contract_id 可按合同过滤）。"""
+        """获取案件列表（带权限过滤；contract_id 可按合同过滤）。
+
+        slim=True 只取标量列（供 CaseSlimOut 的轻量列表），不做任何关联预取。
+        search / sort 是可选的过滤与排序下推（详见 CaseSearchService.list_cases），
+        不传时与历史行为逐条一致；count_cases 必须拿到同一组参数。
+        """
         return self._search_service.list_cases(
             case_type=case_type,
             status=status,
@@ -71,6 +82,32 @@ class CaseQueryService(PermissionMixin):
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
+            slim=slim,
+            search=search,
+            sort=sort,
+        )
+
+    def count_cases(
+        self,
+        case_type: str | None = None,
+        status: str | None = None,
+        contract_id: int | None = None,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+        search: str | None = None,
+        sort: str | None = None,
+    ) -> int:
+        """与 list_cases 同口径的案件总数（不受 limit/offset 影响）。"""
+        return self._search_service.count_cases(
+            case_type=case_type,
+            status=status,
+            contract_id=contract_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+            search=search,
+            sort=sort,
         )
 
     def list_cases_ctx(
@@ -150,14 +187,31 @@ class CaseQueryService(PermissionMixin):
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         exact_match: bool = False,
+        slim: bool = False,
     ) -> QuerySet[Case, Case]:
-        """通过案号搜索案件。"""
+        """通过案号搜索案件（slim=True 同 list_cases：只取标量列）。"""
         return self._search_service.search_by_case_number(
             case_number=case_number,
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
             exact_match=exact_match,
+            slim=slim,
+        )
+
+    def count_cases_by_case_number(
+        self,
+        case_number: str,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> int:
+        """与 search_by_case_number 同口径的案件总数。"""
+        return self._search_service.count_cases_by_case_number(
+            case_number=case_number,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
         )
 
     def search_by_case_number_ctx(

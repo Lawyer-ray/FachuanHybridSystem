@@ -120,7 +120,7 @@ class EvidenceMergeUseCase:
                 "pdf_path": pdf_path,
             }
         except Exception as e:
-            logger.exception("操作失败")
+            logger.exception("evidence_merge_usecase.merge: 合并证据 PDF 失败")
             EvidenceList.objects.filter(pk=list_id).update(
                 merge_status=MergeStatus.FAILED,
                 merge_error=str(e),

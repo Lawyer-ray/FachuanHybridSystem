@@ -35,7 +35,6 @@
 from __future__ import annotations
 
 import logging
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +42,39 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.contracts.models import InvoiceIntake, InvoiceIntakeStatus
+
+# 以下四个模块承载本模块已搬出的实现，这里**只做再导出**：既有调用方与测试
+# （apps/contracts/api/invoice_intake_api.py、tests/ci/unit/contracts/…）仍按
+# ``invoice_intake_service.<name>`` 引用这些名字，import 路径不变。
+# 依赖方向单向：原模块 → 新模块，新模块不许 import 回本模块。
+from apps.contracts.services.payment.invoice_folder_cleanup import (
+    _remove_folder_copy,
+    _remove_generated_invoice,
+    _remove_media_file,
+    _restore_invoice_folder_position,
+)
+from apps.contracts.services.payment.invoice_intake_audit import _log_finance
+from apps.contracts.services.payment.invoice_intake_facts import (
+    _group_item,
+    _is_admin,
+    _red_intakes_for_reissues,
+    can_decide,
+    generated_invoice_facts,
+    get_intake_for_user,
+    open_count,
+    red_group_facts,
+    visible_intakes_qs,
+)
+from apps.contracts.services.payment.invoice_red_guards import (
+    RED_AMOUNT_TOLERANCE,
+    _contract_of_invoice,
+    _ensure_not_red,
+    _invoice_is_red,
+    _red_guard_amount,
+    _red_guards,
+    _reissue_guards,
+    _resolve_payment_for_red,
+)
 
 logger = logging.getLogger("apps.contracts")
 
@@ -56,122 +88,6 @@ __all__ = [
     "red_group_facts",
     "reparse_invoice_intake",
 ]
-
-#: 重开金额与被冲金额允许的绝对容差（与 invoice_match.AMOUNT_TOLERANCE 同口径）
-RED_AMOUNT_TOLERANCE = Decimal("0.005")
-
-
-def _is_admin(user: Any) -> bool:
-    return bool(getattr(user, "is_admin", False) or getattr(user, "is_superuser", False))
-
-
-def open_count(user: Any) -> int:
-    """首页角标：与我相关的待认领发票数。"""
-    # visible_intakes_qs 返回 Any（跨模型 QuerySet），count() 需显式收敛成 int
-    return int(visible_intakes_qs(user).filter(status=InvoiceIntakeStatus.PENDING).count())
-
-
-def visible_intakes_qs(user: Any) -> Any:
-    """「与我相关」的待认领发票。
-
-    收敛口径与到账款项一致：邮件收件人 / 建议项目主办律师 / 管理员。
-    这里不复刻复杂权限推导——发票天然属于律所内部财务流，可见范围给足，
-    真正危险的动作（确认绑定）另有 :func:`can_decide` 把关。
-    """
-    from django.db.models import Q
-
-    from apps.contracts.models import ContractAssignment
-
-    if _is_admin(user):
-        return InvoiceIntake.objects.all()
-
-    primary_contract_ids = ContractAssignment.objects.filter(lawyer=user, is_primary=True).values("contract_id")
-    return InvoiceIntake.objects.filter(
-        Q(inbox_message__source__credential__lawyer=user)
-        | Q(suggested_contract_id__in=primary_contract_ids)
-        | Q(suggested_contract__assignments__lawyer=user)
-    ).distinct()
-
-
-def get_intake_for_user(*, intake_id: int, user: Any) -> InvoiceIntake:
-    """取一条待认领发票（带常用关联），无权即视为不存在。
-
-    ORM 留在 Service 层：API 层出现 ``Model.objects`` 会撞四层架构门禁。
-    无权时抛 NotFound 而不是 PermissionDenied——不泄露记录存在性。
-    """
-    from apps.core.exceptions import NotFoundError
-
-    # visible_intakes_qs 声明为 Any（跨模型 Q 查询），这里显式收敛回模型类型
-    intake: InvoiceIntake | None = (
-        visible_intakes_qs(user)
-        .select_related("suggested_contract", "confirmed_contract", "inbox_message", "inbox_message__source")
-        .filter(pk=intake_id)
-        .first()
-    )
-    if intake is None or not can_decide(user, intake):
-        raise NotFoundError(f"待认领发票 {intake_id} 不存在")
-    return intake
-
-
-def generated_invoice_facts(intake: InvoiceIntake) -> dict[str, str]:
-    """确认后那张发票的**展示名 + 文件夹落点**（未确认则两者均空串）。
-
-    展示名走 ``InvoiceFileService.display_filename`` 的同一份命名规则——绝不另拼。
-    合同名取**确认到的**合同（人工改判过时可能与建议合同不同）。
-
-    一次查库同时给两个字段：列表只关心文件名，详情还要落点，分两次查是白花。
-    """
-    blank = {"display_filename": "", "folder_subpath": ""}
-    if intake.invoice_id is None:
-        return blank
-    from pathlib import Path
-
-    from apps.contracts.models import Invoice
-    from apps.contracts.services.payment.invoice_file_service import InvoiceFileService
-
-    invoice = Invoice.objects.filter(pk=intake.invoice_id).select_related("payment__contract", "contract").first()
-    if invoice is None:
-        return blank
-    payment = invoice.payment if invoice.payment_id else None
-    contract = invoice.contract or (payment.contract if payment is not None else None)
-    return {
-        "display_filename": InvoiceFileService().display_filename(
-            contract_name=str(getattr(contract, "name", "") or ""),
-            seller=str(invoice.seller_name or ""),
-            inv_date=invoice.invoice_date,
-            ext=Path(str(invoice.file_path or "")).suffix.lower(),
-            # 红票尾部是「红字开具」：列表里与它冲掉/重开的那张票必须看得出区别
-            is_red=_invoice_is_red(invoice),
-        ),
-        "folder_subpath": str(getattr(invoice, "folder_subpath", "") or ""),
-    }
-
-
-def _invoice_is_red(invoice: Any) -> bool:
-    """这张 ``Invoice`` 是不是红票（金额为负，或生成它的 intake 判为红票）。"""
-    if getattr(invoice, "total_amount", None) is not None and invoice.total_amount < 0:
-        return True
-    from apps.contracts.models import InvoiceIntake
-
-    intake = InvoiceIntake.objects.filter(invoice_id=invoice.pk).first()
-    return bool(intake.is_red) if intake is not None else False
-
-
-def can_decide(user: Any, intake: InvoiceIntake) -> bool:
-    """能不能对这张票做裁定。
-
-    规则：管理员一律可以；其余人须是邮件收件人 或 建议项目的主办律师。
-    无权时对外表现为"不存在"，不泄露记录存在性。
-    """
-    if _is_admin(user):
-        return True
-    credential_lawyer_id = getattr(getattr(intake.inbox_message, "source", None), "credential", None)
-    if credential_lawyer_id is not None and getattr(credential_lawyer_id, "lawyer_id", None) == user.pk:
-        return True
-    contract = intake.suggested_contract
-    if contract is not None:
-        return contract.assignments.filter(lawyer=user, is_primary=True).exists()
-    return False
 
 
 def _attachment_file(intake: InvoiceIntake) -> Any:
@@ -297,25 +213,6 @@ def confirm_invoice_intake(
 # ── 冲红重开（裁定层）──────────────────────────────────────────
 
 
-def _ensure_not_red(intake: InvoiceIntake) -> None:
-    """老确认入口的红票硬拦（G-red）。
-
-    红票的语义是「抵掉一张已存在的票」，不是「新增一笔开票」：走 ``confirm`` 会
-    生成一张金额为负、没有原票关联的 ``Invoice``——账上多一张孤立红票，而没有任何
-    东西能说清它冲的是谁。
-
-    为什么同时拦在 Service 层而不只拦在 API：Service 是财务写入的唯一门，绕过 API 的
-    脚本/管理后台/未来的批量接口都得吃同一道守卫。
-    """
-    from apps.core.exceptions import ValidationException
-
-    if intake.is_red:
-        raise ValidationException(
-            "红字发票请使用「冲红重开」或「仅冲红」入口处理，不能直接确认",
-            code="INVOICE_RED_USE_DEDICATED_ENDPOINT",
-        )
-
-
 def _lock_pending_intake(intake_id: int, user: Any) -> InvoiceIntake:
     """取一条待裁定的 intake 并锁行（并发下两个浏览器不能同时冲同一张票）。"""
     from apps.core.exceptions import NotFoundError, ValidationException
@@ -328,123 +225,6 @@ def _lock_pending_intake(intake_id: int, user: Any) -> InvoiceIntake:
             f"该发票当前状态为「{intake.get_status_display()}」，不能重复确认", code="INVOICE_INTAKE_NOT_PENDING"
         )
     return intake
-
-
-def _contract_of_invoice(invoice: Any) -> int | None:
-    """``Invoice`` 归属的合同（挂收款时跟收款走）。"""
-    contract_id = getattr(invoice, "contract_id", None)
-    if contract_id:
-        return int(contract_id)
-    payment = getattr(invoice, "payment", None)
-    payment_contract_id = getattr(payment, "contract_id", None)
-    return int(payment_contract_id) if payment_contract_id else None
-
-
-def _red_guards(red: InvoiceIntake, *, contract_id: int | None) -> Any:
-    """G1 / G2 / G6：红票能否被一键冲销，返回它要冲掉的那张原 ``Invoice``。
-
-    - G1 ``offset_invoice`` 为空：原票不在本库。只允许人工驳回 + 手工补录原票——
-      若允许落成“独立红票”，因为没有原票可冲，这张红票自己就是“未作废的有效票”，
-      **会被打进交付包**。一张负数发票交给客户，是能上投诉的。
-    - G2 原票合同 ≠ 红票要确认的合同：冲错项目比不冲更糟。
-    - G6 原票已有其他已确认红票冲过：双重冲红会让 ``Sum`` 多算一笔负数。
-    """
-    from apps.core.exceptions import ValidationException
-
-    offset = red.offset_invoice if red.offset_invoice_id else None
-    if offset is None:
-        raise ValidationException(
-            "被红冲的原票不在系统里，不能一键冲红：请驳回此红票，并在对应项目手动补录原票后再处理",
-            code="INVOICE_RED_OFFSET_NOT_FOUND",
-            errors={"red_against_number": str(red.red_against_number or "")},
-        )
-
-    offset_contract_id = _contract_of_invoice(offset)
-    if contract_id is not None and offset_contract_id != contract_id:
-        raise ValidationException(
-            "红票冲销的原票不属于本项目，不能在此项目冲红",
-            code="INVOICE_RED_CONTRACT_MISMATCH",
-            errors={"offset_invoice_id": offset.pk, "offset_contract_id": offset_contract_id},
-        )
-
-    applied_by = InvoiceIntake.objects.filter(
-        status=InvoiceIntakeStatus.CONFIRMED, offset_invoice_id=offset.pk
-    ).exclude(pk=red.pk)
-    if applied_by.exists():
-        raise ValidationException(
-            "这张原票已被另一张红票冲销过，不能重复冲红",
-            code="INVOICE_RED_ALREADY_APPLIED",
-            errors={"offset_invoice_id": offset.pk},
-        )
-    return offset
-
-
-def _red_guard_amount(red: InvoiceIntake) -> None:
-    """红票金额必须是个确定的负数。
-
-    金额未知时冲红，``Sum(total_amount)`` 根本不会变——少一笔负数是直接错账，
-    而且从账面上完全看不出漏了什么。这类红票必须先重解析拿到金额。
-    """
-    from apps.core.exceptions import ValidationException
-
-    if red.total_amount is None:
-        raise ValidationException(
-            "红字发票金额未识别，不能冲红。请先「重新解析」，确认金额后再冲红",
-            code="INVOICE_RED_AMOUNT_UNKNOWN",
-        )
-
-
-def _reissue_guards(
-    new: InvoiceIntake,
-    *,
-    offset: Any,
-    contract_id: int | None,
-    amount_override: bool,
-) -> None:
-    """G3 / G4 / G5：重开蓝票的三条硬约束（G4 可由 ``amount_override`` 显式放行）。"""
-    from apps.contracts.models import Invoice
-    from apps.core.exceptions import ValidationException
-
-    if new.total_amount is None or new.total_amount <= 0:
-        raise ValidationException(
-            "重开的蓝票金额必须为正数",
-            code="INVOICE_REENACT_NOT_POSITIVE",
-            errors={"total_amount": str(getattr(new, "total_amount", ""))},
-        )
-
-    offset_amount = abs(Decimal(str(getattr(offset, "total_amount", 0) or 0)))
-    gap = abs(Decimal(str(new.total_amount)) - offset_amount)
-    if gap > RED_AMOUNT_TOLERANCE and not amount_override:
-        raise ValidationException(
-            f"重开金额 {new.total_amount} 与被冲销金额 {offset_amount} 不一致；改动金额需显式确认并留痕",
-            code="INVOICE_REENACT_AMOUNT_MISMATCH",
-            errors={"new_total": str(new.total_amount), "offset_total": str(offset_amount)},
-        )
-
-    if new.invoice_number and Invoice.objects.filter(invoice_number=new.invoice_number).exists():
-        raise ValidationException(
-            f"发票号码 {new.invoice_number} 已在库，重开票不能重复入账",
-            code="INVOICE_NUMBER_DUPLICATED",
-            errors={"invoice_number": new.invoice_number},
-        )
-
-
-def _resolve_payment_for_red(red: InvoiceIntake, *, contract_id: int, user: Any) -> Any | None:
-    """红票落到哪笔收款：原票挂的那笔（冲销必须落在同一个付款上）。
-
-    重回退：原票挂在合同名下时，若合同恰好只有一笔收款就用它——单笔收款的项目
-    “先开票后付款”其实是“钱已到、票挂合同”，不回填的话冲红后净额永远算不到账上。
-    多笔时不猜（猜错的账比没算更难查），留给人工挂。
-    """
-    from apps.contracts.models import ContractPayment
-
-    offset = red.offset_invoice if red.offset_invoice_id else None
-    if offset is not None and offset.payment_id is not None:
-        return ContractPayment.objects.filter(pk=offset.payment_id).select_related("contract").first()
-    if red.suggested_payment_id is not None and red.suggested_contract_id == contract_id:
-        return ContractPayment.objects.filter(pk=red.suggested_payment_id).select_related("contract").first()
-    payments = list(ContractPayment.objects.filter(contract_id=contract_id).select_related("contract")[:2])
-    return payments[0] if len(payments) == 1 else None
 
 
 def _land_red_and_reissue(
@@ -735,35 +515,6 @@ def _parsed_from_intake(intake: InvoiceIntake) -> Any:
     )
 
 
-def _log_finance(intake: InvoiceIntake, contract_id: int, action: str, user: Any, extra: dict[str, Any]) -> None:
-    """写财务审计日志（失败不阻断主流程：日志记录本身不是业务成功条件）。
-
-    S43-35（2026-11-23 二轮审计）：调用点都在 ``@transaction.atomic`` 内，且多见于
-    ``return`` 前的最后几条语句（发票确认 :283、冲红重开）。原实现裸 try/except 吞掉
-    日志 INSERT 的 DatabaseError——PG 上事务已 aborted，而 Django 6.1 不再置
-    needs_rollback，外层 atomic 会去 commit()（PG 等价 ROLLBACK），于是整笔业务
-    静默不落库、接口却报成功。现在把日志写入包进 savepoint，失败只回滚这一步。
-    """
-    try:
-        from apps.contracts.models import ContractFinanceLog
-
-        with transaction.atomic():
-            ContractFinanceLog.objects.create(
-                contract_id=contract_id,
-                action=action,
-                actor=user,
-                payload={
-                    "intake_id": intake.pk,
-                    "invoice_number": intake.invoice_number,
-                    "total_amount": str(intake.total_amount) if intake.total_amount is not None else "",
-                    "operator_id": getattr(user, "pk", None),
-                    **extra,
-                },
-            )
-    except Exception:
-        logger.warning("invoice_intake_finance_log_failed", extra={"intake_id": intake.pk}, exc_info=True)
-
-
 @transaction.atomic
 def reject_invoice_intake(*, intake_id: int, user: Any, reason: str) -> InvoiceIntake:
     """标记为无关发票（不是给本所的票 / 已手工处理）。可撤销。"""
@@ -932,21 +683,6 @@ def _reopen_red_group(group: dict[str, Any], user: Any) -> InvoiceIntake:
     return red
 
 
-def _restore_invoice_folder_position(offset: Any, contract_id: int, user: Any) -> None:
-    """把被冲销的原票从 ``已冲红/`` 移回发票目录（失败只记日志，不阻断撤销）。"""
-    subpath = str(getattr(offset, "folder_subpath", "") or "")
-    if not subpath or subpath.split("/")[-2:-1] != ["已冲红"]:
-        return
-    try:
-        from apps.contracts.services.payment.invoice_file_service import InvoiceFileService
-
-        InvoiceFileService().move_invoice_back_from_voided(invoice_id=offset.pk, user=user)
-    except Exception:
-        logger.warning(
-            "invoice_folder_restore_failed", extra={"invoice_id": offset.pk, "subpath": subpath}, exc_info=True
-        )
-
-
 def _reset_intake_to_pending(intake: InvoiceIntake) -> None:
     """把 intake 的裁定结果清空（不动 ``supersedes_intake``，调用方按需处理）。"""
     intake.status = InvoiceIntakeStatus.PENDING
@@ -957,216 +693,7 @@ def _reset_intake_to_pending(intake: InvoiceIntake) -> None:
     intake.invoice = None
 
 
-def _remove_generated_invoice(intake: InvoiceIntake, user: Any) -> None:
-    """删掉确认时生成的发票（含文件夹副本与 media 文件）。"""
-    from apps.contracts.models import Invoice
-
-    if intake.invoice_id is None:
-        return
-    invoice = Invoice.objects.filter(pk=intake.invoice_id).select_related("payment__contract", "contract").first()
-    if invoice is None:
-        return
-
-    payment = invoice.payment if invoice.payment_id else None
-    contract_id = invoice.contract_id or (payment.contract_id if payment is not None else None)
-    _remove_folder_copy(contract_id, invoice, user)
-    _remove_media_file(invoice)
-    invoice.delete()
-
-    # 删票后必须重算该笔收款的「已开票金额/状态」：不重算的话撤销完
-    # 收款还停在 INVOICED_FULL，项目页会一直说「已全额开票」而实际一张票都没了。
-    if payment is not None:
-        try:
-            from apps.contracts.services.payment.invoice_file_service import InvoiceFileService
-
-            InvoiceFileService().recompute_payment_invoicing(payment)
-        except Exception:
-            logger.warning("invoice_recompute_after_reopen_failed", extra={"payment_id": payment.pk}, exc_info=True)
-
-    if contract_id is not None:
-        _log_finance(intake, contract_id, "invoice_intake_reopened", user, {"removed_invoice_id": intake.invoice_id})
-
-
-def _remove_folder_copy(contract_id: int | None, invoice: Any, user: Any) -> None:
-    """把合同文件夹里的副本移进 ``_已删除/``（软删除，可找回）。"""
-    subpath = str(getattr(invoice, "folder_subpath", "") or "")
-    if contract_id is None or not subpath:
-        return
-    try:
-        from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
-
-        ContractFolderBrowseService().delete_entry(
-            owner_id=contract_id, subpath=subpath, user=user, org_access=None, perm_open_access=False
-        )
-        logger.info("invoice_folder_copy_trashed", extra={"contract_id": contract_id, "subpath": subpath})
-    except Exception:
-        # 文件夹可能已解绑/云存储/权限不足：不阻断撤销，但要让用户知道手工去删
-        logger.warning(
-            "invoice_folder_copy_trash_failed", extra={"contract_id": contract_id, "subpath": subpath}, exc_info=True
-        )
-
-
-def _remove_media_file(invoice: Any) -> None:
-    """删 media 仓库里的权威副本。"""
-    file_path = str(getattr(invoice, "file_path", "") or "")
-    if not file_path:
-        return
-    try:
-        from django.conf import settings
-
-        target = Path(settings.MEDIA_ROOT) / file_path
-        if target.exists():
-            target.unlink()
-    except Exception:
-        logger.warning("invoice_media_file_remove_failed", extra={"file_path": file_path}, exc_info=True)
-
-
 # ── 冲红重开：只读查询（供 API 装配 reatch_group 用）────────────────────
-
-
-def _group_item(invoice: Any, intake: Any) -> dict[str, Any]:
-    """组内一段：票面事实一律优先取 ``Invoice``（真凭证），缺失才回落 intake。"""
-    return {
-        "intake_id": getattr(intake, "pk", None),
-        "invoice_id": getattr(invoice, "pk", None),
-        "invoice_number": str(getattr(invoice, "invoice_number", "") or getattr(intake, "invoice_number", "") or ""),
-        "total_amount": (
-            str(invoice.total_amount)
-            if invoice is not None and getattr(invoice, "total_amount", None) is not None
-            else (str(intake.total_amount) if intake is not None and intake.total_amount is not None else None)
-        ),
-    }
-
-
-def _red_intakes_for_reissues(reissue_rows: list[InvoiceIntake]) -> list[InvoiceIntake]:
-    """给一批「重开蓝票」找出各自所属的红票（可能为空：红票还没到）。
-
-    路径：重开票 → supersedes_intake（被替代的原票 intake）→ 其 invoice → 同号发票
-    被哪张红票点名（``red_against_number``）。
-
-    一次批量查完，不随行数增长：首页 50 行里可能有多组冲红重开。
-    """
-    from apps.contracts.models import Invoice, InvoiceIntakeStatus
-
-    original_intake_ids = {intake.supersedes_intake_id for intake in reissue_rows if intake.supersedes_intake_id}
-    if not original_intake_ids:
-        return []
-
-    # 原票 intake -> 它的发票号
-    original_numbers = {
-        str(number)
-        for number in InvoiceIntake.objects.filter(pk__in=original_intake_ids).values_list(
-            "invoice__invoice_number", flat=True
-        )
-        if number
-    }
-    if not original_numbers:
-        return []
-
-    # 同项目的红票（未确认的），其 red_against_number 命中上面的号
-    project_codes = {
-        str(code)
-        for code in InvoiceIntake.objects.filter(pk__in=original_intake_ids).values_list("project_code", flat=True)
-        if code
-    }
-    qs = InvoiceIntake.objects.filter(
-        status=InvoiceIntakeStatus.PENDING,
-        red_against_number__in=original_numbers,
-    ).select_related("offset_invoice")
-    if project_codes:
-        qs = qs.filter(project_code__in=project_codes)
-    return list(qs)
-
-
-def red_group_facts(intakes: list[InvoiceIntake]) -> dict[int, dict[str, Any] | None]:
-    """批量装配「冲红重开组」的**票面事实**，返回 ``{intake_id: group | None}``。
-
-    为什么放在 Service 而不是 API：组的三段各要一次 ORM 查询（原票 / 生成原票的
-    intake / 重开蓝票），API 层出现 ``Model.objects`` 会撞四层架构门禁（基线 0）。
-    API 只做最后一步"事实 → 响应结构"的改名装配。
-
-    组只按 ``group_key`` 语义给出三段，**不判断该不该折叠**——那是前端的事：
-
-    - ``original`` 原蓝票（可能不在库 → ``None``）
-    - ``red``      红票本身；只要 ``is_red`` 成立就一定有这一段
-    - ``reissue``  重开蓝票（只有"冲红并重开"才落，可能 ``None``）
-
-    非红票且在库无对应记录的 intake 返回 ``None``（扁平列表里的普通行）。
-    """
-    groups: dict[int, dict[str, Any] | None] = {intake.pk: None for intake in intakes}
-    red_intakes = [intake for intake in intakes if getattr(intake, "is_red", False)]
-    if not red_intakes:
-        pass
-
-    # 重开票自己不是红票，单独看它算不出组。详情端点只传来这一张时必须
-    # **从它反查所属红票**，否则同一张重开票在列表里有组、进详情就没组，
-    # 弹窗里「冲红重开」的三段信息凭空消失。
-    reissue_rows = [
-        intake for intake in intakes if not getattr(intake, "is_red", False) and intake.supersedes_intake_id
-    ]
-    if reissue_rows:
-        red_intakes = [*red_intakes, *_red_intakes_for_reissues(reissue_rows)]
-    _red_intakes_dedup = {intake.pk: intake for intake in red_intakes}
-    red_intakes = list(_red_intakes_dedup.values())
-
-    if not red_intakes:
-        return groups
-
-    # 原票 / 重开票一次性批量取，避免首页 50 行退化成 150 次查询
-    offset_ids = {intake.offset_invoice_id for intake in red_intakes if intake.offset_invoice_id}
-    offset_numbers = {
-        str(intake.red_against_number)
-        for intake in red_intakes
-        if not intake.offset_invoice_id and str(getattr(intake, "red_against_number", "") or "")
-    }
-    from apps.contracts.models import Invoice
-
-    offset_by_id = {invoice.pk: invoice for invoice in Invoice.objects.filter(pk__in=offset_ids)}
-    offset_by_number = {
-        str(invoice.invoice_number): invoice for invoice in Invoice.objects.filter(invoice_number__in=offset_numbers)
-    }
-    # 重开蓝票的查找**不能**限定在本批 intakes 里。
-    #
-    # 真实样本：原票（intake #13）早已确认 -> 不在 pending 列表里；重开蓝票
-    # ``supersedes_intake`` 指向的是那张**已确认的** 原票 intake。若按
-    # ``supersedes_intake_id__in=<本批 pending ids>`` 过滤，就永远匹配不到，
-    # 冲红重开组永远拼不起来（实测：红票显示正常但组卡片为空）。
-    #
-    # 正确口径：先定「原票」，再找「替代了这张原票」的那条待认领 intake。
-    offset_intakes = {
-        intake.invoice_id: intake
-        for intake in InvoiceIntake.objects.filter(invoice_id__in=[inv.pk for inv in offset_by_id.values()])
-    }
-    # 原票 intake 的 id 集合 -> 用它反查重开票（一次批量，不随行数增长）
-    original_intake_ids = {i.pk for i in offset_intakes.values() if i is not None}
-    reissue_by_original_intake_id: dict[int, InvoiceIntake] = {}
-    if original_intake_ids:
-        for candidate in InvoiceIntake.objects.filter(supersedes_intake_id__in=original_intake_ids).order_by("-id"):
-            reissue_by_original_intake_id.setdefault(int(candidate.supersedes_intake_id or 0), candidate)
-
-    for red in red_intakes:
-        offset = (
-            offset_by_id.get(red.offset_invoice_id)
-            if red.offset_invoice_id
-            else offset_by_number.get(str(red.red_against_number))
-        )
-        original_intake = offset_intakes.get(offset.pk) if offset is not None else None
-        reissue = reissue_by_original_intake_id.get(original_intake.pk) if original_intake is not None else None
-        group = {
-            "group_key": f"red:{red.red_against_number}",
-            "original": _group_item(offset, original_intake) if offset is not None else None,
-            "red": _group_item(None, red),
-            "reissue": _group_item(None, reissue) if reissue is not None else None,
-        }
-        # 组事实必须同时发给**组内每一个成员**，不能只给红票。
-        #
-        # 前端按 ``reatch_group.group_key`` 折叠：只给红票时，重开蓝票自己对不上
-        # 任何组，会被当成一条独立行渲染——用户看到“组卡片 + 一条重复的新票”。
-        # 实测就是这个现象（#19 既在组里、又单独占一行）。
-        groups[red.pk] = group
-        if reissue is not None and reissue.pk in groups:
-            groups[reissue.pk] = group
-    return groups
 
 
 @transaction.atomic

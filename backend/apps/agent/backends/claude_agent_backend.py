@@ -65,7 +65,7 @@ from typing import Any, Literal
 
 from asgiref.sync import sync_to_async
 
-from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, StreamFrame
+from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, SkillDelivery, StreamFrame
 from .gateway_cache import GatewaySettings, get_gateway_settings, resolve_gateway_target
 from .toolface import SERVER_NAME, TIER_FULL, TIER_LITE, TOOL_TIER_HEADER, endpoint_from_env, port_open, shared_enabled
 
@@ -171,6 +171,9 @@ def backend_capabilities() -> BackendCapabilities:
         steer=False,
         # 每轮一条独立子进程，无进程级共享状态（与 openai-agents 同口径）。
         concurrent_in_session=True,
+        # 索引块真的拼进了 ``_instructions(ctx)`` 的返回值（见该函数说明）。刻意
+        # **不**用 ``skills=``：那是宿主的文件系统技能面，与本方案「零磁盘落盘」相反。
+        skill_delivery=SkillDelivery.PROMPT,
     )
 
 
@@ -778,12 +781,35 @@ DEFAULT_INSTRUCTIONS = (
 )
 
 
+def _skill_block(ctx: RunContext) -> str | None:
+    """本轮要拼进系统提示的技能索引块（口径与 ``pi_backend`` 逐字一致）。
+
+    三道判据顺序不能换：
+
+    1. ``skill_block_override`` 优先——发布前试跑要的是「只装待审这一条」，不能被
+       ``ctx.skill_block`` 或 ``isolated`` 覆盖；
+    2. 隔离运行且无 override → 不注：综合结论是对几栏回答的客观合并，律师的个人
+       技能与所内索引会把无关工作流带进来（``base.py`` 的不变量门禁）；
+    3. 常规运行 → ``ctx.skill_block``（``None`` / 空串 = 不注入）。
+    """
+    return (
+        ctx.skill_block_override
+        if ctx.skill_block_override is not None
+        else (None if ctx.isolated else ctx.skill_block)
+    )
+
+
 def _instructions(ctx: RunContext) -> str:
     """本轮的 system prompt（全量替换 CLI 默认预设，**不是追加**）。
 
     ``ctx.system_prompt`` 非空时用它（如综合结论的规则），否则用 :data:`DEFAULT_INSTRUCTIONS`。
+
+    技能索引块拼在**返回值尾部**：它走系统提示通道，不碰 ``skills=`` 参数——
+    打开那个参数会让 SDK 去扫宿主机上的技能目录，与「用户/共享技能零落盘」相反。
     """
-    return ctx.system_prompt or DEFAULT_INSTRUCTIONS
+    base = ctx.system_prompt or DEFAULT_INSTRUCTIONS
+    block = _skill_block(ctx)
+    return f"{base}\n\n{block}" if block else base
 
 
 def _bind_can_use_tool(ctx: RunContext) -> Callable[[str, dict[str, Any], Any], Awaitable[Any]]:
@@ -830,7 +856,12 @@ async def _can_use_tool(ctx: RunContext, tool_name: str, tool_input: dict[str, A
     if refusal:
         return PermissionResultDeny(message=refusal)
 
-    # 3) 分级：只有高危 / 紧急才停下来问人。
+    # 3) 审批闸门被显式关掉：与能力声明同源（``approval=False``），不再停下等人。
+    #    上面两步对**每一条**调用照常生效——那是结构性禁令，不是「要不要问人」的偏好。
+    if not approval_enabled():
+        return PermissionResultAllow()
+
+    # 4) 分级：只有高危 / 紧急才停下来问人。
     if classify_risk(tool_name, args) not in (RiskLevel.HIGH, RiskLevel.CRITICAL):
         return PermissionResultAllow()
 

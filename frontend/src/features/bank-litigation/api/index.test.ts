@@ -80,6 +80,15 @@ function respond(body: unknown) {
   return Object.assign(p, { json: () => p })
 }
 
+/**
+ * 假 Response：await 得 { headers, json() }。
+ * 只给「要在响应头里取东西」的端点用（案件列表的 X-Total-Count）——
+ * 链式 `.json()` 的桩拿不到头，会把「读头」这条路径测成假绿。
+ */
+function respondWith(body: unknown, headers: Record<string, string> = {}) {
+  return Promise.resolve({ headers: new Headers(headers), json: () => Promise.resolve(body) })
+}
+
 /** 二进制响应桩：可链 .blob() */
 function blobResponse(blob: Blob) {
   const p = Promise.resolve({ blob: () => Promise.resolve(blob) })
@@ -106,11 +115,47 @@ describe('客户端按域拆分', () => {
 })
 
 describe('案件资源（层级不统一，逐条钉住）', () => {
-  it('listCases：双层 cases', async () => {
+  it('listCases：双层 cases，分页/搜索/排序全部下推；总数取 X-Total-Count 头', async () => {
     const api = client('/api/v1/cases')
-    api.get.mockReturnValueOnce(respond([{ id: 1 }]))
-    await expect(listCases()).resolves.toEqual([{ id: 1 }])
-    expect(api.get).toHaveBeenCalledWith('cases')
+    api.get.mockReturnValueOnce(respondWith([{ id: 1 }], { 'X-Total-Count': '137' }))
+
+    await expect(
+      listCases({ offset: 50, limit: 50, search: ' 谭某某 ', sort: 'filable_first', withTotal: true }),
+    ).resolves.toEqual({ rows: [{ id: 1 }], total: 137 })
+
+    // 关键词在 api 层 trim（纯空格的搜索框不该多一个 search 参数）
+    expect(api.get).toHaveBeenCalledWith('cases', {
+      searchParams: {
+        slim: 'true',
+        limit: '50',
+        offset: '50',
+        with_total: 'true',
+        search: '谭某某',
+        sort: 'filable_first',
+      },
+    })
+  })
+
+  it('listCases：没要总数 / 后端没给头时 total 退回本页行数（不当成 0）', async () => {
+    const api = client('/api/v1/cases')
+    api.get
+      .mockReturnValueOnce(respondWith([{ id: 1 }, { id: 2 }]))
+      .mockReturnValueOnce(respondWith([{ id: 3 }]))
+
+    // 不带 withTotal：不发 with_total，也不读头
+    await expect(listCases({ limit: 50, search: '   ' })).resolves.toEqual({
+      rows: [{ id: 1 }, { id: 2 }],
+      total: 2,
+    })
+    expect(api.get).toHaveBeenNthCalledWith(1, 'cases', {
+      searchParams: { slim: 'true', limit: '50', offset: '0' },
+    })
+
+    // 带了 withTotal 但后端没给头（老后端）→ 退回本页行数
+    await expect(listCases({ limit: 50, withTotal: true })).resolves.toEqual({
+      rows: [{ id: 3 }],
+      total: 1,
+    })
   })
 
   it('getCase：双层 cases/:id', async () => {

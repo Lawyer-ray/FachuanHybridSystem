@@ -188,6 +188,36 @@ def _read_file_via_source(
     requested_pages = _parse_pages(pages)
     notices: list[str] = []
 
+    def _pages_path(
+        *, text: str, total_pages: int | None, page_texts: list[str] | None
+    ) -> list[TextContent | ImageContent]:
+        """三个页图出口的共用尾巴：选页 → 记 notice → 渲染成 content blocks。
+
+        九参 `_render_selection` 调用只应存在一处——三处各写一遍必然各自漂移
+        （少传 `start` 的 int 转换、漏 `notices`），表现为「同样的文件有时带提示、
+        有时不报错」。`meta`/`fetch_pages`/`dpi` 在本函数内是常量，走闭包拿。
+        """
+        selection = _select_pages(
+            requested=requested_pages,
+            text=text,
+            total_pages=total_pages,
+            page_texts=page_texts,
+            max_pages=max_pages,
+        )
+        notices.extend(selection["notices"])
+        return _render_selection(
+            meta=meta,
+            selection=selection,
+            fetch_pages=fetch_pages,
+            text=text,
+            requested_pages=requested_pages,
+            dpi=dpi,
+            image_format=image_format,
+            start=int(start),
+            max_length=max_length,
+            notices=notices,
+        )
+
     info = load_content(notices)
     if info.get("error"):
         return _metadata_only(info, notices)
@@ -211,26 +241,7 @@ def _read_file_via_source(
     if mime.startswith(_IMAGE_MIME_PREFIX):
         meta["total_pages"] = 1
         notices.append("图片附件：直接返回原图（非 OCR 文本）")
-        selection = _select_pages(
-            requested=requested_pages,
-            text="",
-            total_pages=1,
-            page_texts=None,
-            max_pages=max_pages,
-        )
-        notices.extend(selection["notices"])
-        return _render_selection(
-            meta=meta,
-            selection=selection,
-            fetch_pages=fetch_pages,
-            text="",
-            requested_pages=requested_pages,
-            dpi=dpi,
-            image_format=image_format,
-            start=int(start),
-            max_length=max_length,
-            notices=notices,
-        )
+        return _pages_path(text="", total_pages=1, page_texts=None)
 
     parsed = _extract_text(
         filename=filename,
@@ -258,33 +269,13 @@ def _read_file_via_source(
             notices.append(
                 f"文字提取不可用（{parsed.get('error') or 'empty'}）：已回落到原件页图，以下为原图而非 OCR 结果"
             )
-            text = ""
             # 页数在文字提取失败时是未知的，除非是位图（恒 1 页）。
             # 不能因此就把 "all" 当成越界：调用方要的是「把能给的页都给我」，
             # 而不是「告诉我这文件没页」。具体页数交给页图端点自己数——
             # 它打开 PDF 后才有 doc.page_count。
             total_pages = 1 if image_like else None
             meta["total_pages"] = total_pages
-            selection = _select_pages(
-                requested=requested_pages,
-                text=text,
-                total_pages=total_pages,
-                page_texts=None,
-                max_pages=max_pages,
-            )
-            notices.extend(selection["notices"])
-            return _render_selection(
-                meta=meta,
-                selection=selection,
-                fetch_pages=fetch_pages,
-                text=text,
-                requested_pages=requested_pages,
-                dpi=dpi,
-                image_format=image_format,
-                start=int(start),
-                max_length=max_length,
-                notices=notices,
-            )
+            return _pages_path(text="", total_pages=total_pages, page_texts=None)
 
         meta["error"] = parsed["error"]
         if parsed.get("retryable"):
@@ -301,26 +292,7 @@ def _read_file_via_source(
     meta["total_pages"] = total_pages
     notices.extend(parsed.get("notices") or [])
 
-    selection = _select_pages(
-        requested=requested_pages,
-        text=text,
-        total_pages=total_pages,
-        page_texts=parsed.get("page_texts"),
-        max_pages=max_pages,
-    )
-    notices.extend(selection["notices"])
-    return _render_selection(
-        meta=meta,
-        selection=selection,
-        fetch_pages=fetch_pages,
-        text=text,
-        requested_pages=requested_pages,
-        dpi=dpi,
-        image_format=image_format,
-        start=int(start),
-        max_length=max_length,
-        notices=notices,
-    )
+    return _pages_path(text=text, total_pages=total_pages, page_texts=parsed.get("page_texts"))
 
 
 def _render_selection(

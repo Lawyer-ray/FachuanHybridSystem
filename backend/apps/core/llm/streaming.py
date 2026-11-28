@@ -108,7 +108,7 @@ def stream_with_fallback(
         except LLMAuthenticationError:
             raise
         except Exception as e:
-            logger.exception("操作失败")
+            logger.exception("streaming.stream_with_fallback: 取首个流式分片失败")
             _handle_stream_error(name, e, fallback, errors, "stream")
             continue
         yield first
@@ -159,7 +159,7 @@ async def astream_with_fallback(
         except LLMAuthenticationError:
             raise
         except Exception as e:
-            logger.exception("操作失败")
+            logger.exception("streaming.astream_with_fallback: 取首个异步流式分片失败")
             _handle_stream_error(name, e, fallback, errors, "astream")
             continue
         yield first

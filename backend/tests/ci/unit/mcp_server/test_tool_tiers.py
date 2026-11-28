@@ -24,8 +24,31 @@ import fnmatch
 
 import pytest
 
-from mcp_server.tool_tiers import DIRECT_PATTERNS, DIRECT_TOOLS, build_tool_exposure, describe_tiers, tiers_enabled
+from mcp_server.tool_tiers import (
+    _UI_EXTRA_DIRECT,
+    DIRECT_PATTERNS,
+    DIRECT_TOOLS,
+    build_tool_exposure,
+    describe_tiers,
+    tiers_enabled,
+)
 from tests.ci.unit.mcp_server.test_server_registration import _ALL_TOOLS
+
+
+def _registered_tool_names() -> set[str]:
+    """真实工具面 = 静态注册表（`tools/__all__`）+ **动态注册的 UI 族**。
+
+    为什么必须补上后一半：`ui_*` 那一族由 `tools/ui/register.py` 按清单**反射注册**
+    （不经过 `tools/__all__`，因为名字是运行时从 `manifest.UI_ACTIONS` 派生的），而本文件
+    要断言的是「清单里的名字必须真实存在」。不补这一半，合法的 `ui_*` 会被当成拼写错误，
+    门禁变成假红，最后只能被白名单掉——拼写错误也就一起放行了。
+
+    名字本身写错仍有人守：`test_ui_tool_tiers.py` 把 `_UI_EXTRA_DIRECT` 钉到模块常量上，
+    `register._register_actions` 对撞名直接抛。
+    """
+    from apps.agent.services.ui_action.manifest import UI_ACTIONS
+
+    return set(_ALL_TOOLS) | {action.name for action in UI_ACTIONS} | set(_UI_EXTRA_DIRECT)
 
 #: 视为「破坏性」的工具名模式（与 approval.py 的判定口径一致）。
 _DESTRUCTIVE = ("delete_", "remove_", "destroy_", "clear_all", "reset_and_")
@@ -47,7 +70,7 @@ class TestCatalogIntegrity:
         写错名字的后果不是报错，而是该工具**彻底不可达**（pi 忽略未知条目），
         且没有日志。这条测试就是防这个静默失效。
         """
-        registered = set(_ALL_TOOLS)
+        registered = _registered_tool_names()
         ghosts = sorted(DIRECT_TOOLS - registered)
         assert not ghosts, (
             f"工具分层清单里有 {len(ghosts)} 个不存在的工具名: {ghosts}——"
@@ -104,7 +127,7 @@ class TestExposureMapping:
 
     def test_mapping_keys_are_exact_names_or_patterns(self) -> None:
         """键必须要么是真实工具名，要么是含 `*` 的模式——不能是拼错的裸名字。"""
-        registered = set(_ALL_TOOLS)
+        registered = _registered_tool_names()
         mapping = build_tool_exposure()
         bad = [key for key in mapping if key not in registered and "*" not in key]
         assert not bad, f"toolExposure 里有既不是真实工具名也不含通配符的键: {bad}"

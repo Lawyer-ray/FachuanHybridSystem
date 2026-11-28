@@ -38,6 +38,25 @@ class TestSkillArgs:
         assert "--no-skills" in args
         assert "--skill" not in args
 
+    def test_append_system_prompt_after_no_skills_before_provider(self) -> None:
+        """技能索引块进 ``--append-system-prompt``，位置在 ``--no-skills`` 之后、
+        ``--provider`` 之前（顺序一变就可能被 ``parseArgs`` 归给别的选项）。
+
+        ``--no-skills`` 不会因为有了索引块就消失：它关的是**宿主机自动发现**，
+        索引块只是替代了用户目录注入，两者不是互斥选项。
+        """
+        block = "## 可用技能（法穿）\n- [我的] demo：《示例》——看示例"
+        args = _args(append_system_prompt=block, provider="fachuan")
+        assert args[args.index("--no-skills")] == "--no-skills"
+        index = args.index("--append-system-prompt")
+        assert args[index + 1] == block
+        assert args.index("--no-skills") < index < args.index("--provider")
+
+    def test_empty_append_system_prompt_keeps_args_unchanged(self) -> None:
+        """空串 / None 不拼参数：常规对话的启动参数与引入本参数前逐字一致。"""
+        assert "--append-system-prompt" not in _args()
+        assert "--append-system-prompt" not in _args(append_system_prompt="")
+
 
 class TestParseContextUsage:
     def test_happy_path(self) -> None:

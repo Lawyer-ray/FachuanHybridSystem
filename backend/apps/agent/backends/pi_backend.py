@@ -16,6 +16,23 @@
 - ``PoolQueueTimeoutError`` / ``PiError`` 的翻译：后端只按契约抛自己的异常，
   翻译成人话由编排层做。
 
+## 技能面：三条通道，**不再**靠 ``--skill`` 目录
+
+1. **显式点名**：``services/skills/expand.py`` 在编排层把 ``/skill:名字`` 展开成
+   ``<skill>`` 块（锚点感知）。pi 原生展开只认 ``text.startsWith("/skill:")``，
+   详情页每轮前置的 ``[当前业务：…]`` 会把它顶离行首 → 静默失效；命中时又会把
+   宿主机绝对路径送进上下文。所以这条通道在所有后端上都是编排层干的。
+2. **自主发现**：``services/skills/prompt_block.py`` 渲染索引块，本模块经
+   ``RunContext.skill_block`` → ``pool.acquire(append_system_prompt=…)`` →
+   ``--append-system-prompt`` 注入系统提示的 ``<addendum>`` 段。pi 在无
+   ``read`` / ``bash`` 工具时**不生成** ``<available_skills>``，所以索引块是模型
+   知道「有哪些技能」的唯一来源。
+3. **按需取全文**：MCP ``get_agent_skill(name)`` → ``GET /agent/skills/resolve/…``
+   （工具面恒定 ``--tools TOOL_SELECTION``，模型能调的就这组 MCP 工具）。
+
+**没有第四条**：用户/共享技能不落盘，``--skill`` 在生产路径恒不传（启动参数里
+只剩一个 ``--no-skills`` 把宿主机用户级技能关死）。
+
 ## 审批事件为什么不进这里
 
 pi 的审批走 extension → Redis → 事件总线，不在 pi 的事件流里。编排层从总线队列
@@ -33,15 +50,12 @@ from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from typing import Any
 
-from asgiref.sync import sync_to_async
-
 from ..pi.bridge import stream_events
 from ..pi.rpc_client import parse_context_usage
 from ..services.chat import env
 from ..services.chat import pool as chat_pool
 from ..services.live_sessions import get_live_registry, register_live_route, unregister_live_route
-from ..services.skill_service import enabled_skill_paths
-from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext
+from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, SkillDelivery
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +110,10 @@ class PiBackend:
         approval=True,
         compaction=True,
         steer=True,
+        # 索引块经 ``--append-system-prompt`` 真的进了系统提示（见模块 docstring
+        # 的「技能面」三条通道）。不能声明 NATIVE：pi 在没有 read/bash 工具时
+        # 不生成 <available_skills>，``--skill`` 带不来自主发现。
+        skill_delivery=SkillDelivery.PROMPT,
     )
 
     #: 按 run_id 归集的收尾事实。键控而不是单值——见类 docstring
@@ -129,7 +147,8 @@ class PiBackend:
             BackendError: 非隔离运行却要求替换 system prompt；或本轮超过 ``ctx.max_turns``。
 
         ``ctx.isolated=True`` 时：不读写本会话的 pi 历史（池用临时目录）、不注入律师
-        技能、不登记为可插话的运行中会话；审批 env 仍是真实会话。
+        技能索引（除非调用方给了 ``ctx.skill_block_override``，发布前试跑用）、
+        不登记为可插话的运行中会话；审批 env 仍是真实会话。
         """
         return self._stream(ctx)
 
@@ -159,14 +178,20 @@ class PiBackend:
         # 必须在启动 pi 之前注入，否则回调里 session_id 为空，前端收不到
         # approval_request，只能等超时走 fail-closed。
         session_env = env.session_env(session, ctx.user_id, user_token=ctx.user_token, run_id=ctx.run_id)
-        # 本律师启用的技能目录（`--skill` 注入；偏好查询走同步 ORM，放线程里）。
-        # 无用户身份（测试场景）时给空清单——不注入任何技能也能正常对话。
-        # 隔离运行（综合结论等一次性任务）不注入：system prompt 已由调用方全量给定，
-        # 律师个人技能会把与本任务无关的工作流带进来。
-        if ctx.user_id is not None and not ctx.isolated:
-            skill_paths = await sync_to_async(enabled_skill_paths, thread_sensitive=True)(ctx.user_id)
-        else:
-            skill_paths = []
+        # 技能目录恒为空：方案 A 不落盘（见模块 docstring 的「技能面」）。
+        # ``--no-skills`` + 零路径 = 零宿主技能，索引块改走系统提示通道。
+        skill_paths: list[str] = []
+        # 本轮要注进系统提示的技能块。三道判据顺序不能换：
+        # 1. ``skill_block_override`` 优先——发布前试跑要的就是「只装待审这一条」，
+        #    不能被 ``ctx.skill_block`` 或 ``isolated`` 覆盖；
+        # 2. 隔离运行且无 override → 空：综合结论是对几栏回答的客观合并，律师的
+        #    个人技能与所内索引会把无关工作流带进来（``base.py`` 的不变量门禁）；
+        # 3. 常规运行 → ``ctx.skill_block``（可为 None / 空串 = 不注入）。
+        skill_block = (
+            ctx.skill_block_override
+            if ctx.skill_block_override is not None
+            else (None if ctx.isolated else ctx.skill_block)
+        )
         # 池满时先告知前端在排队（否则用户只能盯着转圈不知道发生了什么）。
         # 必须在 acquire 之前看：acquire 里会同步等执行位，事件发不出去。
         # 用 getattr 容错：测试与自定义池实现不一定带这两个属性。
@@ -197,6 +222,8 @@ class PiBackend:
             # pi 的启动参数与引入该参数前逐字一致。
             tool_exclude=ctx.tool_exclude,
             skill_paths=skill_paths,
+            # 技能索引进系统提示（``--append-system-prompt``）；None/空串 = 不加 addendum。
+            append_system_prompt=skill_block,
             # 编排层按轮次分配的 key（见 ``key_scheduler``）：它会被写进本会话的
             # models.json。``None`` 时写函数仍走 ``_next_key`` 轮转（旧行为）。
             api_key=ctx.api_key,

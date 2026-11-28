@@ -34,10 +34,22 @@ export function RailParties({ deal }: { deal: WorkbenchDeal }) {
           </div>
           {(p.legalRep || p.phone || p.idno || p.address) && (
             <div className="mt-px text-[11px] leading-[1.55] break-all text-muted-foreground tabular-nums">
-              {p.legalRep && <span className="mr-2.5 whitespace-nowrap">法定代表人 {p.legalRep}</span>}
-              {p.phone && <span className="mr-2.5 whitespace-nowrap">{p.phone}</span>}
-              {p.idno && <span className="mr-2.5 whitespace-nowrap">{p.idno}</span>}
-              {p.address && <span>{p.address}</span>}
+              {/* 窄屏一项一行：五个 nowrap 片段挤在 360px 里会互相顶（信用代码
+                  18 位就占掉半行），折成多行反而更好读 */}
+              {p.legalRep && (
+                <span className="mr-2.5 whitespace-nowrap max-[680px]:block max-[680px]:whitespace-normal">
+                  法定代表人 {p.legalRep}
+                </span>
+              )}
+              {p.phone && (
+                <span className="mr-2.5 whitespace-nowrap max-[680px]:block max-[680px]:whitespace-normal">{p.phone}</span>
+              )}
+              {p.idno && (
+                <span className="mr-2.5 whitespace-nowrap max-[680px]:block max-[680px]:whitespace-normal max-[680px]:break-all">
+                  {p.idno}
+                </span>
+              )}
+              {p.address && <span className="max-[680px]:block">{p.address}</span>}
             </div>
           )}
         </div>

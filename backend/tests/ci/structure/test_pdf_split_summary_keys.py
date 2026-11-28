@@ -31,7 +31,7 @@ dict」里，正则会把同一份代码里的其他 dict（缓存、统计）�
 - ``summary_payload=`` 关键字参数的 ``Dict``（``split/service.py`` 两处：``_persist_analysis``
   与 ``_persist_page_split``；``services/job_service.py`` 一处：建任务时的初始 payload）；
 - ``PdfAnalysisOutcome(..., summary=...)`` 的 ``Dict``（``split/service.py::segment_stage``）；
-- ``split/pipeline.py::_build_summary`` **返回**的那个 dict（取字阶段的 summary）；
+- ``split/page_text_extractor.py::_build_summary`` **返回**的那个 dict（取字阶段的 summary）；
 - ``split/service.py::_dual_engine_summary`` **返回**的那个 dict（双引擎区块）。
 
 后两个是「返回的 dict」：``_build_summary`` 先赋值给局部名再 ``.update({...})`` 追加，
@@ -72,6 +72,8 @@ SPLIT_DIR = BACKEND_DIR / "apps/pdf_splitting/services/split"
 SERVICE_PY = SPLIT_DIR / "service.py"
 REGISTRY_PY = SPLIT_DIR / "summary_contract.py"
 PIPELINE_PY = SPLIT_DIR / "pipeline.py"
+#: 取字编排所在文件（``PageTextExtractor`` 与它的 ``_build_summary`` 已从 pipeline.py 拆出）。
+PAGE_TEXT_EXTRACTOR_PY = SPLIT_DIR / "page_text_extractor.py"
 JOB_SERVICE_PY = BACKEND_DIR / "apps/pdf_splitting/services/job_service.py"
 FRONTEND_SRC = REPO_ROOT / "frontend/src"
 
@@ -83,7 +85,7 @@ ANALYSIS_OUTCOME_PY: tuple[Path, ...] = (SERVICE_PY,)
 
 #: 「返回整个 summary 区块」的辅助函数：(文件, 函数名)。
 RETURNED_SUMMARY_DICTS: tuple[tuple[Path, str], ...] = (
-    (PIPELINE_PY, "_build_summary"),
+    (PAGE_TEXT_EXTRACTOR_PY, "_build_summary"),
     (SERVICE_PY, "_dual_engine_summary"),
 )
 

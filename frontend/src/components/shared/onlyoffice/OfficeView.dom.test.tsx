@@ -8,7 +8,7 @@
  * - 正常路径 → 加载 api.js 后把 config 交给 DocsAPI.DocEditor；
  * - 卸载时必须 destroyEditor，否则 DS iframe 残留。
  */
-import { render, waitFor } from '@testing-library/react'
+import { fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const getEditorConfig = vi.fn()
@@ -79,6 +79,59 @@ describe('OfficeView', () => {
     const passed = docEditor.mock.calls[0] as unknown as [HTMLElement, Record<string, unknown>]
     expect(passed[1]).toMatchObject({ documentType: 'word', token: 'signed-token' })
     expect(container.querySelector('div div')).toBeTruthy()
+  })
+
+  it('画布改动事件转给父级（关文档前要不要拦，全靠它）', async () => {
+    const docEditor = vi.fn(function DocEditorMock() {
+      return {}
+    })
+    window.DocsAPI = { DocEditor: docEditor as unknown as DocEditorCtor }
+    getEditorConfig.mockResolvedValue({
+      enabled: true,
+      docserver_url: 'http://ds.local',
+      config: CONFIG,
+      reason: '',
+    })
+    const onDirtyChange = vi.fn()
+    render(<OfficeView fileUrl="/api/v1/inbox/x" fileName="a.docx" onDirtyChange={onDirtyChange} />)
+    await waitFor(() => expect(docEditor).toHaveBeenCalled())
+
+    const events = (docEditor.mock.calls[0] as unknown as [HTMLElement, { events: Record<string, (e?: unknown) => void> }])[1].events
+    // 各 DS 版本口径不同：event.data 有时是布尔，有时是 { status }
+    expect(typeof events.onDocumentStateChange).toBe('function')
+    events.onDocumentStateChange!({ data: true })
+    events.onDocumentStateChange!({ data: { status: false } })
+
+    expect(onDirtyChange.mock.calls.map((c) => c[0])).toEqual([true, false])
+  })
+
+  it('打开失败时给「重试」并重新签配置（原先只能关掉文件再点开）', async () => {
+    const docEditor = vi.fn(function DocEditorMock() {
+      return {}
+    })
+    window.DocsAPI = { DocEditor: docEditor as unknown as DocEditorCtor }
+    getEditorConfig.mockResolvedValue({
+      enabled: true,
+      docserver_url: 'http://ds.local',
+      config: CONFIG,
+      reason: '',
+    })
+    const onStateChange = vi.fn()
+    const { findByText } = render(
+      <OfficeView fileUrl="/api/v1/inbox/x" fileName="a.docx" onStateChange={onStateChange} />,
+    )
+    await waitFor(() => expect(docEditor).toHaveBeenCalled())
+
+    const events = (docEditor.mock.calls[0] as unknown as [HTMLElement, { events: Record<string, (e?: unknown, d?: unknown) => void> }])[1].events
+    events.onError!({}, { errorDescription: '下载失败' })
+
+    expect(await findByText('文档打开失败')).toBeTruthy()
+    expect(await findByText('下载失败')).toBeTruthy()
+    expect(onStateChange).toHaveBeenCalledWith('error')
+
+    const before = getEditorConfig.mock.calls.length
+    fireEvent.click(await findByText('重试'))
+    await waitFor(() => expect(getEditorConfig.mock.calls.length).toBeGreaterThan(before))
   })
 
   it('卸载时调用 destroyEditor', async () => {

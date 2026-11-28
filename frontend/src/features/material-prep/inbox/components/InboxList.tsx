@@ -1,8 +1,10 @@
-import { LoadingBlock, ErrorBlock } from '@/components/shared/AsyncState'
+import { ErrorBlock } from '@/components/shared/AsyncState'
+import { SkeletonStatus } from '@/components/shared/Skeleton'
 import { errMessage } from '@/lib/errors'
 import { INBOX_EMPTY_GUIDE, TIME_GROUP_LABEL, emptyHint } from '../constants'
 import { groupByTime } from '../domain'
 import { InboxRowItem } from './InboxRowItem'
+import { InboxRowSkeleton } from './InboxRowSkeleton'
 import type { InboxRow, InboxSourceFilter } from '../types'
 
 /**
@@ -60,7 +62,13 @@ export function InboxList({
           </button>
         </div>
       )}
-      {error == null && isLoading && <LoadingBlock text="加载收件箱…" className="py-16" />}
+      {/* 骨架与真行同源（InboxRowSkeleton 照 InboxRowItem 的盒子画）：
+          转圈只占一块、真列表是几十行，切换那一下列表高度会猛跳 */}
+      {error == null && isLoading && (
+        <SkeletonStatus text="加载收件箱…">
+          <InboxRowSkeleton count={8} />
+        </SkeletonStatus>
+      )}
       {error == null && !isLoading && rows.length === 0 && (
         <InboxEmpty source={source} narrowed={narrowed} unreadOnly={unreadOnly} search={search} />
       )}

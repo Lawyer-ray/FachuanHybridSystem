@@ -1390,6 +1390,33 @@ export interface paths {
          *     - 未传 limit 时应用默认上限 200——含带过滤参数的宽过滤（如 status=active），
          *       防止单请求全表序列化。窄过滤消费方（contract_id 明细）结果集远小于 200，不受影响。
          *     - offset（默认 0）供 MCP 信封 truncated=true 时续取；不传行为不变。
+         *
+         *     瘦身与总数（两个都是**可选增量**，不传时与历史响应逐字节一致）：
+         *     - slim=true：列表项换成 CaseSlimOut（标量列与 CaseOut 同口径，剔除 7 个嵌套
+         *       集合：parties / assignments / logs / case_numbers / supervising_authorities /
+         *       chats / contacts）。预取同步裁剪，否则 SQL 一条也不省。
+         *     - with_total=true：总量走**响应头 X-Total-Count**（真实总数，不受 limit/offset
+         *       影响），响应体不变。
+         *
+         *     服务端分页的两个下推参数（同样不传时行为不变）：
+         *     - search=<kw>：name 或 cause_of_action 含关键词（icontains，大小写不敏感）。
+         *     - sort=filable_first：待立案优先（无案号且 status=active 的排在前，同组内
+         *       id DESC）；其他值一律当作没传，保持默认 -id。
+         *     **为什么下推**：列表页要做服务端分页，如果关键词过滤与「待立案优先」还留在
+         *     前端，它们只会作用于当前页——分页一上，前端过滤就是在错误的子集上过滤。
+         *     两个参数都必须同时进 list_cases 与 count_cases（同一套过滤口径），否则
+         *     X-Total-Count 与翻页对不上。case_number 分支保持历史行为（不切片、不排序），
+         *     这两个参数只作用于列表分支。
+         *
+         *     ╔═ 为什么不把裸数组改成 {items, total} 信封 ═╗
+         *     ║ 本端点已有 4 个消费方直接按裸数组消费：                      ║
+         *     ║   frontend/src/features/bank-litigation/api/cases.ts:29  listCases()  ║
+         *     ║   frontend/src/features/workbench（按 contract_id 拉案件明细）      ║
+         *     ║   frontend/src/features/material-prep                          ║
+         *     ║   MCP 信封（旧 offset 续取路径）                                ║
+         *     ║ 明文改信封 = 四个消费方同时红，且前端类型是生成物。总数是新增的     ║
+         *     ║ 可选信息，放在响应头就能拿到，没必要为它换整个信封。              ║
+         *     ╚════════════════════════════════════════════╝
          */
         get: operations["apps_cases_api_case_api_list_cases"];
         put?: never;
@@ -7038,6 +7065,11 @@ export interface paths {
          *     安全审计（2026Q4 M-6）：``limit<=0`` 时原先不做切片 → 全表序列化
          *     （含 N+1 的 draft_state resolver），用户上传大量材料包后可自我放大为 DoS。
          *     此处把 limit 收敛到 [1, 1000]。offset（默认 0）供 MCP 信封续取。
+         *
+         *     ``slim=true``：按 ``InboxMessageSlimOut`` 只回行级摘要（剔除收件箱行不
+         *     消费的 15 个字段，实测全量 492 行 481.1 KB → 325.3 KB，-32.4%）。响应体仍是裸数组，
+         *     不带 ``slim`` 时**逐字节不变**（仍由 ``response=list[InboxMessageOut]``
+         *     序列化整个 QuerySet）。正文本来就不在本接口：详情正文走 ``GET /messages/{id}``。
          */
         get: operations["apps_message_hub_api_inbox_api_list_messages"];
         put?: never;
@@ -11959,6 +11991,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agent/ui-action-results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Ui Action Result
+         * @description 前端提交一次 UI 动作的执行结果（仅会话所有者）。
+         *
+         *     ``success=False`` 不一定是错误：等待方可能已经超时（模型只等 2 秒）。前端应提示
+         *     「结果已记录，但本轮已按超时继续」，而不是当成失败重试——重试也只会命中
+         *     :func:`ack.resolve` 的幂等分支（第二次提交不生效）。
+         */
+        post: operations["apps_agent_api_ui_api_submit_ui_action_result"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/ui-actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Ui Actions
+         * @description 当前用户的 UI 动作审计历史（仅 ``confirm`` / ``guarded`` 档，见 ``audit``）。
+         *
+         *     只给**自己的**行：动作历史不是会话共享资产，同一会话被转交后新负责人也不该看见
+         *     前任按过哪些高危按钮。也就因此不经 ``_rejection_reason``：读的不是某个请求的回执。
+         *
+         *     ``action`` / ``outcome`` / ``risk`` / ``decision`` 是精确匹配的过滤条件，**空串 =
+         *     不过滤**（默认全给）。为什么是这几个：它们恰好对应事后最常问的几句话——「这个动作我
+         *     批过几次」（action）、「哪些最后没执行成」（outcome 含 ``denied`` / ``expired``）、
+         *     「高危档里我拒过什么」（risk）、「我到底同不同意」（decision = approved / denied /
+         *     expired，与 outcome 是两个主体的问题）。``since_days``（1~90）再叠一道时间窗，
+         *     **0 = 不过滤**（这个参数是后加的，不传等于老行为）。
+         *     过滤在库里做，不在 API 层过滤：后者会先把整页拉进内存再筛，分页一上就是错的。
+         *
+         *     Returns:
+         *         ``{"items": [...], "count": n}``；未登录返回空列表 + ``error``（与同文件其余
+         *         端点的「未登录不报 401、给空结果」口径一致）。每项含 ``decision`` / ``decided_at`` /
+         *         ``verified`` / ``verify_note`` / ``batch_id``（字段口径见
+         *         ``audit_query.list_recent_for_user``）。
+         */
+        get: operations["apps_agent_api_ui_api_list_ui_actions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/ui-actions/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ui Action Stats
+         * @description 当前用户最近 ``days`` 天的动作汇总 —— 「AI 这段时间帮我做了多少事」。
+         *
+         *     逐条列表回答不了这个问题（翻 50 行也数不出「成了几个、我拒过几个」），这里只出聚合。
+         *     全部口径（哪些行算进来、``verified_rate`` 的分母、``not_checked`` 与「核实失败」
+         *     为什么分开、``approval_to_dispatch_ms`` **不是**执行耗时、2000 行截断）逐条写在
+         *     ``audit_query.stats_for_user`` 的 docstring 里——那是唯一权威口径，本层只做鉴权与转交。
+         *
+         *     ``days`` clamp 到 1~90（``days=0`` / ``days=999`` 都是夹到边界上继续算，不是 500），
+         *     ``action`` 精确匹配、空串 = 不过滤。
+         *
+         *     Returns:
+         *         见 ``audit_query.empty_stats`` 的形状；未登录返回全零结构 + ``error``（与同文件
+         *         其余端点的「未登录不报 401、给空结果」口径一致）。
+         */
+        get: operations["apps_agent_api_ui_api_ui_action_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/ui-snapshots/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Ui Snapshot
+         * @description 前端回传一次页面状态快照（仅会话所有者）。
+         *
+         *     契约（脱敏、``state`` 2000 字 / ``private_state`` 4000 字上限）在 ``UiSnapshotIn`` 里；
+         *     本端点只做归属校验与转交。
+         *     ``success=False`` 不是失败：等待方（≤3s）可能已经超时，模型会按「没问到」继续。
+         *
+         *     往下转交的六个字段（漏一个就是一条静默失效的通道）：``state`` / ``route`` / ``note`` /
+         *     ``available_actions`` / ``blocked_actions`` / ``private_state``。
+         */
+        post: operations["apps_agent_api_ui_api_submit_ui_snapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agent/review/options": {
         parameters: {
             query?: never;
@@ -12316,9 +12468,37 @@ export interface paths {
         };
         /**
          * List Skills
-         * @description 当前律师可见的技能清单（偏好只记差异，缺省全启用）。
+         * @description 管理抽屉清单：该律师可见的**全部**条目（含被遮蔽、草稿、待审）。
+         *
+         *     ``scope`` 过滤在 API 侧做：``list_visible_skills`` 一次算出全部可见条目（含
+         *     ``effective`` / ``shadowed_by`` / ``can_*``），按层过滤只是对同一份结果切片——
+         *     放到服务层意味着每个 tab 都要重跑一遍级联。
          */
         get: operations["apps_agent_api_skill_api_list_skills"];
+        put?: never;
+        /**
+         * Create Skill
+         * @description 新建技能（缺省个人）；``scope=law_firm`` / ``team`` 的服务端权限闸门在 service。
+         */
+        post: operations["apps_agent_api_skill_api_create_skill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/skills/quota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Skill Quota
+         * @description 配额占用：个人与共享分开计数（前端进度条与「本所还剩几条」提示）。
+         */
+        get: operations["apps_agent_api_skill_api_skill_quota"];
         put?: never;
         post?: never;
         delete?: never;
@@ -12327,7 +12507,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/agent/skills/{skill_name}": {
+    "/api/v1/agent/skills/trial-quota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Trial Quota
+         * @description 今日试跑余量（试跑按钮的「今天还能试几次」与恢复时刻）。
+         *
+         *     只读接口，**不过写开关**：开关关掉时试跑端点自己会 503，而配额数字仍然需要
+         *     可读（前端据此隐藏或置灰按钮，而不是让律师点一下才发现不行）。
+         *
+         *     路由必须留在 ``/skills/{key}`` 之前（见模块 docstring 第 1 条）。
+         */
+        get: operations["apps_agent_api_skill_api_trial_quota"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/skills/validate": {
         parameters: {
             query?: never;
             header?: never;
@@ -12336,15 +12541,248 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * Validate Skill
+         * @description 字段级校验 + 渲染预览 + 安全命中（不落库，不写盘，不占开关）。
+         */
+        post: operations["apps_agent_api_skill_api_validate_skill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/skills/resolve/{name}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Skill Content
+         * @description **运行时**正文（MCP ``get_agent_skill`` 的数据源），按字节分段。
+         *
+         *     ``name`` 这个路径段同时接受 ``builtin:<name>`` / ``skill:<uuid>`` / 裸 ``name``：
+         *     模型只知道名字，而调用方手里常是 key。叫 ``name`` 而不是 ``ref`` 是有意的——
+         *     MCP 工具面对模型暴露的参数就叫 ``name``，两边**同名**才能让「工具签名是否暴露了
+         *     后端必填参数」这道跨语言契约门禁自动对齐（``test_output_contract``）；换个名字
+         *     会让门禁只能靠注释说服人，而它本该靠签名说服人。
+         *
+         *     严格走 ``resolve_for_user``——已停用 / 草稿 / 无权一律 404，这条出口给的是模型，
+         *     不能像管理面那样把工作区草稿返出去。
+         */
+        get: operations["apps_agent_api_skill_api_skill_content"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/skills/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Skill
+         * @description 技能详情（管理面）：**工作区**最新正文，作者要能接着编辑自己的稿子。
+         *
+         *     ``key`` 可含 ``:``（``builtin:web-research``）。运行时正文走
+         *     ``/skills/resolve/{name}/content``，两者刻意分开：一个是工作区，一个是线上。
+         */
+        get: operations["apps_agent_api_skill_api_get_skill"];
+        /**
+         * Update Skill
+         * @description 更新**工作区**（共享技能编辑不换线上：``version`` 不符 409）。
+         */
+        put: operations["apps_agent_api_skill_api_update_skill"];
+        post?: never;
+        /**
+         * Delete Skill
+         * @description 删除个人技能（内置 403；别人的 404；共享只能由本所管理员删）。
+         */
+        delete: operations["apps_agent_api_skill_api_delete_skill"];
+        options?: never;
+        head?: never;
         /**
          * Toggle Skill
-         * @description 启停一个技能（下一轮对话生效：注入面按用户偏好逐个 ``--skill``）。
+         * @description 启停。共享技能只 upsert 本人偏好行（``AgentSkill.enabled`` 是全所共用的一行）。
          */
         patch: operations["apps_agent_api_skill_api_toggle_skill"];
+        trace?: never;
+    };
+    "/api/v1/agent/skills/{key}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Duplicate Skill
+         * @description 「复制为我的」：仅内置技能可复制（内置名是保留字，副本名加 ``-copy``）。
+         */
+        post: operations["apps_agent_api_skill_api_duplicate_skill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/skills/{key}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Diff Skill
+         * @description 两版对比，缺省「线上生效版 vs 工作区」。
+         *
+         *     只读接口（作者与审批人都要看）：所以不过写开关。
+         */
+        get: operations["apps_agent_api_skill_api_diff_skill"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/skills/{key}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Skill
+         * @description 提审：置 ``review_status=pending``，**不动线上**（生效的唯一入口是 approve）。
+         */
+        post: operations["apps_agent_api_skill_api_submit_skill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/skills/{key}/trial": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trial Skill
+         * @description 发布前试跑：真跑一轮，把模型回复交给审批人（**不写会话历史、不可能写业务**）。
+         *
+         *     这是个**慢端点**（起一个 pi 子进程 + 一轮模型调用，默认上限 45 秒——再往上就
+         *     要同时调网关的 ``proxy_read_timeout``，见 ``services/skills/trial.py``）。前端必须
+         *     给它独立的等待态，不能沿用列表操作那种「点完就回来」的交互。
+         *
+         *     失败路径也要回 200（``ok=false`` + ``error``）：超时与后端报错是审批人要看的
+         *     事实，不是「这个按钮坏了」。选项/限流类问题才是 4xx（422 / 429）。
+         */
+        post: operations["apps_agent_api_skill_api_trial_skill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/skills/{key}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Review Skill
+         * @description 审批：``approve`` 把最新快照提为线上版；``reject`` 只改修订流（线上纹丝不动）。
+         */
+        post: operations["apps_agent_api_skill_api_review_skill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/skills/{key}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive Skill
+         * @description 下线：立刻退出交付面，但保留 ``published_revision`` 供审计追溯。
+         */
+        post: operations["apps_agent_api_skill_api_archive_skill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/skills/{key}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Skill
+         * @description 恢复：``archived → draft``，**必须重走审批**（恢复即生效等于绕过一次审批）。
+         */
+        post: operations["apps_agent_api_skill_api_restore_skill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/skills/{key}/discard-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard Draft
+         * @description 放弃工作区：把线上已批准版回填到工作区，清掉待审/驳回态。
+         */
+        post: operations["apps_agent_api_skill_api_discard_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/agent/usage": {
@@ -15014,21 +15452,18 @@ export interface components {
              * @default
              */
             legal_status: string | null;
-            client_detail: components["schemas"]["ClientLiteOut"];
+            client_detail: components["schemas"]["ClientBriefOut"];
         };
-        /** ClientIdentityDocLiteOut */
-        ClientIdentityDocLiteOut: {
-            /** Doc Type */
-            doc_type: string;
-            /** File Path */
-            file_path: string;
-            /** Uploaded At */
-            uploaded_at: string;
-            /** Media Url */
-            media_url?: string | null;
-        };
-        /** ClientLiteOut */
-        ClientLiteOut: {
+        /**
+         * ClientBriefOut
+         * @description 当事人快照（内嵌在合同/案件/补充协议的 `client_detail` 里）。
+         *
+         *     刻意**不含** `identity_docs` 与 `client_type_label`：证件列表只在客户自身端点
+         *     （GET /clients/{client_id}）出参，内嵌一份会让每个当事人的每份证件各补一条 SQL
+         *     （实测占合同列表响应 9.8KB/139KB，前端生产代码 0 处消费）；`client_type_label`
+         *     是 choices 衍生字段，同样无人读。字段集 = 前端生产代码实际读到的字段 + id/name。
+         */
+        ClientBriefOut: {
             /** Id */
             id: number;
             /** Name */
@@ -15039,18 +15474,10 @@ export interface components {
             phone?: string | null;
             /** Address */
             address?: string | null;
-            /** Client Type */
-            client_type: string;
             /** Id Number */
             id_number?: string | null;
             /** Legal Representative */
             legal_representative?: string | null;
-            /** Legal Representative Id Number */
-            legal_representative_id_number?: string | null;
-            /** Client Type Label */
-            client_type_label: string;
-            /** Identity Docs */
-            identity_docs: components["schemas"]["ClientIdentityDocLiteOut"][];
         };
         /** LawyerOutFromDTO */
         LawyerOutFromDTO: {
@@ -15107,7 +15534,74 @@ export interface components {
             /** Authority Type Display */
             authority_type_display: string | null;
         };
-        /** CaseIn */
+        /**
+         * CaseSlimOut
+         * @description 案件列表轻量投影：标量列与 CaseOut 一致，不含任何嵌套集合。
+         *
+         *     中文标签口径必须与 CaseOut 一致（status / current_stage 走 get_*_display）：
+         *     列表页拿 `c.status === '在办'` 判「待立案优先」、直接渲染 status 文案，
+         *     返回代码值（active）会让这一页半英半中。两个 resolver 因此直接转调 CaseOut。
+         */
+        CaseSlimOut: {
+            /** ID */
+            id?: number | null;
+            /** 案件名称 */
+            name: string;
+            /**
+             * 案件状态
+             * @default active
+             */
+            status: string;
+            /**
+             * 是否已建档
+             * @default false
+             */
+            is_filed: boolean;
+            /**
+             * 建档编号
+             * @description 格式: {年份}_{案件类型}_{AJ}_{序号}
+             */
+            filing_number?: string | null;
+            /**
+             * 案件类型
+             * @default civil
+             */
+            case_type: string | null;
+            /**
+             * 收案日期
+             * Format: date
+             */
+            start_date?: string;
+            /** 生效日期 */
+            effective_date?: string | null;
+            /** 指定日期 */
+            specified_date?: string | null;
+            /** 涉案金额 */
+            target_amount?: string | null;
+            /** 财产保全金额 */
+            preservation_amount?: string | null;
+            /**
+             * 案由
+             * @default
+             */
+            cause_of_action: string | null;
+            /**
+             * 当前阶段
+             * @default
+             */
+            current_stage: string | null;
+            /** Contract Id */
+            contract_id: number | null;
+        };
+        /**
+         * CaseIn
+         * @description 建案入参。
+         *
+         *     `contract_id` 必须显式声明：`Case.contract` 是 FK，但 ModelSchema 的 fields
+         *     白名单里没有它，而 `CaseCommandService.create_case` 读的正是 `data["contract_id"]`
+         *     ——既拿它做合同有效性校验，也拿它解析并校验代理阶段。漏了这一个字段，
+         *     REST 建出来的案件会挂空合同（前端「新建下一程序案件」等于白建）。
+         */
         CaseIn: {
             /** 案件名称 */
             name: string;
@@ -15144,6 +15638,10 @@ export interface components {
             effective_date?: string | null;
             /** 指定日期 */
             specified_date?: string | null;
+            /** Contract Id */
+            contract_id?: number | null;
+            /** Start Date */
+            start_date?: string | null;
         };
         /** CaseAssignmentCreate */
         CaseAssignmentCreate: {
@@ -16412,8 +16910,9 @@ export interface components {
          * @description 合同分页列表输出 Schema（GET /contracts/contracts 实际返回形状）。
          *
          *     与 ContractPaginatedOut 不同：本 Schema 按 list_contracts_page 服务返回定形
-         *     （facets 计数而非 total_pages）；items 在 slim=true 时剔除 finalized_materials
-         *     （由端点 exclude_unset=True 实现，此处声明保持全集）。
+         *     （facets 计数而非 total_pages）；slim=true 时不再查/构建 finalized_materials，
+         *     但该键仍以 [] 出现在响应里（端点 exclude_unset=True 实测无键可剔，见
+         *     `_serialize_contract` 注释）——判 slim 请看请求参数，不要看键是否存在。
          */
         ContractListPageOut: {
             /** Items */
@@ -16555,7 +17054,7 @@ export interface components {
              * @default PRINCIPAL
              */
             role: string;
-            client_detail: components["schemas"]["ClientLiteOut"];
+            client_detail: components["schemas"]["ClientBriefOut"];
             /** Role Label */
             role_label: string;
         };
@@ -16699,7 +17198,7 @@ export interface components {
              * @default PRINCIPAL
              */
             role: string;
-            client_detail: components["schemas"]["ClientLiteOut"];
+            client_detail: components["schemas"]["ClientBriefOut"];
             /** Client Name */
             client_name: string;
             /** Is Our Client */
@@ -27423,6 +27922,93 @@ export interface components {
             comment: string;
         };
         /**
+         * UiActionResultIn
+         * @description 前端提交一次 UI 动作的执行结果。
+         *
+         *     ``outcome`` 用 ``Literal`` 而不是自由字符串：它不是给人看的说明，而是模型据以
+         *     决定下一步的**状态机输入**（``ok`` 才能说「已完成」）。多一个拼写变体就等于
+         *     多一条没人测过的分支，还会静默落进积压表被当成 ``unknown`` 转述出去。
+         */
+        UiActionResultIn: {
+            /** Call Id */
+            call_id: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "ok" | "error" | "aborted";
+            /**
+             * Code
+             * @default
+             */
+            code: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /**
+             * Observed Location
+             * @default
+             */
+            observed_location: string;
+        };
+        /**
+         * UiSnapshotIn
+         * @description 前端回传的一次页面状态快照（``POST /agent/ui-snapshots/{request_id}``）。
+         *
+         *     ``state`` 会被**原样拼进模型上下文**、也会进日志，所以与 ``detail`` 同口径按不可信
+         *     输入处理：先脱敏（密钥类字段遮成 ``***``）再限量。
+         *
+         *     **``state`` 超限直接拒、不截断**：截断后的结构体会缺键，而模型会把缺的键当成「页面上确实
+         *     没有这个字段」——比拒绝更误导。拒绝时把实际字数与上限写进错误，页面作者据此收窄
+         *     自己声明的字段（模型拿到的仍是「没问到」，不会变成假的空页面）。
+         *
+         *     **``available_actions`` 相反：名字可以截断**（去控制字符 → strip → 截 64 字 → 丢空串
+         *     → 去重 → 最多 10 条，超出只截断，不拒收）。两者口径不同是因为坏处的形状不同：名字是
+         *     **查表用的不透明标识**，截短后匹配不到任何动作，模型也就不会（也无法）调它——失败方向是
+         *     「少了一个提示」，**不构成假事实**；而截断状态会凭空造出「页面上没有这个字段」。所以前者
+         *     容错、后者拒收。
+         *
+         *     **``blocked_actions`` 同 ``available_actions`` 的口径**（清洗 + 截断 + 限量，不拒收）：它
+         *     也是「查表用的标识 + 一句解释」，坏一条只少一条提示。但比名字多一条硬要求——``name`` 必须
+         *     像真名（:data:`_ACTION_NAME_RE`），``reason`` 必须非空：一条「没有原因」的 blocked 项对模型
+         *     等于「这条不许用」，它只会照此放弃，而律师看到的是 AI 莫名其妙不做。所以形状不对的项整条
+         *     丢掉，而不是留个半句。
+         *
+         *     **``private_state`` 是页面的另一半**：页面用它放**不该给模型看**的东西（律师还没提交的草稿、
+         *     原始主键 id、排查用的调试字段）。它**永远不会出现在工具返回值里**——``snapshot.request_snapshot``
+         *     只按白名单挑键（``MODEL_FACING_KEYS``），``private_state`` 不在白名单上。它与 ``state`` 同口径
+         *     先脱敏（它也会进日志），上限见 :data:`_MAX_SNAPSHOT_PRIVATE_STATE`（比 ``state`` 宽一倍），
+         *     超限同样直接拒。
+         */
+        UiSnapshotIn: {
+            /** State */
+            state?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Route
+             * @default
+             */
+            route: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Available Actions */
+            available_actions?: string[];
+            /** Blocked Actions */
+            blocked_actions?: {
+                [key: string]: unknown;
+            }[];
+            /** Private State */
+            private_state?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
          * ReviewOptions
          * @description 触发评审前前端要问的可选项（契约 §C1）。
          */
@@ -27897,20 +28483,279 @@ export interface components {
         };
         /**
          * SkillOut
-         * @description 技能清单项。``description`` 来自 SKILL.md frontmatter。
+         * @description 管理抽屉清单项（``resolve.list_visible_skills`` 的完整字段集，CONTRACT §2）。
          */
         SkillOut: {
+            /** Key */
+            key: string;
             /** Name */
             name: string;
+            /** Title */
+            title: string;
             /** Description */
             description: string;
+            /** Scope */
+            scope: string;
+            /** Scope Weight */
+            scope_weight: number;
+            /** Source */
+            source: string;
             /** Enabled */
             enabled: boolean;
+            /** Editable */
+            editable: boolean;
+            /** Version */
+            version: number;
+            /** Status */
+            status: string;
+            /** Review Status */
+            review_status: string;
+            /** Review Note */
+            review_note: string;
+            /** Published Version */
+            published_version: number;
+            /** Has Unpublished Changes */
+            has_unpublished_changes: boolean;
+            /** Shadowed */
+            shadowed: components["schemas"]["SkillShadowRef"][];
+            /** Effective */
+            effective: boolean;
+            shadowed_by: components["schemas"]["SkillShadowRef"] | null;
+            /** Can Edit */
+            can_edit: boolean;
+            /** Can Submit */
+            can_submit: boolean;
+            /** Can Review */
+            can_review: boolean;
+            /** Can Archive */
+            can_archive: boolean;
+            /** Can Restore */
+            can_restore: boolean;
+            /** Can Promote */
+            can_promote: boolean;
+        };
+        /**
+         * SkillShadowRef
+         * @description 覆盖关系里的对手身份（``shadowed`` 的元素与 ``shadowed_by`` 同形）。
+         */
+        SkillShadowRef: {
+            /** Key */
+            key: string;
+            /** Scope */
+            scope: string;
+            /** Title */
+            title: string;
+        };
+        /**
+         * SkillDetailOut
+         * @description 单条详情与写操作回执：工作区正文 + 详情出口算得出的字段（见模块 docstring）。
+         */
+        SkillDetailOut: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Scope */
+            scope: string;
+            /** Scope Weight */
+            scope_weight: number;
+            /** Source */
+            source: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Editable */
+            editable: boolean;
+            /** Version */
+            version: number;
+            /** Status */
+            status: string;
+            /** Review Status */
+            review_status: string;
+            /** Review Note */
+            review_note: string;
+            /** Published Version */
+            published_version: number;
+            /** Has Unpublished Changes */
+            has_unpublished_changes: boolean;
+            /** Shadowed */
+            shadowed: components["schemas"]["SkillShadowRef"][];
+            /** Body */
+            body: string;
+            /** Can Edit */
+            can_edit: boolean;
+            /** Can Submit */
+            can_submit: boolean;
+            /** Can Review */
+            can_review: boolean;
+            /** Can Archive */
+            can_archive: boolean;
+            /** Can Restore */
+            can_restore: boolean;
+            /** Can Promote */
+            can_promote: boolean;
+        };
+        /**
+         * SkillCreateIn
+         * @description 新建：缺省个人技能；``scope=law_firm`` / ``team`` 需要对应管理权限。
+         */
+        SkillCreateIn: {
+            /** Name */
+            name?: string | null;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Body */
+            body: string;
+            /**
+             * Scope
+             * @default lawyer
+             */
+            scope: string;
+            /** Team Id */
+            team_id?: number | null;
+        };
+        /** SkillQuotaOut */
+        SkillQuotaOut: {
+            /** Max Skills */
+            max_skills: number;
+            /** Used */
+            used: number;
+            by_scope: components["schemas"]["SkillScopeCounts"];
+            max_by_scope: components["schemas"]["SkillScopeCounts"];
+            /** Can Create Firm */
+            can_create_firm: boolean;
+            /** Promotable Scopes */
+            promotable_scopes: string[];
+        };
+        /**
+         * SkillScopeCounts
+         * @description 按作用域的计数（``by_scope`` 与 ``max_by_scope`` 同形；内置不占配额）。
+         */
+        SkillScopeCounts: {
+            /** Lawyer */
+            lawyer: number;
+            /** Team */
+            team: number;
+            /** Law Firm */
+            law_firm: number;
+        };
+        /**
+         * SkillTrialQuotaOut
+         * @description 今日试跑余量（``GET /skills/trial-quota``）。
+         *
+         *     ``reset_at`` 是**明日本地零点**的 ISO 8601：前端拿它渲染「XX 后恢复」，不要自己
+         *     算「明天」——跨时区/夏令时的时候，前端算出来的与服务端真正放行的时刻会对不上。
+         */
+        SkillTrialQuotaOut: {
+            /** Limit */
+            limit: number;
+            /** Used */
+            used: number;
+            /** Remaining */
+            remaining: number;
+            /** Reset At */
+            reset_at: string;
+        };
+        /** SkillFieldError */
+        SkillFieldError: {
+            /** Field */
+            field: string;
+            /** Message */
+            message: string;
+        };
+        /**
+         * SkillSafetyFinding
+         * @description 安全闸门的一条命中（``level`` 为 ``hard`` 拦发布 / ``soft`` 仅告警）。
+         */
+        SkillSafetyFinding: {
+            /** Code */
+            code: string;
+            /** Level */
+            level: string;
+            /** Field */
+            field: string;
+            /** Message */
+            message: string;
+            /** Excerpt */
+            excerpt: string;
+        };
+        /**
+         * SkillValidateOut
+         * @description 校验结果：``preview`` 是渲染后 AI 实际读到的内容，``safety`` 是 PII/注入命中。
+         */
+        SkillValidateOut: {
+            /** Ok */
+            ok: boolean;
+            /** Errors */
+            errors: components["schemas"]["SkillFieldError"][];
+            /** Preview */
+            preview: string;
+            /** Safety */
+            safety: components["schemas"]["SkillSafetyFinding"][];
+        };
+        /** SkillValidateIn */
+        SkillValidateIn: {
+            /** Name */
+            name?: string | null;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Body */
+            body: string;
+        };
+        /**
+         * SkillContentOut
+         * @description 运行时正文分段（MCP ``get_agent_skill`` 的直接数据源）。
+         *
+         *     ``total_bytes`` 是渲染后正文的字节数（不是字符数），``next_start`` 为 ``None``
+         *     表示已到末尾；两者一起让调用方能「按字节续读」而不必猜分页边界。
+         */
+        SkillContentOut: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Scope */
+            scope: string;
+            /** Version */
+            version: number;
+            /** Content */
+            content: string;
+            /** Start */
+            start: number;
+            /** Total Bytes */
+            total_bytes: number;
+            /** Truncated */
+            truncated: boolean;
+            /** Next Start */
+            next_start: number | null;
+        };
+        /**
+         * SkillUpdateIn
+         * @description ``version`` 是乐观锁：不符 → 409。``name`` 建后不可改（改名会断偏好与审计链）。
+         */
+        SkillUpdateIn: {
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Body */
+            body: string;
+            /** Version */
+            version: number;
         };
         /** SkillToggleOut */
         SkillToggleOut: {
-            /** Name */
-            name: string;
+            /** Key */
+            key: string;
             /** Enabled */
             enabled: boolean;
         };
@@ -27918,6 +28763,146 @@ export interface components {
         SkillToggleIn: {
             /** Enabled */
             enabled: boolean;
+        };
+        /**
+         * SkillDiffHunk
+         * @description 一段逐行差异：``op`` 为 ``equal`` / ``ins`` / ``del``。
+         */
+        SkillDiffHunk: {
+            /** Op */
+            op: string;
+            /** Lines */
+            lines: string[];
+        };
+        /** SkillDiffOut */
+        SkillDiffOut: {
+            /** V1 */
+            v1: number;
+            /** V2 */
+            v2: number;
+            /** Hunks */
+            hunks: components["schemas"]["SkillDiffHunk"][];
+        };
+        /**
+         * SkillSubmitIn
+         * @description 提审：个人技能必须给 ``target_scope``（提升到团队/所内）。
+         *
+         *     ``name`` 与 ``team_id`` 都是可选的，存在的理由是**目标层可能已经有同名技能**：
+         *     ``uniq_agent_skill_firm_name`` / ``uniq_agent_skill_team_name`` 会让改名前的
+         *     提升直接撞唯一约束。提审是这个唯一能改名的时机（``name`` 建后不可改的规则
+         *     针对的是「已落库的身份」，而跨层提升本质上是一次新的落位）。
+         */
+        SkillSubmitIn: {
+            /**
+             * Target Scope
+             * @default
+             */
+            target_scope: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Acknowledged Firm Wide
+             * @default false
+             */
+            acknowledged_firm_wide: boolean;
+            /** Name */
+            name?: string | null;
+            /** Team Id */
+            team_id?: number | null;
+        };
+        /**
+         * SkillToolError
+         * @description 试跑里失败的一次工具调用（``message`` 只留前 200 字，不返正文）。
+         */
+        SkillToolError: {
+            /** Tool */
+            tool: string;
+            /** Message */
+            message: string;
+        };
+        /**
+         * SkillTrialOut
+         * @description 试跑回执。
+         *
+         *     ``injected`` 是**实际注入给模型的那段文字**——审批人必须能看见「我们到底让模型
+         *     看了什么」，否则一个奇怪的回答无法归因（技能写得不好？还是注入时拼错了？）。
+         *     ``mode`` 是实际用的注入层（``auto`` 已解析）；``tool_calls`` 是模型真的调了哪些
+         *     工具（只读工具面，不会有写操作）；``tool_errors`` 是其中失败的调用。
+         *     ``trial_id`` 指向这次的入账行（成本账）。
+         */
+        SkillTrialOut: {
+            /** Ok */
+            ok: boolean;
+            /** Text */
+            text: string;
+            /** Backend */
+            backend: string;
+            /** Mode */
+            mode: string;
+            /** Model */
+            model: string | null;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Skill Key */
+            skill_key: string;
+            /** Skill Name */
+            skill_name: string;
+            /** Skill Scope */
+            skill_scope: string;
+            /** Skill Version */
+            skill_version: number;
+            /** Injected */
+            injected: string;
+            /** Tool Calls */
+            tool_calls: string[];
+            /** Tool Errors */
+            tool_errors: components["schemas"]["SkillToolError"][];
+            /** Trial Id */
+            trial_id: string;
+            /** Error */
+            error: string;
+        };
+        /**
+         * SkillTrialIn
+         * @description 试跑请求：不给问题就用服务端默认探针问法。
+         */
+        SkillTrialIn: {
+            /**
+             * Question
+             * @default
+             */
+            question: string;
+            /**
+             * Backend
+             * @default
+             */
+            backend: string;
+            /**
+             * Mode
+             * @default auto
+             */
+            mode: string;
+        };
+        /**
+         * SkillReviewIn
+         * @description 审批：``decision`` 二选一；``reject`` 必须带 ``note``（否则作者只能盲改）。
+         */
+        SkillReviewIn: {
+            /** Decision */
+            decision: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Acknowledged Firm Wide
+             * @default false
+             */
+            acknowledged_firm_wide: boolean;
         };
         /**
          * UsageOut
@@ -30964,6 +31949,10 @@ export interface operations {
                 contract_id?: number | null;
                 limit?: number | null;
                 offset?: number;
+                slim?: boolean;
+                with_total?: boolean;
+                search?: string | null;
+                sort?: string | null;
             };
             header?: never;
             path?: never;
@@ -30977,7 +31966,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CaseOut"][];
+                    "application/json": components["schemas"]["CaseOut"][] | components["schemas"]["CaseSlimOut"][];
                 };
             };
         };
@@ -38177,6 +39166,7 @@ export interface operations {
                 search?: string | null;
                 limit?: number;
                 offset?: number;
+                slim?: boolean;
             };
             header?: never;
             path?: never;
@@ -44362,6 +45352,98 @@ export interface operations {
             };
         };
     };
+    apps_agent_api_ui_api_submit_ui_action_result: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UiActionResultIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_ui_api_list_ui_actions: {
+        parameters: {
+            query?: {
+                limit?: number;
+                action?: string;
+                outcome?: string;
+                risk?: string;
+                decision?: string;
+                since_days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_ui_api_ui_action_stats: {
+        parameters: {
+            query?: {
+                days?: number;
+                action?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_ui_api_submit_ui_snapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UiSnapshotIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     apps_agent_api_review_api_review_options: {
         parameters: {
             query?: never;
@@ -44747,7 +45829,9 @@ export interface operations {
     };
     apps_agent_api_skill_api_list_skills: {
         parameters: {
-            query?: never;
+            query?: {
+                scope?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -44765,12 +45849,193 @@ export interface operations {
             };
         };
     };
+    apps_agent_api_skill_api_create_skill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillCreateIn"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillDetailOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_skill_quota: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillQuotaOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_trial_quota: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillTrialQuotaOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_validate_skill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillValidateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillValidateOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_skill_content: {
+        parameters: {
+            query?: {
+                start?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillContentOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_get_skill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillDetailOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_update_skill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillUpdateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillDetailOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_delete_skill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     apps_agent_api_skill_api_toggle_skill: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                skill_name: string;
+                key: string;
             };
             cookie?: never;
         };
@@ -44787,6 +46052,197 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SkillToggleOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_duplicate_skill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillDetailOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_diff_skill: {
+        parameters: {
+            query?: {
+                v1?: number | null;
+                v2?: number | null;
+            };
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillDiffOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_submit_skill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillSubmitIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillDetailOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_trial_skill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillTrialIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillTrialOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_review_skill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillReviewIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillDetailOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_archive_skill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillDetailOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_restore_skill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillDetailOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_skill_api_discard_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillDetailOut"];
                 };
             };
         };

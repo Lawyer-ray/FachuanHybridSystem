@@ -5,6 +5,7 @@ from __future__ import annotations
 import calendar
 import json
 from datetime import date, datetime
+from typing import Any
 from urllib.parse import quote, urlencode
 
 from django import forms
@@ -411,68 +412,87 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):  # pragma: no cover
         sync_service = get_calendar_sync_service()
 
         source = request.POST.get("source", "").strip()
-
-        if source == "ics_file":
-            uploaded_file = request.FILES.get("ics_file")
-            if not uploaded_file:
-                return JsonResponse({"events": [], "error": "未选择文件"}, status=400)
-            if not (uploaded_file.name or "").lower().endswith(".ics"):
-                return JsonResponse({"events": [], "error": "仅支持 .ics 文件"}, status=400)
-            if (uploaded_file.size or 0) > 5 * 1024 * 1024:
-                return JsonResponse({"events": [], "error": "文件大小超过 5MB 限制"}, status=400)
-            ics_content = uploaded_file.read()
-            events = sync_service.preview_from_ics(ics_content)
-        elif source == "ics_url":
-            url = request.POST.get("url", "").strip()
-            if not url:
-                return JsonResponse({"events": [], "error": "URL 不能为空"}, status=400)
-            events = sync_service.preview_from_url(url)
-        elif source in ("mac", "windows"):
-            from datetime import datetime as dt
-            from datetime import timedelta as td
-
-            kwargs: dict[str, object] = {}
-            start_date_str = request.POST.get("start_date", "").strip()
-            end_date_str = request.POST.get("end_date", "").strip()
-            if start_date_str:
-                try:
-                    kwargs["start_date"] = timezone.make_aware(
-                        dt.fromisoformat(start_date_str), timezone.get_current_timezone()
-                    )
-                except ValueError:
-                    pass
-            if end_date_str:
-                try:
-                    kwargs["end_date"] = timezone.make_aware(
-                        dt.fromisoformat(end_date_str) + td(days=1),
-                        timezone.get_current_timezone(),
-                    )
-                except ValueError:
-                    pass
-            # Parse included calendars (preferred) or excluded calendars (legacy)
-            import json as json_mod
-
-            included_calendars_raw = request.POST.get("included_calendars", "").strip()
-            excluded_calendars_raw = request.POST.get("excluded_calendars", "").strip()
-            if included_calendars_raw:
-                try:
-                    included_calendars = json_mod.loads(included_calendars_raw)
-                    if isinstance(included_calendars, list):
-                        kwargs["included_calendars"] = included_calendars
-                except (json_mod.JSONDecodeError, TypeError):
-                    pass
-            if "included_calendars" not in kwargs and excluded_calendars_raw:
-                try:
-                    excluded_calendars = json_mod.loads(excluded_calendars_raw)
-                    if isinstance(excluded_calendars, list):
-                        kwargs["excluded_calendars"] = excluded_calendars
-                except (json_mod.JSONDecodeError, TypeError):
-                    pass
-            events = sync_service.preview_from_local(source, **kwargs)
-        else:
+        handler = {
+            "ics_file": self._preview_from_ics_file,
+            "ics_url": self._preview_from_ics_url,
+            "mac": self._preview_from_local_provider,
+            "windows": self._preview_from_local_provider,
+        }.get(source)
+        if handler is None:
             return JsonResponse({"events": [], "error": f"不支持的来源: {source}"}, status=400)
 
+        events, error = handler(request=request, source=source, sync_service=sync_service)
+        if error:
+            return JsonResponse({"events": [], "error": error}, status=400)
         return JsonResponse({"events": events, "error": ""})
+
+    def _preview_from_ics_file(
+        self, *, request: HttpRequest, source: str, sync_service: Any
+    ) -> tuple[list[dict[str, Any]], str]:  # pragma: no cover
+        """上传的 .ics 文件 → 事件清单。返回 `(events, error)`。"""
+        uploaded_file = request.FILES.get("ics_file")
+        if not uploaded_file:
+            return [], "未选择文件"
+        if not (uploaded_file.name or "").lower().endswith(".ics"):
+            return [], "仅支持 .ics 文件"
+        if (uploaded_file.size or 0) > 5 * 1024 * 1024:
+            return [], "文件大小超过 5MB 限制"
+        return sync_service.preview_from_ics(uploaded_file.read()), ""
+
+    def _preview_from_ics_url(
+        self, *, request: HttpRequest, source: str, sync_service: Any
+    ) -> tuple[list[dict[str, Any]], str]:  # pragma: no cover
+        """远端 .ics 链接 → 事件清单。返回 `(events, error)`。"""
+        url = request.POST.get("url", "").strip()
+        if not url:
+            return [], "URL 不能为空"
+        return sync_service.preview_from_url(url), ""
+
+    def _preview_from_local_provider(
+        self, *, request: HttpRequest, source: str, sync_service: Any
+    ) -> tuple[list[dict[str, Any]], str]:  # pragma: no cover
+        """本机日历（mac / windows）→ 事件清单。返回 `(events, error)`。"""
+        from datetime import datetime as dt
+        from datetime import timedelta as td
+
+        kwargs: dict[str, object] = {}
+        start_date_str = request.POST.get("start_date", "").strip()
+        end_date_str = request.POST.get("end_date", "").strip()
+        if start_date_str:
+            try:
+                kwargs["start_date"] = timezone.make_aware(
+                    dt.fromisoformat(start_date_str), timezone.get_current_timezone()
+                )
+            except ValueError:
+                pass
+        if end_date_str:
+            try:
+                kwargs["end_date"] = timezone.make_aware(
+                    dt.fromisoformat(end_date_str) + td(days=1),
+                    timezone.get_current_timezone(),
+                )
+            except ValueError:
+                pass
+        # Parse included calendars (preferred) or excluded calendars (legacy)
+        import json as json_mod
+
+        included_calendars_raw = request.POST.get("included_calendars", "").strip()
+        excluded_calendars_raw = request.POST.get("excluded_calendars", "").strip()
+        if included_calendars_raw:
+            try:
+                included_calendars = json_mod.loads(included_calendars_raw)
+                if isinstance(included_calendars, list):
+                    kwargs["included_calendars"] = included_calendars
+            except (json_mod.JSONDecodeError, TypeError):
+                pass
+        if "included_calendars" not in kwargs and excluded_calendars_raw:
+            try:
+                excluded_calendars = json_mod.loads(excluded_calendars_raw)
+                if isinstance(excluded_calendars, list):
+                    kwargs["excluded_calendars"] = excluded_calendars
+            except (json_mod.JSONDecodeError, TypeError):
+                pass
+        return sync_service.preview_from_local(source, **kwargs), ""
 
     def calendar_sync_import_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
         """POST: Import selected calendar events as Reminders."""

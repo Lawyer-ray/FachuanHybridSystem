@@ -34,6 +34,9 @@ import { FileDropHint } from './FileDropHint'
 import { FolderTreeDrawer } from './FolderTreeDrawer'
 import { MessageList } from './MessageList'
 import { SessionSidebar } from './SessionSidebar'
+import { SkillDrawer } from './skill/SkillDrawer'
+import { UiActionBanner } from './UiActionBanner'
+import { UiToolHost } from './UiToolHost'
 
 export function CopilotPanel({
   open,
@@ -60,6 +63,11 @@ export function CopilotPanel({
   const switchSession = useCopilot((s) => s.switchSession)
   const exitContext = useCopilot((s) => s.exitContext)
   const { currentTitle, currentModel, currentAgentKind, currentCapabilities } = useActiveSession()
+  // AI 操作页面的执行端口（导航 / toast / 跨域事件）+ 运行横幅。
+  // 挂在这里而不是 AppShell：`useNavigate()` 只能从 Router 下的组件拿（main.tsx 是声明式
+  // `<BrowserRouter>`，08 §4.1），而面板与助手页是仅有的两个 copilot 宿主。两处都挂时
+  // 由 `setUiToolPorts` 做归属校验，先后卸载不会互相清空（见 store/ui-tools.ts）。
+  // 端口注入拆成组件（{@link UiToolHost}）：面板不依赖 router，无 Router 时它渲染 null
   const isSmUp = useMediaQuery('(min-width: 640px)')
   const { width, railCapable, setPanelRef, onHandlePointerDown } = usePanelResize(isSmUp)
 
@@ -171,12 +179,19 @@ export function CopilotPanel({
           {listOverlayOpen && (
             <SessionSidebar variant="overlay" onClose={() => setListOverlayOpen(false)} />
           )}
+          {/* AI 操作页面的端口注入 + 运行横幅。端口注入做成组件是为了让面板在无 Router 的
+              单测环境里也能渲染（面板本身不依赖 router，见 onExpand 注释）。 */}
+          <UiToolHost />
+          <UiActionBanner />
           <MessageList />
           {treeDrawerOpen && context?.origin === 'contract' && (
             <FolderTreeDrawer contractId={context.refId} onClose={() => setTreeDrawerOpen(false)} />
           )}
         </div>
         <Composer steerEnabled={currentCapabilities.steer !== false} />
+        {/* 技能抽屉挂在这里而不是会话侧栏：侧栏在窄屏/收起时根本不渲染，
+            而 `/` 菜单的 manage-skills 命令任何宽度下都要能打开抽屉（Sheet 自带 portal）。 */}
+        <SkillDrawer />
     </aside>
   )
 }

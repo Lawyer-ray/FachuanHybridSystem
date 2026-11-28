@@ -56,7 +56,7 @@ class DocumentTypeParseChain:  # pragma: no cover
             llm_resp = await llm_service.achat(messages=messages, model=self._model, temperature=0.0)
             return parse_model_content(llm_resp.content, DocumentTypeParseResult)
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("document_type_parse_chain.arun: 解析文书类型失败")
 
             return self._fallback_parse(user_input=user_input, allowed_types=allowed_types, notes="llm_call_failed")
 

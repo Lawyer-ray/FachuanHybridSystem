@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useParams } from 'react-router'
-import { Loader2 } from 'lucide-react'
-
 import { toast } from 'sonner'
 
-import { DealDocLayout, DOC_SIDE_BY_SIDE_MIN, type PickedFile } from './DealDocLayout'
+import { LoadingBlock } from '@/components/shared/AsyncState'
+
+import { DealDocLayout, type PickedFile } from './DealDocLayout'
+import type { FolderEntryMutation } from './folder-tree-types'
+import { useDocPreview } from './use-doc-preview'
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
 import { ContractFileOverlays } from './ContractFileOverlays'
@@ -16,14 +18,12 @@ import { AdvisorWorkbench, CrossBorderWorkbench, SpecialPhaseWorkbench } from '.
 import { useServiceItems } from './use-service-items'
 import { useSpecialPhases } from './use-special-phases'
 import { listFolderEntries } from '../../api'
-import { TermBar } from './TermBar'
-import { PaymentDialog } from './PaymentDialog'
-import { InvoicePoolDialog } from './InvoicePoolDialog'
+import { NonLitDetailDialogs } from './NonLitDetailDialogs'
+import { NonLitTermBar } from './NonLitTermBar'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { refetchContractAndCases } from './refetch-contract'
-import { addDeliverable } from './special-phase-crud'
-import { flattenTree, patchPhase, type PhaseNode } from './special-phase-tree'
-import { useDockedViewport, useNetWidth } from './use-net-width'
+import { usePhaseFileActions } from './use-phase-file-actions'
+import { flattenTree } from './special-phase-tree'
 import { Card, DetailError, RailSection } from './ui'
 
 /**
@@ -68,23 +68,41 @@ export function NonLitDetailPage() {
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
   }, [])
   const [payOpen, setPayOpen] = useState(false)
+  /** 新增期限弹窗（非诉没有案件卡，期限一律挂合同） */
+  const [deadlineOpen, setDeadlineOpen] = useState(false)
+  /** 新建下一程序案件（非诉项目通常没有阶段，只有数据漂移时才会出现这一行） */
+  const [caseOpen, setCaseOpen] = useState(false)
+  const onScheduleChanged = useCallback(() => {
+    const id = deal?.id
+    if (id == null) return
+    refetchContractAndCases(qc, id)
+    void qc.invalidateQueries({ queryKey: ['workbench', 'case-reminders', id] })
+  }, [qc, deal?.id])
   const [invoiceOpen, setInvoiceOpen] = useState(false)
   /** 正在发起审查的文件（null = 抽屉关闭） */
   const [reviewTarget, setReviewTarget] = useState<{ subpath: string; name: string } | null>(null)
-  /** 右栏页内预览的文件（null = 未选中）；高频「看一眼」不写 URL、不堆历史 */
-  const [picked, setPicked] = useState<PickedFile | null>(null)
-
-  /** 净宽（100vw − 助手宽度）：决定「文档在右」还是「文档通栏」（见 use-net-width） */
-  const netWidth = useNetWidth()
-  const dockedViewport = useDockedViewport()
-  const docSideBySide = Boolean(picked) && netWidth >= DOC_SIDE_BY_SIDE_MIN
   /**
-   * 文档对照形态：展开 + 净宽不足时，文档通栏置顶、事实卡退到其下。
-   *
-   * 只在宽屏（≥1280，详情页助手恒并排让位）成立——窄屏本来就该竖排，且助手此时
-   * 是盖在页面上的覆盖层、设不了 CSS 变量。
+   * 非诉页的预览只有合同文件夹这一个来源，所以「是否同一份」只认 contract + 本项目 id
+   * （诉讼页按选中文件的 kind/ownerId 比，见 use-doc-preview 的说明）。
+   * 必须在 hook 之前定义：hook 会把它收进 onFolderMutated 的依赖里。
    */
-  const focusDoc = Boolean(picked) && dockedViewport && !docSideBySide
+  const contractFileStale = useCallback(
+    (ev: FolderEntryMutation, _cur: PickedFile) => ev.kind === 'contract' && ev.ownerId === deal?.id,
+    [deal?.id],
+  )
+
+  const {
+    picked,
+    setPicked,
+    immersive,
+    setImmersive,
+    openPreview,
+    closePreview,
+    onFolderMutated,
+    docSideBySide,
+    doc,
+  } = useDocPreview<PickedFile>({ isStale: contractFileStale })
+  const markDirty = doc.markDirty
 
   const svc = useServiceItems('contract', deal?.id ?? null, { sourceSubpath: manualSource })
   const serviceItems = svc.items
@@ -103,67 +121,22 @@ export function NonLitDetailPage() {
    */
   const isCrossBorder = isSpecial && (deal?.client ?? '').includes('合同审查')
 
-  const openPreview = useCallback((f: PickedFile) => setPicked(f), [])
-
   useDealCopilotContext(deal, '非诉项目详情')
 
   const tree = special.tree
-  /** 阶段目录里已有的文件数（元信息「N 个文件」）：展开行时按实际交付物计数 */
-  const fileCountOf = useCallback(
-    (node: PhaseNode) => flattenTree([node]).reduce((s, x) => s + x.node.deliverables.filter((d) => !d.planned).length, 0),
-    [],
-  )
-
-  /**
-   * 「从 0 起草」/「＋ 起草」的落点：把计划项写进目标阶段、展开它，并**直接打开
-   * 编辑器**——律师此刻要的是「马上改」，不是回到列表自己去找文件。
-   */
-  const draftIntoPhase = useCallback(
-    (phaseKey: string, name: string) => {
-      const next = patchPhase(addDeliverable(tree, phaseKey, name), phaseKey, { open: true })
-      void special.saveStages(next)
-      const hit = flattenTree(next).find((x) => x.node.key === phaseKey)
-      const created = hit?.node.deliverables.at(-1)
-      toast.success(`已起草《${name.replace(/^《|》$/g, '')}》`, {
-        description: `落到「${hit?.node.name ?? ''}」，保存后即进入编辑器`,
-      })
-      if (created?.subpath) openPreview({ subpath: created.subpath, name: created.name })
-    },
-    [tree, special, openPreview],
-  )
-
-  /**
-   * 点右栏派生目录 → 展开该目录里第一份可预览的文件。
-   *
-   * 目录是阶段派生出来的，可能还没建（律师刚设计的阶段）或只有子目录；读不到
-   * 就给一句明确提示，不静默什么都不发生。
-   */
-  const openFolderFromTree = useCallback(
-    async (folder: string) => {
-      if (!deal) return
-      try {
-        const res = await listFolderEntries('contract', deal.id, folder)
-        const file = (res.files ?? [])[0]
-        if (!file) {
-          toast.info(`「${folder}」目录里还没有文件`, { description: '把交付物拖进合同文件夹后即可点开' })
-          return
-        }
-        openPreview({ subpath: file.subpath, name: file.name, size: file.size ?? undefined, modified_at: file.modified_at })
-      } catch {
-        toast.info(`「${folder}」目录还不存在`, { description: '保存阶段后系统会在合同文件夹里建同名目录' })
-      }
-    },
-    [deal, openPreview],
-  )
+  const { fileCountOf, draftIntoPhase, openFolderFromTree } = usePhaseFileActions({
+    deal,
+    tree,
+    saveStages: special.saveStages,
+    openPreview,
+  })
 
   if (!valid) return <Navigate to="/projects" replace />
   if (d.isLoading) {
-    return (
-      <div className="flex flex-col items-center gap-2 py-[90px] text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" />
-        正在加载项目…
-      </div>
-    )
+    // 占位高度与真容器同源：真内容里文档栏用的是 DealDocLayout.tsx:132 的
+    // `h-[calc(100vh-100px)] min-h-[520px]`，这里取同一句的「一屏减页头」当最小
+    // 高度，数据到手换页时纵向不跳（不新造高度魔法数）。
+    return <LoadingBlock text="正在加载项目…" className="min-h-[calc(100vh-100px)]" />
   }
   if (d.error || !deal) {
     return <DetailError error={d.error ?? '项目不存在'} onRetry={() => d.refetch()} />
@@ -179,7 +152,7 @@ export function NonLitDetailPage() {
     moneyRows: money,
     onOpenFile: openPreview,
     onReviewFile: (f: { subpath: string; name: string }) => setReviewTarget(f),
-    onAddDue: () => soonToast('新增期限'),
+    onAddDue: () => setDeadlineOpen(true),
     onAddPayment: () => setPayOpen(true),
     onOpenInvoices: () => setInvoiceOpen(true),
     // 发票关联/解除改了合同的开票金额：刷新合同（统计格、收款徽标、案件卡的钱）
@@ -188,47 +161,30 @@ export function NonLitDetailPage() {
 
   return (
     <main className="app-page-enter @container mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
-      <DetailHeader deal={deal} onAddDue={() => soonToast('新增期限')} onAddLog={() => soonToast('记项目日志')} />
+      <DetailHeader deal={deal} />
 
       {/* 周期轴：常法 → 服务期 + 事项刻度；专项 → 项目周期 + 阶段里程碑 */}
-      {deal.from && deal.to && (
-        <div className="mb-[18px]">
-          {isSpecial ? (
-            <TermBar
-              from={deal.from}
-              to={deal.to}
-              today={todayStr}
-              title="项目周期"
-              milestones={flattenTree(tree)
-                .filter((x) => !!x.node.startDate)
-                .map((x) => ({ date: x.node.startDate, title: x.node.name, state: phaseTone(x.node.state) }))}
-              legend={
-                flattenTree(tree).length > 0
-                  ? `阶段 ${flattenTree(tree).filter((x) => x.node.state === 'done').length} / ${flattenTree(tree).length}`
-                  : undefined
-              }
-            />
-          ) : (
-            <TermBar
-              from={deal.from}
-              to={deal.to}
-              today={todayStr}
-              events={serviceItems.map((i) => ({ date: i.date, title: i.title }))}
-            />
-          )}
-        </div>
-      )}
+      <NonLitTermBar
+        from={deal.from}
+        to={deal.to}
+        today={todayStr}
+        isSpecial={isSpecial}
+        tree={tree}
+        serviceItems={serviceItems}
+      />
 
       {/* 栅格三态（就地编辑）：① 左内容 + 右事实卡；② 净宽≥1100 时文档在右、事实卡退左栏底部；
           ③ 净宽不足时文档通栏、事实卡在其下。判定口径与实现见 DealDocLayout / use-net-width。 */}
       <DealDocLayout
         picked={picked}
         docSideBySide={docSideBySide}
-        focusDoc={focusDoc}
         ownerId={deal.id}
-        onClose={() => setPicked(null)}
+        immersive={immersive}
+        onToggleImmersive={() => setImmersive((v) => !v)}
+        onClose={closePreview}
         onSaved={() => void d.refetch()}
         onReview={(f) => setReviewTarget(f)}
+        onDirtyChange={markDirty}
         aside={
           isSpecial ? (
             <PhaseFoldersCard
@@ -242,6 +198,7 @@ export function NonLitDetailPage() {
             {...railProps}
             showFolder={!isSpecial}
             folderSelectedSubpath={picked?.subpath ?? null}
+            onFolderMutated={onFolderMutated}
           />
         }
       >
@@ -310,7 +267,7 @@ export function NonLitDetailPage() {
                 <button
                   type="button"
                   className="ml-3 cursor-pointer underline underline-offset-3 transition-colors hover:text-foreground"
-                  onClick={() => soonToast('新建' + next)}
+                  onClick={() => setCaseOpen(true)}
                 >
                   新建{next}
                 </button>
@@ -325,25 +282,24 @@ export function NonLitDetailPage() {
         client={deal.parties?.client}
         reviewTarget={reviewTarget}
         onReviewClose={() => setReviewTarget(null)}
-        onReviewStart={(f) => setReviewTarget(f)}
       />
 
-      <PaymentDialog
-        open={payOpen}
-        contractId={deal.id}
-        fixedAmount={deal.amountNum}
-        receivedAmount={Number(deal.totalReceived?.replace(/[^\d.]/g, '') || 0)}
-        onClose={() => setPayOpen(false)}
-        onSaved={() => void d.refetch()}
+      <NonLitDetailDialogs
+        deal={deal}
+        next={next}
+        payOpen={payOpen}
+        onPayClose={() => setPayOpen(false)}
+        onPaymentSaved={() => void d.refetch()}
+        invoiceOpen={invoiceOpen}
+        onInvoiceClose={() => setInvoiceOpen(false)}
+        caseOpen={caseOpen}
+        onCaseClose={() => setCaseOpen(false)}
+        onCaseSaved={() => refetchContractAndCases(qc, deal.id)}
+        deadlineOpen={deadlineOpen}
+        onDeadlineClose={() => setDeadlineOpen(false)}
+        onScheduleSaved={onScheduleChanged}
+        doc={doc}
       />
-
-      <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
     </main>
   )
-}
-
-/** 阶段状态 → 周期轴刻度语义（done 对齐 term-timeline 的 ok） */
-function phaseTone(state: PhaseNode['state']): 'ok' | 'doing' | 'todo' {
-  if (state === 'done') return 'ok'
-  return state === 'doing' ? 'doing' : 'todo'
 }

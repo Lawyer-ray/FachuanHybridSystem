@@ -402,15 +402,7 @@ class DynamicWorkflow:
         template_id: int = inp["template_id"]
 
         # 1) 读取模板 schema
-        schema_data = await workflow.execute_activity(
-            act.fetch_template_schema,
-            args=(template_id,),
-            start_to_close_timeout=QUICK_TIMEOUT,
-            retry_policy=QUICK_RETRY,
-        )
-        steps: list[dict] = schema_data.get("steps_schema", [])
-        if isinstance(steps, dict):
-            steps = steps.get("steps", [])
+        steps = await self._fetch_steps(template_id)
         if not steps:
             await workflow.execute_activity(
                 act.update_run_status,
@@ -435,19 +427,8 @@ class DynamicWorkflow:
             timeout_hours: float = step.get("config", {}).get("timeout_hours", 1)
 
             # 处理条件跳过逻辑
-            if context.get("_skip_next"):
-                context.pop("_skip_next", None)
-                context["step_outputs"][step_id] = {"skipped": True, "reason": "condition_false_skip"}
-                logger.info("步骤 %s 被跳过（前一条件为 False）", step_id)
+            if self._skip_step_if_needed(step_id, context):
                 continue
-            if context.get("_skip_until"):
-                if step_id != context["_skip_until"]:
-                    context["step_outputs"][step_id] = {"skipped": True, "reason": "condition_goto_false"}
-                    logger.info("步骤 %s 被跳过（等待跳转目标 %s）", step_id, context["_skip_until"])
-                    continue
-                else:
-                    context.pop("_skip_until", None)
-                    logger.info("到达跳转目标步骤 %s，恢复执行", step_id)
 
             try:
                 result = await self._execute_step(
@@ -462,58 +443,29 @@ class DynamicWorkflow:
                     timeout_hours=timeout_hours,
                 )
             except Exception as exc:
-                logger.exception("步骤 %s 执行失败", step_id)
-                await workflow.execute_activity(
-                    act.record_step,
-                    args=(run_id, step_id, step_name, step_type, "failed", None, str(exc)),
-                    start_to_close_timeout=QUICK_TIMEOUT,
-                    retry_policy=QUICK_RETRY,
+                terminal_result = await self._handle_step_failure(
+                    exc,
+                    run_id=run_id,
+                    step_id=step_id,
+                    step_name=step_name,
+                    step_type=step_type,
+                    on_fail=on_fail,
+                    context=context,
                 )
-                if on_fail == "skip":
-                    context["step_outputs"][step_id] = {"skipped": True, "error": str(exc)}
-                    continue
-                # abort（默认）
-                await workflow.execute_activity(
-                    act.update_run_status,
-                    args=(run_id, "failed", step_id),
-                    start_to_close_timeout=QUICK_TIMEOUT,
-                )
-                return {"status": "failed", "failed_step": step_id, "error": str(exc)}
+                if terminal_result is not None:
+                    return terminal_result
+                continue
 
-            # gate 被拒绝
-            if step_type == "gate" and result is not None and not result.get("approved", True):
-                await workflow.execute_activity(
-                    act.update_run_status,
-                    args=(run_id, "failed", step_id),
-                    start_to_close_timeout=QUICK_TIMEOUT,
-                )
-                return {"status": "rejected", "phase": step_id, "comment": result.get("comment", "")}
-
-            # condition 结果为 False → 跳转到 goto_false 目标（或跳过下一个步骤）
-            skip_to_step_id: str | None = None
-            if step_type == "condition" and result is not None and not result.get("met", True):
-                context["step_outputs"][step_id] = {"skipped": True, "condition_met": False}
-                goto_false = step.get("config", {}).get("goto_false")
-                if goto_false:
-                    skip_to_step_id = goto_false
-                else:
-                    # 没有 goto_false，标记跳过下一个步骤
-                    skip_to_step_id = "__skip_next__"
-
-            # 写入 _last_output 供后续步骤的 {{previous_step.*}} 引用
-            if result is not None:
-                context["_last_output"] = result
-
-            # 累积输出
-            if result is not None:
-                context["step_outputs"][step_id] = result
-
-            # 处理条件跳转：跳过后续步骤直到目标 step_id
-            if skip_to_step_id == "__skip_next__":
-                # 跳过下一个步骤（在 for 循环中设置标志，下次迭代检查）
-                context["_skip_next"] = True
-            elif skip_to_step_id is not None:
-                context["_skip_until"] = skip_to_step_id
+            terminal_result = await self._apply_step_result(
+                step,
+                step_type=step_type,
+                step_id=step_id,
+                run_id=run_id,
+                result=result,
+                context=context,
+            )
+            if terminal_result is not None:
+                return terminal_result
 
         # 3) 完成
         await workflow.execute_activity(
@@ -525,6 +477,115 @@ class DynamicWorkflow:
             "status": "completed",
             "step_outputs": context["step_outputs"],
         }
+
+    async def _fetch_steps(self, template_id: int) -> list[dict]:
+        """读取模板 steps_schema（兼容 {"steps": [...]} 包裹形式），返回步骤列表。"""
+        schema_data = await workflow.execute_activity(
+            act.fetch_template_schema,
+            args=(template_id,),
+            start_to_close_timeout=QUICK_TIMEOUT,
+            retry_policy=QUICK_RETRY,
+        )
+        steps: list[dict] = schema_data.get("steps_schema", [])
+        if isinstance(steps, dict):
+            steps = steps.get("steps", [])
+        return steps
+
+    def _skip_step_if_needed(self, step_id: str, context: dict) -> bool:
+        """处理前一 condition 步骤留下的跳过标记；返回 True 表示本步骤应跳过。"""
+        if context.get("_skip_next"):
+            context.pop("_skip_next", None)
+            context["step_outputs"][step_id] = {"skipped": True, "reason": "condition_false_skip"}
+            logger.info("步骤 %s 被跳过（前一条件为 False）", step_id)
+            return True
+        if context.get("_skip_until"):
+            if step_id != context["_skip_until"]:
+                context["step_outputs"][step_id] = {"skipped": True, "reason": "condition_goto_false"}
+                logger.info("步骤 %s 被跳过（等待跳转目标 %s）", step_id, context["_skip_until"])
+                return True
+            context.pop("_skip_until", None)
+            logger.info("到达跳转目标步骤 %s，恢复执行", step_id)
+        return False
+
+    async def _handle_step_failure(
+        self,
+        exc: Exception,
+        *,
+        run_id: int,
+        step_id: str,
+        step_name: str,
+        step_type: str,
+        on_fail: str,
+        context: dict,
+    ) -> dict[str, Any] | None:
+        """记录失败步骤并按 on_fail 策略处理；返回非 None 表示本次 run 以该结果终止。"""
+        logger.exception("步骤 %s 执行失败", step_id)
+        await workflow.execute_activity(
+            act.record_step,
+            args=(run_id, step_id, step_name, step_type, "failed", None, str(exc)),
+            start_to_close_timeout=QUICK_TIMEOUT,
+            retry_policy=QUICK_RETRY,
+        )
+        if on_fail == "skip":
+            context["step_outputs"][step_id] = {"skipped": True, "error": str(exc)}
+            return None
+        # abort（默认）
+        await workflow.execute_activity(
+            act.update_run_status,
+            args=(run_id, "failed", step_id),
+            start_to_close_timeout=QUICK_TIMEOUT,
+        )
+        return {"status": "failed", "failed_step": step_id, "error": str(exc)}
+
+    async def _apply_step_result(
+        self,
+        step: dict,
+        *,
+        step_type: str,
+        step_id: str,
+        run_id: int,
+        result: dict | None,
+        context: dict,
+    ) -> dict[str, Any] | None:
+        """消费步骤输出：gate 拒绝即终止、condition 置跳转标记、累积输出。
+
+        返回非 None 表示本次 run 需立即以该结果结束。
+        """
+        # gate 被拒绝
+        if step_type == "gate" and result is not None and not result.get("approved", True):
+            await workflow.execute_activity(
+                act.update_run_status,
+                args=(run_id, "failed", step_id),
+                start_to_close_timeout=QUICK_TIMEOUT,
+            )
+            return {"status": "rejected", "phase": step_id, "comment": result.get("comment", "")}
+
+        # condition 结果为 False → 跳转到 goto_false 目标（或跳过下一个步骤）
+        skip_to_step_id: str | None = None
+        if step_type == "condition" and result is not None and not result.get("met", True):
+            context["step_outputs"][step_id] = {"skipped": True, "condition_met": False}
+            goto_false = step.get("config", {}).get("goto_false")
+            if goto_false:
+                skip_to_step_id = goto_false
+            else:
+                # 没有 goto_false，标记跳过下一个步骤
+                skip_to_step_id = "__skip_next__"
+
+        # 写入 _last_output 供后续步骤的 {{previous_step.*}} 引用
+        if result is not None:
+            context["_last_output"] = result
+
+        # 累积输出
+        if result is not None:
+            context["step_outputs"][step_id] = result
+
+        # 处理条件跳转：跳过后续步骤直到目标 step_id
+        if skip_to_step_id == "__skip_next__":
+            # 跳过下一个步骤（在 for 循环中设置标志，下次迭代检查）
+            context["_skip_next"] = True
+        elif skip_to_step_id is not None:
+            context["_skip_until"] = skip_to_step_id
+        return None
 
     async def _execute_step(
         self,
@@ -540,112 +601,12 @@ class DynamicWorkflow:
     ) -> dict | None:
         """执行单个步骤，返回步骤输出（gate rejected 返回 {"approved": False}）"""
 
-        # ── gate: 人工审批门 ──
-        if step_type == "gate":
-            return await self._execute_gate(step_id, step_name, run_id, context, timeout_hours)
-
-        # ── wait: 等待外部事件 ──
-        if step_type == "wait":
-            return await self._execute_wait(step_id, step_name, run_id, context, timeout_hours)
-
-        # ── condition: 条件分支 ──
-        if step_type == "condition":
-            met = _eval_condition(step, context)
-            await workflow.execute_activity(
-                act.update_run_status,
-                args=(run_id, "running", step_id),
-                start_to_close_timeout=QUICK_TIMEOUT,
-            )
-            await workflow.execute_activity(
-                act.record_step,
-                args=(run_id, step_id, step_name, "condition", "success", {"met": met}),
-                start_to_close_timeout=QUICK_TIMEOUT,
-            )
-            return {"met": met}
-
-        # ── delay: 延时等待 ──
-        if step_type == "delay":
-            cfg = step.get("config", {})
-            duration = float(cfg.get("duration_minutes", 5))
-            await workflow.execute_activity(
-                act.update_run_status,
-                args=(run_id, "running", step_id),
-                start_to_close_timeout=QUICK_TIMEOUT,
-            )
-            await workflow.execute_activity(
-                act.record_step,
-                args=(run_id, step_id, step_name, "delay", "running"),
-                start_to_close_timeout=QUICK_TIMEOUT,
-            )
-            await workflow.execute_activity(
-                act.generic_delay,
-                args=(duration,),
-                start_to_close_timeout=timedelta(hours=max(timeout_hours, duration / 60 + 1)),
-            )
-            await workflow.execute_activity(
-                act.record_step,
-                args=(run_id, step_id, step_name, "delay", "success"),
-                start_to_close_timeout=QUICK_TIMEOUT,
-            )
-            return {}
-
-        # ── llm: LLM 调用 ──
-        if step_type == "llm":
-            args = _build_step_args(step, context, case_id, run_id)
-            await workflow.execute_activity(
-                act.update_run_status,
-                args=(run_id, "running", step_id),
-                start_to_close_timeout=QUICK_TIMEOUT,
-            )
-            await workflow.execute_activity(
-                act.record_step,
-                args=(run_id, step_id, step_name, "llm", "running"),
-                start_to_close_timeout=QUICK_TIMEOUT,
-            )
-            result = await workflow.execute_activity(
-                act.generic_llm_call,
-                args=tuple(args),
-                start_to_close_timeout=LLM_TIMEOUT,
-                retry_policy=LLM_RETRY,
-            )
-            await workflow.execute_activity(
-                act.record_step,
-                args=(run_id, step_id, step_name, "llm", "success", result),
-                start_to_close_timeout=QUICK_TIMEOUT,
-            )
-            return result  # type: ignore[no-any-return]
-
-        # ── http: HTTP 请求 ──
-        if step_type == "http":
-            args = _build_step_args(step, context, case_id, run_id)
-            await workflow.execute_activity(
-                act.update_run_status,
-                args=(run_id, "running", step_id),
-                start_to_close_timeout=QUICK_TIMEOUT,
-            )
-            await workflow.execute_activity(
-                act.record_step,
-                args=(run_id, step_id, step_name, "http", "running"),
-                start_to_close_timeout=QUICK_TIMEOUT,
-            )
-            result = await workflow.execute_activity(
-                act.generic_http_request,
-                args=tuple(args),
-                start_to_close_timeout=timedelta(seconds=60),
-                retry_policy=QUICK_RETRY,
-            )
-            await workflow.execute_activity(
-                act.record_step,
-                args=(run_id, step_id, step_name, "http", "success", result),
-                start_to_close_timeout=QUICK_TIMEOUT,
-            )
-            return result  # type: ignore[no-any-return]
-
         # ── code: 代码执行 ──
         # 安全审计 A-01（纵深防御）：generic_code_exec 的 AST 黑名单沙箱可逃逸，
         # activity 已从 worker 注册表物理下线（见 start_temporal_worker）。
         # 此处同样拒绝 code 步骤：即使某个写入入口漏了步骤类型校验（历史上 MCP
         # 的 create_workflow_template 正是如此），存量/新增模板也无法触发执行。
+        # 这是拒绝分支而不是 handler：code 不进分派表，保证永不调度任何 activity。
         if step_type == "code":
             raise ApplicationError(
                 f"步骤类型 code 已被禁用（安全审计 A-01）: step={step_id}",
@@ -653,61 +614,38 @@ class DynamicWorkflow:
                 non_retryable=True,
             )
 
-        # ── activity: 业务步骤 ──
-        # 优先走 MCP 工具，其次走 internal activity
-        await workflow.execute_activity(
-            act.update_run_status,
-            args=(run_id, "running", step_id),
-            start_to_close_timeout=QUICK_TIMEOUT,
-            retry_policy=QUICK_RETRY,
-        )
-        await workflow.execute_activity(
-            act.record_step,
-            args=(run_id, step_id, step_name, "activity", "running"),
-            start_to_close_timeout=QUICK_TIMEOUT,
-            retry_policy=QUICK_RETRY,
+        # 正常步骤类型分派表；未列出的类型沿用 activity handler（历史默认行为）。
+        # handler 签名统一为 (step, *, step_id, step_name, run_id, case_id, mcp_tool,
+        # context, timeout_hours)，本类型用不到的参数忽略。
+        handler = {
+            "gate": self._step_gate,
+            "wait": self._step_wait,
+            "condition": self._step_condition,
+            "delay": self._step_delay,
+            "llm": self._step_llm,
+            "http": self._step_http,
+            "activity": self._step_activity,
+        }.get(step_type, self._step_activity)
+        return await handler(
+            step,
+            step_id=step_id,
+            step_name=step_name,
+            run_id=run_id,
+            case_id=case_id,
+            mcp_tool=mcp_tool,
+            context=context,
+            timeout_hours=timeout_hours,
         )
 
-        if mcp_tool:
-            # 走 MCP 工具调度
-            kwargs = _build_mcp_kwargs(step, context, case_id, run_id)
-            result = await workflow.execute_activity(
-                act.execute_mcp_tool,
-                args=(mcp_tool, kwargs),
-                start_to_close_timeout=LLM_TIMEOUT,
-                retry_policy=LLM_RETRY,
-            )
-        else:
-            # 走 internal activity
-            internal_act = INTERNAL_ACTIVITY_MAP.get(step_id)
-            if internal_act is None:
-                raise ValueError(f"步骤 {step_id} 无 mcp_tool 且无 internal activity 映射")
-            args = _build_step_args(step, context, case_id, run_id)
-            timeout = (
-                LLM_TIMEOUT
-                if step_id in ("generate_complaint", "generate_defense", "review_complaint_quality")
-                else QUICK_TIMEOUT
-            )
-            result = await workflow.execute_activity(
-                internal_act,
-                args=tuple(args),
-                start_to_close_timeout=timeout,
-                retry_policy=LLM_RETRY if timeout == LLM_TIMEOUT else QUICK_RETRY,
-            )
-
-        await workflow.execute_activity(
-            act.record_step,
-            args=(run_id, step_id, step_name, "activity", "success", result),
-            start_to_close_timeout=QUICK_TIMEOUT,
-            retry_policy=QUICK_RETRY,
-        )
-        return result  # type: ignore[no-any-return]
-
-    async def _execute_gate(
+    async def _step_gate(
         self,
+        step: dict,
+        *,
         step_id: str,
         step_name: str,
         run_id: int,
+        case_id: int,
+        mcp_tool: str | None,
         context: dict,
         timeout_hours: float,
     ) -> dict:
@@ -759,11 +697,15 @@ class DynamicWorkflow:
 
         return {"approved": gate.approved, "comment": gate.comment}
 
-    async def _execute_wait(
+    async def _step_wait(
         self,
+        step: dict,
+        *,
         step_id: str,
         step_name: str,
         run_id: int,
+        case_id: int,
+        mcp_tool: str | None,
         context: dict,
         timeout_hours: float,
     ) -> dict:
@@ -822,6 +764,204 @@ class DynamicWorkflow:
         )
 
         return {"received": True, "comment": event_data.comment}
+
+    async def _step_condition(
+        self,
+        step: dict,
+        *,
+        step_id: str,
+        step_name: str,
+        run_id: int,
+        case_id: int,
+        mcp_tool: str | None,
+        context: dict,
+        timeout_hours: float,
+    ) -> dict:
+        """执行 condition（条件分支）步骤"""
+        met = _eval_condition(step, context)
+        await workflow.execute_activity(
+            act.update_run_status,
+            args=(run_id, "running", step_id),
+            start_to_close_timeout=QUICK_TIMEOUT,
+        )
+        await workflow.execute_activity(
+            act.record_step,
+            args=(run_id, step_id, step_name, "condition", "success", {"met": met}),
+            start_to_close_timeout=QUICK_TIMEOUT,
+        )
+        return {"met": met}
+
+    async def _step_delay(
+        self,
+        step: dict,
+        *,
+        step_id: str,
+        step_name: str,
+        run_id: int,
+        case_id: int,
+        mcp_tool: str | None,
+        context: dict,
+        timeout_hours: float,
+    ) -> dict:
+        """执行 delay（延时等待）步骤"""
+        cfg = step.get("config", {})
+        duration = float(cfg.get("duration_minutes", 5))
+        await workflow.execute_activity(
+            act.update_run_status,
+            args=(run_id, "running", step_id),
+            start_to_close_timeout=QUICK_TIMEOUT,
+        )
+        await workflow.execute_activity(
+            act.record_step,
+            args=(run_id, step_id, step_name, "delay", "running"),
+            start_to_close_timeout=QUICK_TIMEOUT,
+        )
+        await workflow.execute_activity(
+            act.generic_delay,
+            args=(duration,),
+            start_to_close_timeout=timedelta(hours=max(timeout_hours, duration / 60 + 1)),
+        )
+        await workflow.execute_activity(
+            act.record_step,
+            args=(run_id, step_id, step_name, "delay", "success"),
+            start_to_close_timeout=QUICK_TIMEOUT,
+        )
+        return {}
+
+    async def _step_llm(
+        self,
+        step: dict,
+        *,
+        step_id: str,
+        step_name: str,
+        run_id: int,
+        case_id: int,
+        mcp_tool: str | None,
+        context: dict,
+        timeout_hours: float,
+    ) -> dict | None:
+        """执行 llm（LLM 调用）步骤"""
+        args = _build_step_args(step, context, case_id, run_id)
+        await workflow.execute_activity(
+            act.update_run_status,
+            args=(run_id, "running", step_id),
+            start_to_close_timeout=QUICK_TIMEOUT,
+        )
+        await workflow.execute_activity(
+            act.record_step,
+            args=(run_id, step_id, step_name, "llm", "running"),
+            start_to_close_timeout=QUICK_TIMEOUT,
+        )
+        result = await workflow.execute_activity(
+            act.generic_llm_call,
+            args=tuple(args),
+            start_to_close_timeout=LLM_TIMEOUT,
+            retry_policy=LLM_RETRY,
+        )
+        await workflow.execute_activity(
+            act.record_step,
+            args=(run_id, step_id, step_name, "llm", "success", result),
+            start_to_close_timeout=QUICK_TIMEOUT,
+        )
+        return result  # type: ignore[no-any-return]
+
+    async def _step_http(
+        self,
+        step: dict,
+        *,
+        step_id: str,
+        step_name: str,
+        run_id: int,
+        case_id: int,
+        mcp_tool: str | None,
+        context: dict,
+        timeout_hours: float,
+    ) -> dict | None:
+        """执行 http（HTTP 请求）步骤"""
+        args = _build_step_args(step, context, case_id, run_id)
+        await workflow.execute_activity(
+            act.update_run_status,
+            args=(run_id, "running", step_id),
+            start_to_close_timeout=QUICK_TIMEOUT,
+        )
+        await workflow.execute_activity(
+            act.record_step,
+            args=(run_id, step_id, step_name, "http", "running"),
+            start_to_close_timeout=QUICK_TIMEOUT,
+        )
+        result = await workflow.execute_activity(
+            act.generic_http_request,
+            args=tuple(args),
+            start_to_close_timeout=timedelta(seconds=60),
+            retry_policy=QUICK_RETRY,
+        )
+        await workflow.execute_activity(
+            act.record_step,
+            args=(run_id, step_id, step_name, "http", "success", result),
+            start_to_close_timeout=QUICK_TIMEOUT,
+        )
+        return result  # type: ignore[no-any-return]
+
+    async def _step_activity(
+        self,
+        step: dict,
+        *,
+        step_id: str,
+        step_name: str,
+        run_id: int,
+        case_id: int,
+        mcp_tool: str | None,
+        context: dict,
+        timeout_hours: float,
+    ) -> dict | None:
+        """执行 activity（业务步骤）：优先走 MCP 工具，其次走 internal activity"""
+        await workflow.execute_activity(
+            act.update_run_status,
+            args=(run_id, "running", step_id),
+            start_to_close_timeout=QUICK_TIMEOUT,
+            retry_policy=QUICK_RETRY,
+        )
+        await workflow.execute_activity(
+            act.record_step,
+            args=(run_id, step_id, step_name, "activity", "running"),
+            start_to_close_timeout=QUICK_TIMEOUT,
+            retry_policy=QUICK_RETRY,
+        )
+
+        if mcp_tool:
+            # 走 MCP 工具调度
+            kwargs = _build_mcp_kwargs(step, context, case_id, run_id)
+            result = await workflow.execute_activity(
+                act.execute_mcp_tool,
+                args=(mcp_tool, kwargs),
+                start_to_close_timeout=LLM_TIMEOUT,
+                retry_policy=LLM_RETRY,
+            )
+        else:
+            # 走 internal activity
+            internal_act = INTERNAL_ACTIVITY_MAP.get(step_id)
+            if internal_act is None:
+                raise ValueError(f"步骤 {step_id} 无 mcp_tool 且无 internal activity 映射")
+            args = _build_step_args(step, context, case_id, run_id)
+            timeout = (
+                LLM_TIMEOUT
+                if step_id in ("generate_complaint", "generate_defense", "review_complaint_quality")
+                else QUICK_TIMEOUT
+            )
+            result = await workflow.execute_activity(
+                internal_act,
+                args=tuple(args),
+                start_to_close_timeout=timeout,
+                retry_policy=LLM_RETRY if timeout == LLM_TIMEOUT else QUICK_RETRY,
+            )
+
+        await workflow.execute_activity(
+            act.record_step,
+            args=(run_id, step_id, step_name, "activity", "success", result),
+            start_to_close_timeout=QUICK_TIMEOUT,
+            retry_policy=QUICK_RETRY,
+        )
+        return result  # type: ignore[no-any-return]
 
     # ── 通用信号 ──
 

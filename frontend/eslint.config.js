@@ -54,11 +54,17 @@ export default defineConfig([
   {
     files: ['src/**/*.{ts,tsx}'],
     ignores: [
+      // 测试文件**不进**这条门禁（2026-11-28 补明：以前只有这三行 ignores、文档从未写过，
+      // 属于「配置偷偷豁免、规范照旧全称判定」的漂移）。理由：测试文件长度由**用例数**
+      // 决定，不由职责数决定（实测源文件与测试行数比稳定在 2.3–2.5×），拿行数当代理
+      // 指标是错的；且按 v27.23.3 的既定口径「拆测试属独立工程」。
+      // 测试仍受 tsc -b 类型检查；>450 行的测试单独记台账，不按源码红线拆。
       '**/*.test.*',
       '**/__tests__/**',
       '**/*.d.ts',
       // 2026-11-11：文件规模技术债已全部清账，ratchet 白名单归零，
-      // 硬红线对全仓库无条件生效（禁止再往这里加条目——超限就拆，不能豁免）。
+      // **生产代码**硬红线无条件生效（禁止再往这里加条目——超限就拆，不能豁免）。
+      // （上面 test / d.ts 两类不是 ratchet 条目，是适用范围声明，勿混。）
       // 原 7 条的去向：
       //   demo-data.ts(2259) → components/demo-data/（15 模块，最大 357）
       //   demo-nonlit.ts(1583) → deal-detail/demo-nonlit/（9 模块，最大 422）
@@ -85,9 +91,23 @@ export default defineConfig([
         {
           patterns: [
             {
-              // copilot/launch 是唯一被架构决策放行的深路径（全局拉起 copilot 的公共事件口），
-              // 用 patterns 的取反语法 `!` 豁免，避免为它开第二个 block。
-              group: ['@/features/*/*', '!@/features/copilot/launch'],
+              // copilot 域有两条被架构决策放行的深路径，用 patterns 的取反语法 `!` 豁免，
+              // 避免为它们各开一个 block：
+              // - copilot/launch：全局拉起 copilot 的公共事件口；
+              // - copilot/ui-tools/contract：**页面侧的轻契约面**（页面状态登记 / 挂起队列 /
+              //   两个 hook / 动作类型）。它刻意不引 ui-tools 的桶——桶 → registry →
+              //   discover 的 eager `import.meta.glob` 会把使用方页面连同自己 feature 的
+              //   ui-actions.ts 拉成「页面 → copilot → 本 feature」的回头路，页面 chunk 因此暴涨。
+              // 注意 glob 语义：父目录被排除时子路径的取反**不生效**，所以要先放行 ui-tools
+              // 目录本身、再把目录内容禁回去、最后才放行 contract（实测：只加
+              // `!@/features/copilot/ui-tools/contract` 一行是无效的，contract 仍被拦）。
+              group: [
+                '@/features/*/*',
+                '!@/features/copilot/launch',
+                '!@/features/copilot/ui-tools',
+                '@/features/copilot/ui-tools/*',
+                '!@/features/copilot/ui-tools/contract',
+              ],
               message:
                 '跨 feature 禁止直接 import 其他 feature 的内部文件，请走该 feature 的桶出口 `@/features/<name>`（在其 index.ts re-export）；若两块都要用，应上提到 components/shared 或 lib。',
             },

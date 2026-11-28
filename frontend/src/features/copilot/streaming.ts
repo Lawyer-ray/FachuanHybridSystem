@@ -14,6 +14,8 @@ type ToolCallEvent = Extract<AgentStreamEvent, { type: 'tool_call' }>
 type ToolResultEvent = Extract<AgentStreamEvent, { type: 'tool_result' }>
 type ApprovalEvent = Extract<AgentStreamEvent, { type: 'approval_request' }>
 type QuestionEvent = Extract<AgentStreamEvent, { type: 'question_request' }>
+type UiActionEvent = Extract<AgentStreamEvent, { type: 'ui_action' }>
+type UiSnapshotRequestEvent = Extract<AgentStreamEvent, { type: 'ui_snapshot_request' }>
 
 /**
  * usage 事件的归一化载荷。
@@ -74,6 +76,31 @@ export interface StreamHandlers {
    * services/question.py），由 domain/question.normalizeQuestions 宽容解析。
    */
   onQuestion?(event: QuestionEvent, origin: EventOrigin): void
+  /**
+   * 界面动作下发（`ui_action`）。
+   *
+   * **可选实现，但不实现就等于把动作丢掉**：后端不会因为前端没接住而报错或重发
+   * （T1 是单向指令），于是模型照旧对律师说「已帮你切过去」，页面一动不动，而日志
+   * 里连一条错误都没有。2026-11-27 今天就踩了这一次：`createUiActionHandler` 返回的
+   * 键名是事件名 `ui_action`，而这里的分发是写死的 `switch (event.type)`，没有
+   * `case 'ui_action'`，帧直接落进 `default: break`——**编译期不报错**（`turn-handlers`
+   * 用 spread 合并，TS 的 excess-property 检查对 spread 不生效）。
+   * 因此开关两侧必须成对改：本接口加成员 + switch 加 case + 回归用例
+   * `streaming.ui-action.test.ts` 钉死。
+   *
+   * 为什么带 `origin`：多栏并答时两栏都可能下发动动作，横幅要能标清「是哪一栏在动」
+   * （单栏时 handler 按 `columnCount` 决定是否显示来源）。
+   */
+  onUiAction?(event: UiActionEvent, origin: EventOrigin): void
+  /**
+   * 页面状态快照请求（`ui_snapshot_request`）—— AI 想知道「现在页面上是什么」。
+   *
+   * 与 `onUiAction` 同一类开关：**可选实现，但不实现就等于把请求丢掉**，而后端只等 3 秒
+   * （超时按「没问到」继续，不会重试），于是模型只能改问律师、白丢一次省往返的机会。
+   * 2026-11-27 的 P0-1 就是「只加 handler 工厂、忘了 switch 的 case」，帧被静默丢弃。
+   * 所以开关两侧必须成对改：本接口加成员 + switch 加 case + `streaming.ui-snapshot.test.ts`。
+   */
+  onUiSnapshotRequest?(event: UiSnapshotRequestEvent, origin: EventOrigin): void
   /**
    * 引用表增量（逐句溯源）。
    *
@@ -245,6 +272,18 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
           // （超时即按假设继续，前端仍可补答）
           h.onProgress()
           h.onQuestion?.(event, origin)
+          break
+        case 'ui_action':
+          // 界面动作不是工具结果：不进转录、不落 tool 行，只交给执行层就地生效
+          // （理由见 handlers/ui-action-handler.ts 文件头）。
+          h.onProgress()
+          h.onUiAction?.(event, origin)
+          break
+        case 'ui_snapshot_request':
+          // AI 问「现在页面上是什么」：读页面注册表并回传（超时不是错误，后端按没问到继续）。
+          // 与 onUiAction 成对：接口成员 + 这里的 case + streaming.ui-snapshot.test.ts 三件套。
+          h.onProgress()
+          h.onUiSnapshotRequest?.(event, origin)
           break
         case 'compaction':
           h.onCompaction(event.phase)

@@ -36,9 +36,18 @@ pi 会话(每律师一个) ──Bearer 当前律师token──▶ RequestAuthMi
 make mcp           # 重启共享 MCP + 工具面核对(改了 mcp_server/** 后必须)
 make mcp-verify    # 只核对线上工具面 vs 代码注册表
 make mcp-status    # 进程/日志
+make mcp-bluegreen # 零停机切换(候选实例先监听、旧实例后退休,不断在飞请求)
+make mcp-if-stale  # 只有工具面指纹变了才重启(= restart --if-stale)
 ```
 
 **改了工具代码不重启 = 模型拿到的仍是旧工具面,且无任何报错**（详见根 CLAUDE.md 避坑指南）。
+
+**指纹的判据边界**:`tool_face.py` 的指纹只看注册元数据(工具名/描述/参数 schema/注解),
+**看不见「只改实现」**——只改工具内部逻辑时 `make mcp-if-stale` 会跳过,必须用 `make mcp`
+或 `make mcp-bluegreen`。蓝绿候选额外监听 `FACHUAN_MCP_SIDE_PORT`(脚本自动挑空闲端口;
+该 side 端口切换后留在新 primary 上属正常设计);`FACHUAN_MCP_GRACEFUL_TIMEOUT`(默认 240s)
+是退休实例等在飞请求的上限,对齐单次工具调用上限 200s。未配 side 端口时启动前会探针试绑
+primary,已有实例在监听就**拒绝重复启动**(SO_REUSEPORT 下重复启动会静默分摊流量)。
 
 ## 工具注册纪律
 

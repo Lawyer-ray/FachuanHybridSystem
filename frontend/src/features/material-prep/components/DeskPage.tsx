@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef } from 'react'
 import { materialPrepDetail } from '@/app/paths'
 import { useNavigate, useParams } from 'react-router'
 import { useMaterialPacks } from '../hooks/use-material-packs'
+import { useMaterialPrepUiActions } from '../hooks/use-material-prep-ui-actions'
 import { useReader } from '../store'
 import { isPackStage, stageToQuery } from '../stages'
 import { useDeskKeyboard } from '../hooks/use-desk-keyboard'
@@ -132,6 +133,15 @@ export function DeskPage() {
     }),
     [inboxCount, counts],
   )
+
+  // AI 动作接线：页面状态快照 / 判决广播后重拉 / 挂起队列消费。三件事都在 hook 里，
+  // 这里只给「当前是哪一阶段、选中的是哪个包、各阶段几条」——全是本页已有的派生值。
+  useMaterialPrepUiActions({
+    stage,
+    // 传 id 不传下标：模型拿到的快照要能直接拼成 ui_material_prep_judge 的 packId
+    selected: visible[sel]?.id ?? null,
+    counts: stageCounts,
+  })
 
   const openAt = useCallback(
     (index: number) => {

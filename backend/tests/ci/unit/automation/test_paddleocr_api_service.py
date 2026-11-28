@@ -647,8 +647,10 @@ class TestHtmlTableToMarkdown:
     def test_conversion_failure_keeps_original_html(self):
         """转换抛异常时必须原样保留 HTML——不能因解析失败丢掉条款内容。"""
         original = "<table><tr><td>z</td></tr></table>"
+        # patch 必须指向「查这个名字的那个模块」：HTML 表格 → GFM 已下沉到
+        # paddleocr_response_parser（paddleocr_api_service 只做 re-export）。
         with patch(
-            "apps.automation.services.ocr.paddleocr_api_service._html_table_to_markdown",
+            "apps.automation.services.ocr.paddleocr_response_parser._html_table_to_markdown",
             side_effect=ValueError("boom"),
         ):
             assert self._convert(original) == original

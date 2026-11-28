@@ -60,23 +60,40 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
+/** 用例的公共查询：第 1 页、每页 50、无关键词 */
+const QUERY = { page: 1, pageSize: 50, search: '', sort: 'filable_first' } as const
+
 describe('useLoad 骨架（以 useCases 为入口）', () => {
   it('先 loading 后给数据，且 natural 一次只拉一次', async () => {
-    listCasesMock.mockResolvedValue([{ id: 1 }, { id: 2 }] as never)
-    const { result } = renderHook(() => useCases())
+    listCasesMock.mockResolvedValue({ rows: [{ id: 1 }, { id: 2 }], total: 137 } as never)
+    const { result } = renderHook(() => useCases(QUERY))
 
     expect(result.current.loading).toBe(true)
     expect(result.current.data).toBeNull()
 
     await waitFor(() => expect(result.current.loading).toBe(false))
-    expect(result.current.data).toHaveLength(2)
+    expect(result.current.data).toEqual({ rows: [{ id: 1 }, { id: 2 }], total: 137 })
     expect(result.current.error).toBeNull()
     expect(listCasesMock).toHaveBeenCalledTimes(1)
   })
 
+  it('页码换算成 offset 下发，并总是要总数（分页条要算总页数）', async () => {
+    listCasesMock.mockResolvedValue({ rows: [], total: 0 } as never)
+    renderHook(() => useCases({ page: 3, pageSize: 50, search: '谭某某', sort: 'filable_first' }))
+
+    await waitFor(() => expect(listCasesMock).toHaveBeenCalled())
+    expect(listCasesMock).toHaveBeenCalledWith({
+      offset: 100,
+      limit: 50,
+      search: '谭某某',
+      sort: 'filable_first',
+      withTotal: true,
+    })
+  })
+
   it('失败时 error 有文案、data 为空 —— 不留旧值给界面算结论', async () => {
     listCasesMock.mockRejectedValue(new Error('网络断了'))
-    const { result } = renderHook(() => useCases())
+    const { result } = renderHook(() => useCases(QUERY))
 
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.data).toBeNull()
@@ -84,13 +101,15 @@ describe('useLoad 骨架（以 useCases 为入口）', () => {
   })
 
   it('reload 会重新拉一次，成功后清掉上一次的 error', async () => {
-    listCasesMock.mockRejectedValueOnce(new Error('首拉失败')).mockResolvedValueOnce([{ id: 7 }] as never)
-    const { result } = renderHook(() => useCases())
+    listCasesMock
+      .mockRejectedValueOnce(new Error('首拉失败'))
+      .mockResolvedValueOnce({ rows: [{ id: 7 }], total: 1 } as never)
+    const { result } = renderHook(() => useCases(QUERY))
 
     await waitFor(() => expect(result.current.error).toBe('首拉失败'))
 
     act(() => result.current.reload())
-    await waitFor(() => expect(result.current.data).toEqual([{ id: 7 }]))
+    await waitFor(() => expect(result.current.data).toEqual({ rows: [{ id: 7 }], total: 1 }))
     expect(result.current.error).toBeNull()
     expect(listCasesMock).toHaveBeenCalledTimes(2)
   })

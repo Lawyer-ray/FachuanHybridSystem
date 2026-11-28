@@ -136,7 +136,7 @@ class PrincipalSignatureService(BasePlaceholderService):
             client_service = get_client_service()
             return client_service.is_natural_person_internal(client.id)
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("principal_signature_service._is_natural_person: 判定当事人是否自然人失败")
 
             # 如果无法判断,默认为自然人
             return True

@@ -1,7 +1,12 @@
 import { lazy } from 'react'
 
 import { HomePageLazy, preloadHomePage } from '@/features/home'
-import { preloadWorkbenchPage, ProjectDetailPageLazy, WorkbenchPageLazy } from '@/features/workbench'
+import {
+  EditProjectPageLazy,
+  preloadWorkbenchPage,
+  ProjectDetailPageLazy,
+  WorkbenchPageLazy,
+} from '@/features/workbench'
 import { ReviewWorkbenchPageLazy } from '@/features/contract-review'
 import { SettingsPageLazy } from '@/features/settings'
 
@@ -61,6 +66,7 @@ const ROUTE_PRELOADERS: Record<string, () => Promise<unknown>> = {
 // 其余页面沿用各 feature 的 lazy 出口（chunk 加载器与预取共用同一个 import()）。
 // 集中在这里 re-export，router 只需从本文件取页面组件。
 export {
+  EditProjectPageLazy,
   HomePageLazy,
   ProjectDetailPageLazy,
   ReviewWorkbenchPageLazy,

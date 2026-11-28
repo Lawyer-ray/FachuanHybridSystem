@@ -104,7 +104,7 @@ from google.antigravity import Agent, LocalOpenAIAgentConfig, types
 from google.antigravity.hooks import hooks as hook_types
 
 from .antigravity_gateway import get_loopback_gateway
-from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, StreamFrame
+from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, SkillDelivery, StreamFrame
 from .dsh_config import without_proxy_env
 from .gateway_cache import get_gateway_settings, resolve_gateway_target
 from .result_store import BoundedResultStore
@@ -216,6 +216,8 @@ def backend_capabilities() -> BackendCapabilities:
         compaction=False,
         steer=False,
         concurrent_in_session=True,
+        # 索引块真的拼进了 ``CustomSystemInstructions``（见 ``_system_prompt_text``）。
+        skill_delivery=SkillDelivery.PROMPT,
     )
 
 
@@ -722,10 +724,9 @@ class AntigravityBackend:
         return LocalOpenAIAgentConfig(
             model=target.model,
             base_url=loopback_base_url,
-            # ``ctx.system_prompt`` 给了就用它（综合结论等一次性任务），同样是全量替换。
-            system_instructions=types.CustomSystemInstructions(
-                text=ctx.system_prompt if ctx.system_prompt is not None else _instructions(ctx)
-            ),
+            # ``ctx.system_prompt`` 给了就用它（综合结论等一次性任务），同样是全量替换；
+            # 技能索引块由 ``_system_prompt_text`` 拼在文本尾部。
+            system_instructions=types.CustomSystemInstructions(text=_system_prompt_text(ctx)),
             capabilities=types.CapabilitiesConfig(
                 enabled_tools=[],  # 内置工具一个都不给（见 docstring）
                 enable_subagents=False,
@@ -951,11 +952,44 @@ def _usage_frame(usage: Any) -> dict[str, Any]:
     }
 
 
+def _skill_block(ctx: RunContext) -> str | None:
+    """本轮要拼进系统提示的技能索引块（口径与 ``pi_backend`` 逐字一致）。
+
+    三道判据顺序不能换：
+
+    1. ``skill_block_override`` 优先——发布前试跑要的是「只装待审这一条」，不能被
+       ``ctx.skill_block`` 或 ``isolated`` 覆盖；
+    2. 隔离运行且无 override → 不注：综合结论是对几栏回答的客观合并，律师的个人
+       技能与所内索引会把无关工作流带进来（``base.py`` 的不变量门禁）；
+    3. 常规运行 → ``ctx.skill_block``（``None`` / 空串 = 不注入）。
+    """
+    return (
+        ctx.skill_block_override
+        if ctx.skill_block_override is not None
+        else (None if ctx.isolated else ctx.skill_block)
+    )
+
+
+def _system_prompt_text(ctx: RunContext) -> str:
+    """本轮交给 harness 的 system 提示全文（全量替换 Antigravity 自带身份）。
+
+    基底是 ``ctx.system_prompt``（综合结论等一次性任务）或 :func:`_instructions`；
+    技能索引块拼在**尾部**，与 ``claude_agent_backend._instructions`` 同口径。
+    """
+    base = ctx.system_prompt if ctx.system_prompt is not None else _instructions(ctx)
+    block = _skill_block(ctx)
+    return f"{base}\n\n{block}" if block else base
+
+
 def _instructions(ctx: RunContext) -> str:
     """本轮的系统提示（全量替换 Antigravity 自带身份，理由见 ``_build_config``）。
 
     刻意**不**注入仓库级 ``AGENTS.md`` / 技能目录：那是编码 agent 的默认行为，
     对法务场景是多余且不可控的注入面。业务上下文已由编排层渲染进 ``prompt``。
+
+    **用户技能索引是对「不注入宿主 AGENTS.md」的有意例外**：索引块是法穿从 DB
+    渲染的技能清单（不是磁盘上的文件），模型靠它知道有哪些专项规范、再经 MCP
+    ``get_agent_skill`` 取全文。隔离运行例外（不注），发布前试跑用 override 绕过。
     """
     return (
         "你是「法穿」法律事务管理系统里的律师助理。"

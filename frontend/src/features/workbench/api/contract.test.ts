@@ -36,6 +36,7 @@ import {
   listContractsPage,
   listLawyers,
   listRemindersByCase,
+  updateContract,
 } from './contract'
 
 function client(prefix: string) {
@@ -121,5 +122,29 @@ describe('单合同与案件提醒', () => {
     expect(client('/api/v1/reminders').get).toHaveBeenCalledWith('list', {
       searchParams: { case_id: '42' },
     })
+  })
+})
+
+describe('updateContract（PUT + 财务确认）', () => {
+  it('把 payload 包进 {payload} 发到 contracts/{id}，不带财务确认时没有 query', async () => {
+    const api = client('/api/v1/contracts')
+    api.put.mockReturnValueOnce(respond({ id: 7 }))
+    await updateContract(7, { name: '新名字' })
+
+    expect(api.put).toHaveBeenCalledTimes(1)
+    const [path, opts] = api.put.mock.calls[0]!
+    expect(path).toBe('contracts/7')
+    // 裸字段会被后端 422：必须包一层 payload
+    expect(opts.json).toEqual({ payload: { name: '新名字' } })
+    expect(opts.searchParams).toEqual({})
+  })
+
+  it('confirmFinance 为真时带 confirm_finance=true（否则后端对财务字段直接 400）', async () => {
+    const api = client('/api/v1/contracts')
+    api.put.mockReturnValueOnce(respond({ id: 7 }))
+    await updateContract(7, { fixed_amount: 60000 }, { confirmFinance: true })
+
+    const [, opts] = api.put.mock.calls[0]!
+    expect(opts.searchParams).toEqual({ confirm_finance: 'true' })
   })
 })

@@ -639,7 +639,7 @@ describe('useCourtSms 客户材料通道（submitFiles）', () => {
 
 describe('stageForDisplay 按来源换算阶段', () => {
   it('material 通道：matching 落在第 1 步（无下载阶段）', async () => {
-    const { stageForDisplay } = await import('./use-court-sms')
+    const { stageForDisplay } = await import('./stage-display')
     const detail = makeDetail('matching')
 
     expect(stageForDisplay(detail, 2, 'sms').current).toBe(2)
@@ -647,14 +647,14 @@ describe('stageForDisplay 按来源换算阶段', () => {
   })
 
   it('material 通道：completed 走满四步', async () => {
-    const { stageForDisplay } = await import('./use-court-sms')
+    const { stageForDisplay } = await import('./stage-display')
 
     expect(stageForDisplay(makeDetail('completed'), 4, 'material').current).toBe(4)
     expect(stageForDisplay(makeDetail('completed'), 5, 'sms').current).toBe(5)
   })
 
   it('material 通道：download_failed 的失败位不会越界', async () => {
-    const { stageForDisplay } = await import('./use-court-sms')
+    const { stageForDisplay } = await import('./stage-display')
     const out = stageForDisplay(makeDetail('download_failed'), 1, 'material')
 
     expect(out.failedAt).toBe(0)
@@ -662,7 +662,7 @@ describe('stageForDisplay 按来源换算阶段', () => {
   })
 
   it('观测最大阶段不会让下标超过阶段表长度', async () => {
-    const { stageForDisplay } = await import('./use-court-sms')
+    const { stageForDisplay } = await import('./stage-display')
     const out = stageForDisplay(makeDetail('renaming'), 5, 'material')
 
     expect(out.current).toBeLessThanOrEqual(4)

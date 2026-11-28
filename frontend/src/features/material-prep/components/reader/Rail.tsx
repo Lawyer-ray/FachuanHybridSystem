@@ -5,18 +5,16 @@ import type { BundleMat, DraftState, Inconsistency, PageQualityByMi } from '../.
 import {
   columnAnomalyPagesOf,
   degeneratePagesOf,
-  riskPageKeysOf,
   docHintPagesOf,
-  docTodosOf,
   graphicPagesOf,
   isAutoSegName,
   isWholeMat,
   ocrFailedPagesOf,
-  segMats,
 } from '../../draft'
 import { RailSegRow, type DropPos } from './RailSegRow'
 import { SegmentDownloadBar } from './SegmentDownloadBar'
-import { useSegmentDownloads, type DownloadableSegment } from './use-segment-downloads'
+import { docTodoCountOf, downloadablesOf, groupsOf, riskPageCountOf } from './rail-derived'
+import { useSegmentDownloads } from './use-segment-downloads'
 import { useRailWidth } from './use-rail-width'
 
 /**
@@ -31,6 +29,10 @@ import { useRailWidth } from './use-rail-width'
  * 认段、改名、调序，「要哪几段」的判断只能在同一处做（中栏一次只显示一段，勾不出多选）。
  * 顶部工具栏与每行的勾选框 / PDF / MD 共用一份状态，见 `use-segment-selection` /
  * `use-segment-downloads`。
+ *
+ * 目录本身的派生数据（可下载段 / 待补录页数 / 风险页计数 / 按源文件分组）不在
+ * 本文件里算，见 `rail-derived.ts`：那些是纯 `DraftState → 视图模型` 的换算，
+ * 与本组件的选中态、拖拽落点、布局无关。
  */
 export function Rail({
   draft,
@@ -72,50 +74,14 @@ export function Rail({
 }) {
   const { mats } = draft
   const rail = useRailWidth(wide)
-  // 可下载的段 = 有后端出处的段（`splitRef` 由自动识别落地时写入）。人工切/合的段
-  // 后端没有产物，不进这份清单，也就不出勾选框与下载按钮。
-  const downloadables: DownloadableSegment[] = draft.segs.flatMap((sg) => {
-    if (!sg.splitRef) return []
-    const first = sg.refs[0]
-    const last = sg.refs[sg.refs.length - 1]
-    if (!first || !last) return []
-    // refs 里的 mi 是**素材下标**，页旋转的键用的是附件 partIndex —— 两者在常规
-    // 材料包里数值相同，但追加过附件后就会漂；这里按 mats 显式换算。
-    const partIndex = mats[first.mi]?.partIndex ?? first.mi
-    return [
-      { pk: sg.splitRef.pk, jobId: sg.splitRef.jobId, name: sg.fn, partIndex, pageStart: first.p, pageEnd: last.p },
-    ]
-  })
+  const downloadables = downloadablesOf(draft)
   const dl = useSegmentDownloads(downloadables, draft.pageRot, { mats, segs: draft.segs })
-  // 全卷证件待补录页数：入口只在真有这数据时出现（旧任务没有 doc_hints，不渲染假入口）
-  const docTodoCount = docTodosOf(pageQualityByMi).length
-  // 全卷「识别风险页」：退化页与列数突变页取**并集**（同一页两类都命中只算一页，
-  // 否则数字大于待核对的页数，律师翻完还差一页）。键是 `${mi}:${p}`——多份 PDF 的
-  // 页号各自从 1 开始，只数页号会把「A 的 P3」和「B 的 P3」合并成一页。
-  // 只数**当前草稿里还引用着的页**（删掉页后不残留）。旧任务无该键 → 0 → 不渲染。
-  const anomalyByMi = draft.pageAnomalyByMi ?? null
-  const degenerateAll = new Set<string>()
-  const columnAll = new Set<string>()
-  for (const seg of draft.segs) {
-    const keys = riskPageKeysOf(seg, anomalyByMi)
-    for (const key of keys.degenerate) degenerateAll.add(key)
-    for (const key of keys.column) columnAll.add(key)
-  }
-  const riskPageCount = new Set([...degenerateAll, ...columnAll]).size
-
+  const docTodoCount = docTodoCountOf(pageQualityByMi)
+  const riskPageCount = riskPageCountOf(draft)
   // 每个素材下挂它的段；跨源段归到「跨源合并」一组
-  const groups: { mi: number; segs: number[] }[] = []
-  const cross: number[] = []
-  draft.segs.forEach((sg, si) => {
-    const mis = segMats(sg)
-    if (mis.length > 1 || mis.length === 0) {
-      cross.push(si)
-    } else {
-      const g = groups.find((x) => x.mi === mis[0]!)
-      if (g) g.segs.push(si)
-      else groups.push({ mi: mis[0]!, segs: [si] })
-    }
-  })
+  const { groups, cross } = groupsOf(draft)
+  // 按源（mi）存的页级异常：只给段行挂退化 / 列数突变标记（计数在 rail-derived 里）
+  const anomalyByMi = draft.pageAnomalyByMi ?? null
 
   const [sel, setSel] = useState<number[]>([])
   const [anchor, setAnchor] = useState<number | null>(null)
@@ -266,15 +232,15 @@ export function Rail({
           {/* 识别风险页：退化页 / 列数突变页的全卷去重计数，只有数字、没有清单可开
               （不做抽屉：两类页不多，逐页提示 + 这个数字已够）。所以用 <span> 而不是
               按钮——看着能点、点了没反应比不给入口更糟。0 时整块不渲染。 */}
-          {riskPageCount > 0 && (
+          {riskPageCount.total > 0 && (
             <span
               data-page-anomaly-entry
-              title={`全卷 ${riskPageCount} 页识别风险待核对（同页只计一次；退化 ${degenerateAll.size} 页 / 列数异常 ${columnAll.size} 页）`}
-              aria-label={`全卷 ${riskPageCount} 页识别风险待核对，其中退化 ${degenerateAll.size} 页、表格列数异常 ${columnAll.size} 页`}
+              title={`全卷 ${riskPageCount.total} 页识别风险待核对（同页只计一次；退化 ${riskPageCount.degenerate} 页 / 列数异常 ${riskPageCount.column} 页）`}
+              aria-label={`全卷 ${riskPageCount.total} 页识别风险待核对，其中退化 ${riskPageCount.degenerate} 页、表格列数异常 ${riskPageCount.column} 页`}
               className="flex flex-none cursor-default items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground"
             >
               <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
-              <span className="rounded-full bg-secondary px-1 tabular-nums">{riskPageCount}</span>
+              <span className="rounded-full bg-secondary px-1 tabular-nums">{riskPageCount.total}</span>
             </span>
           )}
         </div>

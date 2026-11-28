@@ -1,0 +1,64 @@
+/**
+ * 页面状态快照的回传（AI 问「现在页面上是什么」的那一跳）。
+ *
+ * 从 `api.ts` 拆出：它与 UI 动作回执同属「上行应答」这一族（都不是会话 CRUD），
+ * 而 `api.ts` 已到软红线。`api.ts` 仍 re-export 这里的符号，import 路径不变。
+ */
+
+import { api } from '@/lib/api'
+
+import type { BlockedAction } from '../ui-tools/page-state'
+
+/** 请求体（`POST /agent/ui-snapshots/{request_id}` 的冻结契约，镜像后端 `UiSnapshotIn`）。 */
+export interface UiPageSnapshotReply {
+  state: Record<string, unknown>
+  /** 读出那一刻的地址：模型据此知道「看到的是哪一页」。 */
+  route: string
+  /** 页面没有声明状态时带这句：后端据此回 `no_page_state`，不许把空对象当成空页面。 */
+  note?: string
+  /**
+   * 这个地址上模型还能调的动作名（`ui-tools/page-state.ts` 的 `availableActionsForPath`）。
+   *
+   * 字段名逐字 `available_actions`（后端契约同一拼法），上限 10、两端各截一次。只放名字不放
+   * 参数结构，所以截断是安全的——少一条可选项，不是「这个字段不存在」。
+   * 页面没声明状态时传空数组：那一刻的状态表里没有被登记的页面，动作清单只能是猜的。
+   */
+  available_actions: string[]
+  /**
+   * 这一页**有、但此刻做不了**的动作与原因（字段名逐字 `blocked_actions`，后端 `UiSnapshotIn`
+   * 同一拼法）。与 `available_actions` 不互斥：动作清单按路由静态算，不知道「选中了哪一条」，
+   * 所以同一条可能两边都在——后端据此告诉模型「以 blocked 为准，先补前置」。
+   * 页面没声明状态时传空数组（同 `available_actions`：那一刻不知道本页有什么可做）。
+   */
+  blocked_actions: BlockedAction[]
+  /**
+   * 页面**不给模型看**的那一半（字段名逐字 `private_state`，后端 `UiSnapshotIn` 同一拼法）：
+   * 未提交草稿 / 原始 id / 调试字段。后端只把它写进一条 info 日志（键名 + 字节数，不打值），
+   * **永不放进 `ui_page_state` 的返回值**。
+   *
+   * **必填**（与 `blocked_actions` 同口径）：页面没声明就发 `{}`。显式发而不是可选，是为了让
+   * 「页面说了没东西」只有一种表示法（`{}`），不会多出「没这个键」第二种。
+   */
+  private_state: Record<string, unknown>
+}
+
+/** 快照应答的回执。`success=false` 不是失败：等待方（≤3s）可能已经超时。 */
+export interface UiPageSnapshotReceipt {
+  accepted: boolean
+  success: boolean
+  /** 拒绝理由（鉴权失败 / 状态超量）：只在 `accepted=false` 时有。 */
+  error?: string
+}
+
+/**
+ * 回传一次页面状态快照（与动作回执同域同鉴权）。
+ *
+ * **有时限**：后端只等 3 秒，晚到的应答会被记下但模型已按「没问到」继续；所以调用方
+ * 不 await（见 `handlers/ui-action-handler.ts` 的接线）。
+ */
+export function submitUiPageSnapshot(
+  requestId: string,
+  payload: UiPageSnapshotReply,
+): Promise<UiPageSnapshotReceipt> {
+  return api.post(`agent/ui-snapshots/${requestId}`, { json: payload }).json<UiPageSnapshotReceipt>()
+}

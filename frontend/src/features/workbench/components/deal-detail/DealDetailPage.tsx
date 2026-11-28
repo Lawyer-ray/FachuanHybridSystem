@@ -3,9 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useParams } from 'react-router'
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
-import { DraftDialog } from '@/features/doc-generation'
 import { CaseVerifyCard } from '@/features/material-prep'
-import { useMediaQuery } from '@/hooks/use-media'
 
 import { ambiguousStages, chainSteps, chainSummary } from './detail-domain'
 import { CaseSection, NextStageRow } from './CaseSection'
@@ -13,15 +11,15 @@ import { ChainStepper } from './ChainStepper'
 
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
-import { FilePreviewCard } from './FilePreviewCard'
+import { CaseActionsSheet } from './CaseActionsSheet'
+import { DealDetailDialogs } from './DealDetailDialogs'
 import { ContractFileOverlays } from './ContractFileOverlays'
-import { ResizeHandle } from './ResizeHandle'
-import { useResizablePanel } from './use-resizable-panel'
+import { DealDocLayout } from './DealDocLayout'
+import type { FolderEntryMutation } from './folder-tree-types'
+import { useDocPreview } from './use-doc-preview'
 import { useDraftDialog } from './use-draft-dialog'
-import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
-import { PaymentDialog } from './PaymentDialog'
+import { useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { refetchContractAndCases } from './refetch-contract'
-import { InvoicePoolDialog } from './InvoicePoolDialog'
 import { Card, DetailError } from './ui'
 import type { FolderOwnerKind } from '../../api'
 
@@ -57,66 +55,86 @@ export function DealDetailPage() {
   /** stepper 跳转后的短暂高亮环（案件 id） */
   const [hl, setHl] = useState<number | null>(null)
   /**
-   * 正在预览的文件（null = 未选中）。
-   *
-   * 预览在右栏就地展开（案件文件夹的树在左栏案件卡里）：律师核对原文时要
-   * 对照同一栏的期限/当事人，跳走或弹窗都会让对照失效。合同文件与案件文件
-   * 共用这块画布（见 PickedFile 注释），AI 审查入口只对合同文件开放——审查
-   * 流水线从合同文件夹取文件。
+   * 「树里这一条是不是正在预览的那份」——诉讼页按当前选中文件的 kind/ownerId 比，
+   * 所以案件文件夹与合同文件夹共用同一个判定。
    */
-  const [picked, setPicked] = useState<PickedFile | null>(null)
-  /** 「生成文书」弹窗：哪一案在起草 + 成稿回落到本页画布（见 use-draft-dialog） */
-  const draft = useDraftDialog(setPicked)
+  const pickedStillMine = useCallback(
+    (ev: FolderEntryMutation, cur: PickedFile) => cur.kind === ev.kind && cur.ownerId === ev.ownerId,
+    [],
+  )
+
+  const {
+    picked,
+    setPicked,
+    immersive,
+    setImmersive,
+    closePreview,
+    onFolderMutated,
+    docSideBySide,
+    doc,
+  } = useDocPreview<PickedFile>({ isStale: pickedStillMine })
+  const guardDirty = doc.guard
+  const markDirty = doc.markDirty
 
   /** 合同文件夹的文件 → 预览（右栏合同文件夹树） */
   const openContractFile = useCallback(
     (f: { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number }) => {
-      setPicked({ ...f, kind: 'contract', ownerId: deal?.id ?? 0 })
+      guardDirty(() => setPicked({ ...f, kind: 'contract', ownerId: deal?.id ?? 0 }))
     },
-    [deal?.id],
+    // setPicked 是 useState 的 dispatcher（引用恒定），列进依赖只为满足 exhaustive-deps
+    [deal?.id, guardDirty, setPicked],
   )
   /** 案件文件夹的文件 → 预览（左栏案件卡；ownerId 是案件 id）。柯里化：案件 id 在 map 里 */
   const openCaseFile =
-    (caseId: number) => (f: { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number }) => {
-      setPicked({ ...f, kind: 'case', ownerId: caseId })
+    (caseId: number) =>
+    (f: { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number }) => {
+      guardDirty(() => setPicked({ ...f, kind: 'case', ownerId: caseId }))
     }
 
-  /** 预览栏宽度：可拖拽、记住偏好（与非诉页同一套 hook，各记各的 key） */
-  const panel = useResizablePanel({
-    storageKey: 'fachuan:deal:preview-width',
-    defaultWidth: 720,
-    min: 360,
-    maxRatio: 0.78,
-  })
-  const {
-    effectiveWidth: panelEffectiveWidth,
-    stacked: panelStacked,
-    dragging: panelDragging,
-    containerRef: panelContainerRef,
-    onPointerDown: panelPointerDown,
-    setWidth: panelSetWidth,
-  } = panel
+  /** 「生成文书」弹窗：成稿落回本页画布（同样走脏标记拦截） */
+  const draft = useDraftDialog((f) => guardDirty(() => setPicked(f)))
+
+  /**
+   * 新案件的默认名称。有双方当事人就拼「甲诉乙+案由」（律师的习惯写法），
+   * 否则退回「合同名·阶段」——一律给可改的默认值，不让律师从空框开始打字。
+   */
+  const defaultCaseName = useMemo(() => {
+    const cause = ordered.at(-1)?.cause ?? ''
+    const a = deal?.parties?.client
+    const b = deal?.parties?.other
+    if (a && b) return `${a}诉${b}${cause}`
+    return `${deal?.client ?? ''}·${next ?? ''}`
+  }, [deal?.parties?.client, deal?.parties?.other, deal?.client, ordered, next])
 
   const steps = useMemo(() => chainSteps(plan), [plan])
   const ambiguous = useMemo(() => ambiguousStages(plan), [plan])
 
-  /**
-   * 「文档对照」形态（与非诉页同一判定，详见 NonLitDetailPage 同名注释）：
-   * 合同预览与并排 AI 助手同开、净宽不足时，右栏只留「预览 + 合同文件夹」，
-   * 期限/当事人/…/合同要素等档案节整体隐藏，且文档列提前到最前紧贴助手。
-   */
-  const dockableViewport = useMediaQuery('(min-width: 1280px)')
-  const focusDoc = Boolean(picked) && panelStacked && dockableViewport
+  /* 三个创建动作都接了真实表单：记日志 / 新增期限 / 新建下一程序案件
+     （见 AddLogDialog / AddDeadlineDialog / AddCaseDialog） */
+  const onCreateNext = useCallback(() => setCaseOpen(true), [])
 
-  /* 创建类动作：记日志 / 新增期限 / 新建下一程序案件仍占位；记收款已接真实表单 */
-  const soon = useCallback((what: string) => soonToast(what), [])
-  const onAddLog = useCallback(() => soon('记项目日志'), [soon])
-  const onAddDue = useCallback(() => soon('新增期限'), [soon])
-  const onCreateNext = useCallback(() => soon('新建' + (next ?? '') + '案件'), [soon, next])
+  /** 正在记日志的案件（null = 弹窗关闭）。日志归属**具体案件**，所以带 id + 程序名 */
+  const [logTarget, setLogTarget] = useState<{ id: number; label: string } | null>(null)
+  /** 新增期限弹窗（右栏「期限」节的 ＋ 新增） */
+  const [deadlineOpen, setDeadlineOpen] = useState(false)
+  /** 新建下一程序案件弹窗 */
+  const [caseOpen, setCaseOpen] = useState(false)
+  /** 「办理」抽屉：立案 / 担保 / OA / 归档（四件事一个入口，案件卡不变工具栏） */
+  const [actionsFor, setActionsFor] = useState<{ id: number; label: string } | null>(null)
+  /** 刚建好的案件 id：等它出现在 ordered 里再滚过去高亮（列表刷新是异步的） */
+  const [newCaseId, setNewCaseId] = useState<number | null>(null)
+  /**
+   * 期限/日志写完后要刷的三处：合同（合同直挂期限）、案件（时间轴里的日志与日志级
+   * 期限）、案件直挂提醒（开庭这类）——缺一处就会出现「记了但列表里没有」。
+   */
+  const queryClient = useQueryClient()
+  const onScheduleChanged = useCallback(() => {
+    refetchContractAndCases(queryClient, contractId)
+    void queryClient.invalidateQueries({ queryKey: ['workbench', 'case-reminders', contractId] })
+  }, [queryClient, contractId])
 
   /** 记收款弹窗：粘贴到账短信 / 拖发票进来（见 PaymentDialog） */
   const [payOpen, setPayOpen] = useState(false)
-  const queryClient = useQueryClient()
   /**
    * 收费节里的写操作（发票关联/解除/上传）完成后刷新合同 + 案件。
    *
@@ -141,6 +159,17 @@ export function DealDetailPage() {
     document.getElementById('case-' + caseId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     setHl(caseId)
   }, [])
+
+  /**
+   * 建案成功后滚过去。建完立刻 scrollIntoView 是找不到节点的（案件列表还在重取），
+   * 所以以「新 id 真的出现在 ordered 里」为触发条件，出现一次即用掉这次意图。
+   */
+  useEffect(() => {
+    if (newCaseId == null) return
+    if (!ordered.some((c) => c.id === newCaseId)) return
+    jump(newCaseId)
+    setNewCaseId(null)
+  }, [newCaseId, ordered, jump])
   useEffect(() => {
     if (hl == null) return
     const t = window.setTimeout(() => setHl(null), 1800)
@@ -149,74 +178,56 @@ export function DealDetailPage() {
 
   if (!valid) return <Navigate to="/projects" replace />
   if (d.isLoading) {
-    return <LoadingBlock text="正在加载委托…" className="py-[90px]" />
+    return <LoadingBlock text="正在加载委托…" className="min-h-[calc(100vh-100px)]" />
   }
   if (d.error || !deal) {
     return <DetailError error={d.error ?? '委托不存在'} onRetry={() => d.refetch()} />
   }
   return (
-    <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
-      <DetailHeader
-        deal={deal}
-        onAddDue={onAddDue}
-        onAddLog={onAddLog}
-      />
+    <main className="app-page-enter @container mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
+      <DetailHeader deal={deal} />
 
       <ChainStepper steps={steps} summary={chainSummary(plan)} onJump={jump} />
 
       {/* AI 助手入口只在导航栏（全局侧边栏 CopilotPanel，⌘J 同效）：页面内既不挂
           对话区、页头也不放按钮，避免与导航栏入口重复 */}
-      {/* 与诉讼页一致：一旦在预览合同就扩宽右栏，让 OnlyOffice 有足够宽度
-          渲染 A4 正文（窄栏里只看得到半行字，等于没预览）。
-          有预览时用 flex + 可拖分隔条，宽度交给用户，写死断点只能猜折中值。
-          横/竖排由 panelStacked（容器净宽）决定而非视口媒体查询——并排 AI 助手
-          会让位掉数百像素净宽，视口量不到它（详见「文档对照」注释）。 */}
-      <div
-        ref={panelContainerRef}
-        className={
-          picked
-            ? panelStacked
-              ? 'flex flex-col gap-[18px]'
-              : 'flex items-start gap-[8px]'
-            : panelStacked
-              ? 'grid grid-cols-1 items-start gap-[18px]'
-              : 'grid items-start gap-[18px] grid-cols-[minmax(0,1fr)_400px] min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]'
+      {/* 文档单独成栏（四态见 DealDocLayout）。要点是**档案卡不再跟着文档变宽**：
+          此前预览长在档案卡里，为了塞下 A4 只能把整张卡拉到 720–780px，期限/
+          当事人/收费被摊成一排空行，看着像侧栏被人硬拽开；而卡里那点高度
+          （70vh 再扣 DS 工具栏）连一页都放不下。
+          横/竖排与文档宽度归 DealDocLayout；这里只负责「案件链写在左列」。 */}
+      <DealDocLayout
+        kind={picked?.kind ?? 'contract'}
+        picked={picked}
+        docSideBySide={docSideBySide}
+        ownerId={picked?.ownerId ?? deal.id}
+        widthStorageKey="fachuan:deal:preview-width"
+        immersive={immersive}
+        onToggleImmersive={() => setImmersive((v) => !v)}
+        onClose={closePreview}
+        onSaved={() => void d.refetch()}
+        onReview={picked?.kind === 'contract' ? (f) => setReviewTarget(f) : undefined}
+        onDirtyChange={markDirty}
+        rail={
+          <DetailRail
+            deadlines={deadlines}
+            today={d.today}
+            contactGroups={contacts}
+            team={deal.team}
+            deal={deal}
+            moneyRows={money}
+            onAddDue={() => setDeadlineOpen(true)}
+            onAddPayment={onAddPayment}
+            onOpenInvoices={onOpenInvoices}
+            onMoneyChanged={onMoneyChanged}
+            onOpenFile={openContractFile}
+            onReviewFile={(f) => setReviewTarget(f)}
+            folderSelectedSubpath={picked?.kind === 'contract' ? picked.subpath : null}
+            onFolderMutated={onFolderMutated}
+          />
         }
       >
-        {/* 文档对照形态：文档列（右栏卡里的预览）提前到最前，案件程序链沉底 */}
-        {focusDoc && picked && (
-          <div className="min-w-0">
-            <DetailRail
-              deadlines={deadlines}
-              today={d.today}
-              contactGroups={contacts}
-              team={deal.team}
-              deal={deal}
-              moneyRows={money}
-              onAddDue={onAddDue}
-              onAddPayment={onAddPayment}
-              onOpenInvoices={onOpenInvoices}
-              onMoneyChanged={onMoneyChanged}
-              onOpenFile={openContractFile}
-              onReviewFile={(f) => setReviewTarget(f)}
-              factsHidden
-              folderPreview={
-                <div className="mb-2.5 flex h-[min(70vh,720px)] min-h-[420px] flex-col">
-                  <FilePreviewCard
-                    kind={picked.kind}
-                    ownerId={picked.ownerId}
-                    file={picked}
-                    onClose={() => setPicked(null)}
-                    onSaved={() => void d.refetch()}
-                    onReview={picked.kind === 'contract' ? (f) => setReviewTarget(f) : undefined}
-                  />
-                </div>
-              }
-            />
-          </div>
-        )}
-
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0">
           {d.casesError ? (
             /* 案件列表错不能当空列表：律师会读成「本案没有程序」 */
             <ErrorBlock
@@ -237,7 +248,7 @@ export function DealDetailPage() {
             <div
               className={
                 'space-y-[18px] ' +
-                (ordered.length >= 2
+                (ordered.length >= 2 && !docSideBySide
                   ? 'min-[1900px]:columns-2 min-[1900px]:gap-[18px] min-[1900px]:space-y-0'
                   : '')
               }
@@ -251,10 +262,12 @@ export function DealDetailPage() {
                     c={c}
                     ambiguous={ambiguous.has(c.proc)}
                     highlighted={hl === c.id}
-                    onAddLog={onAddLog}
+                    onAddLog={setLogTarget}
+                    onOpenActions={setActionsFor}
                     onOpenFile={openCaseFile(c.id)}
                     onDraft={draft.openFor}
                     selectedSubpath={picked?.kind === 'case' && picked.ownerId === c.id ? picked.subpath : null}
+                    onFolderMutated={onFolderMutated}
                   />
                   <CaseVerifyCard caseId={c.id} />
                 </div>
@@ -267,82 +280,50 @@ export function DealDetailPage() {
             </div>
           )}
         </div>
-
-        {picked && !focusDoc && (
-          <ResizeHandle
-            dragging={panelDragging}
-            hidden={panelStacked}
-            onPointerDown={panelPointerDown}
-            onKeyAdjust={(dir) => panelSetWidth((w) => Math.max(320, w + dir * 40))}
-            label="调整预览栏宽度"
-          />
-        )}
-
-        {!focusDoc && (
-          <div
-            className="min-w-0"
-            style={picked && panelEffectiveWidth ? { width: panelEffectiveWidth, flex: 'none' } : undefined}
-          >
-            <DetailRail
-              deadlines={deadlines}
-              today={d.today}
-              contactGroups={contacts}
-              team={deal.team}
-              deal={deal}
-              moneyRows={money}
-              onAddDue={onAddDue}
-              onAddPayment={onAddPayment}
-              onOpenInvoices={onOpenInvoices}
-              onMoneyChanged={onMoneyChanged}
-              onOpenFile={openContractFile}
-              onReviewFile={(f) => setReviewTarget(f)}
-              folderPreview={
-                picked ? (
-                  <div className="mb-2.5 flex h-[min(70vh,720px)] min-h-[420px] flex-col">
-                    <FilePreviewCard
-                      kind={picked.kind}
-                      ownerId={picked.ownerId}
-                      file={picked}
-                      onClose={() => setPicked(null)}
-                      onSaved={() => void d.refetch()}
-                      onReview={picked.kind === 'contract' ? (f) => setReviewTarget(f) : undefined}
-                      />
-                  </div>
-                ) : null
-              }
-            />
-          </div>
-        )}
-      </div>
+      </DealDocLayout>
 
       <ContractFileOverlays
         ownerId={deal.id}
         client={deal.parties?.client}
         reviewTarget={reviewTarget}
         onReviewClose={() => setReviewTarget(null)}
-        onReviewStart={(f) => setReviewTarget(f)}
       />
 
-      {/* 记收款：粘贴到账短信 / 拖发票。保存后刷新合同，右栏收费节即时更新 */}
-      <PaymentDialog
-        open={payOpen}
-        contractId={deal.id}
-        fixedAmount={deal.amountNum}
-        receivedAmount={Number(deal.totalReceived?.replace(/[^\d.]/g, '') || 0)}
-        onClose={() => setPayOpen(false)}
-        onSaved={() => void d.refetch()}
+      <DealDetailDialogs
+        contractId={contractId}
+        deal={deal}
+        ordered={ordered}
+        next={next}
+        defaultCaseName={defaultCaseName}
+        payOpen={payOpen}
+        onPayClose={() => setPayOpen(false)}
+        onPaymentSaved={onMoneyChanged}
+        invoiceOpen={invoiceOpen}
+        onInvoiceClose={() => setInvoiceOpen(false)}
+        caseOpen={caseOpen}
+        onCaseClose={() => setCaseOpen(false)}
+        onCaseSaved={(caseId) => {
+          // 建完先刷合同+案件；滚动由上面的 effect 在「id 出现」时接手
+          refetchContractAndCases(queryClient, contractId)
+          setNewCaseId(caseId)
+        }}
+        logTarget={logTarget}
+        onLogClose={() => setLogTarget(null)}
+        onScheduleSaved={onScheduleChanged}
+        deadlineOpen={deadlineOpen}
+        onDeadlineClose={() => setDeadlineOpen(false)}
+        doc={doc}
+        draft={draft}
       />
 
-      {/* 先开票后付款：票挂合同名下；关闭即失效未关联缓存，右栏计数同步 */}
-      <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
-
-      {/* 一句话生成文书。只有诉讼分支挂它：已上线的 spec 都是案件文书，合同文件夹
-          模板里没有对应落位节点（传 contract 侧会得到 created=false + 原因） */}
-      <DraftDialog
-        open={draft.caseId != null}
-        onOpenChange={(v) => { if (!v) draft.close() }}
-        caseId={draft.caseId}
-        onCreated={draft.onCreated}
+      {/* 办理：一张网立案 / 申请担保 / OA 立案 / 项目归档 */}
+      <CaseActionsSheet
+        open={actionsFor !== null}
+        onClose={() => setActionsFor(null)}
+        caseId={actionsFor?.id ?? 0}
+        caseLabel={actionsFor?.label ?? ''}
+        contractId={contractId}
+        onChanged={() => refetchContractAndCases(queryClient, contractId)}
       />
     </main>
   )

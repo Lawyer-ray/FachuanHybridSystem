@@ -9,6 +9,7 @@
 import type { AgentBackendSelection } from './backend-types'
 import type { MentionInsert } from './domain/mention'
 import type { CopilotContext } from './scope-types'
+import type { UiActionRequest, UiToolErrorCode } from './ui-tools'
 import type {
   ChatMessage,
   FolderRefDraft,
@@ -18,6 +19,19 @@ import type {
   SelectionQuote,
   TurnStats,
 } from './types'
+
+/** 一次 UI 动作的运行态；失败码复用 ui-tools 的闭集（前端只认那几档） */
+export interface UiToolRun {
+  name: string
+  state: 'pending' | 'running' | 'ok' | 'error' | 'aborted'
+  code?: UiToolErrorCode
+  startedAt: number
+  endedAt?: number
+  /** 所属批次 id（`ui_action_batch` 下发的帧才有；单步动作为 null）——同一批的几步在排障时看得到是一组 */
+  batchId?: string | null
+  /** 批次内序号（0 起；单步动作为 0） */
+  batchIndex?: number
+}
 
 /**
  * store（useCopilot）的完整状态形状。
@@ -47,6 +61,19 @@ export interface CopilotState extends AgentBackendSelection {
   dismissQuestion: (questionId: string) => void
   /** 拉取服务端待答提问并合并（面板打开/重开会话时补拉，避免错过反问） */
   loadPendingQuestions: () => Promise<void>
+  /**
+   * UI 动作的运行记录（键 = `callId`）。
+   *
+   * **不进转录**：动作的结果已经落在页面上（页面跳了、面板开了），写进消息既回放不出
+   * 那个效果，也无法撤销，只会在对话里多一行噪音（理由见 store/ui-tools.ts 文件头）。
+   */
+  uiToolRuns: Record<string, UiToolRun>
+  /** 「停下」的置位时刻（null = 未打断）：此后到达的 ui_action 一律不执行 */
+  abortedAt: number | null
+  /** 执行一条界面动作（幂等 / 打断 / 失败落态都在 store/ui-tools.ts 收口） */
+  runUiAction: (req: UiActionRequest) => Promise<void>
+  /** 「停下」：只挡后续动作，已发出的不追回（它们在毫秒内已落完） */
+  abortUiActions: () => void
   streaming: boolean
   loadingHistory: boolean
   /**

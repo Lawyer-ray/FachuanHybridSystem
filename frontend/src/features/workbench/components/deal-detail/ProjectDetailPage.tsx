@@ -22,8 +22,8 @@ export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { deal } = useDealDetailPage(id)
 
-  // loading / error / 无效 id 由子页自己渲染（各自的骨架与错误态已就位），
-  // 这里只做「知道 lit 之后选哪一页」。未知时按非诉渲染：未加载完成不闪案件链。
+  // loading / error / 无效 id 由两个子页各自渲染（都还是转圈的 LoadingBlock + DetailError，
+  // 不是骨架），这里只做「知道 lit 之后选哪一页」。未知时按非诉渲染：未加载完成不闪案件链。
   if (deal?.lit) return <DealDetailPage />
   return <NonLitDetailPage />
 }

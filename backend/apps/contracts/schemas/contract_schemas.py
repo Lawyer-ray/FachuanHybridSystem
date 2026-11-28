@@ -13,6 +13,12 @@ from ninja import ModelSchema, Schema
 from pydantic import field_validator, model_validator
 
 from apps.contracts.models import Contract, FeeMode
+
+# 模块级 import：resolve_can_archive 曾把它写在 try 内，于是 ImportError/循环 import
+# 会被 blanket except 吞成「不可归档」——排查时只看到 can_archive 恒 False。提到模块级
+# 后这类错误在导入期就炸（列表接口不会带着错误口径静默跑）。
+# 无循环依赖：apps.contracts.models 顶层已在此 import。
+from apps.contracts.models.finalized_material import MaterialCategory
 from apps.core.api.schemas_shared import ReminderLiteOut as ReminderOut
 from apps.core.models.enums import CaseStage
 
@@ -360,8 +366,13 @@ class ContractOut(ModelSchema):
             return obj.get("payments", [])  # type: ignore[no-any-return]
         try:
             return list(obj.payments.all())
+        except (AttributeError, TypeError):
+            # 预期内、且是**设计路径**（不是失败）：slim 序列化代理故意不暴露 payments
+            # 之外的形状，投影 dict 也走这里。静默返回空列表——这里的语义是「没有这条
+            # 关系」，不是「取数失败」，记日志只会把真故障淹没。
+            return []
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("resolve_payments: 未知异常，按空列表降级")
             return []
 
     @staticmethod
@@ -374,8 +385,9 @@ class ContractOut(ModelSchema):
             return float(annotated or 0)
         try:
             return float(sum(p.amount or 0 for p in obj.payments.all()))
-        except (TypeError, ValueError):
-            logger.exception("操作失败")
+        except (TypeError, ValueError) as exc:
+            # 预期内：金额字段为 None/非数值，求和或 float() 失败
+            logger.debug("resolve_total_received: payments 金额不可求和（%s），按 0 降级", exc)
             return 0.0
 
     @staticmethod
@@ -388,8 +400,9 @@ class ContractOut(ModelSchema):
             return float(annotated or 0)
         try:
             return float(sum(p.invoiced_amount or 0 for p in obj.payments.all()))
-        except (TypeError, ValueError):
-            logger.exception("操作失败")
+        except (TypeError, ValueError) as exc:
+            # 预期内：开票金额为 None/非数值，求和或 float() 失败
+            logger.debug("resolve_total_invoiced: payments 开票金额不可求和（%s），按 0 降级", exc)
             return 0.0
 
     @staticmethod
@@ -401,9 +414,9 @@ class ContractOut(ModelSchema):
                 return None
             val = float(obj.fixed_amount) - ContractOut.resolve_total_received(obj)
             return float(val) if val >= 0 else 0.0
-        except (TypeError, ValueError):
-            logger.exception("操作失败")
-
+        except (TypeError, ValueError) as exc:
+            # 预期内：fixed_amount / 已收金额任一不是数值
+            logger.debug("resolve_unpaid_amount: fixed_amount 或已收金额不可运算（%s），按 None 降级", exc)
             return None
 
     @staticmethod
@@ -465,22 +478,29 @@ class ContractOut(ModelSchema):
             return obj.get("client_payment_records", [])  # type: ignore[no-any-return]
         try:
             return list(obj.client_payment_records.all())
+        except (AttributeError, TypeError):
+            # 预期内且是设计路径：slim 代理不暴露该关系（理由同 resolve_payments）
+            return []
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("resolve_client_payment_records: 未知异常，按空列表降级")
             return []
 
     @staticmethod
     def resolve_finalized_materials(obj: Any) -> list:
         if isinstance(obj, dict):
             if "finalized_materials" not in obj:
-                # slim 投影（list 端点剔除归档材料）：抛 AttributeError 让该字段
-                # 视为「未提供」，配合端点 exclude_unset=True 保持 slim 响应不含该键
+                # 投影 dict 未带归档材料：抛 AttributeError 走下面的降级分支（回 []）。
+                # 注意别再写「响应不含该键」——实测 slim 响应里这个键就在、值是 []
+                # （`_serialize_contract` 不带 exclude_unset，端点上的 exclude_unset 无键可剔）。
                 raise AttributeError("finalized_materials")
             return obj["finalized_materials"]  # type: ignore[no-any-return]
         try:
             return list(obj.finalized_materials.all())
+        except (AttributeError, TypeError):
+            # 预期内且是设计路径：slim 代理不暴露该关系（理由同 resolve_payments）
+            return []
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("resolve_finalized_materials: 未知异常，按空列表降级")
             return []
 
     @staticmethod
@@ -488,8 +508,6 @@ class ContractOut(ModelSchema):
         if isinstance(obj, dict):
             return bool(obj.get("can_archive", False))
         try:
-            from apps.contracts.models.finalized_material import MaterialCategory
-
             required_categories = {
                 MaterialCategory.CONTRACT_ORIGINAL,
                 MaterialCategory.ARCHIVE_DOCUMENT,
@@ -498,8 +516,12 @@ class ContractOut(ModelSchema):
             # 使用预取的 finalized_materials 数据，避免额外查询
             existing = {m.category for m in obj.finalized_materials.all() if m.category in required_categories}
             return required_categories.issubset(existing)
+        except (AttributeError, TypeError):
+            # 预期内且是设计路径：slim 代理不暴露 finalized_materials（理由同 resolve_payments）。
+            # 语义上「拿不到材料清单」= 无法证明可归档 = False，与旧口径一致。
+            return False
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("resolve_can_archive: 未知异常，按 False 降级")
             return False
 
 
@@ -543,8 +565,9 @@ class ContractListPageOut(Schema):
     """合同分页列表输出 Schema（GET /contracts/contracts 实际返回形状）。
 
     与 ContractPaginatedOut 不同：本 Schema 按 list_contracts_page 服务返回定形
-    （facets 计数而非 total_pages）；items 在 slim=true 时剔除 finalized_materials
-    （由端点 exclude_unset=True 实现，此处声明保持全集）。
+    （facets 计数而非 total_pages）；slim=true 时不再查/构建 finalized_materials，
+    但该键仍以 [] 出现在响应里（端点 exclude_unset=True 实测无键可剔，见
+    `_serialize_contract` 注释）——判 slim 请看请求参数，不要看键是否存在。
     """
 
     items: list[ContractOut]

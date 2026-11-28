@@ -21,7 +21,7 @@ const getCanvasState = vi.hoisted(() =>
 )
 vi.mock('@/components/shared/onlyoffice/api', () => ({ getCanvasState }))
 
-const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }))
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
 
 vi.mock('@/lib/download-ticket', () => ({ withDownloadTicket: vi.fn(async (u: string) => u) }))
@@ -40,7 +40,7 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>
 }
 
-function mount(requestSave = vi.fn(() => true)) {
+function mount(requestSave = vi.fn(() => true), over: { canSave?: boolean; ready?: boolean } = {}) {
   return renderHook(
     () =>
       useFolderSave({
@@ -48,12 +48,19 @@ function mount(requestSave = vi.fn(() => true)) {
         ownerId: 393,
         file: { subpath: '1-合同/a.docx', name: 'a.docx' },
         requestSave,
-        canSave: true,
+        canSave: over.canSave ?? true,
         saveAsEnabled: false,
-        ready: true,
+        ready: over.ready ?? true,
       }),
     { wrapper },
   )
+}
+
+/** 模拟一次 ⌘S（监听挂在 document 上） */
+function pressCmdS() {
+  act(() => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true }))
+  })
 }
 
 async function pressSaveThenFlush(hook: ReturnType<typeof mount>) {
@@ -79,6 +86,32 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+})
+
+describe('useFolderSave：保存入口的反馈', () => {
+  it('连按两次 ⌘S 只发一次 forcesave（busy 是 state，拦不住同一帧的重入）', () => {
+    const requestSave = vi.fn(() => true)
+    const hook = mount(requestSave)
+
+    pressCmdS()
+    pressCmdS()
+
+    expect(requestSave).toHaveBeenCalledTimes(1)
+    hook.unmount()
+  })
+
+  it('只读格式按 ⌘S 不再是死键：不保存，但明确说一句', () => {
+    const requestSave = vi.fn(() => true)
+    toast.info.mockClear()
+    // 只读文档（pdf/图片）不给原地保存，但也不能让按键无声消失
+    const hook = mount(requestSave, { canSave: false })
+
+    pressCmdS()
+
+    expect(requestSave).not.toHaveBeenCalled()
+    expect(String(toast.info.mock.calls[0]?.[0])).toContain('不支持原地保存')
+    hook.unmount()
+  })
 })
 
 describe('useFolderSave：保存后核实落盘', () => {

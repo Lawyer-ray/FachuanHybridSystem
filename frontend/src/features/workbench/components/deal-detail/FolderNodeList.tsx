@@ -52,6 +52,11 @@ export function FolderNodeList({
   if (!d) {
     return <div className="py-2 text-xs text-muted-foreground/70">文件夹是空的</div>
   }
+  // 「不可浏览」（硬盘路径没了 / 无权限 / 未挂载）与「空文件夹」是两件事：
+  // 后端已经把原因放在 message 里，吞掉它只会让律师以为文件被清空了
+  if (!d.browsable) {
+    return <div className="py-2 text-xs text-status-yellow">{d.message || '这个文件夹现在打不开'}</div>
+  }
   if (d.folders.length === 0) {
     if (subpath === '') {
       // 根目录没有子文件夹：只在真的什么都没有时提示「文件夹是空的」。
@@ -157,7 +162,7 @@ function FolderRow({
             {stripEntryParens(folder.name)}
           </span>
           {/* 上下文动作 hover 显形：浮层绝对定位，不挤占行布局（否则名字会被压短/跳动） */}
-          <span className="absolute top-1/2 right-1 hidden -translate-y-1/2 items-center gap-0.5 rounded-[6px] bg-secondary px-0.5 group-hover:flex">
+          <span className="absolute top-1/2 right-1 hidden -translate-y-1/2 items-center gap-0.5 rounded-[6px] bg-secondary px-0.5 group-hover:flex group-focus-within:flex">
             <button
               type="button"
               title="新建子文件夹"

@@ -9,6 +9,8 @@
  * - 点外部关闭弹层、弹层内连续调整不关闭
  * - facets 为 null 时计数为 0、不崩
  */
+import { useState } from 'react'
+
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -135,6 +137,38 @@ describe('FilterBar：激活 chip', () => {
   it('facet 里找不到的 value 回落显示原始值', () => {
     const { unmount } = renderBar({ filter: baseFilter({ cat: 'unknown-cat' }) })
     expect(document.body.textContent).toContain('unknown-cat')
+    unmount()
+  })
+})
+
+describe('FilterBar：chip 选中态（色 + 形双通道）', () => {
+  it('选中 chip 带 aria-pressed=true 与 ✓，未选中 aria-pressed=false 且无 ✓', () => {
+    const { unmount } = renderBar()
+    fireEvent.click(filterButton())
+    const onChip = screen.getByRole('button', { name: /在办/ })
+    const offChip = screen.getByRole('button', { name: /已归档/ })
+    expect(onChip.getAttribute('aria-pressed')).toBe('true')
+    expect(onChip.querySelector('svg')).toBeTruthy()
+    expect(offChip.getAttribute('aria-pressed')).toBe('false')
+    expect(offChip.querySelector('svg')).toBeNull()
+    unmount()
+  })
+
+  it('点一下未选中的 chip 后两颗状态互换', () => {
+    function Controlled() {
+      const [filter, setFilter] = useState<WorkbenchFilter>(baseFilter())
+      return <FilterBar facets={facets()} filter={filter} onChange={setFilter} />
+    }
+    const { unmount } = render(<Controlled />)
+    fireEvent.click(filterButton())
+    fireEvent.click(screen.getByRole('button', { name: /已归档/ }))
+
+    const onChip = screen.getByRole('button', { name: /已归档/ })
+    const offChip = screen.getByRole('button', { name: /在办/ })
+    expect(onChip.getAttribute('aria-pressed')).toBe('true')
+    expect(onChip.querySelector('svg')).toBeTruthy()
+    expect(offChip.getAttribute('aria-pressed')).toBe('false')
+    expect(offChip.querySelector('svg')).toBeNull()
     unmount()
   })
 })

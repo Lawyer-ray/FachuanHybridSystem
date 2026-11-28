@@ -9,7 +9,8 @@
  * 见 App.dom.test）、无用户名时补拉 me 并回填 store、新建案件回调、
  * 登出全链路（store 登出 + query 缓存清空 + 阅读器/PDF 缓存清理 + 跳转 /login）、
  * 账号绑定入口跳转、导航入口的悬停预取与点击乐观高亮（目标页 chunk 未到、
- * 路由 transition 挂起期间被点的标签先行高亮，旧页面保持不退回 fallback）。
+ * 路由 transition 挂起期间被点的标签先行高亮，旧页面保持不退回 fallback）、
+ * 手机端「…」溢出菜单（分组 / 可访问名区分 / 全局检索等入口的接线）。
  */
 import { lazy, Suspense } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -76,6 +77,7 @@ function setupUi({ searchOpen = false }: { searchOpen?: boolean } = {}) {
           <Route path="/" element={null} />
           <Route path="/login" element={<div>login-page</div>} />
           <Route path="/settings" element={<div>bindings-page</div>} />
+          <Route path="/projects" element={<div>projects-page</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -86,6 +88,11 @@ function setupUi({ searchOpen = false }: { searchOpen?: boolean } = {}) {
 /** radix DropdownMenu 在 jsdom 下用 pointerDown(button=0) 打开 */
 function openUserMenu() {
   fireEvent.pointerDown(screen.getByRole('button', { name: '用户菜单' }), { button: 0, ctrlKey: false })
+}
+
+/** 手机端「…」溢出菜单的触发器（桌面端同名按钮被媒体查询隐藏，但 jsdom 仍找得到） */
+function openMoreMenu() {
+  fireEvent.pointerDown(screen.getByRole('button', { name: '更多操作' }), { button: 0, ctrlKey: false })
 }
 
 beforeEach(() => {
@@ -145,6 +152,83 @@ describe('AppNavbar 渲染与全局检索', () => {
     expect(await screen.findByText('新建项目', { selector: '[role="dialog"] *' })).toBeTruthy()
     // 用精确文本：说明段落里也有「从示例开始」四个字，正则匹配会撞到两个
     expect(screen.getByText('从示例开始（可选）')).toBeTruthy()
+  })
+})
+
+describe('AppNavbar 手机端溢出菜单', () => {
+  it('按 导航 / 动作 / 账户 三组列出全部手机入口，条目与组间分隔符合规范', async () => {
+    setupUi()
+    // 桌面按钮保持原名（先在菜单打开前确认；菜单展开后 radix 会把外部内容
+    // 标记 aria-hidden，按名字就查不到了）
+    expect(screen.getByRole('button', { name: '全局检索' })).toBeTruthy()
+    openMoreMenu()
+
+    // 三组小标题
+    for (const title of ['导航', '动作', '账户']) {
+      expect(await screen.findByText(title, { selector: '[data-slot="dropdown-menu-label"]' })).toBeTruthy()
+    }
+
+    // 每条目的可访问名都带「（菜单）」：桌面按钮同时在 DOM 里（jsdom 不跑媒体查询），
+    // 同名会 getByRole 命中两个。这里把名字显式钉死。
+    const items = [
+      '首页（菜单）',
+      '预处理（菜单）',
+      '项目（菜单）',
+      '新建项目（菜单）',
+      '全局检索（菜单）',
+      '设置（菜单）',
+      '退出登录（菜单）',
+    ]
+    for (const name of items) {
+      const item = screen.getByRole('menuitem', { name })
+      // 触控目标 ≥44px：手机上没有 hover，条目太窄会点错
+      expect(item.className).toContain('min-h-11')
+    }
+    // 菜单项必须带后缀，不能撞上桌面按钮的无后缀名
+    expect(screen.queryByRole('menuitem', { name: '全局检索' })).toBeNull()
+
+    // 组间分隔：两条 border-t 细线
+    const dividers = document.querySelectorAll('[data-slot="dropdown-menu-separator"]')
+    expect(dividers).toHaveLength(2)
+    dividers.forEach((el) => expect(el.className).toContain('border-t border-border'))
+  })
+
+  it('「全局检索」是手机唯一入口：点击打开检索面板', async () => {
+    setupUi()
+    openMoreMenu()
+    fireEvent.click(await screen.findByRole('menuitem', { name: '全局检索（菜单）' }))
+    expect(onSearchOpenChange).toHaveBeenCalledWith(true)
+  })
+
+  it('「设置」跳转 /settings', async () => {
+    setupUi()
+    openMoreMenu()
+    fireEvent.click(await screen.findByRole('menuitem', { name: '设置（菜单）' }))
+    expect(await screen.findByText('bindings-page')).toBeTruthy()
+  })
+
+  it('「新建项目」打开真实新建对话框', async () => {
+    setupUi()
+    openMoreMenu()
+    fireEvent.click(await screen.findByRole('menuitem', { name: '新建项目（菜单）' }))
+    expect(await screen.findByText('新建项目', { selector: '[role="dialog"] *' })).toBeTruthy()
+  })
+
+  it('「退出登录」走现有确认弹窗（不能点一下直接登出）', async () => {
+    setupUi()
+    openMoreMenu()
+    fireEvent.click(await screen.findByRole('menuitem', { name: '退出登录（菜单）' }))
+    expect(await screen.findByText('确认退出登录？')).toBeTruthy()
+    expect(stubs.authState.logout).not.toHaveBeenCalled()
+  })
+
+  it('导航组条目复用桌面导航的跳转与乐观高亮', async () => {
+    setupUi()
+    openMoreMenu()
+    fireEvent.click(await screen.findByRole('menuitem', { name: '项目（菜单）' }))
+    expect(await screen.findByText('projects-page')).toBeTruthy()
+    // 路由提交后桌面导航的对应标签也高亮（同一个 navPath）
+    expect(screen.getByRole('link', { name: '项目' }).getAttribute('aria-current')).toBe('page')
   })
 })
 

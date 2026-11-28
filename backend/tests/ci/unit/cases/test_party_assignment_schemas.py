@@ -9,6 +9,7 @@ import pytest
 
 from apps.cases.schemas.assignment_schemas import CaseAssignmentIn, CaseAssignmentOut, CaseAssignmentUpdate
 from apps.cases.schemas.party_schemas import CasePartyIn, CasePartyOut, CasePartyUpdate
+from apps.core.api.schemas_shared import ClientBriefOut
 
 
 class TestCasePartyOutResolveClientDetail:
@@ -18,9 +19,10 @@ class TestCasePartyOutResolveClientDetail:
             "id": cid,
             "name": f"客户{cid}",
             "is_our_client": True,
-            "client_type": "legal",
-            "client_type_label": "法人",
-            "identity_docs": [],
+            "phone": None,
+            "address": None,
+            "id_number": None,
+            "legal_representative": "李代表",
         }
 
     def test_dict_with_client_detail_key(self) -> None:
@@ -33,14 +35,12 @@ class TestCasePartyOutResolveClientDetail:
         assert result.id == 2
 
     def test_dict_with_client_detail_instance(self) -> None:
-        from apps.core.api.schemas_shared import ClientLiteOut
-
-        client = ClientLiteOut(**self._client_payload(3))
+        client = ClientBriefOut(**self._client_payload(3))
         result = CasePartyOut.resolve_client_detail({"client_detail": client})
         assert result is client
 
     def test_model_with_client_fk(self) -> None:
-        """FK 模型走真实 ClientLiteOut.from_model 全链（零 mock，免疫任何类状态污染）。
+        """FK 模型走真实 ClientBriefOut.from_model 全链（零 mock，免疫任何类状态污染）。
 
         此前用类级/名字绑定补丁，全量套件下单进程顺序下补丁会静默失效
         （真实 from_model 执行报 Mock 无 id）——直测真实转换更强也更稳。
@@ -67,8 +67,10 @@ class TestCasePartyOutResolveClientDetail:
         assert result.id == 7
         assert result.name == "测试客户"
         assert result.is_our_client is True
-        assert result.client_type_label == "法人"
-        assert result.identity_docs == []
+        assert result.phone == "13800000000"  # privacy-allow 虚构号码
+        # 嵌入快照刻意不含证件与衍生 label：证件只从客户自身端点出参
+        assert "identity_docs" not in result.model_dump()
+        assert "client_type_label" not in result.model_dump()
 
     def test_none_client_returned_as_is(self) -> None:
         party = MagicMock()

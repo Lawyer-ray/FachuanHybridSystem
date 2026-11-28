@@ -24,10 +24,15 @@ from apps.core.dto.request_context import extract_request_context
 logger = logging.getLogger("apps.contracts.api")
 router = Router()
 
-# slim（列表）视图跳过的重关系：代理对这些名字抛 AttributeError，pydantic 落到
-# schema 字段默认值（ContractOut 上两组字段本就带 [] 默认，resolver 对
-# AttributeError 有既有逃逸口）——from_orm 既不触发未预取关系的补查，也不构建
-# 对应嵌套 DTO。此前 slim 只是 from_orm 全量构建后 data.pop()，DB/DTO 成本没省。
+# slim（列表）视图跳过的重关系：代理对这些名字抛 AttributeError，schema 字段落默认
+# 值（ContractOut 上两组字段本就带 [] 默认）——from_orm 既不触发未预取关系的补查，
+# 也不构建对应嵌套 DTO。此前 slim 只是 from_orm 全量构建后 data.pop()，DB/DTO 成本没省。
+#
+# 口径开关（2026-11-27 实测纠正两处注释漂移）：slim **不是**「响应里不含该键」。
+# `_serialize_contract` 走 model_dump(by_alias=True)、不带 exclude_unset，所以每个键都
+# 算「已 set」，端点上的 exclude_unset=True 无键可剔——实测首行 34 个键里
+# finalized_materials 就是 []。slim 省的是 DB 取数与 DTO 构建，不是响应键。
+# 消费方不要依赖「键不存在」来判 slim（前端 types.ts 的同名注释已同步改）。
 _SLIM_EXCLUDED_FIELDS = frozenset({"finalized_materials", "client_payment_records"})
 
 

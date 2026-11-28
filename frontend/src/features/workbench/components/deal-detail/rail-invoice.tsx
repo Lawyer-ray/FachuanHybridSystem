@@ -46,12 +46,16 @@ export function InvoiceGroupHead({
 export function InvoiceRow({
   inv,
   busy,
+  locked = false,
   payments,
   onLink,
   onUnlink,
 }: {
   inv: PaymentInvoice
+  /** 本行正在飞（图标转圈） */
   busy: boolean
+  /** 别处正在飞：本行也得禁用——否则点了代码里直接 return，看着像按钮坏了 */
+  locked?: boolean
   /** 可选目标收款（金额已格式化，直接进按钮文案/tooltip） */
   payments: Array<{ id: number; amount: string }>
   onLink: (paymentId: number) => void
@@ -89,7 +93,7 @@ export function InvoiceRow({
                 ? 'text-muted-foreground/80 hover:bg-secondary hover:text-foreground'
                 : 'bg-secondary text-secondary-foreground hover:bg-secondary/70')
             }
-            disabled={busy}
+            disabled={busy || locked}
             onClick={() => onLink(p.id)}
           >
             {busy ? <Loader2 className="size-3 animate-spin" /> : label}
@@ -102,7 +106,7 @@ export function InvoiceRow({
           title="解除关联（发票退回未关联，重新挂到正确的收款）"
           aria-label="解除关联"
           className="flex-none rounded-[5px] p-1 text-muted-foreground/60 transition-colors hover:bg-secondary hover:text-status-red disabled:opacity-50"
-          disabled={busy}
+          disabled={busy || locked}
           onClick={onUnlink}
         >
           {busy ? <Loader2 className="size-3 animate-spin" /> : <Unlink className="size-3" />}

@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, TriangleAlert } from 'lucide-react'
 import { getEditorConfig, type EditorMode } from './api'
+import { loadApiJs } from './load-api-js'
+
+/** 挂载点 id 的进程级计数器（唯一性来源；见 placeId 为何不用 useId） */
+let ooSeq = 0
+import type {
+  EditorInstance,
+  EditorState,
+  OfficeEditorHandle,
+  PluginBridgeMessage,
+  PluginBridgeOutgoing,
+} from './types'
 
 /**
  * OnlyOffice Document Server 渲染单个文件。
@@ -13,110 +24,17 @@ import { getEditorConfig, type EditorMode } from './api'
  * 已签名的 config，DS 的 JWT 密钥不出后端。
  */
 
-const API_JS = '/web-apps/apps/api/documents/api.js'
 
-/** 挂载点 id 的进程级计数器（唯一性来源；见 placeId 为何不用 useId） */
-let ooSeq = 0
-
-/** DS 的 api.js 全局只该加载一次：并发挂载时共用一个 Promise */
-let apiScriptPromise: Promise<void> | null = null
-
-function loadApiJs(docserverUrl: string): Promise<void> {
-  if (window.DocsAPI) return Promise.resolve()
-  if (apiScriptPromise) return apiScriptPromise
-  apiScriptPromise = new Promise<void>((resolve, reject) => {
-    const el = document.createElement('script')
-    el.src = `${docserverUrl.replace(/\/$/, '')}${API_JS}`
-    el.async = true
-    el.onload = () => resolve()
-    el.onerror = () => {
-      apiScriptPromise = null
-      reject(new Error('OnlyOffice api.js 加载失败'))
-    }
-    document.head.appendChild(el)
-  })
-  return apiScriptPromise
-}
-
-interface EditorInstance {
-  destroyEditor?: () => void
-  /** DS 官方：把当前编辑内容存为指定格式的 Blob。用于「保存 / 另存为」。 */
-  downloadAs?: (format: string) => Promise<Blob>
-  /**
-   * DS 的外部命令入口（`serviceCommand({ c: 'forcesave' })` 触发立即回存）。
-   *
-   * 不在官方对外文档里，社区版实例上确实存在（实测）；声明成可选即表示
-   * 「可能没有」，调用侧用 typeof 守卫——所以这里是类型而非断言。
-   */
-  serviceCommand?: (cmd: { c: string }) => void
-}
-
-/** 供调用方持有的编辑器句柄 */
-export interface OfficeEditorHandle {
-  /**
-   * 触发编辑器内部保存（DS 工具栏的「保存」）。
-   *
-   * **为什么不是 `downloadAs('docx')` 取字节自己上传**：社区版的编辑器实例
-   * 不暴露 `downloadAs`（实测 `Asc.editor` 上只有私有的 `forceSave*` 系列），
-   * 外层也拿不到实例方法。而 DS 自带保存按钮会走 `forcesave` → 命中
-   * `callbackUrl` → 后端 `adopt_edited` 落盘，这条链路是真的通的。
-   *
-   * 返回是否成功点到按钮（编辑器未就绪或 DOM 结构变化时返回 false）。
-   */
-  requestSave: () => boolean
-  /**
-   * 向文档内核发一条命令（协议见 deploy/onlyoffice/plugins 里 plugin.js）。
-   *
-   * 可用 action：`get-selection` / `insert-revision` / `locate` / `apply-revision` /
-   * `accept-all` / `reject-all` / `add-comments` / `get-comments` / `capabilities`。
-   * 回执统一从 `onPluginMessage` 回来（类型见 `PluginBridgeMessage`）。
-   */
-  sendToPlugin: (action: string, text?: string, payload?: Record<string, unknown>) => void
-}
-
-/** 批注回执里单条的定位结果 */
-export interface PluginCommentResult {
-  index: number
-  ok: boolean
-  reason?: string
-  commentId?: string
-}
-
-/** 画布内已经存在的批注（`GetAllComments` 的归一化形态） */
-export interface PluginComment {
-  commentId: string
-  quote: string
-  text: string
-  userName: string
-  solved: boolean
-}
-
-/** 内核能力探测回执（决定「AI 署名分离」等分支走哪条路，不靠猜） */
-export interface PluginCapabilities {
-  assistantTrackRevisions?: boolean
-  trackRevisions?: boolean
-  contentControl?: boolean
-}
-
-/** 插件桥回传的消息（口径与 plugin.js 的 post({type:...}) 完全一致） */
-export type PluginBridgeMessage =
-  | { type: 'ready'; editorType?: string; supported?: boolean }
-  | { type: 'selection'; text: string; explicit?: boolean }
-  | { type: 'inserted'; text?: string; error?: string }
-  | { type: 'located'; found?: boolean; result?: { ok: boolean } }
-  | { type: 'applied'; result?: { ok: boolean; reason?: string; how?: string } }
-  | { type: 'commented'; result?: { ok: boolean; reason?: string; results?: PluginCommentResult[] } }
-  | { type: 'comments'; result?: { ok: boolean; reason?: string; comments?: PluginComment[] } }
-  | { type: 'capabilities'; result?: PluginCapabilities & { ok?: boolean } }
-  | { type: 'done'; error?: string }
-  | { type: 'hello'; editorType?: string; supported?: boolean }
-
-/** 发往插件的消息（页面 → 桥） */
-interface PluginBridgeOutgoing {
-  source: 'fachuan-page'
-  action: string
-  text?: string
-  payload?: Record<string, unknown>
+/**
+ * 读 DS 的 `onDocumentStateChange`。
+ *
+ * 各版本口径不同：有的给 `event.data === true`，有的给 `{ status: true }`。
+ * 两种都认，拿不到就当「没改」——宁可漏报一次提醒，也不能凭空说「有未保存改动」。
+ */
+function readDirtyFlag(event: unknown): boolean {
+  const data = (event as { data?: unknown } | null)?.data
+  if (typeof data === 'boolean') return data
+  return (data as { status?: unknown } | undefined)?.status === true
 }
 
 export function OfficeView({
@@ -126,6 +44,8 @@ export function OfficeView({
   version = '',
   onEditorReady,
   onPluginMessage,
+  onDirtyChange,
+  onStateChange,
 }: {
   /** 站内下载路径（后端会为 DS 签发可重复使用的 HMAC 签名代理地址） */
   fileUrl: string
@@ -148,6 +68,15 @@ export function OfficeView({
    * 为什么必须绕桥：选区只存在于 DS 内核上下文，外部 React 拿不到。
    */
   onPluginMessage?: (msg: PluginBridgeMessage) => void
+  /**
+   * 文档是否处于「改了但还没保存」状态（DS `onDocumentStateChange`）。
+   *
+   * 关闭卡片 / 换文件 / 关页签前要靠它拦一下——否则律师在画布里敲了半小时，
+   * 随手点一下 X 就全没了，而界面上从未有过任何提示。
+   */
+  onDirtyChange?: (dirty: boolean) => void
+  /** 画布状态变化（加载中 / 就绪 / 打开失败 / 未启用） */
+  onStateChange?: (state: EditorState) => void
 }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<EditorInstance | null>(null)
@@ -165,8 +94,20 @@ export function OfficeView({
    * 回发时用该 origin 作 targetOrigin（而非 '*'）。
    */
   const trustedOriginRef = useRef<string>('')
-  const [state, setState] = useState<'loading' | 'ready' | 'error' | 'disabled'>('loading')
+  const [state, setState] = useState<EditorState>('loading')
   const [reason, setReason] = useState('')
+  /** 回调出口用 ref：进 effect 依赖会让画布每次渲染都重建（同 onEditorReady） */
+  const onDirtyChangeRef = useRef(onDirtyChange)
+  const onStateChangeRef = useRef(onStateChange)
+  useEffect(() => {
+    onDirtyChangeRef.current = onDirtyChange
+  }, [onDirtyChange])
+  useEffect(() => {
+    onStateChangeRef.current = onStateChange
+  }, [onStateChange])
+  useEffect(() => {
+    onStateChangeRef.current?.(state)
+  }, [state])
   /** 挂载轮次：DS 首挂偶发「无报错但 iframe 不创建」，换 key 重挂即好 */
   const [attempt, setAttempt] = useState(0)
   /** 已成功挂载的签名：React StrictMode 会 effect→cleanup→effect，
@@ -257,6 +198,10 @@ export function OfficeView({
           width: '100%',
           height: '100%',
           events: {
+            /** 改动/撤回改动都会来：父级据此决定关文档前要不要提醒 */
+            onDocumentStateChange: (event: unknown) => {
+              onDirtyChangeRef.current?.(readDirtyFlag(event))
+            },
             onDocumentReady: () => {
               if (deadTimer) clearTimeout(deadTimer)
               if (!cancelled) {
@@ -363,9 +308,30 @@ export function OfficeView({
               {state === 'disabled' ? 'OnlyOffice 未启用' : '文档打开失败'}
             </p>
             <p className="text-[11.5px] leading-relaxed text-muted-foreground">{reason}</p>
+            {/* 失败态原先唯一出路是「关掉文件再点开」：一个不起眼的图标按钮
+                藏着整条重试路径。重试 = 换 key 重挂（与僵死探活同一个入口） */}
+            {state === 'error' && (
+              <button
+                type="button"
+                onClick={() => setAttempt((n) => n + 1)}
+                className="mt-1 inline-flex h-[28px] items-center rounded-[7px] border border-border bg-card px-3 text-[12px] font-[550] text-secondary-foreground transition-colors hover:bg-secondary"
+              >
+                重试
+              </button>
+            )}
           </div>
         </div>
       )}
     </div>
   )
 }
+
+export type {
+  EditorInstance,
+  EditorState,
+  OfficeEditorHandle,
+  PluginBridgeMessage,
+  PluginComment,
+  PluginCommentResult,
+  PluginCapabilities,
+} from './types'

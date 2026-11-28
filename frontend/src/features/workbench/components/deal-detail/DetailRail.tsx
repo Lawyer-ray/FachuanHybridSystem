@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { EmptyBlock } from '@/components/shared/AsyncState'
@@ -8,7 +7,8 @@ import type { Deadline } from './detail-domain'
 import { dueLabel } from './detail-domain'
 import { RailFacts, RailParties, RailSupps } from './RailArchive'
 import { RailFees } from './RailFees'
-import { FolderTree } from './FolderTree'
+import type { FolderEntryMutation } from './folder-tree-types'
+import { ContractFolderSection } from './ContractFolderSection'
 import { Card, CopyText, RailAction, RailSection } from './ui'
 
 /**
@@ -17,6 +17,11 @@ import { Card, CopyText, RailAction, RailSection } from './ui'
  * 左列只放案件程序链。
  * 不做 sticky：卡片常比视口高，钉住就得卡内滚动，收费/合同要素会被裁在看不见的地方；
  * 随页面流动才能一眼看全。
+ *
+ * **卡片里不再装文档**。此前 `folderPreview` 让 OnlyOffice 长在这张卡的肚子里：
+ * 为了放下 A4 正文只能把**整张档案卡**拉到 720–780px，期限/当事人/收费被摊成
+ * 一排空行，侧边栏看着像被人硬拽宽了；而卡里那点高度（70vh 再扣 DS 工具栏）
+ * 连一页都放不下。现在文档由 DealDocLayout 当独立一栏渲染，档案卡永远窄。
  */
 export function DetailRail({
   deadlines,
@@ -32,10 +37,9 @@ export function DetailRail({
   showFolder = true,
   onOpenFile,
   onReviewFile,
-  folderPreview,
   folderOwnerId,
   folderSelectedSubpath,
-  factsHidden = false,
+  onFolderMutated,
 }: {
   deadlines: Deadline[]
   today: Date
@@ -57,22 +61,22 @@ export function DetailRail({
    * 诉讼页保持 true——左栏是案件程序链，文件夹作次要信息放右栏合适。
    */
   showFolder?: boolean
-  /** 点文件夹里的文件 → 由本组件就地展开预览（诉讼页走这条路） */
+  /** 点文件夹里的文件 → 由详情页交给 DealDocLayout 的文档栏打开 */
   onOpenFile?: (f: { subpath: string; name: string; size?: number; modified_at?: string }) => void
   /** 「AI 审查」入口（仅 docx） */
   onReviewFile?: (f: { subpath: string; name: string }) => void
-  /** 渲染在文件夹树上方的预览卡（由调用方给出，保持本组件不依赖 OnlyOffice） */
-  folderPreview?: ReactNode
   /** 文件夹绑定的合同 id（默认用 deal.id；独立传是为了让调用方能绑定到别的委托） */
   folderOwnerId?: number
-  /** 当前预览中的 subpath：让树里那一行高亮，知道「看的就是这份」 */
-  folderSelectedSubpath?: string | null
   /**
-   * 「文档对照」形态：只渲染文件夹树与 folderPreview，档案节（期限/当事人/
-   * 律师/收费/收款/补充协议/合同要素）全部隐藏。合同预览与并排 AI 助手同开、
-   * 页面净宽不足时由详情页置起——三栏塞不下时档案先让位，收起助手即恢复。
+   * 当前预览中的 subpath：让树里那一行高亮，知道「看的就是这份」。
+   *
+   * **调用方必须按 kind 过滤**（`picked.kind === 'contract' ? picked.subpath : null`）：
+   * 案件文件夹与合同文件夹都有 `1-立案材料/…` 这种同名路径，直接透传会亮错行，
+   * 还会按它把合同树里的同名目录强行展开。
    */
-  factsHidden?: boolean
+  folderSelectedSubpath?: string | null
+  /** 树内改名/删除 → 页面据此关掉正在预览的那份（见 FolderTree 的 onEntryMutated） */
+  onFolderMutated?: (e: FolderEntryMutation) => void
 }) {
   const copy = (text: string) => {
     void copyText(text).then(() => toast.success('已复制'))
@@ -80,55 +84,52 @@ export function DetailRail({
 
   return (
     <Card>
-      {/* 文档对照形态（factsHidden）：档案节整体不渲染，只留文件夹树与预览。
-          各节都判一遍而不是整段抽组件，是为了让「first:border-t-0」作用到
-          真正的第一个子节点——抽成条件包裹后 first: 语义就失真了。 */}
-      {!factsHidden && (
-        <RailSection
-          title="期限"
-          action={
-            <RailAction onClick={onAddDue}>＋ 新增</RailAction>
-          }
-        >
-          {deadlines.length === 0 ? (
-            /* 节内空态：共享件的居中内边距在 320px 右栏里太高，压成一行小字 */
-            <EmptyBlock className="justify-start px-0 py-0 text-left text-xs text-muted-foreground/70">
-              暂无未来期限
-            </EmptyBlock>
-          ) : (
-            deadlines.map((d) => (
-              <div key={d.key} className="grid grid-cols-[14px_1fr] py-1.5">
-                <span className="relative">
-                  <span
-                    className={
-                      'absolute top-[6px] rounded-full ' + (d.today ? 'left-[2.5px] size-[8px] bg-status-red' : 'left-[3px] size-[7px] bg-border')
-                    }
-                  />
+      <RailSection
+        title="期限"
+        action={
+          <RailAction onClick={onAddDue}>＋ 新增</RailAction>
+        }
+      >
+        {deadlines.length === 0 ? (
+          /* 节内空态：共享件的居中内边距在 320px 右栏里太高，压成一行小字 */
+          <EmptyBlock className="justify-start px-0 py-0 text-left text-xs text-muted-foreground/70">
+            暂无未来期限
+          </EmptyBlock>
+        ) : (
+          deadlines.map((d) => (
+            <div key={d.key} className="grid grid-cols-[14px_1fr] py-1.5">
+              <span className="relative">
+                <span
+                  className={
+                    'absolute top-[6px] rounded-full ' + (d.today ? 'left-[2.5px] size-[8px] bg-status-red' : 'left-[3px] size-[7px] bg-border')
+                  }
+                />
+              </span>
+              <span className="min-w-0 pl-[7px]">
+                <span className={'block text-[12.5px] leading-[1.5] ' + (d.today ? 'font-[640] text-status-red' : 'text-secondary-foreground')}>
+                  {d.typeLabel && (
+                    <span className="mr-[5px] rounded-[5px] border border-border-light bg-secondary px-[5px] align-[-1px] text-[10px] font-[620] text-secondary-foreground">
+                      {d.typeLabel}
+                    </span>
+                  )}
+                  {d.content}
                 </span>
-                <span className="min-w-0 pl-[7px]">
-                  <span className={'block text-[12.5px] leading-[1.5] ' + (d.today ? 'font-[640] text-status-red' : 'text-secondary-foreground')}>
-                    {d.typeLabel && (
-                      <span className="mr-[5px] rounded-[5px] border border-border-light bg-secondary px-[5px] align-[-1px] text-[10px] font-[620] text-secondary-foreground">
-                        {d.typeLabel}
-                      </span>
-                    )}
-                    {d.content}
-                  </span>
-                  <span className="mt-px block text-[11px] whitespace-nowrap text-muted-foreground/80 tabular-nums">
-                    {dueLabel(d.due, today)}
-                    {d.today ? ' · 今天' : ''}
-                    <b className="ml-2 font-[620] text-muted-foreground">{d.scope}</b>
-                  </span>
+                {/* 窄屏允许折行：到期文案 + 范围标签都是 nowrap 时，在 320–360 的
+                    宽度里会顶出卡片边缘 */}
+                <span className="mt-px block text-[11px] whitespace-nowrap text-muted-foreground/80 tabular-nums max-[680px]:whitespace-normal">
+                  {dueLabel(d.due, today)}
+                  {d.today ? ' · 今天' : ''}
+                  <b className="ml-2 font-[620] text-muted-foreground">{d.scope}</b>
                 </span>
-              </div>
-            ))
-          )}
-        </RailSection>
-      )}
+              </span>
+            </div>
+          ))
+        )}
+      </RailSection>
 
-      {!factsHidden && <RailParties deal={deal} />}
+      <RailParties deal={deal} />
 
-      {!factsHidden && contactGroups.length > 0 && (
+      {contactGroups.length > 0 && (
         <RailSection title="法院联系人">
           {contactGroups.map((g) => (
             <div key={g.group}>
@@ -153,7 +154,7 @@ export function DetailRail({
         </RailSection>
       )}
 
-      {!factsHidden && team.length > 0 && (
+      {team.length > 0 && (
         <RailSection title="律师">
           {team.map((t) => (
             <div key={t.name + '|' + t.license} className="py-1">
@@ -182,35 +183,29 @@ export function DetailRail({
 
       {/* 收费一节统一呈现：费用事实 + 已收/已开票/未收统计 + 逐笔收款。
           此前「涉案与收费」与「收款」两张节紧挨着、已收款金额出现两遍。 */}
-      {!factsHidden && (
-        <RailFees
-          deal={deal}
-          moneyRows={moneyRows}
-          onAddPayment={onAddPayment}
-          onOpenInvoices={onOpenInvoices}
-          onChanged={onMoneyChanged}
-        />
-      )}
-      {!factsHidden && <RailSupps deal={deal} />}
+      <RailFees
+        deal={deal}
+        moneyRows={moneyRows}
+        onAddPayment={onAddPayment}
+        onOpenInvoices={onOpenInvoices}
+        onChanged={onMoneyChanged}
+      />
+      <RailSupps deal={deal} />
 
       {/* 合同文件夹：绑定目录的树形浏览；标题行自带「新建文件夹」，未绑定时树内提示。
-          非诉页不渲染（那份树在左栏独占，见 NonLitDetailPage）。 */}
+          非诉页不渲染（那份树在左栏独占，见 NonLitDetailPage）。
+          点文件 = 交给详情页的文档栏打开（DealDocLayout），不再就地长在这张卡里。 */}
       {showFolder && (
-        <div className="border-t border-border-light px-[18px] pt-3.5 pb-[15px] first:border-t-0 first:pt-[15px]">
-          {folderPreview}
-          <FolderTree
-            kind="contract"
-            ownerId={folderOwnerId ?? deal.id}
-            maxH="max-h-[420px]"
-            title="合同文件夹"
-            selectedSubpath={folderSelectedSubpath ?? null}
-            onOpenFile={onOpenFile}
-            onReviewFile={onReviewFile}
-          />
-        </div>
+        <ContractFolderSection
+          contractId={folderOwnerId ?? deal.id}
+          selectedSubpath={folderSelectedSubpath ?? null}
+          onOpenFile={onOpenFile}
+          onReviewFile={onReviewFile}
+          onFolderMutated={onFolderMutated}
+        />
       )}
 
-      {!factsHidden && <RailFacts deal={deal} />}
+      <RailFacts deal={deal} />
     </Card>
   )
 }

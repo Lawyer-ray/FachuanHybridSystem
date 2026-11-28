@@ -14,9 +14,11 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, Clock, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { agentLabel, approvalWindowSec, previewToolArgs, shortToolName } from '../domain'
+import { agentLabel, approvalWindowSec, shortToolName } from '../domain'
+import { useImeEnterGuard } from '../hooks/use-ime-enter-guard'
 import { useCopilot } from '../store'
 import type { PendingApproval } from '../types'
+import { ApprovalToolDetail, SAVE_USER_SKILL_TOOL } from './ApprovalToolDetail'
 
 /** 二次确认的回退时间：解锁后 8 秒不点就收回去（防误触解锁后长期停留） */
 const SECOND_CONFIRM_RESET_MS = 8000
@@ -33,6 +35,11 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
   const [armed, setArmed] = useState(false)
   const [showReason, setShowReason] = useState(false)
   const [reasonText, setReasonText] = useState('')
+  // 写工具（save_user_skill）的「已阅读全文」：勾上才解锁「同意」，见 ApprovalToolDetail
+  const [acknowledged, setAcknowledged] = useState(false)
+  // 拒绝理由框的 Enter 必须走 IME 守卫（PIT-006）：中文选词那次尾随 Enter
+  // 若直接被当成「确认拒绝」，用户的半句话会不可逆地拒掉一个高危操作
+  const ime = useImeEnterGuard()
   const [remain, setRemain] = useState(() =>
     Math.max(0, approvalWindowSec(approval.riskLevel, approval.offline)),
   )
@@ -62,7 +69,9 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
   }, [armed, approval.decided])
 
   const expired = remain <= 0 && !approval.decided
-  const argsPreview = previewToolArgs(approval.toolArgs)
+  const toolName = shortToolName(approval.toolName)
+  // 正文没读完就不给批：这是「审批」而不是「点掉一张卡」
+  const approveLocked = toolName === SAVE_USER_SKILL_TOOL && !acknowledged
 
   const cardCls = approval.offline
     ? 'rounded-[10px] border border-amber-500/50 bg-amber-500/5 px-3 py-2.5'
@@ -83,7 +92,7 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
       <div className="flex items-center gap-2">
         {isCritical && <AlertTriangle className="h-3.5 w-3.5 flex-none text-destructive" />}
         {approval.offline && <Clock className="h-3.5 w-3.5 flex-none text-amber-600 dark:text-amber-400" />}
-        <span className="text-[12.5px] font-semibold text-foreground">需要确认：{shortToolName(approval.toolName)}</span>
+        <span className="text-[12.5px] font-semibold text-foreground">需要确认：{toolName}</span>
         {isCritical && !approval.offline && (
           <span className="rounded-[4px] bg-destructive/15 px-1 py-px text-[10.5px] font-medium text-destructive">紧急</span>
         )}
@@ -131,9 +140,12 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
           {approval.message || '后台运行的任务在等待你确认这个高危操作，同意后会继续执行。'}
         </p>
       )}
-      {argsPreview && (
-        <p className="mt-1 font-mono text-[11px] break-all text-muted-foreground">{argsPreview}</p>
-      )}
+      <ApprovalToolDetail
+        toolName={approval.toolName}
+        toolArgs={approval.toolArgs}
+        acknowledged={acknowledged}
+        onAcknowledgedChange={setAcknowledged}
+      />
       {!approval.decided && !expired && (
         <div className="mt-2 flex gap-2">
           <Button
@@ -154,6 +166,7 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
             variant={needSecondConfirm && armed ? 'destructive' : 'outline'}
             size="sm"
             className="h-7 px-3 text-[12px]"
+            disabled={approveLocked}
             onClick={onApproveClick}
           >
             {needSecondConfirm ? (armed ? '再次确认执行' : '同意') : '同意'}
@@ -172,7 +185,11 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
             placeholder="拒绝理由（选填，AI 会据此调整方案）"
             className="h-7 min-w-0 flex-1 rounded-[8px] border border-input bg-background px-2 text-[12px] text-foreground outline-none focus:border-foreground/40"
             onChange={(e) => setReasonText(e.target.value)}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
             onKeyDown={(e) => {
+              // 合成中/尾随的 Enter 是选词确认，交给输入法（PIT-006）
+              if (ime.guardEnter(e)) return
               if (e.key === 'Enter') void decide(approval.approvalId, false, reasonText.trim())
               if (e.key === 'Escape') setShowReason(false)
             }}

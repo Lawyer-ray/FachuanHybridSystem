@@ -20,7 +20,7 @@ type Schemas = components['schemas']
 
 /* ============ 后端投影：/api/v1/contracts/contracts ============ */
 
-export type ClientLite = Schemas['ClientLiteOut']
+export type ClientBrief = Schemas['ClientBriefOut']
 export type ContractParty = Schemas['ContractPartyOut']
 export type ContractReminder = Schemas['ReminderLiteOut']
 export type ContractPayment = Schemas['ContractPaymentOut']
@@ -41,6 +41,27 @@ export type ContractListItem = Omit<
 > & {
   representation_stages: string[]
   id: number
+}
+
+/**
+ * 合同更新请求体（`PUT /contracts/{id}` 的 `payload`）。
+ *
+ * 只列项目编辑页会发的键：`parties` 与 `assigned_lawyer` 虽然是生成物里的字段，
+ * 但后端更新链路把它们 `setattr` 到一个不存在的属性上（实测不落库），所以不收。
+ */
+export interface ContractUpdatePayload {
+  name?: string
+  case_type?: string
+  status?: string
+  specified_date?: string
+  start_date?: string | null
+  end_date?: string | null
+  is_filed?: boolean
+  fee_mode?: string
+  fixed_amount?: number | null
+  risk_rate?: number | null
+  custom_terms?: string
+  representation_stages?: string[]
 }
 
 /* ============ 后端投影：/api/v1/cases/cases ============ */
@@ -103,6 +124,9 @@ export interface DealLog {
 }
 
 /** 案件文件夹绑定（GET /cases/{id}/folder-binding；null = 未绑定） */
+/** 合同（项目）文件夹绑定：与案件侧同形，只是挂在合同上 */
+export type ContractFolderBindingInfo = CaseFolderBindingInfo
+
 export interface CaseFolderBindingInfo {
   id: number
   case_id: number

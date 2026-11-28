@@ -19,17 +19,23 @@
  * 删除语义：删除当前会话时由**相邻会话顺位接管**（先下后上，无剩余才落
  * 空白新对话），列表保持原位不跳转；删非当前会话则什么都不动。
  *
- * 本文件只留外壳（queries / mutations / rail 拖宽 / 记忆入口）；会话行、分组块、
- * 用量摘要、删除确认分别在 `session/` 下。**重命名与删除两个 mutation 都在
+ * 本文件只留外壳（queries / mutations / rail 拖宽 / 记忆与技能入口）；会话行、
+ * 分组块、用量摘要、删除确认分别在 `session/` 下。**重命名与删除两个 mutation 都在
  * 这一层**：放到行内就是每行一个 useQueryClient 订阅（100 条会话 100 个），
  * 且 `['copilot','sessions']` 的失效逻辑会散落成多处。
+ *
+ * 「技能」与「助手记忆」并列（同属「关于这个助手」的一组）：技能抽屉的开关在
+ * `../skill-drawer`（`/` 菜单的 `manage-skills` 命令也走同一个开关，不穿 props），
+ * **抽屉组件本身挂在页面层**（CopilotPanel / AssistantPage）——侧栏窄屏时不渲染，
+ * 挂在侧栏里会让 `/管理技能` 静默无效；记忆抽屉仍是本组件的本地 state。
  */
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Brain, Plus, X } from 'lucide-react'
+import { Brain, Plus, Sparkles, X } from 'lucide-react'
 
 import { deleteSession, renameSession } from '../api'
+import { useSkillDrawer } from '../skill-drawer'
 import { MemoryDrawer } from './memory/MemoryDrawer'
 import { groupSessions } from '../domain'
 import { useRailResize } from '../hooks/use-rail-resize'
@@ -77,6 +83,8 @@ export function SessionSidebar({ variant, onClose, panelWidth = 0 }: SessionSide
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
   // 记忆抽屉：入口在侧边栏底部（与用量摘要同区，属「关于这个助手」的一组）
   const [memoryOpen, setMemoryOpen] = useState(false)
+  // 技能抽屉：开关在模块级 store（`/` 菜单的 manage-skills 也要能打开它）
+  const openSkillDrawer = useSkillDrawer((s) => s.openDrawer)
   /** 当前项目所在分组的 key（无 context 时为 null = 通用/任务视图） */
   const currentGroupKey = context ? `${context.origin}:${context.refId}` : null
 
@@ -120,8 +128,8 @@ export function SessionSidebar({ variant, onClose, panelWidth = 0 }: SessionSide
     void switchSession(null)
     onClose?.()
   }
-  /** 底部「助手记忆」入口：与用量摘要同区，属「关于这个助手」的一组 */
-  const memoryEntryClass = 'flex w-full items-center gap-1.5 rounded-[7px] px-2 py-1.5 text-left text-[12px] text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground'
+  /** 底部「助手记忆 / 技能」入口：与用量摘要同区，属「关于这个助手」的一组 */
+  const entryClass = 'flex w-full items-center gap-1.5 rounded-[7px] px-2 py-1.5 text-left text-[12px] text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground'
 
   return (
     <div
@@ -188,9 +196,13 @@ export function SessionSidebar({ variant, onClose, panelWidth = 0 }: SessionSide
       </div>
 
       <div className="flex-none border-t border-border px-2 py-1.5">
-        <button type="button" onClick={() => setMemoryOpen(true)} className={memoryEntryClass}>
+        <button type="button" onClick={() => setMemoryOpen(true)} className={entryClass}>
           <Brain className="h-3.5 w-3.5 opacity-70" />
           助手记忆
+        </button>
+        <button type="button" onClick={openSkillDrawer} className={entryClass}>
+          <Sparkles className="h-3.5 w-3.5 opacity-70" />
+          技能
         </button>
       </div>
 

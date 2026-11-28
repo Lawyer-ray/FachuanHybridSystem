@@ -9,6 +9,7 @@ import { api } from '@/lib/api'
 import { resetAllClientState } from '@/lib/reset-client-state'
 import { Button } from '@/components/ui/button'
 import { BrandMark } from '@/components/shared/BrandMark'
+import { NavbarMobileMenu } from '@/components/shared/navbar-mobile-menu'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -109,18 +110,39 @@ export function AppNavbar({
 
   const notify = (msg: string) => onNotify?.(msg)
 
-  /** 导航入口点击：自己接管站内导航，好把乐观高亮与路由更新放进同一个 transition */
-  const selectNav = (to: string, e: React.MouseEvent<HTMLAnchorElement>) => {
+  /** 导航入口（桌面 <nav> 与手机溢出菜单）共用的站内跳转：乐观高亮 + 路由更新同一个 transition */
+  const navigateTo = (to: string) => {
     setMenuOpen(false)
-    // 带修饰键 / 非左键：Link 本身也不会站内导航（交给浏览器开新标签等），不抢先高亮
-    if (e.defaultPrevented || !isPlainLeftClick(e)) return
-    e.preventDefault()
     startTransition(() => {
       setNavPath(to)
       // 同 Link：重复点当前页用 replace，不堆历史记录
       void navigate(to, { replace: to === pathname })
     })
   }
+
+  /** 导航入口点击：自己接管站内导航，好把乐观高亮与路由更新放进同一个 transition */
+  const selectNav = (to: string, e: React.MouseEvent<HTMLAnchorElement>) => {
+    setMenuOpen(false)
+    // 带修饰键 / 非左键：Link 本身也不会站内导航（交给浏览器开新标签等），不抢先高亮
+    if (e.defaultPrevented || !isPlainLeftClick(e)) return
+    e.preventDefault()
+    navigateTo(to)
+  }
+
+  // 导航入口（桌面 <nav> 与手机溢出菜单共用同一份定义）：label / 目标 / 高亮
+  // 判定只写一遍，否则两处的高亮条件会飘。
+  // 「收件箱」与「材料预处理」已合并为一个入口：它们是同一条流水线的前后两段
+  // （收件箱 → 拆包 → 归案），并排两个按钮看不出先后关系。现在阶段在页内切换，
+  // active 同时覆盖 /inbox 这个旧前缀，让前转期间不会两个入口都不高亮。
+  const navItems = [
+    { to: ROUTES.home, label: '首页', active: navPath === ROUTES.home },
+    {
+      to: materialPrep(),
+      label: '预处理',
+      active: navPath.startsWith(ROUTES.materialPrep) || navPath.startsWith(ROUTES.inbox),
+    },
+    { to: projectList(), label: '项目', active: navPath.startsWith(ROUTES.projects) },
+  ]
 
   // 检索面板开关（⌘K）与 AI 助手面板（⌘J）的互斥、快捷键监听都在 AppShell 壳层：
   // 两层浮层的状态必须同层协调，否则同屏叠加。这里只消费注入的开关。
@@ -152,7 +174,7 @@ export function AppNavbar({
       {/* 品牌：产品名（点击回首页）。字标统一由 BrandMark 出，客户上传页也用它，
           保证对外门面与登录后的观感一致 */}
       <Link to={ROUTES.home} className="flex flex-none items-center pr-1.5 no-underline">
-        <BrandMark />
+        <BrandMark subClassName="max-[420px]:hidden" />
       </Link>
 
       <nav
@@ -160,95 +182,106 @@ export function AppNavbar({
           menuOpen ? 'flex' : 'max-[760px]:hidden'
         } md:flex`}
       >
-        <NavLink
-          to={ROUTES.home}
-          label="首页"
-          active={navPath === ROUTES.home}
-          onSelect={selectNav}
-          onPrefetch={onPrefetch}
-        />
-        {/* 「收件箱」与「材料预处理」已合并为一个入口：它们是同一条流水线的前后两段
-            （收件箱 → 拆包 → 归案），并排两个按钮看不出先后关系。现在阶段在页内切换，
-            navPath 同时覆盖 /inbox 这个旧前缀，让前转期间不会两个入口都不高亮。 */}
-        <NavLink
-          to={materialPrep()}
-          label="预处理"
-          active={navPath.startsWith(ROUTES.materialPrep) || navPath.startsWith(ROUTES.inbox)}
-          onSelect={selectNav}
-          onPrefetch={onPrefetch}
-        />
-        <NavLink
-          to={projectList()}
-          label="项目"
-          active={navPath.startsWith(ROUTES.projects)}
-          onSelect={selectNav}
-          onPrefetch={onPrefetch}
-        />
+        {navItems.map((item) => (
+          <NavLink key={item.to} {...item} onSelect={selectNav} onPrefetch={onPrefetch} />
+        ))}
       </nav>
 
-      {/* AI 助手：右侧常驻对话面板（features/copilot，壳层懒加载）。
-          ml-auto 由它承担右推；未传回调时（单测等场景）仍由检索按钮承担 */}
-      {onToggleCopilot && (
-        <button
-          type="button"
-          className="ml-auto hidden h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card sm:flex"
-          onClick={onToggleCopilot}
-        >
-          <Sparkles className="h-[13px] w-[13px]" />
-          <span>AI 助手</span>
-          <kbd className="rounded-[4px] border border-input bg-card px-[5px] py-[1px] text-[10px] text-muted-foreground">⌘J</kbd>
-        </button>
-      )}
-
-      {/* 全局检索 */}
-      <button
-        type="button"
-        className={`${onToggleCopilot ? '' : 'ml-auto '}hidden h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card sm:flex`}
-        onClick={() => onSearchOpenChange(true)}
-      >
-        <Search className="h-[13px] w-[13px]" />
-        <span>检索</span>
-        <kbd className="rounded-[4px] border border-input bg-card px-[5px] py-[1px] text-[10px] text-muted-foreground">⌘K</kbd>
-      </button>
-
-      <button
-        type="button"
-        className="flex h-8 items-center gap-1.5 rounded-[8px] bg-foreground px-3.5 text-[12.5px] font-semibold whitespace-nowrap text-background transition-opacity hover:opacity-85"
-        onClick={() => setNewProjectOpen(true)}
-      >
-        <Plus className="h-3 w-3" strokeWidth={2.5} />
-        新建项目
-      </button>
-
-      {/* 用户区：点头像开菜单；退出走确认弹窗——不能点一下就登出 */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      {/* 右侧动作区：**整组一起右推**。
+          以前 ml-auto 挂在「AI 助手」按钮上，而它在 <640px 是 hidden——手机上
+          没有任何元素承担右推，于是「新建项目」紧跟品牌标、看着像没对齐。现在由
+          这一层承担，与内部按钮显隐无关。
+          窄屏（≤760px）：四个动作平铺在 360px 上排不下，整组让位给「…」溢出
+          菜单（navbar-mobile-menu），见下方 NavbarMobileMenu。桌面端四项原样 */}
+      <div className="ml-auto flex flex-none items-center gap-1.5 max-[760px]:gap-1">
+        {/* 手机上的入口让位给底部的 composer pill（见 AppShell）：导航栏在长列表里
+            早就滚出视线，而「问 AI」是随时会想按的动作。桌面端保持原位 */}
+        {onToggleCopilot && (
           <button
             type="button"
-            className="ml-1 flex flex-none items-center gap-1.5 rounded-full py-[2px] pr-2 pl-[2px] transition-colors hover:bg-secondary"
-            aria-label="用户菜单"
+            aria-label="AI 助手"
+            title="AI 助手（⌘J）"
+            className="hidden h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card min-[760px]:flex"
+            onClick={onToggleCopilot}
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-background">
-              <User className="h-3.5 w-3.5" />
-            </span>
-            <span className="hidden max-w-[88px] truncate text-[12.5px] font-medium md:inline">
-              {user?.username || '我的账号'}
-            </span>
+            <Sparkles className="h-[13px] w-[13px]" />
+            <span className="max-[760px]:hidden">AI 助手</span>
+            <kbd className="rounded-[4px] border border-input bg-card px-[5px] py-[1px] text-[10px] text-muted-foreground max-[760px]:hidden">
+              ⌘J
+            </kbd>
           </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
-            {user?.username || '我的账号'}
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => { void navigate(settings()) }}>设置</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onSelect={() => setLogoutOpen(true)}>
-            <LogOut className="h-3.5 w-3.5" />
-            退出登录
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        )}
+
+        {/* 全局检索：手机上同样要能开——入口在「…」菜单里（⌘K 在触屏上不存在） */}
+        <button
+          type="button"
+          aria-label="全局检索"
+          title="全局检索（⌘K）"
+          className="hidden h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card min-[760px]:flex"
+          onClick={() => onSearchOpenChange(true)}
+        >
+          <Search className="h-[13px] w-[13px]" />
+          <span>检索</span>
+          <kbd className="rounded-[4px] border border-input bg-card px-[5px] py-[1px] text-[10px] text-muted-foreground">
+            ⌘K
+          </kbd>
+        </button>
+
+        <button
+          type="button"
+          aria-label="新建项目"
+          title="新建项目"
+          className="hidden h-8 items-center gap-1.5 rounded-[8px] bg-foreground px-3.5 text-[12.5px] font-semibold whitespace-nowrap text-background transition-opacity hover:opacity-85 min-[760px]:flex"
+          onClick={() => setNewProjectOpen(true)}
+        >
+          <Plus className="h-3 w-3" strokeWidth={2.5} />
+          <span>新建项目</span>
+        </button>
+
+        {/* 用户区：点头像开菜单；退出走确认弹窗——不能点一下就登出 */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="ml-0.5 hidden flex-none items-center gap-1.5 rounded-full py-[2px] pr-1 pl-[2px] transition-colors hover:bg-secondary min-[760px]:flex"
+              aria-label="用户菜单"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-background">
+                <User className="h-3.5 w-3.5" />
+              </span>
+              {/* 用户名只在 ≥768 显示：手机上它会把右侧动作区撑到换行 */}
+              <span className="hidden max-w-[88px] truncate text-[12.5px] font-medium md:inline">
+                {user?.username || '我的账号'}
+              </span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
+              {user?.username || '我的账号'}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => { void navigate(settings()) }}>设置</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={() => setLogoutOpen(true)}>
+              <LogOut className="h-3.5 w-3.5" />
+              退出登录
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* 手机端唯一可见的动作入口：检索 / 新建项目 / 用户菜单都收进这个按
+            导航 / 动作 / 账户 分组的浮层（AI 助手不进来——它的手机入口是
+            AppShell 底部那枚 composer pill） */}
+        <NavbarMobileMenu
+          navItems={navItems}
+          onNavigate={navigateTo}
+          onPrefetch={onPrefetch}
+          onOpenSearch={() => onSearchOpenChange(true)}
+          onOpenNewProject={() => setNewProjectOpen(true)}
+          onOpenSettings={() => { void navigate(settings()) }}
+          onOpenLogout={() => setLogoutOpen(true)}
+        />
+      </div>
 
       {/* 全局检索（⌘K） */}
       <GlobalSearch

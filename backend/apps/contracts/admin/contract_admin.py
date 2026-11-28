@@ -131,7 +131,7 @@ class ContractAdmin(
                 rep = cleaned.get("representation_stages") or []
                 cleaned["representation_stages"] = normalize_representation_stages(ctype, rep, strict=False)
             except Exception:
-                logger.exception("操作失败")
+                logger.exception("contract_admin.clean: 规范化代理阶段失败")
             return cleaned
 
     form = ContractAdminForm

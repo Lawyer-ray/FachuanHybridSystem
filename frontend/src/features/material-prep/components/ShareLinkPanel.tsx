@@ -13,13 +13,10 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
 import { toast } from 'sonner'
-import { Info, Link2, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { Info, Link2, Plus } from 'lucide-react'
 import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
-import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
-import { formatBytes } from '@/lib/format'
 import {
   Dialog,
   DialogContent,
@@ -29,156 +26,8 @@ import {
 } from '@/components/ui/dialog'
 import { errMessage } from '@/lib/errors'
 import { buildShareUrl, deleteUploadLink, listUploadLinks, revokeUploadLink, rotateUploadLink, type UploadLinkRow } from '../api'
-import { ShareLinkDialog, ShareUrlBox } from './ShareLinkDialog'
-
-const STATE_LABEL: Record<string, string> = {
-  open: '可收',
-  expired: '已过期',
-  revoked: '已作废',
-  full: '已收满',
-}
-
-function formatExpiry(iso: string): string {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
-}
-
-/** 行内等确认的破坏性动作（换发 / 作废 / 删除） */
-type PendingAction = { kind: 'rotate' | 'revoke' | 'delete'; id: number }
-
-/** 一次性明文提示条：刚生成/刚换发的链接都走它，风格统一 */
-function OneTimeUrlNotice({ url, hint }: { url: string; hint: string }) {
-  return (
-    <div className="mt-2 space-y-1.5 rounded-lg border border-amber-300/60 bg-amber-500/5 px-3 py-2.5">
-      <p className="text-xs font-medium text-amber-700">{hint}</p>
-      <ShareUrlBox url={url} />
-      <p className="text-[11px] text-muted-foreground">关掉这个面板后就看不到了，如需再发请用「换发」。</p>
-    </div>
-  )
-}
-
-/**
- * 确认态：一句提示 + 确认键 + 取消。三个破坏性动作共用同一套确认 UI。
- */
-function ConfirmBar({
-  hint,
-  confirmLabel,
-  destructive = false,
-  onConfirm,
-  onCancel,
-}: {
-  hint: ReactNode
-  confirmLabel: string
-  /** 作废/删除用红色确认键：它们比换发更重 */
-  destructive?: boolean
-  onConfirm: () => void
-  onCancel: () => void
-}) {
-  return (
-    <>
-      <span className="text-xs text-muted-foreground">{hint}</span>
-      <Button variant={destructive ? 'destructive' : 'default'} size="sm" onClick={onConfirm}>
-        {confirmLabel}
-      </Button>
-      <Button variant="ghost" size="sm" onClick={onCancel}>
-        取消
-      </Button>
-    </>
-  )
-}
-
-/**
- * 行内操作区：常规三键 / 三个确认态 / 已失效行只留删除。
- *
- * 互斥由 `pending`（单个判别式）决定，而不是三个 `xxxId` 布尔汤：早退链从上往下
- * 只有一种情况成立，任何时候都只渲染出一组按钮。
- */
-function RowActions({
-  row,
-  isOpen,
-  pending,
-  onAsk,
-  onCancel,
-  onConfirmRotate,
-  onConfirmRevoke,
-  onConfirmDelete,
-}: {
-  row: UploadLinkRow
-  isOpen: boolean
-  /** 该行正在等确认的动作；null = 常规操作组 */
-  pending: PendingAction['kind'] | null
-  onAsk: (kind: PendingAction['kind']) => void
-  onCancel: () => void
-  onConfirmRotate: () => void
-  onConfirmRevoke: () => void
-  onConfirmDelete: () => void
-}) {
-  if (pending === 'delete') {
-    return (
-      <ConfirmBar
-        hint={
-          <>
-            删除后<b>「{row.title}」</b>将不再出现在列表里（已收材料包会保留），确定？
-          </>
-        }
-        confirmLabel="确认删除"
-        destructive
-        onConfirm={onConfirmDelete}
-        onCancel={onCancel}
-      />
-    )
-  }
-
-  // 已失效/已作废的行：只剩「删除」可做（作废过的不必再作废）
-  if (!isOpen) {
-    return (
-      <Button variant="ghost" size="sm" onClick={() => onAsk('delete')}>
-        <Trash2 className="h-3.5 w-3.5" /> 删除
-      </Button>
-    )
-  }
-
-  if (pending === 'revoke') {
-    return (
-      <ConfirmBar
-        hint="作废后客户手里的链接立即失效，确定？"
-        confirmLabel="确认作废"
-        destructive
-        onConfirm={onConfirmRevoke}
-        onCancel={onCancel}
-      />
-    )
-  }
-
-  if (pending === 'rotate') {
-    return (
-      <ConfirmBar
-        hint={
-          <>
-            换发会让<b>「{row.title}」</b>的旧链接立即失效，确定？
-          </>
-        }
-        confirmLabel="确认换发"
-        onConfirm={onConfirmRotate}
-        onCancel={onCancel}
-      />
-    )
-  }
-
-  return (
-    <>
-      <Button variant="outline" size="sm" onClick={() => onAsk('rotate')}>
-        <RefreshCw className="h-3.5 w-3.5" /> 换发新链接
-      </Button>
-      <Button variant="ghost" size="sm" onClick={() => onAsk('revoke')}>
-        作废
-      </Button>
-      <Button variant="ghost" size="sm" onClick={() => onAsk('delete')}>
-        <Trash2 className="h-3.5 w-3.5" /> 删除
-      </Button>
-    </>
-  )
-}
+import { ShareLinkDialog } from './ShareLinkDialog'
+import { OneTimeUrlNotice, ShareLinkRow, type PendingAction } from './ShareLinkRow'
 
 export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [rows, setRows] = useState<UploadLinkRow[]>([])
@@ -288,64 +137,22 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
             ) : rows.length === 0 ? (
               <EmptyBlock className="py-10 text-sm text-secondary-foreground">还没有生成过链接</EmptyBlock>
             ) : (
-              rows.map((row) => {
-                const isOpen = row.state === 'open'
-                /** 该行正在等确认的动作；null = 常规操作组 */
-                const pendingKind = pending?.id === row.id ? pending.kind : null
-                const justRotated = rotated?.id === row.id
-                return (
-                  <div
-                    key={row.id}
-                    className={
-                      justRotated
-                        ? 'rounded-lg border border-amber-300/70 bg-amber-500/[0.03] px-3 py-2.5'
-                        : 'rounded-lg border px-3 py-2.5'
-                    }
-                  >
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{row.title}</span>
-                      <StatusBadge tone={isOpen ? 'green' : 'neutral'} className="rounded-full px-2">
-                        {STATE_LABEL[row.state] ?? row.state}
-                      </StatusBadge>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {[
-                        row.client_name,
-                        row.contract_name,
-                        `已收 ${row.pack_count} 包 / ${formatBytes(row.used_bytes)}`,
-                        `${formatExpiry(row.expires_at)} 到期`,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </p>
-
-                    {/* 操作区：确认态互斥，永远只出现一组按钮，避免多行时点错 */}
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <RowActions
-                        row={row}
-                        isOpen={isOpen}
-                        pending={pendingKind}
-                        onAsk={(kind) => setPending({ kind, id: row.id })}
-                        onCancel={() => setPending(null)}
-                        onConfirmRotate={() => rotate(row)}
-                        onConfirmRevoke={() => {
-                          setPending(null)
-                          revoke(row.id)
-                        }}
-                        onConfirmDelete={() => remove(row)}
-                      />
-                    </div>
-
-                    {/* 换发结果就地显示在这一行里面，并点名标题——多行也不会搞混 */}
-                    {justRotated && (
-                      <OneTimeUrlNotice
-                        url={rotated.url}
-                        hint={`「${rotated.title}」的新链接已生成，旧链接已失效`}
-                      />
-                    )}
-                  </div>
-                )
-              })
+              rows.map((row) => (
+                <ShareLinkRow
+                  key={row.id}
+                  row={row}
+                  pending={pending?.id === row.id ? pending.kind : null}
+                  rotated={rotated?.id === row.id ? rotated : null}
+                  onAsk={(kind) => setPending({ kind, id: row.id })}
+                  onCancel={() => setPending(null)}
+                  onConfirmRotate={() => rotate(row)}
+                  onConfirmRevoke={() => {
+                    setPending(null)
+                    revoke(row.id)
+                  }}
+                  onConfirmDelete={() => remove(row)}
+                />
+              ))
             )}
           </div>
 

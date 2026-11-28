@@ -93,6 +93,26 @@ export type AgentStreamEvent =
     timeout_seconds?: number
   }
   | {
+    type: 'ui_action'
+    run_id?: string
+    agent?: string
+    call_id: string
+    action: string
+    arguments: Record<string, unknown>
+    route?: string
+    sequence?: number
+    batch_id?: string
+    batch_index?: number
+  }
+  | {
+    type: 'ui_snapshot_request'
+    run_id?: string
+    agent?: string
+    request_id: string
+    page?: string
+    timeout_seconds?: number
+  }
+  | {
     type: 'compaction'
     run_id?: string
     agent?: string

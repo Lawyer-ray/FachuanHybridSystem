@@ -1,8 +1,13 @@
-import { useCallback, useRef, useState } from 'react'
-import { CopyPlus, Download, FileSearch, Loader2, Save, Sparkles, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { CopyPlus, Download, FileSearch, Loader2, Maximize2, Minimize2, Save, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { OfficeView, type OfficeEditorHandle, type PluginBridgeMessage } from '@/components/shared/onlyoffice/OfficeView'
+import {
+  OfficeView,
+  type EditorState,
+  type OfficeEditorHandle,
+  type PluginBridgeMessage,
+} from '@/components/shared/onlyoffice/OfficeView'
 import { prefillCopilot, quoteCopilot } from '@/features/copilot/launch'
 import { formatBytes } from '@/lib/format'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
@@ -22,6 +27,9 @@ import { useFileRewriteNonce } from './use-rewrite-refresh'
  *
  * **只读兜底**：pdf / 图片等不可编辑格式仍走 `view`，避免 OnlyOffice 把它们
  * 当可改文档打开（改完也存不回去）。
+ *
+ * **尺寸由父级给**：本组件只管「吃掉剩余高度」，画布高度/宽度归 DealDocLayout
+ * 的四种文档态决定（在右侧栏时 720px 宽就够，沉浸态要占满整宽）。
  */
 export function FilePreviewCard({
   kind,
@@ -30,6 +38,9 @@ export function FilePreviewCard({
   onClose,
   onSaved,
   onReview,
+  immersive = false,
+  onToggleImmersive,
+  onDirtyChange,
 }: {
   kind: FolderOwnerKind
   ownerId: number
@@ -39,8 +50,23 @@ export function FilePreviewCard({
   onSaved?: () => void
   /** 「AI 审查」——仅 docx（流水线只吃 docx） */
   onReview?: (f: { subpath: string; name: string }) => void
+  /** 当前是否沉浸态（由父级持有状态） */
+  immersive?: boolean
+  /** 传了才渲染「沉浸编辑」按钮；不传说明该页不提供这档 */
+  onToggleImmersive?: () => void
+  /**
+   * 画布里的改动有没有保存（父级据此在关闭/换文件前拦一下）。
+   *
+   * 以前这里是空白：律师改了半小时，随手点 X 或点另一份文件，改动就没了，
+   * 而且全程零提示。
+   */
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   const [ready, setReady] = useState(false)
+  /** 画布改动未保存（DS `onDocumentStateChange`） */
+  const [dirty, setDirty] = useState(false)
+  /** 画布状态：用来把底部那句「正在打开文档…」改成真话 */
+  const [editorState, setEditorState] = useState<EditorState>('loading')
   const isDocx = /\.docx$/i.test(file.name)
   // 另存为只对合同文件夹的 docx 开放（cases 没有 folder-save-as 系列端点）
   const saveAsEnabled = canSaveAs(kind, file.name)
@@ -61,6 +87,29 @@ export function FilePreviewCard({
 
   /** 编辑器句柄：保存时用 downloadAs 取当前内容 */
   const editorRef = useRef<OfficeEditorHandle | null>(null)
+
+  /**
+   * 关页签/刷新的最后一道提醒。
+   *
+   * 卡内关闭与换文件走确认弹窗，但直接关浏览器页签是拦不住的，只能靠原生提示。
+   * 卸载时把「脏」告诉父级：否则文档被别的路径关掉后，页面还一直以为有未保存改动。
+   */
+  useEffect(() => {
+    if (!dirty) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [dirty])
+  // 回调身份每轮都在变（父级传的是内联箭头），用 ref 让「卸载时告诉父级已不再脏」
+  // 只需挂一次；写进依赖的话，父级每次重渲都会跑一遍 cleanup，脏标记被清没。
+  const onDirtyChangeRef = useRef(onDirtyChange)
+  useEffect(() => {
+    onDirtyChangeRef.current = onDirtyChange
+  }, [onDirtyChange])
+  useEffect(() => () => onDirtyChangeRef.current?.(false), [])
 
   /**
    * 触发保存。
@@ -119,11 +168,22 @@ export function FilePreviewCard({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-border bg-card">
       {/* 头部：类型 + 文件名 + 操作 + 关闭 */}
-      <div className="flex items-center gap-2 border-b border-border-light px-3 py-2">
+      {/* flex-wrap：面板最窄可拖到 320px，纯 flex 会让末尾的「沉浸/关闭」被
+          overflow-hidden 裁掉（点不到也看不见）。换行至少还都在 */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border-light px-3 py-2">
         <FileKindChip name={file.name} />
         <span className="min-w-0 flex-1 truncate text-[12.5px] font-[620]" title={file.name}>
           {file.name}
         </span>
+        {/* 未保存标记：没有它就只能靠「刚才好像改过」的记忆 */}
+        {dirty && (
+          <span
+            className="flex-none rounded-[5px] border border-status-yellow/40 bg-status-yellow/10 px-1.5 text-[10.5px] font-[620] text-status-yellow"
+            title="画布里有未保存的修改（⌘S 或「保存」写回原文件）"
+          >
+            未保存
+          </span>
+        )}
 
         {isDocx && (
           <>
@@ -195,6 +255,19 @@ export function FilePreviewCard({
           {downloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3.5" />}
         </button>
 
+        {onToggleImmersive && (
+          <button
+            type="button"
+            aria-label={immersive ? '退出沉浸' : '沉浸编辑'}
+            onClick={onToggleImmersive}
+            title={immersive ? '退出沉浸，回到对照视图' : '沉浸编辑：文档占满整宽与一屏高'}
+            aria-pressed={immersive}
+            className="grid size-6 flex-none place-items-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            {immersive ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+          </button>
+        )}
+
         <button
           type="button"
           aria-label="收起"
@@ -217,12 +290,21 @@ export function FilePreviewCard({
             setReady(!!h)
             liveApply.onEditorReady(h)
           }}
+          onStateChange={setEditorState}
+          onDirtyChange={(d) => {
+            setDirty(d)
+            onDirtyChangeRef.current?.(d)
+          }}
           onPluginMessage={(m: PluginBridgeMessage) => {
             // 只关心「选区」：插件在律师框选后推送，宿主把它变成指令。
             // 其余类型（ready/inserted/applied）由上层按需处理，这里不转发。
             if (m.type !== 'selection') return
             const sel = m.text.trim()
-            if (!sel) return
+            // 点了「AI 改写」但没框选：原先静默丢弃，看着像按钮坏了
+            if (!sel) {
+              if (m.explicit) toast.info('先在文档里框选要改写的条款')
+              return
+            }
 
             // 豆包式引用（不灌模板文字、不弹对话框）：选区挂成输入框上方的
             // 引用卡，输入框保持空白，律师自由提问或点快捷 pills。旧做法把
@@ -251,7 +333,17 @@ export function FilePreviewCard({
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border-light px-3 py-1.5 text-[11px] text-muted-foreground">
         {file.modified_at && <span className="tabular-nums">{file.modified_at.slice(0, 10)}</span>}
         {file.size ? <span>· {formatBytes(file.size)}</span> : null}
-        {isDocx && <span className="ml-auto">{ready ? '可直接编辑 · ⌘S 保存到原文件' : '正在打开文档…'}</span>}
+        {isDocx && (
+          <span className={editorState === 'error' ? 'ml-auto text-status-yellow' : 'ml-auto'}>
+            {editorState === 'error'
+              ? '打开失败 · 可在画布里重试'
+              : editorState === 'disabled'
+                ? 'OnlyOffice 未启用，暂时无法编辑'
+                : ready
+                  ? '可直接编辑 · ⌘S 保存到原文件'
+                  : '正在打开文档…'}
+          </span>
+        )}
       </div>
     </div>
   )

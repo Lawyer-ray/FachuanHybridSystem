@@ -1,14 +1,16 @@
-import { useMemo, useState } from 'react'
-import { AlertTriangle, ChevronRight, Gavel, RefreshCw } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { AlertTriangle, Gavel, RefreshCw } from 'lucide-react'
 
-import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
-import { StatusBadge } from '@/components/shared/StatusBadge'
+import { EmptyBlock, ErrorBlock } from '@/components/shared/AsyncState'
+import { SkeletonStatus } from '@/components/shared/Skeleton'
 import { Button } from '@/components/ui/button'
-import type { Tone } from '@/lib/tone'
+import { cn } from '@/lib/utils'
 
+import type { CaseListSort } from '../api'
 import { useCases } from '../hooks/use-cases'
-import { fmtMoney } from '../utils'
-import type { CaseRow } from '../types'
+import { CasePager } from './CasePager'
+import { CaseListHeader, CaseRow } from './CaseRow'
+import { CaseRowSkeleton } from './CaseRowSkeleton'
 
 /**
  * 银行批量诉讼 · 案件列表（场景 2 的入口）。
@@ -21,62 +23,106 @@ import type { CaseRow } from '../types'
  * ═══ 为什么不直接复用现有的案件列表 ═══
  * 现有列表服务的是「全部案件」的检索浏览；这一页服务的是「批量立案」的
  * 推进节奏，列不同、排序不同（按能否立案优先），是两种任务。
+ *
+ * ═══ 分页 / 搜索 / 排序全部在服务端 ═══
+ * 一页 50 行。前端的 filter / sort 只会作用于当前页（翻到第 2 页就会冒出与
+ * 关键词无关、或「已立案」排在「待立案」前面的行），所以两个逻辑都下推成了
+ * 请求参数：`search` + `sort=filable_first`（见 `api/cases.ts` 的 listCases）。
+ * 页面这边不再自己筛、自己排，只负责把参数和页码交给 `useCases`。
  */
 
-/** 阶段 → 展示名与语气。与后端 CaseStage 枚举一一对应（含历史中文存量）。 */
-const STAGE_LABEL: Record<string, string> = {
-  first_trial: '一审',
-  second_trial: '二审',
-  enforcement: '执行',
-  retrial_first: '重审一审',
-  retrial_second: '重审二审',
-  apply_retrial: '申请再审',
-  rehearing_first: '再审一审',
-  rehearing_second: '再审二审',
-  review: '提审',
-  labor_arbitration: '劳动仲裁',
-  administrative_review: '行政复议',
-  // 历史存量：早期数据存的是中文
-  一审: '一审',
-  二审: '二审',
-  执行: '执行',
-}
+/** 每页行数（后端 limit 上限 2000，50 行是一屏多一点，翻页成本低） */
+const PAGE_SIZE = 50
+/** 搜索防抖：输入停 300ms 才把关键词下推，避免逐键打后端 */
+const SEARCH_DEBOUNCE_MS = 300
+/** 首屏骨架行数 */
+const SKELETON_ROWS = 8
+/** 排序口径：待立案优先（filing_number 空且在办 → 组内 id 倒序），后端算 */
+const LIST_SORT: CaseListSort = 'filable_first'
 
-/** 案件状态 → 语气。在办中性、已结灰、可立案绿。 */
-function statusTone(status: string): Tone {
-  if (status === '已结案' || status === '已归档') return 'neutral'
-  if (status === '在办') return 'blue'
-  return 'neutral'
+/** 下发给后端的查询：关键词与页码是**一对**，必须同步变化（见下面的防抖 effect） */
+interface ListQuery {
+  search: string
+  page: number
 }
 
 export function CaseListPage({ onOpen }: { onOpen: (caseId: number) => void }) {
-  const { loading, error, data, reload } = useCases()
+  /** 输入框即时值（受控，按键立刻响应） */
   const [keyword, setKeyword] = useState('')
+  const [query, setQuery] = useState<ListQuery>({ search: '', page: 1 })
 
-  const rows = useMemo<CaseRow[]>(() => {
-    const list: CaseRow[] = data ?? []
-    const kw = keyword.trim()
-    const filtered = kw
-      ? list.filter(
-          (c) => c.name.includes(kw) || (c.cause_of_action ?? '').includes(kw),
-        )
-      : list
-    // 排序：待立案（无案号、在办）优先，其次按 id 倒序（新的在上）。
-    // 生成物里 id 可选可空（ModelSchema 口径），数据库主键实际必有 —— 排序按 0 处理。
-    return [...filtered].sort((a, b) => {
-      const aF = !a.filing_number && a.status === '在办' ? 0 : 1
-      const bF = !b.filing_number && b.status === '在办' ? 0 : 1
-      if (aF !== bF) return aF - bF
-      return (b.id ?? 0) - (a.id ?? 0)
-    })
-  }, [data, keyword])
+  /**
+   * 关键词防抖 300ms，并把「页码回 1」和关键词写进**同一次** setState。
+   *
+   * 为什么不用 useDebouncedValue 再配一个 `useEffect(() => setPage(1), [dq])`：
+   * 防抖值落下的那一帧，useLoad 的 effect 已经带着「新关键词 + 旧页码」发了一次
+   * 请求，紧接着页码回 1 又发一次——一次输入打两次后端，第二次还会把第一次的
+   * 响应当成过期数据丢掉。这里把 search 与 page 合成一个 state，停顿到点才整体
+   * 替换，请求参数只变一次。（值没变时返回原对象，React 直接 bail out，不出请求。）
+   */
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const search = keyword.trim()
+      setQuery((q) => (q.search === search ? q : { search, page: 1 }))
+    }, SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [keyword])
 
-  if (loading) return <LoadingBlock text="正在加载案件…" />
-  if (error) {
-    return <ErrorBlock error={error} fallback="案件列表加载失败" onRetry={reload} />
+  const { loading, error, data, reload } = useCases({
+    page: query.page,
+    pageSize: PAGE_SIZE,
+    search: query.search,
+    sort: LIST_SORT,
+  })
+
+  const rows = data?.rows ?? []
+  const total = data?.total ?? 0
+  // 至少 1 页：0 件时「第 1 / 1 页」比「第 1 / 0 页」讲得通（分页条此时不渲染）
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  /**
+   * 页码越界回夹：数据被别人删掉（或筛选变严）后 `page > totalPages` 时，
+   * 不回夹就会落到"还没有案件"的空态——明明还有数据，却被当成没有。
+   * 只在请求落定后判（loading 中的 total 是旧的，回夹会打多余的一次请求）。
+   */
+  useEffect(() => {
+    if (loading) return
+    if (query.page > totalPages) setQuery((q) => ({ ...q, page: totalPages }))
+  }, [loading, query.page, totalPages])
+
+  /** 清空关键词：页码一并回 1（防抖值落地时已同值，不会再多发一次请求） */
+  function clearSearch() {
+    setKeyword('')
+    setQuery({ search: '', page: 1 })
+  }
+
+  // 错误优先于骨架：重试失败时不该停在「正在加载」上
+  if (error) return <ErrorBlock error={error} fallback="案件列表加载失败" onRetry={reload} />
+  // 首次加载：data 还是 null → 与真行同源的骨架（SkeletonStatus 默认 300ms 门控，
+  // 快的请求根本看不见骨架）。翻页 / 搜索时 data 里有旧值，走下面的保留列表分支。
+  if (data === null) {
+    return (
+      <SkeletonStatus text="正在加载案件…">
+        <CaseRowSkeleton count={SKELETON_ROWS} />
+      </SkeletonStatus>
+    )
   }
   if (!rows.length) {
-    return <EmptyBlock icon={<Gavel className="size-6" />}>还没有案件，先受理一笔委托。</EmptyBlock>
+    // 空态分两种：搜不到（给出口）vs 真的还没有案件（给下一步动作）
+    return query.search ? (
+      <EmptyBlock
+        icon={<Gavel className="size-6" />}
+        action={
+          <Button variant="ghost" size="sm" onClick={clearSearch}>
+            清除关键词
+          </Button>
+        }
+      >
+        没有匹配「{query.search}」的案件
+      </EmptyBlock>
+    ) : (
+      <EmptyBlock icon={<Gavel className="size-6" />}>还没有案件，先受理一笔委托。</EmptyBlock>
+    )
   }
 
   return (
@@ -88,56 +134,34 @@ export function CaseListPage({ onOpen }: { onOpen: (caseId: number) => void }) {
           placeholder="搜案件名 / 案由"
           className="h-[30px] w-[240px] rounded-[7px] border border-input bg-background px-2.5 text-[12.5px] outline-none focus:border-ring/60"
         />
-        <span className="text-[11.5px] text-muted-foreground">
-          共 {rows.length} 件
-        </span>
+        <span className="text-[11.5px] text-muted-foreground">共 {total} 件</span>
         <Button variant="ghost" size="sm" className="ml-auto" onClick={reload}>
           <RefreshCw className="size-3.5" /> 刷新
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-[10px] border border-border bg-card">
-        <div className="grid grid-cols-[1fr_72px_96px_120px_132px_28px] items-center gap-3 border-b border-border bg-secondary/40 px-4 py-2 text-[11px] font-medium text-muted-foreground">
-          <span>案件</span>
-          <span>阶段</span>
-          <span>状态</span>
-          <span>案号</span>
-          <span>标的额</span>
-          <span />
-        </div>
+      {/* 翻页 / 搜索期间保留上一批行（useLoad 不清 data），只降透明度 + 标 aria-busy，
+          不退回骨架：整块列表闪白一次再长回来，正是要避免的那种跳。 */}
+      <div
+        aria-busy={loading}
+        className={cn(
+          'overflow-hidden rounded-[10px] border border-border bg-card transition-opacity',
+          loading && 'opacity-60',
+        )}
+      >
+        <CaseListHeader />
         {rows.map((c, i) => (
-          <button
-            key={c.id ?? `row-${i}`}
-            type="button"
-            onClick={() => {
-              // id 可空：这种脏行点不开，早退而不是把 0 当案件 id 传给上层
-              if (c.id == null) return
-              onOpen(c.id)
-            }}
-            className="grid w-full grid-cols-[1fr_72px_96px_120px_132px_28px] items-center gap-3 border-b border-border/60 px-4 py-2.5 text-left transition-colors last:border-b-0 hover:bg-secondary/40"
-          >
-            <div className="min-w-0">
-              <div className="truncate text-[13px] text-foreground" title={c.name}>
-                {c.name}
-              </div>
-              <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                {c.cause_of_action || '（未填案由）'}
-              </div>
-            </div>
-            <span className="text-[12px] text-secondary-foreground">
-              {STAGE_LABEL[c.current_stage ?? ''] ?? c.current_stage ?? '—'}
-            </span>
-            <StatusBadge tone={statusTone(c.status)}>{c.status || '—'}</StatusBadge>
-            <span className="truncate text-[11.5px] text-muted-foreground" title={c.filing_number || ''}>
-              {c.filing_number || '（无）'}
-            </span>
-            <span className="text-right text-[12px] tabular-nums text-secondary-foreground">
-              {c.target_amount ? `¥${fmtMoney(c.target_amount)}` : '—'}
-            </span>
-            <ChevronRight className="size-3.5 text-muted-foreground" />
-          </button>
+          <CaseRow key={c.id ?? `row-${i}`} c={c} onOpen={onOpen} />
         ))}
       </div>
+
+      <CasePager
+        page={query.page}
+        totalPages={totalPages}
+        total={total}
+        loading={loading}
+        onGoto={(next) => setQuery((q) => ({ ...q, page: next }))}
+      />
 
       <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <AlertTriangle className="size-3" />

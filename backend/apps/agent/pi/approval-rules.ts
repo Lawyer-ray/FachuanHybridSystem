@@ -61,6 +61,11 @@ export const HIGH_RISK_PATTERNS: readonly string[] = [
   "apply_document_revisions",
   "add_document_comments",
   "create_folder_file",
+  // 技能写面（2026-11-28 P3，与 Python DANGER_PATTERNS 逐字同步）：
+  // `save_user_skill` 只命中小写前缀 `save_`（= WRITE_PREFIXES → medium，
+  // 静默执行不弹窗），但它落库的是一段「此后每轮对话都带给模型」的指令。
+  // 显式升 high 后审批卡会把 title/description/body 全文展示给律师。
+  "save_user_skill",
   "delete",
   "remove_",
   "destroy",

@@ -14,6 +14,7 @@ import asyncio
 import logging
 import uuid
 import zipfile
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -242,96 +243,29 @@ class FillingService:
         """
         from docx import Document
 
-        from apps.documents.models.external_template import ExternalTemplate, ExternalTemplateFieldMapping
-        from apps.documents.models.fill_record import FillRecord
-
-        template: ExternalTemplate = ExternalTemplate.objects.get(id=template_id)
-        mappings = ExternalTemplateFieldMapping.objects.filter(
-            template_id=template_id,
-        ).order_by("sort_order", "id")
+        # 0. 查询模板与其字段映射
+        template, mappings = self._load_template_and_mappings(template_id)
 
         # 1. 获取占位符值 + 合并自定义值
         placeholder_values: dict[str, str] = self._get_placeholder_values(case_id, party_id)
         merged_custom: dict[str, str] = custom_values or {}
 
         # 2. 打开模板 .docx 副本
-        template_path: Path = Path(settings.MEDIA_ROOT) / template.file_path
-        doc: DocumentType = Document(str(template_path))
+        doc: DocumentType = Document(str(Path(settings.MEDIA_ROOT) / template.file_path))
 
         # 3. 逐一写入
-        filled_count: int = 0
-        skipped_count: int = 0
-        manual_needed: list[str] = []
-        errors: list[str] = []
+        filled_count, skipped_count, manual_needed, errors = self._apply_mappings(
+            doc,
+            mappings,
+            placeholder_values,
+            merged_custom,
+            template_id=template_id,
+        )
 
-        for mapping in mappings:
-            value: str = PLACEHOLDER_FALLBACK_VALUE
-            # 确定值来源：优先占位符体系，其次自定义值，均无则使用斜杠兜底
-            if mapping.semantic_label in placeholder_values:
-                value = placeholder_values[mapping.semantic_label]
-            elif mapping.semantic_label in merged_custom:
-                value = merged_custom[mapping.semantic_label]
-            else:
-                manual_needed.append(mapping.semantic_label)
-                logger.info(
-                    "字段无值，使用斜杠兜底: template_id=%d, label=%s",
-                    template_id,
-                    mapping.semantic_label,
-                )
+        # 4. 保存生成文件（输出文件名一并生成）
+        output_relative, output_name = self._save_filled_document(doc, template, case_id, party_id)
 
-            # 根据 fill_type 调用对应写入方法
-            success: bool = False
-            try:
-                if mapping.fill_type == "text":
-                    success = self._write_text(doc, mapping.position_locator, value)
-                elif mapping.fill_type == "checkbox":
-                    success = self._write_checkbox(doc, mapping.position_locator, value)
-                elif mapping.fill_type == "delete_inapplicable":
-                    success = self._write_delete_inapplicable(doc, mapping.position_locator, value)
-                else:
-                    logger.warning(
-                        "未知填充类型: template_id=%d, fill_type=%s",
-                        template_id,
-                        mapping.fill_type,
-                    )
-                    skipped_count += 1
-                    continue
-            except Exception:
-                logger.exception(
-                    "填充写入失败: template_id=%d, locator=%s",
-                    template_id,
-                    mapping.position_locator,
-                )
-                errors.append(str("位置 %(label)s 写入失败" % {"label": mapping.semantic_label}))
-                continue
-
-            if success:
-                filled_count += 1
-            else:
-                skipped_count += 1
-                errors.append(str("位置 %(label)s 写入未成功" % {"label": mapping.semantic_label}))
-
-        # 4. 保存生成文件
-        output_dir: Path = Path(settings.MEDIA_ROOT) / "documents" / "external_filled" / str(case_id)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_uuid: str = str(uuid.uuid4())
-        output_abs: Path = output_dir / f"{output_uuid}.docx"
-        doc.save(str(output_abs))
-
-        output_relative: str = str(Path("documents") / "external_filled" / str(case_id) / f"{output_uuid}.docx")
-
-        # 5. 生成输出文件名
-        party_name: str | None = None
-        if party_id is not None:
-            try:
-                case_party_model = apps.get_model("cases", "CaseParty")
-                party_obj = case_party_model.objects.get(id=party_id)
-                party_name = str(party_obj)
-            except Exception:
-                logger.warning("获取当事人名称失败: party_id=%d", party_id)
-
-        output_name: str = self._generate_output_filename(template.name, party_name)
-        # 6. 构建填充报告
+        # 5. 构建填充报告并创建 FillRecord
         report: dict[str, Any] = {
             "total_fields": len(list(mappings)),
             "filled_count": filled_count,
@@ -340,16 +274,15 @@ class FillingService:
             "errors": errors,
         }
 
-        # 7. 创建 FillRecord
-        record: FillRecord = FillRecord.objects.create(
+        record = self._persist_fill_record(
             case_id=case_id,
             template=template,
             party_id=party_id,
             filled_by=filled_by,
-            file_path=output_relative,
-            original_output_name=output_name,
-            report_json=report,
-            custom_values=merged_custom,
+            output_relative=output_relative,
+            output_name=output_name,
+            report=report,
+            merged_custom=merged_custom,
         )
 
         logger.info(
@@ -360,6 +293,174 @@ class FillingService:
             filled_count,
             skipped_count,
             len(errors),
+        )
+        return record
+
+    def _load_template_and_mappings(self, template_id: int) -> tuple[Any, Any]:
+        """查模板与其字段映射（按 ``sort_order``, ``id`` 排序）。
+
+        Returns:
+            ``(模板, 字段映射序列)``；映射尚未求值，由调用方决定何时遍历。
+        """
+        from apps.documents.models.external_template import ExternalTemplate, ExternalTemplateFieldMapping
+
+        template: ExternalTemplate = ExternalTemplate.objects.get(id=template_id)
+        mappings = ExternalTemplateFieldMapping.objects.filter(
+            template_id=template_id,
+        ).order_by("sort_order", "id")
+        return template, mappings
+
+    def _apply_mappings(
+        self,
+        doc: Any,
+        mappings: Iterable[Any],
+        placeholder_values: dict[str, str],
+        merged_custom: dict[str, str],
+        *,
+        template_id: int,
+    ) -> tuple[int, int, list[str], list[str]]:
+        """把值逐条写进文档，不知道写哪儿/写不进去的都记进报告。
+
+        Returns:
+            ``(filled_count, skipped_count, manual_needed, errors)``。
+        """
+        filled_count: int = 0
+        skipped_count: int = 0
+        manual_needed: list[str] = []
+        errors: list[str] = []
+
+        for mapping in mappings:
+            value, needs_manual = self._resolve_mapping_value(mapping, placeholder_values, merged_custom)
+            if needs_manual:
+                manual_needed.append(mapping.semantic_label)
+                logger.info(
+                    "字段无值，使用斜杠兜底: template_id=%d, label=%s",
+                    template_id,
+                    mapping.semantic_label,
+                )
+
+            try:
+                success = self._write_by_fill_type(doc, mapping, value, template_id=template_id)
+            except Exception:
+                logger.exception(
+                    "填充写入失败: template_id=%d, locator=%s",
+                    template_id,
+                    mapping.position_locator,
+                )
+                errors.append(str("位置 %(label)s 写入失败" % {"label": mapping.semantic_label}))
+                continue
+
+            if success is None:
+                # 未知 fill_type：_write_by_fill_type 已记 warning，这里只计 skipped
+                skipped_count += 1
+                continue
+            if success:
+                filled_count += 1
+                continue
+            skipped_count += 1
+            errors.append(str("位置 %(label)s 写入未成功" % {"label": mapping.semantic_label}))
+
+        return filled_count, skipped_count, manual_needed, errors
+
+    def _resolve_mapping_value(
+        self,
+        mapping: Any,
+        placeholder_values: dict[str, str],
+        merged_custom: dict[str, str],
+    ) -> tuple[str, bool]:
+        """确定这条映射要写入的值。
+
+        值来源优先级：占位符体系 > 自定义值 > 斜杠兜底。
+
+        Returns:
+            ``(值, 是否需要人工补)``。都没有值时返回兜底值 + True，由调用方记进
+            ``manual_needed`` 并打日志。
+        """
+        if mapping.semantic_label in placeholder_values:
+            return placeholder_values[mapping.semantic_label], False
+        if mapping.semantic_label in merged_custom:
+            return merged_custom[mapping.semantic_label], False
+        return PLACEHOLDER_FALLBACK_VALUE, True
+
+    def _write_by_fill_type(self, doc: Any, mapping: Any, value: str, *, template_id: int) -> bool | None:
+        """按 ``fill_type`` 分派写入方法。
+
+        Returns:
+            True / False 由调用方分别计 filled / skipped；**None 表示这个 fill_type
+            本服务不认识**（已记 warning），调用方只计 skipped、不写进 errors。
+            两者不能合并：False 是「定位到了但写不进去」，律师得知道。
+        """
+        writers = {
+            "text": self._write_text,
+            "checkbox": self._write_checkbox,
+            "delete_inapplicable": self._write_delete_inapplicable,
+        }
+        writer = writers.get(mapping.fill_type)
+        if writer is None:
+            logger.warning(
+                "未知填充类型: template_id=%d, fill_type=%s",
+                template_id,
+                mapping.fill_type,
+            )
+            return None
+        return writer(doc, mapping.position_locator, value)
+
+    def _save_filled_document(
+        self,
+        doc: Any,
+        template: Any,
+        case_id: int,
+        party_id: int | None,
+    ) -> tuple[str, str]:
+        """保存填充后的文档到 media 目录，并算出下载用的输出文件名。
+
+        Returns:
+            ``(相对 MEDIA_ROOT 的路径, 输出文件名)``。
+        """
+        output_dir: Path = Path(settings.MEDIA_ROOT) / "documents" / "external_filled" / str(case_id)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_uuid: str = str(uuid.uuid4())
+        output_abs: Path = output_dir / f"{output_uuid}.docx"
+        doc.save(str(output_abs))
+
+        output_relative: str = str(Path("documents") / "external_filled" / str(case_id) / f"{output_uuid}.docx")
+
+        party_name: str | None = None
+        if party_id is not None:
+            try:
+                case_party_model = apps.get_model("cases", "CaseParty")
+                party_obj = case_party_model.objects.get(id=party_id)
+                party_name = str(party_obj)
+            except Exception:
+                logger.warning("获取当事人名称失败: party_id=%d", party_id)
+
+        output_name: str = self._generate_output_filename(template.name, party_name)
+        return output_relative, output_name
+
+    def _persist_fill_record(
+        self,
+        *,
+        case_id: int,
+        template: Any,
+        party_id: int | None,
+        filled_by: Any,
+        output_relative: str,
+        output_name: str,
+        report: dict[str, Any],
+        merged_custom: dict[str, str],
+    ) -> Any:
+        """落库一条 FillRecord（报告与自定义值一并留存，便于回溯）。"""
+        from apps.documents.models.fill_record import FillRecord
+
+        record: FillRecord = FillRecord.objects.create(
+            case_id=case_id,
+            template=template,
+            party_id=party_id,
+            filled_by=filled_by,
+            file_path=output_relative,
+            original_output_name=output_name,
+            report_json=report,
+            custom_values=merged_custom,
         )
         return record
 
@@ -499,34 +600,9 @@ class FillingService:
         删除不适用项：value 为要保留的选项文本，直接替换整个位置内容。
         """
         try:
-            locator_type: str = locator.get("type", "")
-
-            paragraph = None
-            if locator_type == "paragraph":
-                para_index: int = locator.get("paragraph_index", 0)
-                if para_index >= len(doc.paragraphs):
-                    return False
-                paragraph = doc.paragraphs[para_index]
-
-            elif locator_type == "table_cell":
-                table_index: int = locator.get("table_index", 0)
-                row: int = locator.get("row", 0)
-                col: int = locator.get("col", 0)
-
-                if table_index >= len(doc.tables):
-                    return False
-                table = doc.tables[table_index]
-                if row >= len(table.rows) or col >= len(table.columns):
-                    return False
-                cell = table.cell(row, col)
-                if cell.paragraphs:
-                    paragraph = cell.paragraphs[0]
-
-            elif locator_type == "delete_inapplicable":
-                para_index = locator.get("paragraph_index", 0)
-                if para_index < len(doc.paragraphs):
-                    paragraph = doc.paragraphs[para_index]
-
+            silent_failure, paragraph = self._locate_replaceable_paragraph(doc, locator)
+            if silent_failure:
+                return False
             if paragraph is None:
                 logger.warning("无法定位删除不适用项段落: locator=%s", locator)
                 return False
@@ -545,6 +621,47 @@ class FillingService:
         except Exception:
             logger.exception("删除不适用项失败: locator=%s", locator)
             return False
+
+    def _locate_replaceable_paragraph(self, doc: Any, locator: dict[str, Any]) -> tuple[bool, Any | None]:
+        """按 locator 定位要整段替换的段落。
+
+        ``paragraph`` 与 ``delete_inapplicable`` 两种 type 取段落的方式一致
+        （都是 ``paragraphs[paragraph_index]``），合并成一条取值路径。
+
+        Returns:
+            ``(是否沉默失败, 段落或 None)``。第一项 True 表示 locator 指向的表格/段落索引
+            越界，且原实现对此**直接返回 False、不打 warning**——它与「认得 locator 但没东西
+            可写」（第一项 False、段落 None，要打 warning）是两种失败，不能合并。
+        """
+        locator_type: str = locator.get("type", "")
+        if locator_type == "table_cell":
+            return self._locate_table_cell_paragraph(doc, locator)
+        if locator_type in ("paragraph", "delete_inapplicable"):
+            para_index: int = locator.get("paragraph_index", 0)
+            if para_index >= len(doc.paragraphs):
+                # 越界时两者原本表现不同：paragraph 静默失败，delete_inapplicable 走 warning
+                return locator_type == "paragraph", None
+            return False, doc.paragraphs[para_index]
+        return False, None
+
+    def _locate_table_cell_paragraph(self, doc: Any, locator: dict[str, Any]) -> tuple[bool, Any | None]:
+        """表格单元格的首段。
+
+        Returns:
+            ``(是否沉默失败, 首段或 None)``：表格/行/列越界时第一项 True（原实现直接返回
+            False、不打 warning）；单元格没有段落时第一项 False、段落为 None。
+        """
+        table_index: int = locator.get("table_index", 0)
+        row: int = locator.get("row", 0)
+        col: int = locator.get("col", 0)
+
+        if table_index >= len(doc.tables):
+            return True, None
+        table = doc.tables[table_index]
+        if row >= len(table.rows) or col >= len(table.columns):
+            return True, None
+        cell = table.cell(row, col)
+        return False, (cell.paragraphs[0] if cell.paragraphs else None)
 
     # ------------------------------------------------------------------
     # 文件名生成

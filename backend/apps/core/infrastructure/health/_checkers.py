@@ -50,7 +50,7 @@ def _collect_db_error_diagnostics(
             diagnostic_info["database_host"] = default_db.get("HOST", "")
             diagnostic_info["database_port"] = str(default_db.get("PORT", ""))
     except Exception as diag_e:
-        logger.exception("操作失败")
+        logger.exception("_checkers._collect_db_error_diagnostics: 采集数据库故障诊断信息失败")
         diagnostic_info["diagnostic_collection_error"] = str(diag_e)
     return diagnostic_info
 
@@ -100,7 +100,7 @@ def check_database() -> ComponentHealth:
             )
 
         except Exception as diag_e:
-            logger.exception("操作失败")
+            logger.exception("_checkers.check_database: 采集数据库连接诊断信息失败")
             diagnostic_info["diagnostic_error"] = str(diag_e)
 
         return ComponentHealth(
@@ -164,7 +164,7 @@ def check_cache() -> ComponentHealth:
                 diagnostic_info=diagnostic_info,
             )
     except Exception as e:
-        logger.exception("操作失败")
+        logger.exception("_checkers.check_cache: 缓存健康检查失败")
         diagnostic_info.update({"error_type": type(e).__name__, "error_details": str(e)})
 
         return ComponentHealth(
@@ -228,7 +228,7 @@ def check_disk_space() -> ComponentHealth:
                         "used_percent": round(path_used_percent, 1),
                     }
                 except Exception as path_e:
-                    logger.exception("操作失败")
+                    logger.exception("_checkers.check_disk_space: 统计单个挂载点占用失败")
                     diagnostic_info[f"{path_name}_error"] = str(path_e)
 
         return ComponentHealth(
@@ -243,7 +243,7 @@ def check_disk_space() -> ComponentHealth:
             diagnostic_info=diagnostic_info,
         )
     except Exception as e:
-        logger.exception("操作失败")
+        logger.exception("_checkers.check_disk_space: 磁盘空间检查失败")
         diagnostic_info.update({"error_type": type(e).__name__, "error_details": str(e)})
 
         return ComponentHealth(
@@ -319,7 +319,7 @@ def check_dependencies() -> ComponentHealth:
         )
 
     except Exception as e:
-        logger.exception("操作失败")
+        logger.exception("_checkers.check_dependencies: 依赖组件检查失败")
         diagnostic_info.update({"error_type": type(e).__name__, "error_details": str(e)})
 
         return ComponentHealth(

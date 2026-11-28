@@ -59,6 +59,9 @@ vi.mock('@/features/workbench', async () => {
     ProjectDetailPageLazy: lazy(() =>
       Promise.resolve({ default: () => <main>project-detail-page</main> }),
     ),
+    EditProjectPageLazy: lazy(() =>
+      Promise.resolve({ default: () => <main>project-edit-page</main> }),
+    ),
     // AppNavbar 现在从桶出口静态取 NewProjectDialog（跨域深引豁免已删除），
     // mock 工厂必须跟上真实模块形状；壳层只验证「点导航能挂载对话框」，
     // 对话框自身行为由 workbench 域测试覆盖，不要删这个 stub。

@@ -11,8 +11,7 @@ from typing import Any, ClassVar
 from ninja import ModelSchema, Schema
 
 from apps.contracts.models import ContractParty, PartyRole
-
-from .client_schemas import ClientOut
+from apps.core.api.schemas_shared import ClientBriefOut
 
 
 class ContractPartyIn(Schema):
@@ -23,7 +22,7 @@ class ContractPartyIn(Schema):
 
 
 class ContractPartyOut(ModelSchema):
-    client_detail: ClientOut
+    client_detail: ClientBriefOut
     role_label: str
 
     class Meta:
@@ -31,15 +30,15 @@ class ContractPartyOut(ModelSchema):
         fields: ClassVar = ["id", "contract", "client", "role"]
 
     @staticmethod
-    def resolve_client_detail(obj: Any) -> ClientOut:
+    def resolve_client_detail(obj: Any) -> ClientBriefOut:
         if isinstance(obj, dict):
             cd = obj.get("client_detail")
             if isinstance(cd, dict):
-                return ClientOut(**cd)
-            if isinstance(cd, ClientOut):
+                return ClientBriefOut(**cd)
+            if isinstance(cd, ClientBriefOut):
                 return cd
-            return ClientOut()  # type: ignore[call-arg]
-        return ClientOut.from_model(obj.client)
+            return ClientBriefOut()  # type: ignore[call-arg]
+        return ClientBriefOut.from_model(obj.client)
 
     @staticmethod
     def resolve_role_label(obj: Any) -> str:

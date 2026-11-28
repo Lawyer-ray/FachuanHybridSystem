@@ -9,6 +9,7 @@ from pydantic import Field
 from apps.core.api.schemas import SchemaMixin
 
 __all__: list[str] = [
+    "ClientBriefOut",
     "ClientIdentityDocLiteOut",
     "ClientLiteOut",
     "ReminderLiteOut",
@@ -32,6 +33,36 @@ class ClientIdentityDocLiteOut(Schema):
             file_path=getattr(obj, "file_path", "") or "",
             uploaded_at=obj.uploaded_at,
             media_url=obj.media_url if hasattr(obj, "media_url") else None,
+        )
+
+
+class ClientBriefOut(Schema):
+    """当事人快照（内嵌在合同/案件/补充协议的 `client_detail` 里）。
+
+    刻意**不含** `identity_docs` 与 `client_type_label`：证件列表只在客户自身端点
+    （GET /clients/{client_id}）出参，内嵌一份会让每个当事人的每份证件各补一条 SQL
+    （实测占合同列表响应 9.8KB/139KB，前端生产代码 0 处消费）；`client_type_label`
+    是 choices 衍生字段，同样无人读。字段集 = 前端生产代码实际读到的字段 + id/name。
+    """
+
+    id: int
+    name: str
+    is_our_client: bool
+    phone: str | None = None
+    address: str | None = None
+    id_number: str | None = None
+    legal_representative: str | None = None
+
+    @classmethod
+    def from_model(cls, obj: Any) -> "ClientBriefOut":
+        return cls(
+            id=obj.id,
+            name=getattr(obj, "name", ""),
+            is_our_client=bool(getattr(obj, "is_our_client", False)),
+            phone=getattr(obj, "phone", None),
+            address=getattr(obj, "address", None),
+            id_number=getattr(obj, "id_number", None),
+            legal_representative=getattr(obj, "legal_representative", None),
         )
 
 

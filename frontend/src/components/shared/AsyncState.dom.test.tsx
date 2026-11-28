@@ -33,14 +33,22 @@ describe('EmptyBlock', () => {
     expect(container.querySelectorAll('div')).toHaveLength(2)
   })
 
-  it('icon 与 action 各自渲染', () => {
+  it('icon 套虚线圆角容器，文案与 action 槽照常渲染', () => {
     render(
       <EmptyBlock icon={<svg data-testid="empty-icon" />} action={<button type="button">上传材料</button>}>
         还没有材料
       </EmptyBlock>,
     )
-    expect(screen.getByTestId('empty-icon')).toBeTruthy()
+    const box = screen.getByTestId('empty-icon').parentElement
+    expect(box?.className).toContain('border-dashed')
+    expect(box?.className).toContain('rounded-[14px]')
+    expect(screen.getByText('还没有材料')).toBeTruthy()
     expect(screen.getByRole('button', { name: '上传材料' })).toBeTruthy()
+  })
+
+  it('无 icon 时不渲染虚线容器，视觉与旧行为一致', () => {
+    const { container } = render(<EmptyBlock>暂无历史记录</EmptyBlock>)
+    expect(container.querySelector('.border-dashed')).toBeNull()
   })
 })
 

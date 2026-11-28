@@ -612,132 +612,199 @@ def _compare_pair(
         right_chunk = right_lines[j1:j2]
 
         if tag == "replace" and left_chunk and right_chunk:
-            # 逐行配对比较；多出来的行按 missing 处理
-            emitted = 0
-            for offset, (left_line, right_line) in enumerate(zip(left_chunk, right_chunk, strict=False)):
-                # 锚点看**两侧邻域**：姓名与身份证号在表单里常是相邻两行，
-                # 只看本行会把绑定到具体人的姓名分歧误降为 medium。
-                anchor = (
-                    _anchors_nearby(left_lines, i1 + offset)
-                    or _anchors_nearby(right_lines, j1 + offset)
-                    or _anchor_hit(left_line)
-                    or _anchor_hit(right_line)
+            out.extend(
+                _emit_replace_chunk(
+                    page_no,
+                    left_name,
+                    right_name,
+                    left_lines=left_lines,
+                    right_lines=right_lines,
+                    left_start=i1,
+                    right_start=j1,
+                    left_chunk=left_chunk,
+                    right_chunk=right_chunk,
                 )
-                classified = _classify_pair(left_line, right_line, anchor=anchor)
-                if classified is None:
-                    continue
-                kind, severity, similarity = classified
-                emitted += 1
-                out.append(
-                    EngineDisagreement(
-                        page_no=page_no,
-                        kind=kind,
-                        severity=severity,
-                        variants=[
-                            EngineVariant(engine=left_name, text=_truncate(left_line), full_text=left_line),
-                            EngineVariant(engine=right_name, text=_truncate(right_line), full_text=right_line),
-                        ],
-                        context=_truncate(left_line if len(left_line) >= len(right_line) else right_line),
-                        anchor_hit=anchor,
-                        similarity=similarity,
-                    )
-                )
-
-            if emitted == 0:
-                # 逐行都配不上（相似度低于阀值）：两边是**完全不同的切行方式**，
-                # 典型如 MinerU 把整页压成 1 行、VL 输出几十行。这不能静默丢弃——
-                # 那一整块内容在两引擎里对不上，律师最需要看的就是这种。
-                # 报成一条「整块覆盖不一致」，让人去核，而不是当作「无分歧」。
-                left_joined = " ／ ".join(left_chunk)
-                right_joined = " ／ ".join(right_chunk)
-                # 先看整块归一化后是不是其实一样：
-                # 典型如一边 `# 证明`、一边 `证明`——切行不同但内容相同。
-                # 这种不该报成 high，否则每个带标题的段落都会刷一条假告警。
-                whole_norm_left = _normalize(left_joined)
-                whole_norm_right = _normalize(right_joined)
-                if whole_norm_left == whole_norm_right:
-                    continue
-                whole_similarity = difflib.SequenceMatcher(
-                    None, whole_norm_left, whole_norm_right, autojunk=False
-                ).ratio()
-                # 行数相近才当「只是切行不同」：两边都是 1~2 行的小段落时，
-                # 相似度 0.5+ 往往真的只是换行位置不同。
-                #
-                # 但不能只看相似度：一整块表单内容被一边当整段、另一边拆成很多行时，
-                # 字符相似度依然可能过线，但行数差几倍就不可能是「同一段落换个切法」。
-                # 所以再加一道行数比限制，避免把真分歧滤掉。
-                #
-                # 待核实（不阻塞使用）：旧注释举的 p44「左 2 行 vs 右 9 行、相似度 0.558」
-                # 需要两引擎原文才能复跑，而仓库里没有 VL 响应存档，所以这个阈值目前
-                # 是经验值而非实测拟合值。若将来留了响应存档，应拿它重标一次。
-                # 当前取值偏保守（宁可多报），错报代价远小于漏报。
-                line_ratio = (
-                    (min(len(left_chunk), len(right_chunk)) / max(len(left_chunk), len(right_chunk)))
-                    if max(len(left_chunk), len(right_chunk))
-                    else 0.0
-                )
-                if whole_similarity >= _LINE_SIMILARITY_FLOOR and line_ratio >= _CHUNK_LINE_RATIO_FLOOR:
-                    # 内容大体相似且行数相当：只是行边界划得不同，不是真分歧。
-                    continue
-                out.append(
-                    EngineDisagreement(
-                        page_no=page_no,
-                        kind=KIND_LINE,
-                        # 整块对不上时同样要看差异的性质：两边行数不同会让本模块自己加的
-                        # ``／`` 拼接分隔符数量对不上，那是排版不是认错字，降 low。
-                        severity=(
-                            SEVERITY_LOW
-                            if _is_presentation_only_diff(whole_norm_left, whole_norm_right)
-                            else SEVERITY_HIGH
-                        ),
-                        variants=[
-                            EngineVariant(engine=left_name, text=_truncate(left_joined), full_text=left_joined),
-                            EngineVariant(engine=right_name, text=_truncate(right_joined), full_text=right_joined),
-                        ],
-                        context=_truncate(left_joined),
-                        anchor_hit=_anchors_nearby(left_lines, i1) or _anchors_nearby(right_lines, j1),
-                        similarity=0.0,
-                    )
-                )
+            )
             continue
 
         if tag == "delete" and left_chunk:
-            # 只有 A 有、B 没有。这**多数是版面切分差异**（B 把这几行并到上一段里了），
-            # 不是「B 漏读了」。所以给 low，只为让人知道「这里两引擎覆盖不同」。
-            for left_line in left_chunk:
-                out.append(
-                    EngineDisagreement(
-                        page_no=page_no,
-                        kind=KIND_MISSING,
-                        severity=SEVERITY_LOW,
-                        variants=[
-                            EngineVariant(engine=left_name, text=_truncate(left_line), full_text=left_line),
-                            EngineVariant(engine=right_name, text=""),
-                        ],
-                        context=_truncate(left_line),
-                        anchor_hit=_anchor_hit(left_line),
-                        similarity=0.0,
-                    )
-                )
+            # 左引擎多出来的行 = 右引擎缺这几行
+            out.extend(_emit_missing_chunk(page_no, left_name, right_name, left_chunk, missing_engine=right_name))
             continue
 
         if tag == "insert" and right_chunk:
-            for right_line in right_chunk:
-                out.append(
-                    EngineDisagreement(
-                        page_no=page_no,
-                        kind=KIND_MISSING,
-                        severity=SEVERITY_LOW,
-                        variants=[
-                            EngineVariant(engine=left_name, text=""),
-                            EngineVariant(engine=right_name, text=_truncate(right_line), full_text=right_line),
-                        ],
-                        context=_truncate(right_line),
-                        anchor_hit=_anchor_hit(right_line),
-                        similarity=0.0,
-                    )
-                )
+            # 右引擎多出来的行 = 左引擎缺这几行
+            out.extend(_emit_missing_chunk(page_no, left_name, right_name, right_chunk, missing_engine=left_name))
 
+    return out
+
+
+def _emit_replace_chunk(
+    page_no: int,
+    left_name: str,
+    right_name: str,
+    *,
+    left_lines: list[str],
+    right_lines: list[str],
+    left_start: int,
+    right_start: int,
+    left_chunk: list[str],
+    right_chunk: list[str],
+) -> list[EngineDisagreement]:
+    """``replace`` 区：逐行配对比较；一行都配不上时退到整块报一条。
+
+    逐行配对是主路径——真分歧绝大多数是「同一行两边写得不一样」。整块兜底处理的
+    是「两边切行方式根本不同」，判据与理由见 :func:`_emit_whole_block_disagreement`。
+
+    ``left_start`` / ``right_start`` 是该区在两份行序列里的起始下标，只用于取锚点邻域。
+    """
+    pairs: list[EngineDisagreement] = []
+    for offset, (left_line, right_line) in enumerate(zip(left_chunk, right_chunk, strict=False)):
+        # 锚点看**两侧邻域**：姓名与身份证号在表单里常是相邻两行，
+        # 只看本行会把绑定到具体人的姓名分歧误降为 medium。
+        anchor = (
+            _anchors_nearby(left_lines, left_start + offset)
+            or _anchors_nearby(right_lines, right_start + offset)
+            or _anchor_hit(left_line)
+            or _anchor_hit(right_line)
+        )
+        classified = _classify_pair(left_line, right_line, anchor=anchor)
+        if classified is None:
+            continue
+        kind, severity, similarity = classified
+        pairs.append(
+            EngineDisagreement(
+                page_no=page_no,
+                kind=kind,
+                severity=severity,
+                variants=[
+                    EngineVariant(engine=left_name, text=_truncate(left_line), full_text=left_line),
+                    EngineVariant(engine=right_name, text=_truncate(right_line), full_text=right_line),
+                ],
+                context=_truncate(left_line if len(left_line) >= len(right_line) else right_line),
+                anchor_hit=anchor,
+                similarity=similarity,
+            )
+        )
+
+    if pairs:
+        return pairs
+
+    whole_block = _emit_whole_block_disagreement(
+        page_no,
+        left_name,
+        right_name,
+        left_lines=left_lines,
+        right_lines=right_lines,
+        left_start=left_start,
+        right_start=right_start,
+        left_chunk=left_chunk,
+        right_chunk=right_chunk,
+    )
+    return [] if whole_block is None else [whole_block]
+
+
+def _emit_whole_block_disagreement(
+    page_no: int,
+    left_name: str,
+    right_name: str,
+    *,
+    left_lines: list[str],
+    right_lines: list[str],
+    left_start: int,
+    right_start: int,
+    left_chunk: list[str],
+    right_chunk: list[str],
+) -> EngineDisagreement | None:
+    """整块覆盖不一致：一行都配不上时，把整个 ``replace`` 区报成一条分歧。
+
+    逐行都配不上（相似度低于阀值）：两边是**完全不同的切行方式**，典型如 MinerU
+    把整页压成 1 行、VL 输出几十行。这不能静默丢弃——那一整块内容在两引擎里对不上，
+    律师最需要看的就是这种。报成一条「整块覆盖不一致」，让人去核，而不是当作「无分歧」。
+
+    返回 None 表示「其实不是分歧」：整块归一化后相同，或只是行边界划得不同。
+    """
+    left_joined = " ／ ".join(left_chunk)
+    right_joined = " ／ ".join(right_chunk)
+    # 先看整块归一化后是不是其实一样：
+    # 典型如一边 `# 证明`、一边 `证明`——切行不同但内容相同。
+    # 这种不该报成 high，否则每个带标题的段落都会刷一条假告警。
+    whole_norm_left = _normalize(left_joined)
+    whole_norm_right = _normalize(right_joined)
+    if whole_norm_left == whole_norm_right:
+        return None
+
+    whole_similarity = difflib.SequenceMatcher(None, whole_norm_left, whole_norm_right, autojunk=False).ratio()
+    # 行数相近才当「只是切行不同」：两边都是 1~2 行的小段落时，
+    # 相似度 0.5+ 往往真的只是换行位置不同。
+    #
+    # 但不能只看相似度：一整块表单内容被一边当整段、另一边拆成很多行时，
+    # 字符相似度依然可能过线，但行数差几倍就不可能是「同一段落换个切法」。
+    # 所以再加一道行数比限制，避免把真分歧滤掉。
+    #
+    # 待核实（不阻塞使用）：旧注释举的 p44「左 2 行 vs 右 9 行、相似度 0.558」
+    # 需要两引擎原文才能复跑，而仓库里没有 VL 响应存档，所以这个阈值目前
+    # 是经验值而非实测拟合值。若将来留了响应存档，应拿它重标一次。
+    # 当前取值偏保守（宁可多报），错报代价远小于漏报。
+    longest = max(len(left_chunk), len(right_chunk))
+    line_ratio = (min(len(left_chunk), len(right_chunk)) / longest) if longest else 0.0
+    if whole_similarity >= _LINE_SIMILARITY_FLOOR and line_ratio >= _CHUNK_LINE_RATIO_FLOOR:
+        # 内容大体相似且行数相当：只是行边界划得不同，不是真分歧。
+        return None
+
+    return EngineDisagreement(
+        page_no=page_no,
+        kind=KIND_LINE,
+        # 整块对不上时同样要看差异的性质：两边行数不同会让本模块自己加的
+        # ``／`` 拼接分隔符数量对不上，那是排版不是认错字，降 low。
+        severity=SEVERITY_LOW if _is_presentation_only_diff(whole_norm_left, whole_norm_right) else SEVERITY_HIGH,
+        variants=[
+            EngineVariant(engine=left_name, text=_truncate(left_joined), full_text=left_joined),
+            EngineVariant(engine=right_name, text=_truncate(right_joined), full_text=right_joined),
+        ],
+        context=_truncate(left_joined),
+        anchor_hit=_anchors_nearby(left_lines, left_start) or _anchors_nearby(right_lines, right_start),
+        similarity=0.0,
+    )
+
+
+def _emit_missing_chunk(
+    page_no: int,
+    left_name: str,
+    right_name: str,
+    lines: list[str],
+    *,
+    missing_engine: str,
+) -> list[EngineDisagreement]:
+    """一侧有、另一侧没有的行 → 每行一条 :data:`KIND_MISSING` 分歧。
+
+    ``missing_engine`` 是「缺这几行的」那侧引擎名：``tag=="delete"`` 时是右引擎、
+    ``tag=="insert"`` 时是左引擎；它的 variant 记空文本，另一侧记原文。
+
+    严重度给 low 而不是 high：这**多数是版面切分差异**（另一侧把这几行并到上一段里
+    了），不是「它漏读了」。只为让人知道「这里两引擎覆盖不同」。
+    """
+    out: list[EngineDisagreement] = []
+    for line in lines:
+        variants = [
+            EngineVariant(
+                engine=name,
+                text="" if name == missing_engine else _truncate(line),
+                full_text="" if name == missing_engine else line,
+            )
+            for name in (left_name, right_name)
+        ]
+        out.append(
+            EngineDisagreement(
+                page_no=page_no,
+                kind=KIND_MISSING,
+                severity=SEVERITY_LOW,
+                variants=variants,
+                context=_truncate(line),
+                anchor_hit=_anchor_hit(line),
+                similarity=0.0,
+            )
+        )
     return out
 
 

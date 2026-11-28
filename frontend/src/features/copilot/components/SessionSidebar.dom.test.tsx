@@ -31,6 +31,12 @@ vi.mock('../store', () => ({
   useCopilot: (sel: (s: typeof storeMock) => unknown) => sel(storeMock),
 }))
 
+/** 技能抽屉开关：入口按钮测的是「点了有没有打开」，抽屉内部不属本文件 */
+const openSkillDrawerSpy = vi.hoisted(() => vi.fn())
+vi.mock('../skill-drawer', () => ({
+  useSkillDrawer: (sel: (s: { open: boolean; openDrawer: () => void }) => unknown) => sel({ open: false, openDrawer: openSkillDrawerSpy }),
+}))
+
 import { SessionSidebar } from './SessionSidebar'
 
 function session(id: string, title = '') {
@@ -47,6 +53,7 @@ function renderSidebar(variant: 'rail' | 'overlay' = 'rail') {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  openSkillDrawerSpy.mockClear()
   storeMock.sessionId = 's-2'
   storeMock.context = null
   storeMock.switchSession = switchSpy
@@ -307,6 +314,17 @@ describe('SessionSidebar：业务范围与用量（P1-1 / P1-2）', () => {
     ) as HTMLElement
     fireEvent.click(otherHead)
     await waitFor(() => expect(container.textContent).toContain('别的项目会话'))
+    container.remove()
+  })
+
+  it('「技能」入口与「助手记忆」并列，点击只写抽屉开关', async () => {
+    const { container } = renderSidebar()
+    const entry = await waitFor(() => within(container).getByRole('button', { name: '技能' }))
+    fireEvent.click(entry)
+    // 抽屉本体挂在页面层（CopilotPanel / AssistantPage）：侧栏窄屏时不渲染，挂在这里
+    // 会让 `/管理技能` 静默无效。本文件只负责「按钮点了有没有打开开关」。
+    expect(openSkillDrawerSpy).toHaveBeenCalled()
+    expect(container.querySelector('[data-testid="skill-drawer"]')).toBeNull()
     container.remove()
   })
 

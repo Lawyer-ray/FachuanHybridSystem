@@ -244,6 +244,7 @@ class PiRpcSession:
         tool_selection: str | None = None,
         exclude_tools: frozenset[str] | None = None,
         skill_paths: list[str] | None = None,
+        append_system_prompt: str | None = None,
         memory_injection: bool = True,
     ) -> None:
         self._cwd = cwd
@@ -264,7 +265,19 @@ class PiRpcSession:
         #: Agent Skills 注入面（``--skill``，可重复）。空列表表示本次不注入
         #: 任何技能——配合恒定的 ``--no-skills``（见 :meth:`_build_args`），
         #: 宿主机的用户级技能目录永远不会混进律师的生产会话。
+        #:
+        #: **仅兼容旧路径**：方案 A 之后技能不再落盘，生产每轮恒传 ``[]``；
+        #: 保留这个参数只为让既有单测与「手工塞目录调试」仍可用。
         self._skill_paths: list[str] = list(skill_paths) if skill_paths else []
+        #: 追加到系统提示末尾的技能索引块（``--append-system-prompt``）。
+        #:
+        #: 为什么是「追加」而不是替换：pi 的系统提示是运行时拼出来的（工具说明、
+        #: 项目指令、addendum 各成一段），键在 ``--system-prompt`` 上会整段顶掉
+        #: 工具说明，模型就不知道 ``tool_search`` 该怎么用。``--append-system-prompt``
+        #: 走 ``<addendum>`` 段，与 pi 自己的分段互不干扰（1.6.0 实测）。
+        #: 块首必须是 markdown 标题，不能是路径形态——pi 会先按「这兴许是个文件」
+        #: 去 ``existsSync``（见 ``prompt_block.BLOCK_HEADING``）。
+        self._append_system_prompt = append_system_prompt
         #: 是否加载记忆注入 extension（见 :func:`resolve_extensions`）。
         self._memory_injection = memory_injection
         self._extension = extension_path if extension_path is not None else default_approval_extension()
@@ -316,8 +329,15 @@ class PiRpcSession:
         # 显式选择的技能；pi 的 updateSkillsFromPaths 在两者并存时只认显式列表
         # （noSkills 且无显式路径才是「零技能」）。
         args.append("--no-skills")
+        # 仅兼容旧路径：生产不再传技能目录（技能不落盘），这里恒为空；保留循环
+        # 只为让既有单测与手工调试仍能显式挂目录。
         for skill_path in self._skill_paths:
             args.extend(["--skill", skill_path])
+        if self._append_system_prompt:
+            # 技能索引进系统提示：--no-skills + 零路径关死宿主机技能面，索引块是
+            # 模型知道「还有哪些技能可用」的唯一来源（pi 无 read/bash 工具时
+            # 自己**不生成** <available_skills>，见系统提示源码）。
+            args.extend(["--append-system-prompt", self._append_system_prompt])
         if self._provider:
             args.extend(["--provider", self._provider])
         if self._model:

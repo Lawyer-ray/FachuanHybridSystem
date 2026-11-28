@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import io
 import logging
-import re
-import zipfile
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -15,7 +12,6 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
 
-from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.services.storage_service import sanitize_upload_filename
 from apps.pdf_splitting.models import (
     PdfSplitJob,
@@ -31,15 +27,32 @@ from apps.pdf_splitting.models import (
 from apps.pdf_splitting.services.heartbeat import periodic_heartbeat
 from apps.pdf_splitting.services.heartbeat import touch_heartbeat as _touch_heartbeat_row
 from apps.pdf_splitting.services.storage import PdfSplitStorage
-from apps.pdf_splitting.services.template_registry import get_default_filename
 
 from .consistency_summary import attach_quality_flags_to_markdown, detect_inconsistencies, pick_top_inconsistencies
 from .disagreement_judge import GATE_NOT_REQUESTED
 from .dual_engine_runner import plan_dual_engine_factories, run_dual_engine
 from .export_utils import ExportUtils, deduplicate_filename, export_segment_pdf
-from .markdown_builder import build_segments_markdown, load_segment_markdown_map
+
+# 导出 / 下载 / 预览打包的实现在 ``exporter``：这里 re-export，既有调用方
+# （tasks.py / API 层 / 单测）按 ``service`` 路径 import 照旧可用。
+from .exporter import (
+    _SEGMENT_SUFFIX_RE,
+    _download_segments,
+    _fallback_archive,
+    _get_segment,
+    _ordinals_in_job,
+    _segment_stem,
+    _segment_zip_entries,
+    _zip_bytes,
+    _zip_filename,
+    build_download_markdown,
+    build_download_pdf,
+    build_download_zip,
+    export_job,
+    render_preview,
+)
+from .markdown_builder import build_segments_markdown
 from .ocr_handler import OCRHandler, cloud_backend_of_method
-from .output_rotation import apply_page_rotations, parse_page_rotations
 from .page_quality_summary import attach_page_quality_flags, qualities_by_page
 from .pipeline import (
     PdfAnalysisOutcome,
@@ -104,25 +117,6 @@ def _provider_from_pages(pages: list[PageDescriptor]) -> str:
     if not counts:
         return ""
     return max(counts.items(), key=lambda item: item[1])[0]
-
-
-#: 段文件名里的旧扩展名（.pdf / .md）—— 打包时名字统一由本模块重生，
-#: 两种后缀都得先剥掉，否则同一个段会落成 ``01_起诉状.pdf.pdf``。
-_SEGMENT_SUFFIX_RE = re.compile(r"\.(?:pdf|md)$", re.IGNORECASE)
-
-
-def _zip_bytes(entries: list[tuple[str, bytes]]) -> bytes:
-    """条目列表 → zip 字节。
-
-    集中一处是为了让「整包 / 多选 / 导出任务落盘」三条路径的压缩参数
-    （deflate、平铺、不写目录项）只有一个口径：任何一条路径单独变化，
-    律师拿到的包结构就会和界面上看到的段列表对不上。
-    """
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for filename, content in entries:
-            archive.writestr(filename, content)
-    return buffer.getvalue()
 
 
 class PdfSplitService:
@@ -675,102 +669,21 @@ class PdfSplitService:
             updated_at=now,
         )
 
+    # ==================================================================
+    # 导出 / 下载 / 预览（实现在 split/exporter.py；方法形态保留给 tasks.py 与 API 层）
+    # ==================================================================
+
     def export_job(self, job: PdfSplitJob) -> None:  # pragma: no cover
-        """后台导出任务：把整包写到 ``exports/split_result.zip``（供旧调用方直接取文件）。
-
-        包内现在也带 md（与 ``build_download_zip`` 用同一套条目构造），否则
-        「后台导出出来的包」与「端点下载的包」内容不一致——同一份卷宗两个下载
-        入口给不一样的东西，用户无法判断哪个是完整的。
-
-        进度与取消保留在原位：整包渲 93 页虽然只需秒级，但几十段的导出仍可能
-        放在慢盘上，律师点「取消」必须能停。
-        """
-        storage = PdfSplitStorage(job.id)
-        storage.ensure_dirs()
-        segments = self._download_segments(job=job, segment_ids=None)
-        if not segments:
-            # 后台任务没有「空响应」这条路：它就是失败，任务会被标 failed 并写明原因，
-            # 不能像下载端点那样静默回 404。
-            raise ValueError("没有可导出的片段")
-
-        PdfSplitJob.objects.filter(id=job.id).update(
-            status=PdfSplitJobStatus.EXPORTING,
-            progress=0,
-            error_message="",
-        )
-
-        entries: list[tuple[str, bytes]] = []
-        markdown_by_order = load_segment_markdown_map(storage.segments_md_path)
-        with fitz.open(storage.source_pdf_path) as source_doc:
-            total = len(segments)
-            seen_names: set[str] = set()
-            ordinals = self._ordinals_in_job(job)
-            for index, segment in enumerate(segments, start=1):
-                job.refresh_from_db(fields=["cancel_requested"])
-                if job.cancel_requested:
-                    PdfSplitJob.objects.filter(id=job.id).update(
-                        status=PdfSplitJobStatus.CANCELLED,
-                        finished_at=timezone.now(),
-                    )
-                    return
-
-                entries.extend(
-                    self._segment_zip_entries(
-                        source_doc,
-                        segment,
-                        seq=ordinals.get(segment.id, index),
-                        markdown_by_order=markdown_by_order,
-                        seen_names=seen_names,
-                    )
-                )
-
-                progress = int(index * 100 / total)
-                PdfSplitJob.objects.filter(id=job.id).update(progress=progress)
-
-        storage.save_overwrite(storage.export_zip_path, ContentFile(_zip_bytes(entries)))
-
-    # ==================================================================
-    # 下载产物（单段 pdf / 单段 md / 整包与多选 zip）
-    # ==================================================================
+        """后台导出任务（委托 split.exporter；保留方法形态供 tasks.py 调用）。"""
+        return export_job(job, render_pdf=export_segment_pdf)
 
     def build_download_pdf(self, job: PdfSplitJob, segment_id: int, *, rotations: str = "") -> tuple[bytes, str]:
-        """单段 PDF：返回 ``(pdf 字节, 安全文件名)``。
-
-        文件名只由「数据库里的段名 → sanitize → 本模块重生扩展名」构成，
-        不接受任何客户端拼串（否则 ``../`` 与引号就能穿进 Content-Disposition）。
-        """
-        segment = self._get_segment(job=job, segment_id=segment_id)
-        storage = PdfSplitStorage(job.id)
-        if not storage.source_pdf_path.exists():
-            raise NotFoundError(
-                message="原始 PDF 不存在，无法切出该分段",
-                code="PDF_SPLIT_SOURCE_MISSING",
-                errors={"segment_id": segment_id},
-            )
-        with fitz.open(storage.source_pdf_path) as source_doc:
-            # 人工转正先烧进页对象再切：insert_pdf 复制页对象，/Rotate 跟着走
-            apply_page_rotations(source_doc, parse_page_rotations(rotations))
-            pdf_bytes = export_segment_pdf(source_doc, segment.page_start, segment.page_end)
-        return pdf_bytes, f"{self._segment_stem(segment)}.pdf"
+        """单段 PDF 下载（委托 split.exporter；保留方法形态供 API 层调用）。"""
+        return build_download_pdf(job, segment_id, rotations=rotations)
 
     def build_download_markdown(self, job: PdfSplitJob, segment_id: int) -> tuple[str, str]:
-        """单段 Markdown：返回 ``(markdown 文本, 安全文件名)``。
-
-        正文取 ``segments_md.json`` 里那一段——即律师在界面上看到的 ``content_md``
-        本人，不是现场重算的近似物。该段没有 md 产物（旧任务 / 该段没取到字）时
-        404 而不是回空文件：空 md 看起来像「下载成功但内容是空的」，比明确报错
-        更难排查。
-        """
-        segment = self._get_segment(job=job, segment_id=segment_id)
-        markdown_by_order = load_segment_markdown_map(PdfSplitStorage(job.id).segments_md_path)
-        markdown = markdown_by_order.get(segment.order) or ""
-        if not markdown.strip():
-            raise NotFoundError(
-                message="该分段没有 Markdown 产物",
-                code="PDF_SPLIT_SEGMENT_MD_NOT_FOUND",
-                errors={"segment_id": segment_id, "order": segment.order},
-            )
-        return markdown, f"{self._segment_stem(segment)}.md"
+        """单段 Markdown 下载（委托 split.exporter；保留方法形态供 API 层调用）。"""
+        return build_download_markdown(job, segment_id)
 
     def build_download_zip(
         self,
@@ -779,128 +692,30 @@ class PdfSplitService:
         segment_ids: list[int] | None = None,
         rotations: str = "",
     ) -> tuple[bytes, str] | None:
-        """整包 / 多选打包：返回 ``(zip 字节, zip 文件名)``，包内**平铺**且每段配同名 md。
-
-        ``segment_ids`` 为 ``None`` 时是整包（与既有 ``/download`` 语义一致，只是
-        包里多了 md）；给值时只渲选中的段——未选中的段**不渲**，否则多选下载的耗时
-        与整包一样，勾 3 段要等 93 页。
-
-        返回 ``None`` 而不是抛异常表示「没有可打包的段」：旧 ``/download`` 对
-        「产物缺失」的契约是 **404 + 空响应体**（不能把半个包发给律师），API 层据此
-        直接回空 404 即可，不必为它写 try/except。
-        """
-        segments = self._download_segments(job=job, segment_ids=segment_ids)
-        if not segments:
-            return None
-        storage = PdfSplitStorage(job.id)
-        if not storage.source_pdf_path.exists():
-            return self._fallback_archive(job=job, storage=storage, segment_ids=segment_ids)
-
-        markdown_by_order = load_segment_markdown_map(storage.segments_md_path)
-        ordinals = self._ordinals_in_job(job)
-        entries: list[tuple[str, bytes]] = []
-        seen_names: set[str] = set()
-        with fitz.open(storage.source_pdf_path) as source_doc:
-            # 包内所有段共用这一份源文档：角度一次 apply 到位（页级属性，与段无关）
-            apply_page_rotations(source_doc, parse_page_rotations(rotations))
-            for segment in segments:
-                entries.extend(
-                    self._segment_zip_entries(
-                        source_doc,
-                        segment,
-                        seq=ordinals.get(segment.id, 1),
-                        markdown_by_order=markdown_by_order,
-                        seen_names=seen_names,
-                    )
-                )
-        return _zip_bytes(entries), self._zip_filename(segment_ids)
+        """整包 / 多选 zip（委托 split.exporter；保留方法形态供 API 层调用）。"""
+        return build_download_zip(job, segment_ids=segment_ids, rotations=rotations, render_pdf=export_segment_pdf)
 
     def _fallback_archive(
         self, *, job: PdfSplitJob, storage: PdfSplitStorage, segment_ids: list[int] | None
     ) -> tuple[bytes, str]:
-        """源 PDF 已不在时的降级：整包请求回历史整包，多选请求明确报错。
-
-        为什么整包可以回旧包：``/download`` 以前就是「文件在就给文件」，源 PDF 被
-        清理后旧整包仍在的存量任务是真实存在的；把它们从 200 变成 404 是回归。
-        但旧包可能没有 md，所以记一条 warning——这是唯一会出现「pdf 配不上 md」
-        的入口，日志里必须能查到原因。
-
-        多选做不了同样的降级：历史整包是**整包**，拿它当「只选中几段」返回等于
-        把没勾的材料也塞给律师，比报错更糟。
-        """
-        if segment_ids is None and storage.export_zip_path.exists():
-            logger.warning(
-                "pdf_split_download_source_missing",
-                extra={"job_id": str(job.id), "fallback": "persisted_zip"},
-            )
-            return storage.export_zip_path.read_bytes(), self._zip_filename(None)
-        raise NotFoundError(
-            message="原始 PDF 不存在，无法重新打包",
-            code="PDF_SPLIT_SOURCE_MISSING",
-            errors={"job_id": str(job.id)},
-        )
+        """源 PDF 缺失时的降级（委托 split.exporter._fallback_archive）。"""
+        return _fallback_archive(job=job, storage=storage, segment_ids=segment_ids)
 
     def _zip_filename(self, segment_ids: list[int] | None) -> str:
-        """zip 的下载名：整包沿用旧名 ``split_result.zip``，多选另取一个。
-
-        不改整包文件名是为了向后兼容（脚本/旧前端按名字认产物）；多选单独命名
-        则让律师在下载目录里能一眼分辨「这是我勾的几段」还是「整包」。
-        """
-        return "split_result.zip" if segment_ids is None else "split_result_selected.zip"
+        """zip 下载名（委托 split.exporter._zip_filename）。"""
+        return _zip_filename(segment_ids)
 
     def _download_segments(self, *, job: PdfSplitJob, segment_ids: list[int] | None) -> list[PdfSplitSegment]:
-        """本次要打包的段（按卷宗顺序）。
-
-        ``ids`` 校验规则：每个 id 都必须是**该任务**的段主键，有一个不合法就整体
-        400 并列出是哪些——不静默跳过。律师勾了 12 段、包里只有 10 段时，他无法
-        从界面上看出少了哪两段；整包悄悄缺页是这类卷宗工具最坏的失败模式。
-        """
-        segments = list(job.segments.order_by("order", "id"))
-        if segment_ids is None:
-            return segments
-        # 显式选中但一段也取不到（任务没有段 / ids 是空表）→ 回空表，由调用方决定
-        # 怎么反应：下载端点回空 404（旧契约），后台导出任务报失败。同一个「没东西
-        # 可打」在两个入口的正确反应不同。
-        if not segments:
-            return []
-
-        by_id = {segment.id: segment for segment in segments}
-        unknown = [segment_id for segment_id in segment_ids if segment_id not in by_id]
-        if unknown:
-            raise ValidationException(
-                message=f"以下分段不属于该任务：{', '.join(str(item) for item in unknown)}",
-                errors={"ids": unknown},
-            )
-        # dict.fromkeys 去重：前端可能把同一段拼接进 ids 两次，同一份材料在包里
-        # 出现两遍只会被当成「重复上传」；再按 order 排序，包内顺序恒等于卷宗顺序。
-        selected = [by_id[segment_id] for segment_id in dict.fromkeys(segment_ids)]
-        return sorted(selected, key=lambda segment: (int(segment.order or 0), int(segment.id or 0)))
+        """本次要打包的段（委托 split.exporter._download_segments）。"""
+        return _download_segments(job=job, segment_ids=segment_ids)
 
     def _get_segment(self, *, job: PdfSplitJob, segment_id: int) -> PdfSplitSegment:
-        """取本任务的某一段；不存在（含其他任务的段）一律 404。
-
-        走 ``job.segments`` 而不是 ``PdfSplitSegment.objects``：段归属由任务关系定，
-        拿别人的段主键来试本来就该按「不存在」处理，不该泄露它是否存在。
-        """
-        segment = job.segments.filter(id=segment_id).first()
-        if segment is None:
-            raise NotFoundError(
-                message="分段不存在",
-                code="PDF_SPLIT_SEGMENT_NOT_FOUND",
-                errors={"segment_id": segment_id},
-            )
-        return segment
+        """取本任务的某一段（委托 split.exporter._get_segment）。"""
+        return _get_segment(job=job, segment_id=segment_id)
 
     def _ordinals_in_job(self, job: PdfSplitJob) -> dict[int, int]:
-        """段主键 → 该段在**整卷**里的 1 起序号（与是否多选无关）。
-
-        为什么不直接用 ``segment.order``：它的起始值取决于写入侧（实测真实任务从 0
-        起），补零后包内会出现 ``00_`` —— 律师看到会以为编号错乱。也不按「包内第几个」
-        编号：勾了第 1、3 段时，``01_起诉状`` / ``03_证据目录`` 比 ``01_`` / ``02_``
-        多保住一个信息——这两份在整卷里是第几段。卷宗顺序由排序保证，与下载顺序无关。
-        """
-        ordered = job.segments.order_by("order", "id").values_list("id", flat=True)
-        return {segment_id: index for index, segment_id in enumerate(ordered, start=1)}
+        """段在整卷里的 1 起序号（委托 split.exporter._ordinals_in_job）。"""
+        return _ordinals_in_job(job)
 
     def _segment_zip_entries(
         self,
@@ -911,54 +726,23 @@ class PdfSplitService:
         markdown_by_order: dict[int, str],
         seen_names: set[str],
     ) -> list[tuple[str, bytes]]:
-        """一段 → zip 条目列表（``[pdf]`` 或 ``[pdf, md]``）。
-
-        缺 md 时降级为只放 pdf + 一条 warning，绝不因此让整包失败：md 是这次
-        新加的产物，旧任务/未取到字的段本来就没有；因为一个副产物让律师拿不到
-        已经切好的 pdf，是把主产物赔给附属产物。
-        """
-        # 前缀取**本次导出集合内**的 1 起序号，不取 ``segment.order``：后者的起始值
-        # 取决于写入侧（实测真实任务从 0 起），直接拿来补零会让包内出现 ``00_`` 前缀，
-        # 律师看到会以为是编号错乱。这个名字只用于包内排序，与卷宗顺序由入参保证。
-        pdf_name = deduplicate_filename(f"{seq:02d}_{self._segment_stem(segment)}.pdf", seen_names)
-        entries: list[tuple[str, bytes]] = [
-            (pdf_name, export_segment_pdf(source_doc, segment.page_start, segment.page_end))
-        ]
-        markdown = markdown_by_order.get(segment.order) or ""
-        if not markdown.strip():
-            logger.warning(
-                "pdf_split_export_markdown_missing",
-                extra={"job_id": str(segment.job_id), "segment_id": segment.id, "order": segment.order},
-            )
-            return entries
-        # md 名跟 pdf 名同 stem（含去重后的 ``_2`` 尾巴）：一个 pdf 配一个同名 md
-        # 是这次需求的核心，两边各算一次名字迟早会劈叉。
-        entries.append((Path(pdf_name).with_suffix(".md").name, markdown.encode("utf-8")))
-        return entries
+        """一段 → zip 条目（委托 split.exporter._segment_zip_entries）。"""
+        return _segment_zip_entries(
+            source_doc,
+            segment,
+            seq=seq,
+            markdown_by_order=markdown_by_order,
+            seen_names=seen_names,
+            render_pdf=export_segment_pdf,
+        )
 
     def _segment_stem(self, segment: PdfSplitSegment) -> str:
-        """段的展示名 stem（去扩展名、已安全化）。
-
-        名字只来自数据库字段 + ``sanitize_upload_filename``，任何客户端输入都不参与
-        ——pdf/md 的下载名与 zip 条目名都从这里出。
-        """
-        safe = sanitize_upload_filename(segment.filename or get_default_filename(segment.segment_type))
-        stem = _SEGMENT_SUFFIX_RE.sub("", safe).strip(" .")
-        return stem or "片段"
+        """段的展示名 stem（委托 split.exporter._segment_stem）。"""
+        return _segment_stem(segment)
 
     def render_preview(self, job: PdfSplitJob, page_no: int) -> Path:  # pragma: no cover
-        storage = PdfSplitStorage(job.id)
-        preview_path = storage.preview_path(page_no)
-        if preview_path.exists():
-            return preview_path
-
-        with fitz.open(storage.source_pdf_path) as doc:
-            if page_no < 1 or page_no > doc.page_count:
-                raise ValueError("页码超出范围")
-            page = doc.load_page(page_no - 1)
-            pix = page.get_pixmap(matrix=fitz.Matrix(self.PREVIEW_DPI / 72, self.PREVIEW_DPI / 72))
-            storage.save_overwrite(preview_path, ContentFile(pix.tobytes("png")))
-        return preview_path
+        """预览图路径（委托 split.exporter.render_preview；DPI 仍取类常量）。"""
+        return render_preview(job, page_no, dpi=self.PREVIEW_DPI)
 
     # ==================================================================
     # 内部方法

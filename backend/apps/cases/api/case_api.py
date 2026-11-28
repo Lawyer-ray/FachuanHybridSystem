@@ -17,10 +17,11 @@ from __future__ import annotations
 from typing import Any
 
 from asgiref.sync import sync_to_async
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
 from ninja import Router
 
 from apps.cases.schemas import CaseCreateFull, CaseIn, CaseOut, CaseUpdate
+from apps.cases.schemas.case_slim_schemas import CaseSlimOut
 from apps.cases.services import CaseService
 from apps.cases.services.log.case_log_query_service import warm_reminder_cache_for_cases
 from apps.core.dto.request_context import extract_request_context
@@ -33,12 +34,14 @@ CASES_DEFAULT_LIMIT = 200
 CASES_MAX_LIMIT = 2000
 
 
-def _serialize_case(case: Any) -> dict:
+def _serialize_case(case: Any, *, slim: bool = False) -> dict:
     """将 Case 模型序列化为 JSON 安全的 dict（在 sync 上下文内完成 from_orm + dump）。
 
     返回 dict 让 Ninja 直接 JSON 序列化。from_orm 在 sync 上下文完成所有 ORM 访问。
+    slim=True 走 CaseSlimOut（无嵌套集合），调用方的 queryset 必须同样是 slim 版本。
     """
-    return CaseOut.from_orm(case).model_dump(by_alias=True, mode="json")
+    schema = CaseSlimOut if slim else CaseOut
+    return schema.from_orm(case).model_dump(by_alias=True, mode="json")
 
 
 def _get_case_service() -> CaseService:
@@ -86,15 +89,20 @@ async def search_cases(  # pragma: no cover
     return await sync_to_async(_do)()
 
 
-@router.get("/cases", response=list[CaseOut], by_alias=True)
+@router.get("/cases", response=list[CaseOut] | list[CaseSlimOut], by_alias=True)
 async def list_cases(  # pragma: no cover
     request: HttpRequest,
+    response: HttpResponse,
     case_type: str | None = None,
     status: str | None = None,
     case_number: str | None = None,
     contract_id: int | None = None,
     limit: int | None = None,
     offset: int = 0,
+    slim: bool = False,
+    with_total: bool = False,
+    search: str | None = None,
+    sort: str | None = None,
 ) -> list[dict[str, Any]]:
     """获取案件列表（contract_id 可按合同过滤，供前端详情按需加载）
 
@@ -103,6 +111,33 @@ async def list_cases(  # pragma: no cover
     - 未传 limit 时应用默认上限 200——含带过滤参数的宽过滤（如 status=active），
       防止单请求全表序列化。窄过滤消费方（contract_id 明细）结果集远小于 200，不受影响。
     - offset（默认 0）供 MCP 信封 truncated=true 时续取；不传行为不变。
+
+    瘦身与总数（两个都是**可选增量**，不传时与历史响应逐字节一致）：
+    - slim=true：列表项换成 CaseSlimOut（标量列与 CaseOut 同口径，剔除 7 个嵌套
+      集合：parties / assignments / logs / case_numbers / supervising_authorities /
+      chats / contacts）。预取同步裁剪，否则 SQL 一条也不省。
+    - with_total=true：总量走**响应头 X-Total-Count**（真实总数，不受 limit/offset
+      影响），响应体不变。
+
+    服务端分页的两个下推参数（同样不传时行为不变）：
+    - search=<kw>：name 或 cause_of_action 含关键词（icontains，大小写不敏感）。
+    - sort=filable_first：待立案优先（无案号且 status=active 的排在前，同组内
+      id DESC）；其他值一律当作没传，保持默认 -id。
+    **为什么下推**：列表页要做服务端分页，如果关键词过滤与「待立案优先」还留在
+    前端，它们只会作用于当前页——分页一上，前端过滤就是在错误的子集上过滤。
+    两个参数都必须同时进 list_cases 与 count_cases（同一套过滤口径），否则
+    X-Total-Count 与翻页对不上。case_number 分支保持历史行为（不切片、不排序），
+    这两个参数只作用于列表分支。
+
+    ╔═ 为什么不把裸数组改成 {items, total} 信封 ═╗
+    ║ 本端点已有 4 个消费方直接按裸数组消费：                      ║
+    ║   frontend/src/features/bank-litigation/api/cases.ts:29  listCases()  ║
+    ║   frontend/src/features/workbench（按 contract_id 拉案件明细）      ║
+    ║   frontend/src/features/material-prep                          ║
+    ║   MCP 信封（旧 offset 续取路径）                                ║
+    ║ 明文改信封 = 四个消费方同时红，且前端类型是生成物。总数是新增的     ║
+    ║ 可选信息，放在响应头就能拿到，没必要为它换整个信封。              ║
+    ╚════════════════════════════════════════════╝
     """
     service = _get_case_query_facade()
     ctx = extract_request_context(request)
@@ -120,8 +155,10 @@ async def list_cases(  # pragma: no cover
                     user=ctx.user,
                     org_access=ctx.org_access,
                     perm_open_access=ctx.perm_open_access,
+                    slim=slim,
                 )
             )
+            total = len(raw)  # 案号分支不切片（历史行为），命中数就是总数
         else:
             qs = service.list_cases(
                 case_type=case_type,
@@ -130,14 +167,35 @@ async def list_cases(  # pragma: no cover
                 user=ctx.user,
                 org_access=ctx.org_access,
                 perm_open_access=ctx.perm_open_access,
+                slim=slim,
+                search=search,
+                sort=sort,
             )
+            total = 0
+            if with_total:
+                # 切片之前取总量：总数是「过滤后的全集」，与 limit/offset 无关
+                # search 必须同参传下去，否则搜索时 total 会恒为全集
+                total = service.count_cases(
+                    case_type=case_type,
+                    status=status,
+                    contract_id=contract_id,
+                    user=ctx.user,
+                    org_access=ctx.org_access,
+                    perm_open_access=ctx.perm_open_access,
+                    search=search,
+                    sort=sort,
+                )
             sliced = qs[bounded_offset : bounded_offset + effective_limit] if effective_limit is not None else qs
             raw = list(sliced)
-        # S29-02（2026-11-23 二轮审计）：原实现序列化时每条日志的 reminders /
-        # reminder_type / reminder_time 各发一次 Reminder 查询（200 案 × 每条日志
-        # ≈ 上千次）→ 现在序列化前一次批量预热，序列化期零查询。
-        warm_reminder_cache_for_cases(raw)
-        return [_serialize_case(c) for c in raw]
+        if not slim:
+            # S29-02（2026-11-23 二轮审计）：原实现序列化时每条日志的 reminders /
+            # reminder_type / reminder_time 各发一次 Reminder 查询（200 案 × 每条日志
+            # ≈ 上千次）→ 现在序列化前一次批量预热，序列化期零查询。
+            # slim=true 时响应里没有 logs，预热只会为每个案件多一次 logs 查询（纯 N+1）。
+            warm_reminder_cache_for_cases(raw)
+        if with_total:
+            response["X-Total-Count"] = str(total)
+        return [_serialize_case(c, slim=slim) for c in raw]
 
     return await sync_to_async(_do)()
 

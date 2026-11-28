@@ -15,7 +15,7 @@
  *
  * 编排层之外的一切（布局、右栏、各工作台）全部 stub：它们各有自己的测试。
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
@@ -24,7 +24,6 @@ const h = vi.hoisted(() => ({
   special: { tree: [] as unknown[], saving: false, isLoading: false, stagesError: null, setTreeLocal: vi.fn(), saveStages: vi.fn() },
   svc: { items: [] as unknown[], sourceSubpath: '3-办案', candidates: [] as unknown[], isLoading: false },
   netWidth: 1440,
-  docked: true,
   toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() },
   termBar: vi.fn(),
   layout: vi.fn(),
@@ -52,11 +51,21 @@ vi.mock('./use-service-items', () => ({ useServiceItems: () => h.svc }))
 vi.mock('./use-special-phases', () => ({ useSpecialPhases: () => h.special }))
 vi.mock('./use-net-width', () => ({
   useNetWidth: () => h.netWidth,
-  useDockedViewport: () => h.docked,
 }))
 vi.mock('./refetch-contract', () => ({ refetchContractAndCases: vi.fn() }))
-vi.mock('../../api', () => ({ listFolderEntries: h.listFolderEntries }))
-vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: vi.fn() }) }))
+vi.mock('../../api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api')>()),
+  listFolderEntries: h.listFolderEntries,
+  // 新增期限弹窗挂载即拉类型；这里给一份最小清单，断言只看开合与归属
+  listReminderTypes: vi.fn(async () => [{ value: 'other', label: '其他' }]),
+  createReminder: vi.fn(),
+}))
+// 本文件测的是接线，不挂真实 QueryClient：新增期限弹窗会跑
+// useQuery('/reminders/types')，给一个「永远在途」的桩即可（它不参与断言）
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: () => ({ data: undefined, isPending: true, isError: false, refetch: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: vi.fn(), refetchQueries: vi.fn() }),
+}))
 
 /* ---- 展示层全部 stub：本文件测接线，不测呈现 ---- */
 vi.mock('./DetailHeader', () => ({
@@ -76,7 +85,7 @@ vi.mock('./DealDocLayout', () => ({
   DealDocLayout: (props: {
     picked: unknown
     docSideBySide: boolean
-    focusDoc: boolean
+    immersive: boolean
     aside: unknown
     rail: unknown
     children: React.ReactNode
@@ -84,7 +93,7 @@ vi.mock('./DealDocLayout', () => ({
     h.layout(props)
     return (
       <div>
-        LAYOUT:picked={String(props.picked !== null)}/side={String(props.docSideBySide)}/focus={String(props.focusDoc)}
+        LAYOUT:picked={String(props.picked !== null)}/side={String(props.docSideBySide)}/immersive={String(props.immersive)}
         <div>ASIDE:{JSON.stringify(Boolean(props.aside))}</div>
         <div>RAIL:{JSON.stringify(Boolean(props.rail))}</div>
         {props.aside as React.ReactNode}
@@ -180,7 +189,6 @@ beforeEach(() => {
   h.special = { tree: [], saving: false, isLoading: false, stagesError: null, setTreeLocal: vi.fn(), saveStages: vi.fn() }
   h.svc = { items: [], sourceSubpath: '3-办案', candidates: [], isLoading: false }
   h.netWidth = 1440
-  h.docked = true
 })
 
 describe('NonLitDetailPage · 三态', () => {
@@ -308,18 +316,21 @@ describe('NonLitDetailPage · 右栏与下一程序', () => {
     }
   })
 
-  it('「＋ 新增期限」是占位动作（当前只有一句 toast）', () => {
+  it('「＋ 新增期限」打开新增期限弹窗（不再是一句 toast）', async () => {
     renderPage()
-    h.rail.mock.calls[0]![0].onAddDue()
-    expect(h.toast.info).toHaveBeenCalledWith('新增期限正在开发中')
+    act(() => h.rail.mock.calls[0]![0].onAddDue())
+    expect(await screen.findByText('新增期限')).toBeTruthy()
+    // 非诉没有案件卡：归属只给「整个委托」
+    expect(screen.getByRole('option', { name: '整个委托（合同层面）' })).toBeTruthy()
   })
 
-  it('有 next 时渲染「下一程序」块，新建按钮也是占位', () => {
+  it('有 next 时渲染「下一程序」块，点「新建执行」打开建案弹窗', async () => {
     h.page = basePage({ next: '执行' })
     renderPage()
     expect(screen.getByText('下一程序')).toBeTruthy()
     fireEvent.click(screen.getByText('新建执行'))
-    expect(h.toast.info).toHaveBeenCalledWith('新建执行正在开发中')
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(screen.getByText('新建执行案件')).toBeTruthy()
   })
 
   it('没有 next 时不渲染「下一程序」', () => {
@@ -339,7 +350,7 @@ describe('NonLitDetailPage · 阶段目录与文件预览', () => {
     expect(h.layout.mock.calls[0]![0]).toMatchObject({ picked: null, docSideBySide: false })
 
     fireEvent.click(screen.getByText('FOLDERS:1'))
-    expect(await screen.findByText(/LAYOUT:picked=true\/side=true\/focus=false/)).toBeTruthy()
+    expect(await screen.findByText(/LAYOUT:picked=true\/side=true\/immersive=false/)).toBeTruthy()
     const props = h.layout.mock.calls.at(-1)![0]
     expect(props.picked).toEqual({
       subpath: '1-尽职调查/报告.pdf',

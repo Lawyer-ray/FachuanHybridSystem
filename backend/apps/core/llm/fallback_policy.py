@@ -183,7 +183,7 @@ class LLMFallbackPolicy:
             except LLMAuthenticationError:
                 raise
             except Exception as e:
-                logger.exception("操作失败")
+                logger.exception("fallback_policy.execute: 该后端调用失败，改试下一个")
                 _handle_call_error(name, e, fallback, errors)
                 continue
 
@@ -255,7 +255,7 @@ class LLMFallbackPolicy:
             except LLMAuthenticationError:
                 raise
             except Exception as e:
-                logger.exception("操作失败")
+                logger.exception("fallback_policy.execute_async: 该后端异步调用失败，改试下一个")
                 _handle_call_error(name, e, fallback, errors)
                 continue
 

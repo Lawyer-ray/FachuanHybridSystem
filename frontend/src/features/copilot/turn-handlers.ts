@@ -10,6 +10,7 @@
  * - tool-handlers.ts        工具行状态机 + `rewrite_folder_file` 参数缓存与广播
  * - lane-lifecycle.ts       用量记账、压缩/排队、降级与失败、每栏收尾判定
  * - approval-question.ts    审批卡、模型反问、排队名次、压缩阶段
+ * - ui-action-handler.ts    界面动作 / 页面状态快照（`ui_action` → store 执行；`ui_snapshot_request` → 回传状态）
  * - 纯计算在 `domain/lane-stats.ts`（用量/采样）与 `domain/tool-rewrite.ts`（改写参数）
  *
  * store 的读写一律由调用方注入（`set` / `get`）：本文件不 import store，否则
@@ -25,6 +26,7 @@ import type { TurnHandlerContext } from './handlers/context'
 import { createContentHandlers } from './handlers/content-handlers'
 import { createLaneLifecycleHandlers } from './handlers/lane-lifecycle'
 import { createToolHandlers } from './handlers/tool-handlers'
+import { createUiActionHandler, createUiSnapshotHandler } from './handlers/ui-action-handler'
 
 type CopilotSet = SetState<CopilotState>
 type CopilotGet = GetState<CopilotState>
@@ -77,6 +79,8 @@ export function createTurnHandlers(
       ...createToolHandlers(ctx),
       ...lane.handlers,
       ...createApprovalQuestionHandlers(ctx),
+      ...createUiActionHandler(ctx),
+      ...createUiSnapshotHandler(),
     },
     finishAssistant: lane.finishAssistant,
   }

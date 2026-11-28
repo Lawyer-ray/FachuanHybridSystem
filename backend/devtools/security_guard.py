@@ -217,30 +217,41 @@ def _check_todo(filepath: str, mode: str, base: str | None, head: str) -> list[s
 BROAD_EXCEPT_PATTERN = re.compile(r"^\s*except\s+Exception\b")
 
 
-def _check_broad_except(filepath: str, mode: str, base: str | None, head: str) -> list[str]:
-    """新增宽 ``except Exception`` 而没同时减少一条 → 报错。
+#: 宽 except 的「按提交净额」统计：``(新增总数, 删除总数, {文件: [(行号, 内容)]})``。
+#:
+#: **必须跨文件统计，不能逐文件判**：纯搬移（把一个大文件拆成两个模块）时，旧文件里
+#: 删掉的 ``except Exception`` 记在旧文件头上，新文件里原样搬过去的却全算「新增」，
+#: 逐文件判就必然假红（2026-11-28 实测：pipeline.py → page_text_extractor.py 拆分，
+#: 净额恰好 +5/-5 = 0，但逐文件判把新文件顶红，导致文件拆分这类正常重构被门禁锁死）。
+#: 本钩子的意图本来就是「净额不增长」（见 CLAUDE.md「本次新增几条就必须同时删掉几条」），
+#: 全仓棘轮 ``tests/ci/structure/test_exception_ratchet.py`` 仍兜底总量，强度不变。
+def _repo_root() -> str:
+    """仓根绝对路径：diff 里的路径必须与传入的 filepath 用同一基准，否则从
+    ``backend/`` 子目录运行时 git 报 ``apps/...`` 而钩子拿到 ``backend/apps/...``，
+    比对永不相同（表现为门禁静默放行）。"""
+    root = _run_git(["git", "rev-parse", "--show-toplevel"]).strip()
+    return root or os.getcwd()
 
-    只对 ``backend/apps/**`` 与 ``backend/mcp_server/**`` 生效（测试里的
-    ``pytest.raises(Exception)`` 不算，所以按行首 ``except`` 匹配）。
-    """
-    normalized = filepath.replace("\\", "/")
-    if not (
-        normalized.startswith("apps/")
-        or normalized.startswith("mcp_server/")
-        or "/apps/" in normalized
-        or "/mcp_server/" in normalized
-    ):
-        return []
+
+def _broad_except_balance(
+    mode: str, base: str | None, head: str
+) -> tuple[int, int, dict[str, list[tuple[int, str]]]]:
+    root = _repo_root()
     if mode == "staged":
-        diff = _run_git(["git", "diff", "--cached", "-U0", "--", filepath])
+        diff = _run_git(["git", "-C", root, "diff", "--cached", "-U0"])
     elif base:
-        diff = _run_git(["git", "diff", f"{base}..{head}", "-U0", "--", filepath])
+        diff = _run_git(["git", "-C", root, "diff", f"{base}..{head}", "-U0"])
     else:
-        return []
-    added: list[tuple[int, str]] = []
-    removed = 0
+        return 0, 0, {}
+
+    added: dict[str, list[tuple[int, str]]] = {}
+    removed_total = 0
+    current_path = ""
     current_line = 0
     for line in diff.splitlines():
+        if line.startswith("+++ b/"):
+            current_path = line[6:].strip()
+            continue
         if line.startswith("@@"):
             match = re.search(r"\+(\d+)", line)
             if match:
@@ -249,17 +260,48 @@ def _check_broad_except(filepath: str, mode: str, base: str | None, head: str) -
         if line.startswith("+") and not line.startswith("+++"):
             current_line += 1
             if BROAD_EXCEPT_PATTERN.match(line[1:]):
-                added.append((current_line, line[1:].strip()))
+                added.setdefault(current_path, []).append((current_line, line[1:].strip()))
             continue
         if line.startswith("-") and not line.startswith("---"):
             if BROAD_EXCEPT_PATTERN.match(line[1:]):
-                removed += 1
-    if len(added) <= removed:
+                removed_total += 1
+
+    added_total = sum(len(entries) for entries in added.values())
+    return added_total, removed_total, added
+
+
+def _check_broad_except(filepath: str, mode: str, base: str | None, head: str) -> list[str]:
+    """新增宽 ``except Exception`` 而没同时减少一条 → 报错（按**整个提交**净额判）。
+
+    只对 ``backend/apps/**`` 与 ``backend/mcp_server/**`` 生效（测试里的
+    ``pytest.raises(Exception)`` 不算，所以按行首 ``except`` 匹配）。
+
+    判净额而不是判本文件：文件拆分/搬移是正常重构，逐文件判会把搬过去的存量
+    全部当成新增（见 ``_broad_except_balance`` 的说明）。报错仍只报**本文件**
+    新增的那些行，指针不漂。
+    """
+    normalized = filepath.replace("\\", "/")
+    if os.path.isabs(filepath):
+        normalized = os.path.relpath(filepath, _repo_root()).replace("\\", "/")
+    if not (
+        normalized.startswith("apps/")
+        or normalized.startswith("mcp_server/")
+        or "/apps/" in normalized
+        or "/mcp_server/" in normalized
+    ):
+        return []
+
+    added_total, removed_total, added_by_file = _broad_except_balance(mode, base, head)
+    if added_total <= removed_total:
+        return []
+
+    mine = added_by_file.get(normalized, [])
+    if not mine:
         return []
     return [
-        f"{filepath}:{lineno}: 新增宽异常捕获（本次 +{len(added)} / -{removed}）："
+        f"{filepath}:{lineno}: 新增宽异常捕获（本次全提交 +{added_total} / -{removed_total}）："
         "换成具体类型，或同时删掉一条旧的（棘轮只许下调）"
-        for lineno, _content in added[removed:]
+        for lineno, _content in mine
     ]
 
 

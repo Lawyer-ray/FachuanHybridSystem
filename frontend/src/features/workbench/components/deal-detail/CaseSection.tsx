@@ -1,18 +1,30 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import { toast } from 'sonner'
+
 import { EmptyBlock } from '@/components/shared/AsyncState'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { getCaseFolderBinding } from '../../api'
 import { workbenchKeys } from '../../hooks/use-workbench-data'
 import type { DealCase } from '../../types'
 import { caseMetaParts, legalStatusGroups, shortDocName, splitLinkText, timelineEntries } from './detail-domain'
+import type { FolderEntryMutation } from './folder-tree-types'
 import { FolderTree } from './FolderTree'
 import { ActionButton, Card, Chip, MetaLine, Pill, StateDot } from './ui'
 
-/** 附件新标签预览：media 走一次性 ticket（60s 单次），失败时后端 403 兜底 */
+/**
+ * 附件新标签预览：media 走一次性 ticket（60s 单次），失败时后端 403 兜底。
+ *
+ * 空地址不能点：`mediaUrl` 来自 `media_url || ''`，历史日志里可能没有原件，
+ * 点下去只会开一个空白标签页（看着像系统坏了）。
+ */
 async function openAttachment(mediaUrl: string) {
-  window.open(await withDownloadTicket(mediaUrl), '_blank', 'noopener')
+  try {
+    window.open(await withDownloadTicket(mediaUrl), '_blank', 'noopener')
+  } catch {
+    toast.error('附件打不开，请重试')
+  }
 }
 
 /** 视图切换小段按钮（日志 / 文件夹） */
@@ -41,16 +53,26 @@ export function CaseSection({
   ambiguous,
   highlighted,
   onAddLog,
+  onOpenActions,
   onOpenFile,
   onDraft,
   selectedSubpath,
+  onFolderMutated,
 }: {
   c: DealCase
   /** 同阶段多案（如按被告分立）时节标题带案名才分得清 */
   ambiguous: boolean
   /** stepper 跳转后的短暂高亮环 */
   highlighted: boolean
-  onAddLog: () => void
+  /** 记日志：归属就是这张卡代表的案件（合同没有时间轴） */
+  onAddLog: (c: { id: number; label: string }) => void
+  /**
+   * 「办理」：一张网立案 / 申请担保 / OA 立案 / 项目归档。
+   *
+   * 四件事都不是高频动作，各摆一个按钮会把案件卡变成工具栏——只给这一个入口，
+   * 点开是抽屉里的四行。
+   */
+  onOpenActions?: (c: { id: number; label: string }) => void
   /**
    * 点文件行 = 打开 OnlyOffice 预览（而不是 window.open 下载）。
    *
@@ -69,6 +91,8 @@ export function CaseSection({
   onDraft?: (caseId: number) => void
   /** 当前预览中的 subpath（属于本案件时行高亮，知道「看的就是这份」） */
   selectedSubpath?: string | null
+  /** 树内改名/删除 → 页面据此关掉正在预览的那份（见 FolderTree 的 onEntryMutated） */
+  onFolderMutated?: (e: FolderEntryMutation) => void
 }) {
   const legGroups = legalStatusGroups(c)
   const entries = timelineEntries(c)
@@ -82,7 +106,16 @@ export function CaseSection({
   })
   const binding = bindingQ.data ?? null
   const [viewOverride, setViewOverride] = useState<'logs' | 'folder' | null>(null)
-  const view: 'logs' | 'folder' = viewOverride ?? (binding ? 'folder' : 'logs')
+  /**
+   * 默认落在哪个视图。
+   *
+   * 判「可达」而不只是「有绑定」：硬盘路径被拔掉/无权限时 binding 仍然存在，
+   * 但点进文件夹只会看到一片空——先给律师看日志，他要看文件夹可以自己切。
+   * 绑定查询在途时不抢先判成「没有绑定」（否则会先闪一下「还没有项目日志」，
+   * 再整块跳成文件夹视图）。
+   */
+  const canBrowse = binding != null && binding.is_accessible
+  const view: 'logs' | 'folder' = viewOverride ?? (canBrowse ? 'folder' : 'logs')
 
   return (
     <Card
@@ -108,6 +141,15 @@ export function CaseSection({
               ＋ 生成文书
             </ActionButton>
           )}
+          {onOpenActions && (
+            <ActionButton
+              sm
+              onClick={() => onOpenActions({ id: c.id, label: c.proc })}
+              title="一张网立案 / 申请担保 / OA 立案 / 项目归档"
+            >
+              办理
+            </ActionButton>
+          )}
           {binding && (
             <span className="flex rounded-[7px] border border-border-light p-[2px]">
               <SegBtn active={view === 'logs'} onClick={() => setViewOverride('logs')}>
@@ -118,11 +160,12 @@ export function CaseSection({
               </SegBtn>
             </span>
           )}
-          {view === 'logs' && (
-            <ActionButton sm onClick={onAddLog}>
-              ＋ 记日志
-            </ActionButton>
-          )}
+          {/* 记日志**不跟着视图显隐**：它是「对这张卡所代表的案件」的创建动作，
+              而与时间轴同一级的 生成文书 一直都在。此前只在「日志」视图出现，
+              而默认视图是「文件夹」——等于默认看不到记日志的入口。 */}
+          <ActionButton sm onClick={() => onAddLog({ id: c.id, label: c.proc })} title="记一条项目日志（可顺手约一个期限）">
+            ＋ 记日志
+          </ActionButton>
         </span>
       </div>
       {ambiguous && (
@@ -147,13 +190,29 @@ export function CaseSection({
         </div>
       )}
 
-      {view === 'folder' && binding ? (
+      {bindingQ.isError && (
+        <div className="px-5 pt-1 text-[11.5px] text-muted-foreground max-[680px]:px-3.5">
+          案件文件夹状态读取失败
+          <button
+            type="button"
+            className="ml-2 cursor-pointer underline underline-offset-2 hover:text-foreground"
+            onClick={() => void bindingQ.refetch()}
+          >
+            重试
+          </button>
+        </div>
+      )}
+
+      {bindingQ.isPending ? (
+        <div className="px-5 pt-2 pb-4 text-xs text-muted-foreground max-[680px]:px-3.5">正在读取案件材料…</div>
+      ) : view === 'folder' && binding ? (
         <div className="px-5 pt-2 pb-4 max-[680px]:px-3.5">
           <FolderTree
             kind="case"
             ownerId={c.id}
             onOpenFile={onOpenFile}
             selectedSubpath={selectedSubpath ?? null}
+            onEntryMutated={onFolderMutated}
           />
         </div>
       ) : (
@@ -204,22 +263,24 @@ export function CaseSection({
                   {(e.who || e.n > 1) && (
                     <span className="mt-0.5 block text-[11.5px] text-muted-foreground/80 tabular-nums">
                       {e.who}
-                      {e.n > 1 && (
-                        <span className="ml-2" title={'相同内容的日志已合并（共 ' + e.n + ' 条）'}>
-                          ×{e.n}
-                        </span>
-                      )}
+                      {e.n > 1 && <MergedTimes dates={e.dates} />}
                     </span>
                   )}
                   {e.atts.length > 0 && (
                     <span className="mt-1 flex flex-wrap gap-1.5">
-                      {e.atts.map((a) => (
-                        <button
+                      {e.atts.map((a) => {
+                        // 没有原件（media_url 为空）就别装成按钮：点开只会得到空白页
+                        const clickable = Boolean(a.mediaUrl)
+                        const Tag = clickable ? 'button' : 'span'
+                        return (
+                        <Tag
                           key={a.id}
-                          type="button"
-                          title={'预览 ' + a.name}
-                          onClick={() => void openAttachment(a.mediaUrl)}
-                          className="inline-flex max-w-full min-w-0 cursor-pointer items-center rounded-[6px] border border-border-light bg-background px-2 py-[1px] text-[11px] text-muted-foreground transition-colors hover:border-input hover:text-foreground"
+                          {...(clickable ? { type: 'button' as const, onClick: () => void openAttachment(a.mediaUrl) } : {})}
+                          title={clickable ? '预览 ' + a.name : a.name + '（原件未上传）'}
+                          className={
+                            'inline-flex max-w-full min-w-0 items-center rounded-[6px] border border-border-light bg-background px-2 py-[1px] text-[11px] text-muted-foreground ' +
+                            (clickable ? 'cursor-pointer transition-colors hover:border-input hover:text-foreground' : 'opacity-70')
+                          }
                         >
                           {/* 左列在 AI 工作区展开时压到 ~300px：宽度全部交给容器
                               （max-w-full），flex 子项 min-w-0 才能让 truncate 生效。
@@ -228,8 +289,9 @@ export function CaseSection({
                           <span className="min-w-0 truncate" title={a.name}>
                             📎 {shortDocName(a.name)}
                           </span>
-                        </button>
-                      ))}
+                        </Tag>
+                        )
+                      })}
                     </span>
                   )}
                 </span>
@@ -242,6 +304,34 @@ export function CaseSection({
   )
 }
 
+/**
+ * 合并日志的「×N」：点开看每次发生的日期。
+ *
+ * 合并行显示的是最新一次，`×N` 只说明次数——律师要的往往是**第一次**是什么时候
+ * （比如「对方已经催了三次」的起点），所以把日期清单挂在 ×N 上，点一下展开。
+ */
+function MergedTimes({ dates }: { dates: string[] }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <span className="ml-2">
+      <button
+        type="button"
+        className="cursor-pointer underline decoration-dotted underline-offset-2 hover:text-foreground"
+        title={open ? '收起每次日期' : '相同内容的日志已合并，点开看每次日期'}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        ×{dates.length}
+      </button>
+      {open && (
+        <span className="mt-0.5 block text-[11px] text-muted-foreground/70">
+          各次：{dates.join('、')}
+        </span>
+      )}
+    </span>
+  )
+}
+
 /** 「下一步」行：合同勾选、紧接最后一个已启动阶段之后、还没立案的那个程序 */
 export function NextStageRow({ stage, onCreate }: { stage: string; onCreate: () => void }) {
   return (
@@ -250,7 +340,7 @@ export function NextStageRow({ stage, onCreate }: { stage: string; onCreate: () 
       <span className="text-sm font-[620] text-muted-foreground">{stage}</span>
       <span className="text-[12.5px] text-muted-foreground/70">未启动 · 合同已勾选的下一程序</span>
       <span className="ml-auto max-[680px]:ml-0">
-        <ActionButton onClick={onCreate} title={'新建' + stage + '案件'}>
+        <ActionButton onClick={onCreate} title={'在当前委托下新建一个' + stage + '案件'}>
           ＋ 新建{stage}案件
         </ActionButton>
       </span>

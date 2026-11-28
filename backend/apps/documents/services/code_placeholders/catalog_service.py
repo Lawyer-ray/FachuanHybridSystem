@@ -127,7 +127,7 @@ class CodePlaceholderCatalogService:
             try:
                 content = file_path.read_text(encoding="utf-8")
             except (OSError, ValueError):
-                logger.exception("操作失败")
+                logger.exception("catalog_service._scan_python_files_for_context_keys: 读取源文件失败")
 
                 continue
             if "DocxTemplate" not in content and "docxtpl" not in content:
@@ -193,7 +193,7 @@ def _extract_definitions_from_spec(spec_path: Path) -> list[CodePlaceholderDefin
     try:
         content = spec_path.read_text(encoding="utf-8")
     except (OSError, ValueError):
-        logger.exception("操作失败")
+        logger.exception("catalog_service._extract_definitions_from_spec: 读取占位符说明文件失败")
 
         return []
     try:

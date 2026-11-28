@@ -23,7 +23,7 @@ def apply_rotation_for_pdf(image_bytes: bytes, rotation: int) -> bytes:
             img.save(output, format="JPEG", quality=85, optimize=True)
             return output.getvalue()
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("pdf_transform.apply_rotation_for_pdf: 图片转 JPEG 失败")
 
             return image_bytes
 

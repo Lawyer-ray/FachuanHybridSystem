@@ -27,6 +27,7 @@ from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.core.cache import cache
+from django.db import DatabaseError
 from django.utils import timezone
 
 from ...backends import RunContext
@@ -41,6 +42,7 @@ from ..event_bus import get_bus, redis_cache_enabled
 from ..history import render_transcript
 from ..memory_tasks import enqueue_extraction
 from ..session_cleanup import has_pi_session
+from ..skills.expand import expand_skill_prompt
 from . import env, persist, profile
 from .citations import CitationCollector
 
@@ -132,6 +134,20 @@ class ContextPrep:
     #: 本轮实际发给后端的 prompt：正常情况下就是用户消息；无 pi session 但有
     #: 历史时是补上了 transcript 的那份（见 ``prepare_context``）。
     prompt_text: str
+    #: 本轮技能索引块（``prompt_block.render_skill_block`` 的产物）；空串 = 不注入
+    #: （无用户身份 / 总开关 off·dry / 渲染失败降级）。
+    #:
+    #: 为什么捆进 ``ContextPrep`` 而不是各栏自己算：索引块是**每用户**的事实，
+    #: 与栏无关——N 栏问的是同一个律师，各算一次只会把同一条 ``resolve_for_user``
+    #: 查询排队 N 遍（那是同步 ORM，``thread_sensitive=True`` 下就是串行 N 次）。
+    #: 它也不能在 ``stream_chat`` 里判 ``isolated``：隔离与否是后端的运行参数，
+    #: 由后端消费 ``RunContext`` 时决定，编排层替它抹掉就再也测不出违反不变量。
+    skill_block: str = ""
+    #: 本轮被展开的 ``/skill:`` 留痕（``{key, name, scope, version}``）；未点名时为
+    #: ``None``。它要落进**这一轮 user 消息**的 ``metadata["expanded_skill"]``：
+    #: ``content`` 必须保持原文（审计看到的是律师原话），而「模型当时到底读了哪条
+    #: 技能、哪个版本」只有这份留痕能回答——前端也靠它显示「已引用选段」式的提示。
+    expanded_skill: dict[str, Any] | None = None
 
 
 async def probe_pi_session(session_id: str) -> bool:
@@ -144,11 +160,41 @@ async def probe_pi_session(session_id: str) -> bool:
     return await sync_to_async(has_pi_session, thread_sensitive=True)(session_id)
 
 
-async def prepare_context(*, session: AgentSession, user_id: int | None, user_message: str) -> ContextPrep:
-    """算出本轮开流前与栏无关的事实：凭证 + prompt（含上下文回退）。
+def _skill_index(user_id: int | None) -> tuple[str, list[str], list[str]]:
+    """同步渲染技能索引块 → ``(block, names, not_injected)``。
 
-    顺序是**铸造 → 探 session → 补历史**：铸不出凭证就整轮拒绝，不能让工具退回
-    超管服务账号执行（见 ``pi/user_token.py`` 的 confused deputy 说明）。
+    必须在 worker 线程里调：``resolve_for_user`` 是同步 ORM，直接在异步上下文跑会
+    抛 ``SynchronousOnlyOperation``（而这条路径在**每轮**对话上，不能出一次错）。
+
+    ``user_id is None`` 时空块：没有用户身份就没有个人/团队/所内技能，而索引块
+    里只剩内置几条的意义也不大——与「不凭无身份去查库」的口径一致。
+    """
+    if user_id is None:
+        return "", [], []
+    # 延迟 import：``render_skill_block`` 走 ``flags``，模块缺失/导入异常时由调用方
+    # 降级为空块，而不是让整轮对话 import 失败。
+    from ..skills.prompt_block import render_skill_block
+    from ..skills.resolve import resolve_for_user
+
+    entries = resolve_for_user(user_id)
+    block, not_injected = render_skill_block(entries)
+    not_injected_names = [str(ref.get("name") or "") for ref in not_injected]
+    if not block:
+        # 空块（总开关 ``off`` / ``dry``，或预算连标题都装不下）：一条都没注进去，
+        # 名字清单必须为空——否则日志会把「已解析出来」读成「已送达」。
+        return "", [], not_injected_names
+    skipped = set(not_injected_names)
+    names = [str(entry.get("name") or "") for entry in entries if str(entry.get("name") or "") not in skipped]
+    return block, names, not_injected_names
+
+
+async def prepare_context(*, session: AgentSession, user_id: int | None, user_message: str) -> ContextPrep:
+    """算出本轮开流前与栏无关的事实：凭证 + prompt（含展开与上下文回退）+ 索引块。
+
+    顺序是**铸造 → 展开 ``/skill:`` → 探 session → 补历史 → 算索引块**。前两步的
+    顺序是硬的：展开必须在 ``render_transcript`` **之前**，否则历史回退路径会把
+    ``<skill>`` 块包进「用户历史」段落里（模型会当成上一轮说过的话），而 pi 原生
+    展开也会因为 transcript 前缀继续静默失效。
 
     Raises:
         用户被删 / 停用时 ``mint_user_token`` 抛错——怎么拒由调用方决定：
@@ -159,17 +205,70 @@ async def prepare_context(*, session: AgentSession, user_id: int | None, user_me
     async with profile.timed("prepare.mint_user_token", session=session_id):
         user_token = await env.mint_user_token(user_id)
 
-    prompt_text = user_message
+    # 显式点名展开：``/skill:<name>`` → ``<skill>`` 块。展开要读 DB（``resolve_for_user``
+    # 同步 ORM），放线程里跑；``user_id is None`` 时只认内置（后台任务/单测）。
+    expanded = await sync_to_async(expand_skill_prompt, thread_sensitive=True)(user_id=user_id, text=user_message)
+
+    prompt_text = expanded.prompt
     async with profile.timed("prepare.has_pi_session", session=session_id):
         resumed = await probe_pi_session(session_id)
     if not resumed:
         async with profile.timed("prepare.recent_history", session=session_id):
             history = await persist._recent_history(session)
         if history:
-            # 无 pi session 但有历史 → 一次性补齐上下文，之后交给 pi 自己管
-            prompt_text = render_transcript(history, user_message)
+            # 无 pi session 但有历史 → 一次性补齐上下文，之后交给 pi 自己管。
+            # 传**展开后**的文本：历史在前、本轮指令（含 <skill> 块）在后。
+            prompt_text = render_transcript(history, expanded.prompt)
             logger.info("pi session 缺失，本轮以 transcript 回退 session=%s 历史=%s 条", session_id, len(history))
-    return ContextPrep(user_token=user_token, prompt_text=prompt_text)
+
+    skill_block = ""
+    skill_names: list[str] = []
+    not_injected: list[str] = []
+    try:
+        skill_block, skill_names, not_injected = await sync_to_async(_skill_index, thread_sensitive=True)(user_id)
+    except (ImportError, RuntimeError):
+        # 索引块是增强能力，不是准入：渲染失败不能把整轮对话弄挂（一次事故就会
+        # 让律师在此期间完全无法提问）。降级为空块 + 告警，下一轮重试。
+        logger.warning("技能索引块渲染失败，本轮不注入 session=%s", session_id, exc_info=True)
+    if user_id is not None:
+        # 每轮一行、只记名字不记正文：技能正文可能含律师的业务细节，日志不该是它的副本。
+        # backend 取会话默认后端：索引块是**每用户**事实，多栏混合后端时各栏拿到的
+        # 是同一块（见 ``ContextPrep.skill_block``），逐栏再记 N 行只是噪声。
+        logger.info(
+            "agent.skills_injected backend=%s count=%s names=%s not_injected=%s",
+            getattr(session, "agent_kind", "") or "pi",
+            len(skill_names),
+            skill_names,
+            not_injected,
+        )
+    return ContextPrep(
+        user_token=user_token,
+        prompt_text=prompt_text,
+        skill_block=skill_block,
+        expanded_skill=expanded.skill,
+    )
+
+
+async def _stamp_expanded_skill(session: AgentSession, expanded_skill: dict[str, Any]) -> None:
+    """把本轮展开留痕合进**本会话最近一条 user 消息**的 ``metadata``。
+
+    为什么要读-合并-写而不是整段覆盖：``metadata`` 里已经有评分、引用等键，直接
+    ``aupdate(metadata={"expanded_skill": …})`` 会把它们全抹掉。落库失败只告警：
+    留痕缺失不影响这一轮回答，更不该把已跑完的对话变成错误。
+    """
+    try:
+        message = (
+            await AgentMessage.objects.filter(session=session, role=AgentMessage.Role.USER)
+            .order_by("-turn_no", "-created_at")
+            .afirst()
+        )
+        if message is None:
+            return
+        metadata = dict(message.metadata or {})
+        metadata["expanded_skill"] = expanded_skill
+        await AgentMessage.objects.filter(pk=message.pk).aupdate(metadata=metadata)
+    except DatabaseError:
+        logger.warning("技能展开留痕落库失败 session=%s", session.pk, exc_info=True)
 
 
 def auto_title(user_message: str) -> str:
@@ -184,7 +283,7 @@ def auto_title(user_message: str) -> str:
     ``stream_chat``——两处各抄一份必然漂移，标题口径一旦分叉就很难发现。
     """
     title_src = user_message.strip()
-    for lead in ("[当前业务：", "[当前页面：", "[已引用文件：", "[已引用目录："):
+    for lead in ("[当前业务：", "[当前页面：", "[已引用文件：", "[已引用目录：", "[已引用选段："):
         if title_src.startswith(lead):
             title_src = title_src.split("\n", 1)[1].strip() if "\n" in title_src else ""
             break
@@ -227,6 +326,7 @@ async def stream_chat(
     multi_lane: bool = False,
     tool_exclude: frozenset[str] | None = None,
     subscribe_external: bool = True,
+    skill_block_override: str | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """跑一轮对话，产出 SSE 事件。
 
@@ -274,6 +374,9 @@ async def stream_chat(
         turn: 本轮轮次号（:func:`next_run_turn` 的产物）。``None`` = 本函数自己
             取一次（单栏路径）。多答路径**必须**传入算好的同一个值：各栏各自
             取号会让同一轮的三栏拿到不同 turn，前端无法把它们认成一次提问。
+        skill_block_override: 发布前试跑用的技能块：非 ``None`` 时后端只注它，
+            连 ``isolated=True`` 的强制空块也绕过（见 ``RunContext.skill_block_override``）。
+            常规对话恒为 ``None``，行为与引入本参数前逐字一致。
     """
     # 先确保内置后端已注册（幂等）：注册表是进程内全局状态，可能被清空过；
     # 取后端之前补一次，比依赖「app 启动时那一次」稳得多（见 builtin 模块说明）。
@@ -316,6 +419,11 @@ async def stream_chat(
     if not user_message_recorded:
         async with profile.timed("stream.record_user_message", agent=backend.kind, session=session_id):
             await record_user_message(session, user_message, turn_no=turn_no)
+    # 展开留痕：紧跟在 user 消息落库之后（已验证该行存在）——提前到
+    # ``prepare_context`` 里写会写错行（那时本轮 user 消息还没建，最近一条是上一轮的）。
+    # 留痕不改 ``content``：审计要看到律师原话，而不是展开后的 <skill> 块。
+    if context.expanded_skill is not None:
+        await _stamp_expanded_skill(session, context.expanded_skill)
 
     bus = get_bus()
     # 多栏并答时**只有编排层**订阅总线（``subscribe_external=False``）：
@@ -397,6 +505,11 @@ async def stream_chat(
             # 与本函数引入这两个参数前的行为逐字一致。
             multi_lane=multi_lane,
             tool_exclude=tool_exclude,
+            # 技能索引（本轮每用户事实，见 ``ContextPrep.skill_block``）。隔离与否
+            # 不在这里判：后端拿到 ctx 后自己决定（``base.py`` 的不变量）。
+            skill_block=context.skill_block,
+            # 发布前试跑：绕过 isolated 的强制空块（常规路径恒 None）。
+            skill_block_override=skill_block_override,
         )
         stream = backend.stream(ctx)
         # 收到 done 就别再 aclose：后端在 done 之前已经写好 ``result``（见

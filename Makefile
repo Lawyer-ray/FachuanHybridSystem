@@ -75,8 +75,20 @@ mcp-status: ## 查看共享 MCP 进程/端口/运行时长/日志路径
 mcp-logs: ## 跟随共享 MCP 日志（tail -f）
 	@bash scripts/shared_mcp.sh logs
 
-mcp-verify: ## 核对运行中的共享 MCP 工具面与代码注册表一致（MCP 真握手）
+mcp-verify: ## 核对运行中的共享 MCP 工具面与代码注册表一致（MCP 真握手 + 指纹）
 	@bash scripts/shared_mcp.sh verify
+
+mcp-bluegreen: ## 零停机切换共享 MCP（新实例先就位、旧实例后退休；默认强制切，--if-stale 才按指纹跳过）
+	@bash scripts/shared_mcp.sh bluegreen
+
+mcp-fingerprint: ## 打印代码侧（离线）工具面指纹（与 make mcp-verify 的线上指纹比对）
+	@bash scripts/shared_mcp.sh fingerprint
+
+mcp-if-stale: ## 只在工具面指纹变了才重启共享 MCP（指纹只看注册元数据，看不见「只改实现」）
+	@bash scripts/shared_mcp.sh restart --if-stale
+
+e2e-ui-action: ## 真机自证：无头浏览器 + MCP 真调，跑一遍 confirm/guarded 四条链路（需 5090/8002/8011 在跑）
+	cd backend && env -u PYTHONHOME -u PYTHONPATH DB_NAME=fachuan_dev .venv/bin/python ../scripts/e2e/ui_action_smoke.py --require
 
 q: ## 启动 Django-Q 任务队列（文件变化自动重启）
 	cd backend && $(MAKE) qcluster-dev
@@ -121,7 +133,7 @@ help: ## 显示帮助信息
 	@echo "$(GREEN)法穿SI Copilot - 本地 CI$(NC)"
 	@echo ""
 	@echo "可用命令:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "远端 CI 对照表:"
 	@echo "  ci          → backend-security-guard, backend-ruff-full, backend-mypy-curated, frontend"
@@ -132,4 +144,4 @@ help: ## 显示帮助信息
 	@echo "安装 hook:   make install-hooks"
 	@echo "启动服务:    make frontend / make backend / make q"
 
-.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q publish prod-restart stop start prod-logs mcp mcp-status mcp-logs mcp-verify guardrails approval-parity
+.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q publish prod-restart stop start prod-logs mcp mcp-status mcp-logs mcp-verify mcp-fingerprint mcp-bluegreen mcp-if-stale e2e-ui-action guardrails approval-parity

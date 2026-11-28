@@ -23,11 +23,11 @@ def autodiscover_code_placeholders() -> list[str]:
                 isinstance(missing, str) and missing.startswith(placeholders_pkg_name + ".")
             ):
                 continue
-            logger.exception("操作失败")
+            logger.exception("autodiscover.autodiscover_code_placeholders: 扫描子包导入失败（非缺包）")
 
             continue
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("autodiscover.autodiscover_code_placeholders: 扫描子包导入异常")
 
             continue
 
@@ -40,11 +40,11 @@ def autodiscover_code_placeholders() -> list[str]:
             isinstance(missing, str) and missing.startswith("apps.documents.services.placeholders.")
         ):
             return imported
-        logger.exception("操作失败")
+        logger.exception("autodiscover.autodiscover_code_placeholders: 回退导入 placeholders 失败（非缺包）")
 
         return imported
     except Exception:
-        logger.exception("操作失败")
+        logger.exception("autodiscover.autodiscover_code_placeholders: 回退导入 placeholders 异常")
 
         pass
 

@@ -20,6 +20,8 @@ vi.mock('../../api', async (importOriginal) => ({
   listCasesByContract: vi.fn(),
   listRemindersByCase: vi.fn(),
   getCaseFolderBinding: vi.fn(),
+  // 右栏「合同文件夹」先查绑定再决定要不要拉目录（未绑定显示「绑定文件夹」入口）
+  getContractFolderBinding: vi.fn(),
   listFolderEntries: vi.fn(),
   createFolderEntry: vi.fn(),
   renameFolderEntry: vi.fn(),
@@ -33,9 +35,11 @@ vi.mock('../../api', async (importOriginal) => ({
 
 // OnlyOffice 画布不走真 DS：只断言挂载参数（URL 落在哪个业务通道）
 vi.mock('@/components/shared/onlyoffice/OfficeView', () => ({
-  OfficeView: (p: { fileUrl: string; fileName: string; mode?: string }) => (
+  OfficeView: (p: { fileUrl: string; fileName: string; mode?: string; onDirtyChange?: (d: boolean) => void }) => (
     <div data-testid="office-view" data-url={p.fileUrl} data-mode={p.mode}>
       {p.fileName}
+      {/* 画布「改了没存」的事件在真实实现里由 DS 推送，这里用按钮回放 */}
+      <button type="button" onClick={() => p.onDirtyChange?.(true)}>mock-dirty</button>
     </div>
   ),
 }))
@@ -43,12 +47,14 @@ vi.mock('@/components/shared/onlyoffice/OfficeView', () => ({
 import {
   attachPaymentInvoice,
   getCaseFolderBinding,
+  getContractFolderBinding,
   getContract,
   listCasesByContract,
   listContractInvoices,
   listFolderEntries,
   listLawyers,
   listRemindersByCase,
+  renameFolderEntry,
 } from '../../api'
 import type { CaseListItem, ContractListItem, LawyerListItem, ReminderOut } from '../../types'
 
@@ -83,6 +89,7 @@ const lawyersMock = vi.mocked(listLawyers)
 const casesMock = vi.mocked(listCasesByContract)
 const remindersMock = vi.mocked(listRemindersByCase)
 const bindingMock = vi.mocked(getCaseFolderBinding)
+const contractBindingMock = vi.mocked(getContractFolderBinding)
 const entriesMock = vi.mocked(listFolderEntries)
 
 const today = new Date()
@@ -92,19 +99,15 @@ const TODAY = iso(today)
 const IN_10_DAYS = iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 10))
 const YESTERDAY = iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1))
 
-function clientLite(id: number, name: string, ours: boolean) {
+function clientBrief(id: number, name: string, ours: boolean) {
   return {
     id,
     name,
     is_our_client: ours,
     phone: ours ? '0757-8288' : null,
     address: null,
-    client_type: 'legal',
-    client_type_label: '法人',
     id_number: null,
     legal_representative: ours ? '刘某' : null,
-    legal_representative_id_number: null,
-    identity_docs: [],
   }
 }
 
@@ -135,8 +138,8 @@ function makeContract(over: Partial<ContractListItem> = {}): ContractListItem {
     total_invoiced: 0,
     unpaid_amount: null,
     contract_parties: [
-      { id: 1, contract: 7, client: 1, role: 'principal', role_label: '委托人', client_detail: clientLite(1, '某银行', true) },
-      { id: 2, contract: 7, client: 2, role: 'opponent', role_label: '对方当事人', client_detail: clientLite(2, '某公司', false) },
+      { id: 1, contract: 7, client: 1, role: 'principal', role_label: '委托人', client_detail: clientBrief(1, '某银行', true) },
+      { id: 2, contract: 7, client: 2, role: 'opponent', role_label: '对方当事人', client_detail: clientBrief(2, '某公司', false) },
     ],
     assignments: [{ id: 1, lawyer_id: 1, lawyer_name: '黄某', is_primary: true, order: 0 }],
     primary_lawyer: { id: 1, username: 'hs', real_name: '黄某', phone: '138', law_firm_name: '某律所' },
@@ -178,8 +181,8 @@ function makeCase(over: Partial<CaseListItem> = {}): CaseListItem {
     current_stage: '一审',
     contract_id: 7,
     parties: [
-      { id: 1, case: 1, client: 1, legal_status: '原告', client_detail: clientLite(1, '某银行', true) },
-      { id: 2, case: 1, client: 2, legal_status: '被告', client_detail: clientLite(2, '某公司', false) },
+      { id: 1, case: 1, client: 1, legal_status: '原告', client_detail: clientBrief(1, '某银行', true) },
+      { id: 2, case: 1, client: 2, legal_status: '被告', client_detail: clientBrief(2, '某公司', false) },
     ],
     assignments: [],
     logs: [],
@@ -219,6 +222,15 @@ beforeEach(() => {
   getContractMock.mockResolvedValue(makeContract())
   lawyersMock.mockResolvedValue(lawyers)
   bindingMock.mockResolvedValue(null)
+  // 右栏合同文件夹：默认「已绑定」，否则树不渲染（那是「绑定文件夹」入口的形态）
+  contractBindingMock.mockResolvedValue({
+    id: 1,
+    contract_id: 7,
+    folder_path: '/tmp/合同',
+    folder_path_display: '/tmp/合同',
+    storage_type: 'local',
+    is_accessible: true,
+  } as never)
   casesMock.mockResolvedValue([
     // 故意乱序给：二审（2026）在前、一审（2025）在后，页面应按收案日期排
     makeCase({
@@ -233,8 +245,8 @@ beforeEach(() => {
         { id: 2, name: '佛山市中级人民法院', authority_type: 'trial', authority_type_display: '法院', created_at: '2026-03-05T00:00:00Z' },
       ],
       parties: [
-        { id: 3, case: 2, client: 1, legal_status: '被上诉人', client_detail: clientLite(1, '某银行', true) },
-        { id: 4, case: 2, client: 2, legal_status: '上诉人', client_detail: clientLite(2, '某公司', false) },
+        { id: 3, case: 2, client: 1, legal_status: '被上诉人', client_detail: clientBrief(1, '某银行', true) },
+        { id: 4, case: 2, client: 2, legal_status: '上诉人', client_detail: clientBrief(2, '某公司', false) },
       ],
       logs: [
         {
@@ -381,6 +393,17 @@ describe('DealDetailPage 程序链与案件节', () => {
     expect(screen.getByText('＋ 新建执行案件')).toBeTruthy()
   })
 
+  it('「＋ 新建执行案件」打开建案弹窗，阶段固定为「执行」、默认名带上一程的案由', async () => {
+    setupUi()
+    fireEvent.click(await screen.findByText('＋ 新建执行案件'))
+
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(screen.getByText('新建执行案件')).toBeTruthy()
+    // 名称默认值 = 甲方诉乙方 + 上一程的案由（可改）
+    const nameInput = screen.getByLabelText('案件名称') as HTMLInputElement
+    expect(nameInput.value).toContain('诉')
+  })
+
   it('322 号形态：合同按枚举序勾「一审、二审、劳动仲裁」，页面按程序序排 劳动仲裁 → 一审 → 二审；下一步=二审；没有执行', async () => {
     getContractMock.mockResolvedValueOnce(makeContract({ representation_stages: ['一审', '二审', '劳动仲裁'] }))
     casesMock.mockResolvedValueOnce([
@@ -432,8 +455,9 @@ describe('DealDetailPage 程序链与案件节', () => {
     expect(within(sec2).getByText('上诉人')).toBeTruthy()
     const logs = within(sec2).getAllByText(/收到上诉状|二审立案/).map((n) => n.textContent)
     expect(logs).toEqual(['收到上诉状', '二审立案'])
-    // 附件从数字徽章升级为可点 chip（预览按钮 title 透出文件名）
-    expect(within(sec2).getByTitle('预览 a.pdf')).toBeTruthy()
+    // 附件 chip 透出文件名；这条日志的 media_url 为空（原件没上传）——此时它**不是**
+    // 按钮，点开只会得到空白页，所以只标「原件未上传」
+    expect(within(sec2).getByTitle('a.pdf（原件未上传）')).toBeTruthy()
 
     const sec1 = document.getElementById('case-1')!
     expect(within(sec1).getByText('已结')).toBeTruthy()
@@ -463,7 +487,62 @@ describe('DealDetailPage 程序链与案件节', () => {
     await screen.findByText('收到上诉状')
   })
 
-  it('点案件文件夹里的文件 → 右栏 OnlyOffice 预览（不再 window.open 下载）；AI 审查不出现（流水线只吃合同文件）', async () => {
+  it('点案件文件夹里的文件 → 文档栏 OnlyOffice 预览（不再 window.open 下载）；AI 审查不出现（流水线只吃合同文件）', async () => {
+    mockCaseFolder()
+    setupUi()
+    await openCaseDoc()
+
+    // 取文件走案件通道（后端 OnlyOffice 域注册表按 /cases/ 前缀分发）
+    const view = screen.getByTestId('office-view')
+    expect(view.getAttribute('data-mode')).toBe('edit')
+    expect(view.getAttribute('data-url')).toBe(
+      '/api/v1/cases/1/folder-file?subpath=%E8%B5%B7%E8%AF%89%E7%8A%B6.docx',
+    )
+    // 案件文件不给 AI 审查入口（审查流水线从合同文件夹取文件）。精确匹配
+    // 预览卡头部按钮：右栏合同树的 hover 按钮名是「AI 审查此文件」，不在本断言范围
+    expect(screen.queryByRole('button', { name: /^AI 审查$/ })).toBeNull()
+  })
+
+  it('文档是新开的一栏，不再长在档案卡里（档案卡不会被撑宽）', async () => {
+    mockCaseFolder()
+    setupUi()
+    await openCaseDoc()
+    const view = screen.getByTestId('office-view')
+    // 档案卡（右栏那张 section）的子树里没有画布——以前它就在卡里面，为了放下
+    // A4 只能把整张卡拉到 720–780px，期限/当事人被摊成一排空行
+    const railCard = screen.getByText('合同文件夹').closest('section')!
+    expect(railCard.contains(view)).toBe(false)
+    // jsdom 净宽 1024 → 走③：文档占满整宽、排到内容之上
+    expect(view.closest('.order-first')).not.toBeNull()
+  })
+
+  it('沉浸编辑：文档占满整宽且画布不重开；关掉文档后沉浸态复位', async () => {
+    mockCaseFolder()
+    setupUi()
+    await openCaseDoc()
+    const view = screen.getByTestId('office-view')
+
+    fireEvent.click(screen.getByRole('button', { name: '沉浸编辑' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '退出沉浸' })).toBeTruthy())
+    // 画布仍是同一个 DOM 节点：换父节点会让 DS 实例销毁重建，未保存的编辑直接丢
+    expect(screen.getByTestId('office-view')).toBe(view)
+    expect(view.closest('.order-first')).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: '退出沉浸' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '沉浸编辑' })).toBeTruthy())
+
+    // 关掉文档 → 沉浸态跟着清掉（下一份打开时不该直接全屏）
+    fireEvent.click(screen.getByRole('button', { name: '沉浸编辑' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '退出沉浸' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: '收起' }))
+    await waitFor(() => expect(screen.queryByTestId('office-view')).toBeNull())
+
+    await openCaseDoc()
+    expect(screen.getByRole('button', { name: '沉浸编辑' })).toBeTruthy()
+  })
+
+  /** case-1 绑定一个只有起诉状.docx 的文件夹（案件卡文件夹视图 → 文档栏的入口） */
+  function mockCaseFolder() {
     bindingMock.mockResolvedValue({
       id: 1, case_id: 1, folder_path: '/Users/x/新工作/案件', folder_path_display: '/Users/x/新工作/案件',
       storage_type: 'local', is_accessible: true,
@@ -473,24 +552,65 @@ describe('DealDetailPage 程序链与案件节', () => {
       folders: [],
       files: [{ name: '起诉状.docx', subpath: '起诉状.docx', size: 2048, modified_at: '2026-09-29T10:00:00' }],
     })
-    setupUi()
-    // 等案件卡的文件夹视图渲染出来（binding + 目录条目都是异步的，会出现多轮重渲）
-    const sec1 = await waitFor(() => {
+  }
+
+  /**
+   * 点 case-1 文件夹里的起诉状.docx。
+   *
+   * binding + 目录条目都是异步的，会出现多轮重渲：先等文件行真的渲染出来再点。
+   */
+  async function openCaseDoc() {
+    await waitFor(() => {
       const el = document.getElementById('case-1')
       if (!el || !within(el).queryByText('起诉状.docx')) throw new Error('case-1 folder view not ready')
-      return el
     })
-    fireEvent.click(within(sec1).getByText('起诉状.docx'))
+    fireEvent.click(within(document.getElementById('case-1')!).getByText('起诉状.docx'))
+    await screen.findByTestId('office-view')
+  }
 
-    // 预览画布出现在右栏，取文件走案件通道（后端 OnlyOffice 域注册表按 /cases/ 前缀分发）
-    const view = await screen.findByTestId('office-view')
-    expect(view.getAttribute('data-mode')).toBe('edit')
-    expect(view.getAttribute('data-url')).toBe(
-      '/api/v1/cases/1/folder-file?subpath=%E8%B5%B7%E8%AF%89%E7%8A%B6.docx',
-    )
-    // 案件文件不给 AI 审查入口（审查流水线从合同文件夹取文件）。精确匹配
-    // 预览卡头部按钮：右栏合同树的 hover 按钮名是「AI 审查此文件」，不在本断言范围
-    expect(screen.queryByRole('button', { name: /^AI 审查$/ })).toBeNull()
+  it('画布有未保存改动时，关文档先问一句；选「放弃修改」才真的关', async () => {
+    mockCaseFolder()
+    setupUi()
+    await openCaseDoc()
+
+    fireEvent.click(screen.getByText('mock-dirty'))
+    fireEvent.click(screen.getByRole('button', { name: '收起' }))
+
+    // 先拦下来：画布还在，弹窗说清楚代价
+    expect(await screen.findByText('文档里还有未保存的修改')).toBeTruthy()
+    expect(screen.getByTestId('office-view')).toBeTruthy()
+
+    // 继续编辑 → 留在文档里
+    fireEvent.click(screen.getByRole('button', { name: '继续编辑' }))
+    await waitFor(() => expect(screen.queryByText('文档里还有未保存的修改')).toBeNull())
+    expect(screen.getByTestId('office-view')).toBeTruthy()
+
+    // 再关一次，这次放弃修改 → 文档关掉
+    fireEvent.click(screen.getByRole('button', { name: '收起' }))
+    fireEvent.click(await screen.findByRole('button', { name: '放弃修改' }))
+    await waitFor(() => expect(screen.queryByTestId('office-view')).toBeNull())
+  })
+
+  it('正在预览的文件被改名 → 预览关闭（否则 ⌘S 会打到一个不存在的路径）', async () => {
+    mockCaseFolder()
+    vi.mocked(renameFolderEntry).mockResolvedValue({ subpath: '起诉状V2.docx', name: '起诉状V2.docx' })
+    setupUi()
+    await openCaseDoc()
+
+    const sec1 = document.getElementById('case-1')!
+    fireEvent.click(within(sec1).getByRole('button', { name: '重命名' }))
+    const input = await waitFor(() => sec1.querySelector('input[placeholder="新名称"]') as HTMLInputElement)
+    fireEvent.change(input, { target: { value: '起诉状V2.docx' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    // 画布指着的那条路径已经不存在：关掉它，别让律师在假文件上继续改
+    await waitFor(() => expect(screen.queryByTestId('office-view')).toBeNull())
+  })
+
+  it('页头有「编辑」入口，指向 /projects/:id/edit（真锚点：可中键开新标签）', async () => {
+    setupUi()
+    const link = await screen.findByRole('link', { name: '编辑' })
+    expect(link.getAttribute('href')).toBe('/projects/7/edit')
   })
 
   it('stepper 点击滚到对应案件节', async () => {
@@ -692,21 +812,36 @@ describe('DealDetailPage：案件加载失败重试', () => {
   })
 })
 
-// ============ 创建类占位按钮（覆盖率补测） ============
+// ============ 创建类动作（记日志 / 新增期限）============
 
-describe('DealDetailPage：占位动作按钮', () => {
-  it('页头「＋ 新增期限」「记日志」可点（占位提示，不抛错）', async () => {
+describe('DealDetailPage：创建类动作', () => {
+  it('页头不再放「新增期限 / 记项目日志」——右栏与案件卡已有入口，不重复', async () => {
     setupUi()
     await waitFor(() => expect(document.body.textContent).toContain('某银行与某公司'))
+    // 页头那两个入口已删：整页只剩右栏的「＋ 新增」与案件卡的「＋ 记日志」
+    const labels = Array.from(document.querySelectorAll('button')).map((b) => (b.textContent ?? '').trim())
+    expect(labels.some((t) => t.includes('新增期限'))).toBe(false)
+    expect(labels.some((t) => t.includes('记项目日志'))).toBe(false)
+  })
 
-    for (const label of ['＋ 新增期限', '记日志']) {
-      const btn = Array.from(document.querySelectorAll('button')).find((b) =>
-        (b.textContent ?? '').includes(label),
-      )
-      if (btn) {
-        expect(() => fireEvent.click(btn)).not.toThrow()
-      }
-    }
+  it('案件卡「＋ 记日志」打开记日志弹窗（归属就是这张卡）', async () => {
+    setupUi()
+    await screen.findByText('二审开庭')
+    const btn = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent ?? '').includes('＋ 记日志'))
+    expect(btn).toBeTruthy()
+    fireEvent.click(btn!)
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(screen.getByText('记日志')).toBeTruthy()
+  })
+
+  it('右栏「＋ 新增」打开新增期限弹窗', async () => {
+    setupUi()
+    await screen.findByText('二审开庭')
+    const btn = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent ?? '').trim() === '＋ 新增')
+    expect(btn).toBeTruthy()
+    fireEvent.click(btn!)
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(screen.getByText('新增期限')).toBeTruthy()
   })
 
   it('页头不放 AI 助手入口（只在导航栏），也不挂嵌入对话区与拖拽把手', async () => {

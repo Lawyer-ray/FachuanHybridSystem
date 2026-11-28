@@ -348,28 +348,29 @@ def chinese_to_int(raw: str) -> int | None:
     seen_any = False
 
     for char in text:
+        # 货币单位与空白只是书写噪声，跳过不影响数值
+        if char in "元圆人民币¥￥ ":
+            continue
         if char in _CN_DIGITS:
             number = _CN_DIGITS[char]
             seen_any = True
-        elif char in _CN_UNITS:
-            unit = _CN_UNITS[char]
-            # 「十万」中十前面没有数字时按 1 处理
-            section += (number or 1) * unit
-            number = 0
-            seen_any = True
-        elif char in _CN_SECTIONS:
-            section_scale = _CN_SECTIONS[char]
-            section = (section + number) * section_scale
-            number = 0
-            if section_scale >= 100_000_000:
-                total += section
-                section = 0
-            seen_any = True
-        elif char in "元圆人民币¥￥ ":
             continue
-        else:
+        if char in _CN_UNITS:
+            # 「十万」中十前面没有数字时按 1 处理
+            section += (number or 1) * _CN_UNITS[char]
+            number = 0
+            seen_any = True
+            continue
+        if char not in _CN_SECTIONS:
             # 出现非数字字符（如夹杂外文），放弃换算交给人工
             return None
+        section_scale = _CN_SECTIONS[char]
+        section = (section + number) * section_scale
+        number = 0
+        if section_scale >= 100_000_000:
+            total += section
+            section = 0
+        seen_any = True
 
     if not seen_any:
         return None
@@ -572,6 +573,47 @@ def normalize_extraction(
     draft.confidence = {k: float(v) for k, v in (extraction.confidence or {}).items() if isinstance(v, (int, float))}
     draft.source_quotes = dict(extraction.source_quotes or {})
 
+    # 1-2. 当事人与甲方（律所名单同时供第 4 段拆分本所份额）
+    primary_name, law_firm_names = _normalize_parties(draft, extraction, client_lookup)
+
+    # 3-4. 合同类型与收费
+    case_type = _normalize_case_type_fee(
+        draft,
+        extraction,
+        our_law_firm=our_law_firm,
+        law_firm_names=law_firm_names,
+    )
+
+    # 5. 日期
+    _normalize_dates(draft, extraction)
+
+    # 6. 律师
+    _normalize_lawyers(
+        draft,
+        extraction,
+        lawyer_lookup,
+        our_law_firm=our_law_firm,
+        current_lawyer_id=current_lawyer_id,
+        current_lawyer_label=current_lawyer_label,
+    )
+
+    # 7-8. 合同名称 + 低置信度字段追加到待核对
+    _finalize_name_and_confidence(draft, extraction, primary_name=primary_name, case_type=case_type)
+
+    return draft
+
+
+def _normalize_parties(
+    draft: ContractDraft,
+    extraction: ContractExtraction,
+    client_lookup: dict[str, tuple[int, str]],
+) -> tuple[str, list[str]]:
+    """第 1-2 段：剔除律所当事人、确定甲方、装配当事人列表。
+
+    Returns:
+        ``(甲方名称, 律所名称列表)``。律所家数既用于当事人剔除，也用于金额份额
+        拆分（各付 X × N 家 = 总额）。
+    """
     # ── 1. 当事人：剔除律所 ──
     # 律所家数既用于当事人剔除，也用于金额份额拆分（各付 X × N 家 = 总额）
     law_firm_names: list[str] = [
@@ -637,6 +679,21 @@ def normalize_extraction(
     if primary_name:
         draft.fields["client_name"] = primary_name
 
+    return primary_name, law_firm_names
+
+
+def _normalize_case_type_fee(
+    draft: ContractDraft,
+    extraction: ContractExtraction,
+    *,
+    our_law_firm: str,
+    law_firm_names: list[str],
+) -> str:
+    """第 3-4 段：合同类型与收费（多律所共同承办时拆出本所份额）。
+
+    Returns:
+        归一后的 ``case_type``（判定不出时为空串），供合同名称生成复用。
+    """
     # ── 3. 合同类型 ──
     case_type, case_type_ok = normalize_case_type(extraction.case_type)
     if case_type_ok:
@@ -679,6 +736,11 @@ def normalize_extraction(
         # 模型有时把收费条款整段抬进 custom_terms，与 fixed_amount 重复展示
         draft.fields["custom_terms"] = custom_terms[:_MAX_CUSTOM_TERMS_CHARS]
 
+    return case_type
+
+
+def _normalize_dates(draft: ContractDraft, extraction: ContractExtraction) -> None:
+    """第 5 段：开始/结束/签约日期；相对或条件式表述只标待核对，不猜。"""
     # ── 5. 日期 ──
     for field_name, raw_key in (
         ("start_date", "start_date_text"),
@@ -701,6 +763,17 @@ def normalize_extraction(
             draft.needs_review.append("sign_date")
             draft.warnings.append(f"签约日期：{sign_reason}")
 
+
+def _normalize_lawyers(
+    draft: ContractDraft,
+    extraction: ContractExtraction,
+    lawyer_lookup: dict[str, tuple[int, str]],
+    *,
+    our_law_firm: str,
+    current_lawyer_id: int | None,
+    current_lawyer_label: str,
+) -> None:
+    """第 6 段：装配律师、登录律师兜底、主办律师收敛为一位。"""
     # ── 6. 律师 ──
     # 先保留模型识别的全部律师（含未匹配的），让前端能就「合同写了谁但我们没这人」提示用户
     for lawyer in extraction.lawyers:
@@ -748,6 +821,15 @@ def normalize_extraction(
     if not draft.lawyers:
         draft.needs_review.append("lawyers")
 
+
+def _finalize_name_and_confidence(
+    draft: ContractDraft,
+    extraction: ContractExtraction,
+    *,
+    primary_name: str,
+    case_type: str,
+) -> None:
+    """第 7-8 段：生成合同名称，并把低置信度字段追进待核对列表。"""
     # ── 7. 合同名称 ──
     name = build_contract_name(
         client_name=primary_name,
@@ -766,8 +848,6 @@ def normalize_extraction(
             mapped = _CONFIDENCE_FIELD_MAP.get(key)
             if mapped and mapped not in draft.needs_review:
                 draft.needs_review.append(mapped)
-
-    return draft
 
 
 def _resolve_our_share(

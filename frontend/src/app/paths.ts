@@ -25,6 +25,7 @@ export const ROUTES = {
   projects: '/projects',
   projectDetail: '/projects/:id',
   projectReview: '/projects/:id/review/:taskId',
+  projectEdit: '/projects/:id/edit',
   /** AI 助手独立页（全宽）：抽屉面板放不下的多 agent 并排在这里看 */
   assistant: '/assistant',
   /** 指定会话的 AI 助手页（`:sessionId` 是会话唯一 id）：URL 即会话，见 use-session-route */
@@ -72,6 +73,11 @@ export function materialPrepDetail(id: number | string): string {
 /** 项目列表（合同大行流 + 详情抽屉） */
 export function projectList(): string {
   return ROUTES.projects
+}
+
+/** 项目编辑页（合同事实 / 收费 / 代理阶段）；缺 id 同样回落列表 */
+export function projectEdit(id: number | string | null | undefined): string {
+  return id == null || id === '' ? ROUTES.projects : `/projects/${id}/edit`
 }
 
 /**

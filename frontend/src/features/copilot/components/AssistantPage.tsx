@@ -42,6 +42,9 @@ import { FileDropHint } from './FileDropHint'
 import { FolderTreeDrawer } from './FolderTreeDrawer'
 import { MessageList } from './MessageList'
 import { SessionSidebar } from './SessionSidebar'
+import { SkillDrawer } from './skill/SkillDrawer'
+import { UiActionBanner } from './UiActionBanner'
+import { UiToolHost } from './UiToolHost'
 
 /** 并排的断点：低于此宽度会话列表让位（覆盖式），对话区独占全宽 */
 const WIDE_QUERY = '(min-width: 768px)'
@@ -134,9 +137,14 @@ export function AssistantPage() {
         {listOverlayOpen && <SessionSidebar variant="overlay" onClose={() => setListOverlayOpen(false)} />}
         {/* 对话区：min-w-0 + flex-1 —— 宽度全给消息与多栏并排，不设 max-w */}
         <div className="flex min-w-0 flex-1 flex-col">
+          {/* 与面板同一套宿主端口（两处挂载由 releaseUiToolPorts 的归属校验防互清） */}
+          <UiToolHost />
+          <UiActionBanner />
           <MessageList wide />
           <Composer steerEnabled={currentCapabilities.steer !== false} />
         </div>
+        {/* 与 CopilotPanel 同因：抽屉不能挂在条件渲染的侧栏里 */}
+        <SkillDrawer />
         {treeDrawerOpen && context?.origin === 'contract' && (
           <FolderTreeDrawer contractId={context.refId} onClose={() => setTreeDrawerOpen(false)} />
         )}

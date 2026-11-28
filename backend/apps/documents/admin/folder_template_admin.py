@@ -373,7 +373,7 @@ class FolderTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
 
             data: dict[str, Any] = json.loads(request.body)
         except json.JSONDecodeError:
-            logger.exception("操作失败")
+            logger.exception("folder_template_admin.validate_structure_view: 解析请求 JSON 失败")
             data = {}
 
         result = admin_service.validate_structure_ids(

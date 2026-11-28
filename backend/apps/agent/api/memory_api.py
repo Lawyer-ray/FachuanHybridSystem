@@ -23,7 +23,7 @@ pi 扩展（``pi/memory-inject.ts``）在 ``session_start`` 拉一次快照并�
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from asgiref.sync import sync_to_async
 from ninja import Router
@@ -274,7 +274,11 @@ async def promote_memory(request: Any, payload: PromoteIn) -> MemoryOut:  # prag
 async def my_scopes(request: Any) -> dict[str, Any]:  # pragma: no cover
     """当前律师可策展的作用域（前端据此显示/隐藏「提升到团队」入口）。"""
     lawyer = _current_user(request)
-    return await sync_to_async(memory_service.curatable_scopes_payload, thread_sensitive=True)(lawyer)
+    # service 侧无返回注解（返回 Any）：显式收窄，否则全量 mypy 门报 no-any-return
+    return cast(
+        "dict[str, Any]",
+        await sync_to_async(memory_service.curatable_scopes_payload, thread_sensitive=True)(lawyer),
+    )
 
 
 # ── 动态段路由（必须放最后）─────────────────────────────────────────────

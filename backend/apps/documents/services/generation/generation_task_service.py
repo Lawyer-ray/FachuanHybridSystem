@@ -83,14 +83,14 @@ class GenerationTaskService:
             try:
                 document_name = task.result_file.name.split("/")[-1]  # type: ignore[union-attr]
             except Exception:
-                logger.exception("操作失败")
+                logger.exception("generation_task_service._to_dto: 解析结果文件名失败")
 
                 document_name = None
 
             try:
                 document_url = task.result_file.url
             except Exception:
-                logger.exception("操作失败")
+                logger.exception("generation_task_service._to_dto: 生成结果文件 URL 失败")
 
                 media_url = getattr(settings, "MEDIA_URL", "/media/")
                 file_name = getattr(task.result_file, "name", None) or str(task.result_file)

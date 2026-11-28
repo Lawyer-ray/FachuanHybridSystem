@@ -32,7 +32,7 @@ export function FolderFileRow({
     // 有预览通道就交给调用方（OnlyOffice 渲染）；否则退回下载。
     // 浏览器没 docx 渲染器，`window.open` 对 .docx 必然变成下载。
     if (ctx.onOpenFile) {
-      ctx.onOpenFile({ subpath: file.subpath, name: file.name })
+      ctx.onOpenFile({ subpath: file.subpath, name: file.name, size: file.size, modified_at: file.modified_at })
       return
     }
     window.open(await withDownloadTicket(folderFileUrl(ctx.kind, ctx.ownerId, file.subpath)), '_blank', 'noopener')
@@ -98,11 +98,11 @@ export function FolderFileRow({
         {stripEntryParens(file.name)}
       </span>
       {/* 日期/大小 hover 时让位给浮层按钮（绝对定位，不参与布局） */}
-      <span className="flex-none text-[11px] whitespace-nowrap text-muted-foreground/80 tabular-nums group-hover:opacity-0">
+      <span className="flex-none text-[11px] whitespace-nowrap text-muted-foreground/80 tabular-nums group-hover:opacity-0 group-focus-within:opacity-0">
         {file.modified_at.slice(0, 10)}
         {file.size > 0 && ' · ' + formatBytes(file.size)}
       </span>
-      <span className="absolute top-1/2 right-1 hidden -translate-y-1/2 items-center rounded-[6px] bg-secondary px-0.5 group-hover:flex">
+      <span className="absolute top-1/2 right-1 hidden -translate-y-1/2 items-center rounded-[6px] bg-secondary px-0.5 group-hover:flex group-focus-within:flex">
         {ctx.onReviewFile && (
           <button
             type="button"

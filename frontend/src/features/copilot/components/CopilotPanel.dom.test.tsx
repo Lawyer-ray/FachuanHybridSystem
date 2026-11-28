@@ -15,7 +15,20 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
+import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+/**
+ * 端口注入桩：`useUiToolHost()` 会在挂载时把导航/toast 等端口写进 store。
+ * 只换这两个函数，其余导出走真模块（`UI_TOOL_SPECS` 等纯数据）。
+ * 断言它被调用 = “宿主真的接上了”，否则面板虽然渲染成功、AI 动作却 100% 落
+ * `executor_error`（评审 P0-2 的漏挂事故）。
+ */
+const portsMock = vi.hoisted(() => ({ set: vi.fn(), release: vi.fn() }))
+vi.mock('../store/ui-tools', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../store/ui-tools')>()
+  return { ...actual, setUiToolPorts: portsMock.set, releaseUiToolPorts: portsMock.release }
+})
 
 const storeMock = vi.hoisted(() => ({
   // 模型记忆：切会话时装回本地选择、用服务端 llm_model 兜底（见 store/answers.ts）
@@ -38,6 +51,11 @@ const storeMock = vi.hoisted(() => ({
   selectedAgentKind: '',
   loadBackends: vi.fn(async () => {}),
   selectAgentKind: vi.fn(),
+  // 横幅（UiActionBanner）读的两个 selector：多栏判据与运行记录。
+  // 缺了它们，面板渲染会抛 TypeError —— 横幅是面板子树的一部分。
+  answerAgents: [] as string[],
+  uiToolRuns: {} as Record<string, unknown>,
+  abortUiActions: vi.fn(),
 }))
 
 const apiMock = vi.hoisted(() => ({ listSessions: vi.fn(), fetchBackends: vi.fn() }))
@@ -81,6 +99,8 @@ vi.mock('./SessionSidebar', () => ({
 }))
 vi.mock('./MessageList', () => ({ MessageList: () => <div data-testid="message-list" /> }))
 vi.mock('./Composer', () => ({ Composer: () => <div data-testid="composer" /> }))
+vi.mock('./skill/SkillDrawer', () => ({ SkillDrawer: () => <div data-testid="skill-drawer" /> }))
+
 vi.mock('./FolderTreeDrawer', () => ({
   FolderTreeDrawer: ({ contractId, onClose }: { contractId: number; onClose: () => void }) => (
     <div data-testid="tree-drawer">
@@ -111,8 +131,12 @@ function session(over: Record<string, unknown> = {}) {
 let queryClient: QueryClient
 
 function renderPanel(props: Partial<React.ComponentProps<typeof CopilotPanel>> = {}) {
+  // MemoryRouter：`useUiToolHost()` 内部用 `useNavigate()`（声明式 BrowserRouter 下
+  // 只能在 Router 里的组件拿端口，见 08 §4.1），所以渲染树必须在 Router 下。
   const wrap = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>{children}</MemoryRouter>
+    </QueryClientProvider>
   )
   return render(<CopilotPanel open onClose={vi.fn()} {...props} />, { wrapper: wrap })
 }
@@ -139,6 +163,11 @@ afterEach(() => {
 })
 
 describe('CopilotPanel：标题与头部', () => {
+  it('技能抽屉挂在页面层（侧栏收起时 `/管理技能` 仍能打开）', () => {
+    renderPanel()
+    expect(screen.getByTestId('skill-drawer')).toBeTruthy()
+  })
+
   it('无会话无业务范围时标题为「AI 助手」，并发起一次挂载恢复会话', async () => {
     renderPanel()
     expect(screen.getByText('AI 助手')).toBeTruthy()
@@ -421,6 +450,19 @@ describe('CopilotPanel：滚轮囚闭', () => {
     const up = new WheelEvent('wheel', { deltaY: -100, bubbles: true, cancelable: true })
     scroller.dispatchEvent(up)
     expect(up.defaultPrevented).toBe(true)
+  })
+
+  it('挂载即注入 UI 操作端口（漏挂 = AI 动作全落 executor_error）', () => {
+    renderPanel()
+    expect(portsMock.set).toHaveBeenCalled()
+    const injected = portsMock.set.mock.calls.at(-1)?.[0]
+    expect(injected).toMatchObject({
+      navigate: expect.any(Function),
+      currentPath: expect.any(Function),
+      toast: expect.any(Function),
+      dispatch: expect.any(Function),
+      openCopilot: expect.any(Function),
+    })
   })
 
   it('ctrl+wheel（浏览器缩放）不接管', () => {

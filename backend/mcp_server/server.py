@@ -127,6 +127,7 @@ from mcp_server.tools import (
     delete_task,
     delete_team,
     delete_template_binding,
+    delete_user_skill,
     delete_workflow_run,
     delete_workflow_template,
     detect_orientation,
@@ -309,6 +310,7 @@ from mcp_server.tools import (
     list_lpr_rates,
     list_mappings,
     list_message_sources,
+    list_my_skills,
     list_oa_configs,
     list_payments,
     list_pending_court_document_tasks,
@@ -378,6 +380,7 @@ from mcp_server.tools import (
     save_group_order,
     save_project_note,
     save_to_directory,
+    save_user_skill,
     scale_to_a4,
     search_bidding_info,
     search_cases,
@@ -390,6 +393,7 @@ from mcp_server.tools import (
     submit_captcha_answer,
     submit_court_sms,
     submit_identity_doc_recognition,
+    submit_skill_for_review,
     suggest_rename,
     sync_all_message_sources,
     sync_case_materials,
@@ -438,6 +442,7 @@ from mcp_server.tools import (
     warm_up_cache,
     web_search,
 )
+from mcp_server.tools.ui.register import _register_ui_tools
 
 #: 模块级 logger——下面四段条件导入就要用（它们失败时只能在这里说句话），
 #: 因此定义在所有 import 之后、工具注册常量之前。
@@ -1293,8 +1298,18 @@ _t(_workflow_tool(start_workflow_from_steps))
 _t(get_current_user)
 _t(get_server_time)
 
-# 专项技能指引：场景化操作说明按需供给（AGENTS.md 只保留路由，省上下文）
+# 专项技能指引：场景化操作说明按需供给（AGENTS.md 只保留路由，省上下文）。
+# get_agent_skill / list_my_skills 是只读（LOW，且会被子 agent 的只读白名单
+# ``get_/list_`` 自动纳入），有用户上下文时走 REST 以尊重停用偏好与共享审批版。
 _t(get_agent_skill)
+_t(list_my_skills)
+# 技能写面：save_user_skill 的名字不带常规写前缀（save_ 只到 MEDIUM = 静默
+# 执行不弹窗），但它落库的是一段「以后每轮对话都会带上」的指令——已在
+# DANGER_PATTERNS 显式升 HIGH（双端表）；delete_/submit_ 命中既有高危前缀。
+# 三者都不进子 agent 只读白名单。
+_t(save_user_skill)
+_t(delete_user_skill)
+_t(submit_skill_for_review)
 _t(ask_user)
 _t(dispatch_research)
 
@@ -1380,6 +1395,14 @@ def _builtin_tool_names() -> set[str]:
     ``_REGISTERED_TOOL_NAMES``）。返回副本：插件注册也走 ``_t``，不能让名单跟着变。
     """
     return set(_REGISTERED_TOOL_NAMES)
+
+
+# ---------------------------------------------------------------------------
+# UI 动作工具：从单源清单动态注册（名字/描述/schema/风险档全部来自 manifest）
+# ---------------------------------------------------------------------------
+# 位置有两个硬约束：必须在所有内置 ``_t(...)`` **之后**（撞名要以完整内置名单为基准），
+# 且在插件之前（``_t`` 记台账，插件那侧的 ``_builtin_tool_names()`` 也会把 ``ui_*`` 当已占用）。
+UI_TOOL_NAMES: list[str] = _register_ui_tools(_t, reserved_names=_builtin_tool_names())
 
 
 PLUGIN_TOOL_NAMES: list[str] = register_plugin_tools(_t, reserved_names=_builtin_tool_names())

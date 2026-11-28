@@ -41,7 +41,7 @@ import threading
 import time
 import urllib.robotparser
 from html import unescape as _html_unescape
-from typing import Any
+from typing import Any, NamedTuple
 from urllib.parse import urlparse
 
 import httpx
@@ -779,6 +779,222 @@ def _payload_too_large(url: str) -> dict[str, Any]:
     }
 
 
+class _FetchedDocument(NamedTuple):
+    """逐跳抓取完成后的终态：最终地址 + 响应（状态/头/原始字节）+ 解码后的 ``html``。
+
+    ``url`` 是**最后一跳**的地址（跟随重定向、命中搜狗跳转后都可能与入参不同），
+    后续的错误归因与结果包裹一律用它；``body`` 保留原始字节供 PDF/Word 嗅探与
+    解析，``html`` 是同一份字节按 charset 解码出的文本；``resolved_real_target``
+    记录搜狗跳转页是否已解析出真实地址（决定「解析失败」与「抓真实页失败」的归因）。
+    """
+
+    url: str
+    status: int
+    headers: httpx.Headers
+    body: bytes
+    html: str
+    resolved_real_target: bool
+
+
+def _fetch_document(http: httpx.Client, target: str) -> _FetchedDocument | dict[str, Any]:
+    """逐跳跟随重定向抓取 ``target``，返回终态文档；抓取阶段自身失败返回错误 dict。
+
+    **重定向必须手动逐跳跟随**：``follow_redirects=True`` 会让「公网 302 → 内网」
+    的攻击路径绕过首跳检查——每跳都重新过 SSRF 与 robots 校验。搜狗跳转页解析
+    出的真实地址同样要再抓一次、再过一遍同样的校验。
+
+    自身的失败（内网目标 / robots 拒绝 / 响应体超限 / 跳数耗尽）按 ``_request_capped``
+    的既有约定返回 ``{"ok": False, ...}`` dict，由调用方原样上抛；网络类异常不在
+    这里吞——交给调用方统一归因 ``timeout`` / ``network_error``。
+    """
+    current = target
+    resolved_real_target = False
+    for _hop in range(5):
+        if _host_is_internal(urlparse(current).hostname or ""):
+            return {
+                "ok": False,
+                "url": current,
+                "reason": "blocked_target",
+                "message": "目标地址属于内网/本机段,为防 SSRF 已拒绝抓取",
+            }
+        if not _robots_allows(current, http):
+            return {
+                "ok": False,
+                "url": current,
+                "reason": "robots_disallowed",
+                "message": "目标站 robots.txt 声明不允许自动抓取该路径，请换其他来源，或建议用户直接访问",
+            }
+        outcome = _request_capped(http, current)
+        if isinstance(outcome, dict):
+            return outcome
+        status, headers, data, charset = outcome
+        if status in (301, 302, 303, 307, 308):
+            location = headers.get("location", "")
+            if not location:
+                break
+            current = str(httpx.URL(current).join(location))
+            continue
+        break
+    else:
+        # 5 跳预算自然耗尽:最后一跳仍是重定向(疑似跳板链/重定向环)
+        return {
+            "ok": False,
+            "url": target,
+            "reason": "too_many_redirects",
+            "message": "重定向超过 5 跳,已停止跟随(疑似重定向环或恶意跳板链)",
+        }
+
+    html = _decode_body(data, charset)
+
+    # 搜狗跳转页：抽真实地址再抓一次（真实地址同样过 SSRF 检查）
+    real_url = _resolve_sogou_redirect(html, page_url=current)
+    if real_url and real_url != current:
+        resolved_real_target = True
+        if _host_is_internal(urlparse(real_url).hostname or ""):
+            return {
+                "ok": False,
+                "url": real_url,
+                "reason": "blocked_target",
+                "message": "跳转目标属于内网/本机段,为防 SSRF 已拒绝抓取",
+            }
+        if not _robots_allows(real_url, http):
+            return {
+                "ok": False,
+                "url": real_url,
+                "reason": "robots_disallowed",
+                "message": "跳转目标站 robots.txt 声明不允许自动抓取该路径，请换其他来源，或建议用户直接访问",
+            }
+        try:
+            outcome = _request_capped(http, real_url)
+            if not isinstance(outcome, dict):
+                status, headers, data, charset = outcome
+                html = _decode_body(data, charset)
+                current = real_url
+        except httpx.HTTPError as exc:
+            logger.info("解析到真实地址但抓取失败 %s: %s", real_url, exc)
+    return _FetchedDocument(
+        url=current,
+        status=status,
+        headers=headers,
+        body=data,
+        html=html,
+        resolved_real_target=resolved_real_target,
+    )
+
+
+def _classify_http_status(doc: _FetchedDocument) -> dict[str, Any] | None:
+    """非 2xx 状态 → 错误 dict；2xx 返回 None（交给正文抽取）。
+
+    四条 guard clause 的顺序就是原实现的优先级：429/503 按 ``Retry-After`` 冷却
+    该 host、401/403 冷却十分钟，其余 ≥400 与「3xx 但没带 Location」如实报
+    ``http_error``。
+    """
+    if doc.status in {429, 503}:
+        # 429/503 是「你现在太快了」：按 Retry-After 冷却该 host，别让模型立刻重打。
+        host = urlparse(doc.url).hostname or ""
+        wait = _retry_after_seconds(doc.headers) or 30.0
+        if host:
+            _host_state().trip(host, f"HTTP {doc.status}", wait)
+        return {
+            "ok": False,
+            "url": doc.url,
+            "reason": "host_throttled",
+            "message": f"对方限流（HTTP {doc.status}），约 {wait:.0f} 秒后再试此站点，或换其他来源",
+        }
+    if doc.status in {401, 403}:
+        host = urlparse(doc.url).hostname or ""
+        if host:
+            _host_state().trip(host, f"HTTP {doc.status}", 600)
+        return {
+            "ok": False,
+            "url": doc.url,
+            "reason": "blocked",
+            "message": f"对方拒绝访问（HTTP {doc.status}），可能需要登录或已被限制",
+        }
+    if doc.status >= 400:
+        return {
+            "ok": False,
+            "url": doc.url,
+            "reason": "http_error",
+            "message": f"HTTP {doc.status}",
+        }
+    if doc.status >= 300:
+        # 走到这里说明 3xx 但没带 Location(上面 break 出来的)——把重定向
+        # 页壳当正文解析会误诊成 javascript_required,不如直说。上面已滤掉
+        # >=400(httpx 的 status 不可能 <100),故 status>=300 即「3xx」。
+        return {
+            "ok": False,
+            "url": doc.url,
+            "reason": "http_error",
+            "message": f"HTTP {doc.status} 重定向但未提供跳转目标，无法继续",
+        }
+    return None
+
+
+def _extract_body_as_text(
+    doc: _FetchedDocument, *, input_was_sogou_link: bool
+) -> tuple[str, str, str, str] | dict[str, Any]:
+    """2xx 响应体 → ``(kind, 标题, 正文, 发布日期)``；拿不到正文时返回错误 dict。
+
+    返回值与 ``_cache_get`` 同形（kind/标题/正文/发布日期），缓存写入与分块续读
+    直接复用。PDF/Word 与网页共用一条「先判文档类型、再分流抽取」的漏斗——
+    网页侧多两道反爬识别与搜狗跳转归因。
+    """
+    # 二进制文档判定:content-type 说它是,或字节形态就是(PDF 魔数 / ZIP 内
+    # 含 word/document.xml)——不少站点配错 content-type。提取后与网页走
+    # 完全相同的分块/注入包裹管线。
+    content_type = doc.headers.get("content-type", "").lower()
+    is_pdf = "pdf" in content_type or doc.body[:5] == b"%PDF-"
+    is_docx = not is_pdf and ("word" in content_type or _sniffs_docx(doc.body))
+
+    if is_pdf or is_docx:
+        extractor = _extract_pdf_text if is_pdf else _extract_docx_text
+        try:
+            text, title = extractor(doc.body)
+        except PdfExtractError as exc:
+            return {"ok": False, "url": doc.url, "reason": exc.reason, "message": exc.message}
+        kind = "外部 PDF 文档抓取内容" if is_pdf else "外部 Word 文档抓取内容"
+        return kind, title, text, ""
+
+    if _looks_like_antispider(doc.html):
+        return {
+            "ok": False,
+            "url": doc.url,
+            "reason": "antispider",
+            "message": (
+                "目标站点返回了反爬/验证码页面，无法获取正文。不要再重试、也不要换 UA 重试；"
+                "请用户把正文粘贴进对话，或用浏览器「打印 → 另存为 PDF」后上传，再由 read_agent_attachment 读取"
+            ),
+        }
+
+    # 搜狗跳转链接解析失败：落在搜狗自家域名上（首页/跳转壳），说明 token
+    # 失效或与会话不绑定。**必须报错**——把搜狗首页当正文返回 ``ok=true``
+    # 是「静默错内容」，比失败更糟（模型会拿导航文字当判决书摘要）。
+    if input_was_sogou_link and not doc.resolved_real_target and _is_sogou_host(urlparse(doc.url).hostname):
+        return {
+            "ok": False,
+            "url": doc.url,
+            "reason": "unresolved_redirect",
+            "message": (
+                "搜狗跳转链接未能解析出原文地址（token 失效或与检索会话不绑定）；"
+                "请在搜索结果里换一条链接，或让用户直接访问原网页"
+            ),
+        }
+
+    text = _extract_text_with_fallback(doc.html)
+    if not text:
+        # 有壳无内容：多半是 SPA 需要 JS 渲染
+        return {
+            "ok": False,
+            "url": doc.url,
+            "reason": "javascript_required",
+            "message": "页面需要 JavaScript 渲染，静态抓取拿不到正文",
+        }
+    title = _meta_title(doc.html)
+    published = _extract_published(doc.html) or _extract_published_fallback(text)
+    return "外部网页抓取内容", title, text, published
+
+
 def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0) -> dict[str, Any]:
     """抓取网页正文并返回纯文本；目标也可以是 PDF/Word 文档（自动提取文字）。
 
@@ -839,8 +1055,6 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
     #: 的会话绑定，另起一个连接去抓时常被重定向回搜狗首页（实测：返回值
     #: ``ok=true`` + 494 字首页导航，模型会把它当成原文摘要）。
     input_was_sogou_link = raw.startswith("/link") or "/link?" in raw
-    #: 跳转页里是否已成功解析出真实地址（决定「解析失败」与「抓真实页失败」怎么归因）
-    resolved_real_target = False
 
     # 相对跳转链接补全成搜狗域名
     if raw.startswith("/link"):
@@ -864,10 +1078,7 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
         kind, title, text, published = cached
         return {**_paginate_and_wrap(raw, kind, title, text, start_index, limit, published), "cached": True}
 
-    # SSRF 拦截:本机/内网/链路本地目标直接拒绝。**重定向手动逐跳跟随**,
-    # 每跳过检——follow_redirects=True 会让「公网 302 → 内网」的攻击路径
-    # 绕过首跳检查。
-    current = target
+    # 建连接前先按 host 熔断/限速：熔断中直接挡回（省一次必败的请求），太快则短暂等待。
     target_host = urlparse(target).hostname or ""
     throttled = _host_throttle(target_host)
     if throttled:
@@ -875,70 +1086,7 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
     _host_pace(target_host)
     try:
         with httpx.Client(timeout=20.0, follow_redirects=False, trust_env=False) as http:
-            for _hop in range(5):
-                if _host_is_internal(urlparse(current).hostname or ""):
-                    return {
-                        "ok": False,
-                        "url": current,
-                        "reason": "blocked_target",
-                        "message": "目标地址属于内网/本机段,为防 SSRF 已拒绝抓取",
-                    }
-                if not _robots_allows(current, http):
-                    return {
-                        "ok": False,
-                        "url": current,
-                        "reason": "robots_disallowed",
-                        "message": "目标站 robots.txt 声明不允许自动抓取该路径，请换其他来源，或建议用户直接访问",
-                    }
-                outcome = _request_capped(http, current)
-                if isinstance(outcome, dict):
-                    return outcome
-                status, headers, data, charset = outcome
-                if status in (301, 302, 303, 307, 308):
-                    location = headers.get("location", "")
-                    if not location:
-                        break
-                    current = str(httpx.URL(current).join(location))
-                    continue
-                break
-            else:
-                # 5 跳预算自然耗尽:最后一跳仍是重定向(疑似跳板链/重定向环)
-                return {
-                    "ok": False,
-                    "url": target,
-                    "reason": "too_many_redirects",
-                    "message": "重定向超过 5 跳,已停止跟随(疑似重定向环或恶意跳板链)",
-                }
-            html = _decode_body(data, charset)
-
-            # 搜狗跳转页：抽真实地址再抓一次（真实地址同样过 SSRF 检查）
-            real_url = _resolve_sogou_redirect(html, page_url=current)
-            if real_url and real_url != current:
-                resolved_real_target = True
-                if _host_is_internal(urlparse(real_url).hostname or ""):
-                    return {
-                        "ok": False,
-                        "url": real_url,
-                        "reason": "blocked_target",
-                        "message": "跳转目标属于内网/本机段,为防 SSRF 已拒绝抓取",
-                    }
-                if not _robots_allows(real_url, http):
-                    return {
-                        "ok": False,
-                        "url": real_url,
-                        "reason": "robots_disallowed",
-                        "message": "跳转目标站 robots.txt 声明不允许自动抓取该路径，请换其他来源，或建议用户直接访问",
-                    }
-                try:
-                    outcome = _request_capped(http, real_url)
-                    if not isinstance(outcome, dict):
-                        status, headers, data, charset = outcome
-                        html = _decode_body(data, charset)
-                        current = real_url
-                except httpx.HTTPError as exc:
-                    logger.info("解析到真实地址但抓取失败 %s: %s", real_url, exc)
-            target = current
-
+            fetched = _fetch_document(http, target)
     except httpx.TimeoutException:
         return {"ok": False, "url": target, "reason": "timeout", "message": "请求超时（20 秒）"}
     except httpx.HTTPError as exc:
@@ -949,103 +1097,22 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
             "reason": "network_error",
             "message": f"连接失败：{type(exc).__name__}",
         }
+    if isinstance(fetched, dict):
+        return fetched
 
-    if status in {429, 503}:
-        # 429/503 是「你现在太快了」：按 Retry-After 冷却该 host，别让模型立刻重打。
-        host = urlparse(target).hostname or ""
-        wait = _retry_after_seconds(headers) or 30.0
-        if host:
-            _host_state().trip(host, f"HTTP {status}", wait)
-        return {
-            "ok": False,
-            "url": target,
-            "reason": "host_throttled",
-            "message": f"对方限流（HTTP {status}），约 {wait:.0f} 秒后再试此站点，或换其他来源",
-        }
-    if status in {401, 403}:
-        host = urlparse(target).hostname or ""
-        if host:
-            _host_state().trip(host, f"HTTP {status}", 600)
-        return {
-            "ok": False,
-            "url": target,
-            "reason": "blocked",
-            "message": f"对方拒绝访问（HTTP {status}），可能需要登录或已被限制",
-        }
-    if status >= 400:
-        return {
-            "ok": False,
-            "url": target,
-            "reason": "http_error",
-            "message": f"HTTP {status}",
-        }
-    if status >= 300:
-        # 走到这里说明 3xx 但没带 Location(上面 break 出来的)——把重定向
-        # 页壳当正文解析会误诊成 javascript_required,不如直说。上面已滤掉
-        # >=400(httpx 的 status 不可能 <100),故 status>=300 即「3xx」。
-        return {
-            "ok": False,
-            "url": target,
-            "reason": "http_error",
-            "message": f"HTTP {status} 重定向但未提供跳转目标，无法继续",
-        }
+    # 状态判定与正文抽取各自返回「错误 dict 或结果」——失败分支原样上抛,reason 与文案逐字沿用。
+    status_error = _classify_http_status(fetched)
+    if status_error is not None:
+        return status_error
 
-    # 二进制文档判定:content-type 说它是,或字节形态就是(PDF 魔数 / ZIP 内
-    # 含 word/document.xml)——不少站点配错 content-type。提取后与网页走
-    # 完全相同的分块/注入包裹管线。
-    content_type = headers.get("content-type", "").lower()
-    is_pdf = "pdf" in content_type or data[:5] == b"%PDF-"
-    is_docx = not is_pdf and ("word" in content_type or _sniffs_docx(data))
+    extracted = _extract_body_as_text(fetched, input_was_sogou_link=input_was_sogou_link)
+    if isinstance(extracted, dict):
+        return extracted
+    kind, title, text, published = extracted
 
-    published = ""
-    if is_pdf or is_docx:
-        extractor = _extract_pdf_text if is_pdf else _extract_docx_text
-        try:
-            text, title = extractor(data)
-        except PdfExtractError as exc:
-            return {"ok": False, "url": target, "reason": exc.reason, "message": exc.message}
-    else:
-        if _looks_like_antispider(html):
-            return {
-                "ok": False,
-                "url": target,
-                "reason": "antispider",
-                "message": (
-                    "目标站点返回了反爬/验证码页面，无法获取正文。不要再重试、也不要换 UA 重试；"
-                    "请用户把正文粘贴进对话，或用浏览器「打印 → 另存为 PDF」后上传，再由 read_agent_attachment 读取"
-                ),
-            }
-
-        # 搜狗跳转链接解析失败：落在搜狗自家域名上（首页/跳转壳），说明 token
-        # 失效或与会话不绑定。**必须报错**——把搜狗首页当正文返回 ``ok=true``
-        # 是「静默错内容」，比失败更糟（模型会拿导航文字当判决书摘要）。
-        if input_was_sogou_link and not resolved_real_target and _is_sogou_host(urlparse(current).hostname):
-            return {
-                "ok": False,
-                "url": target,
-                "reason": "unresolved_redirect",
-                "message": (
-                    "搜狗跳转链接未能解析出原文地址（token 失效或与检索会话不绑定）；"
-                    "请在搜索结果里换一条链接，或让用户直接访问原网页"
-                ),
-            }
-
-        text = _extract_text_with_fallback(html)
-        if not text:
-            # 有壳无内容：多半是 SPA 需要 JS 渲染
-            return {
-                "ok": False,
-                "url": target,
-                "reason": "javascript_required",
-                "message": "页面需要 JavaScript 渲染，静态抓取拿不到正文",
-            }
-        title = _meta_title(html)
-        published = _extract_published(html) or _extract_published_fallback(text)
-
-    kind = "外部 PDF 文档抓取内容" if is_pdf else ("外部 Word 文档抓取内容" if is_docx else "外部网页抓取内容")
     # 成功结果按原始输入 URL 入缓存——分块续读的后续 chunk 直接命中
     _cache_put(raw, kind, title, text, published)
-    return {**_paginate_and_wrap(target, kind, title, text, start_index, limit, published), "cached": False}
+    return {**_paginate_and_wrap(fetched.url, kind, title, text, start_index, limit, published), "cached": False}
 
 
 def _paginate_and_wrap(

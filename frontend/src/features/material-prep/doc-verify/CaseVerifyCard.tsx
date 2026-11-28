@@ -23,11 +23,12 @@ import { Loader2 } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { materialPrep } from '@/app/paths'
-import { pad2 } from '@/lib/date'
 import { errMessage } from '@/lib/errors'
-import { cn } from '@/lib/utils'
 
-import { listCaseRuns, type FindingOut, type VerifyRunOut } from './api'
+import { listCaseRuns, type VerifyRunOut } from './api'
+import { coverageTextOf, pageCoverageOf } from './run-coverage'
+import { FindingLine } from './run-display'
+import { dedupeRuns, newestFirst, runTimeText } from './run-list'
 
 /** 每页条数：20 条够看清「核过几次」，再多首屏就该滚了。 */
 const PAGE_SIZE = 20
@@ -94,29 +95,6 @@ function caseRunsKey(caseId: number, filterKey: RunFilter['key']) {
   return ['doc-verify-case-runs', caseId, filterKey] as const
 }
 
-/** 时间倒序，与后端 `-created_at,-id` 同口径；`created_at` 解析不出来时退回 id 倒序。 */
-function newestFirst(a: VerifyRunOut, b: VerifyRunOut): number {
-  const ta = Date.parse(a.created_at)
-  const tb = Date.parse(b.created_at)
-  if (Number.isFinite(ta) && Number.isFinite(tb) && ta !== tb) return tb - ta
-  return b.id - a.id
-}
-
-/**
- * 按 id 去重。翻页期间新核了一条，offset 会整体后移，同一条记录可能在两页都出现；
- * 不去重的话 React key 重复，列表会少渲染或错位。
- */
-function dedupeRuns(runs: VerifyRunOut[]): VerifyRunOut[] {
-  const seen = new Set<number>()
-  const out: VerifyRunOut[] = []
-  for (const run of runs) {
-    if (seen.has(run.id)) continue
-    seen.add(run.id)
-    out.push(run)
-  }
-  return out
-}
-
 interface RunsPage {
   /** 本页记录（两状态档位时已按时间倒序合并） */
   items: VerifyRunOut[]
@@ -146,104 +124,6 @@ async function fetchRunsPage(
     total: pages.reduce((sum, page) => sum + page.total, 0),
     hasMore: pages.some((page) => offset + page.items.length < page.total),
   }
-}
-
-/** 覆盖度（后端 `domain/compare.py` 写、`services/verify/query.py` 原样回传；缺键按「不知道」处理）。 */
-interface PageCoverage {
-  total: number | null
-  withText: number | null
-  noText: number
-}
-
-function countOf(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
-/**
- * 覆盖度、覆盖率文案、严重度徽标这三段与 `PendingRuns` 里的同名实现**逐字同口径**：
- * 同一份 `coverage` / `findings` 在两个界面给出两种说法，律师只会信对自己有利的那句。
- * 那边是组件文件且未对外导出（本卡改动的文件边界也不含它），故照抄一份——
- * 改任何一处都要两处一起改。
- */
-function pageCoverageOf(coverage: VerifyRunOut['coverage']): PageCoverage {
-  const total = countOf(coverage.pages_total)
-  const noText = countOf(coverage.pages_no_text)
-  return {
-    total,
-    // 后端总会给 pages_with_text；缺的时候按总页数减缺文本页推，总页数也没有就承认不知道
-    withText: countOf(coverage.pages_with_text) ?? (total != null && noText != null ? total - noText : null),
-    noText: noText ?? 0,
-  }
-}
-
-/**
- * 覆盖率一句话。
- *
- * `pages_no_text > 0` 必须显式写出来：那几页是图片/无文本层，比对根本没看到内容，
- * 只写「覆盖率 8/10 页」会让律师以为是随便抽了 8 页看看。
- */
-function coverageTextOf(page: PageCoverage): string {
-  if (page.total == null || page.withText == null) return '覆盖度：未知'
-  const base = `覆盖率 ${page.withText}/${page.total} 页`
-  return page.noText > 0 ? `${base} · ${page.noText} 页无文本层，未核对` : base
-}
-
-interface SeverityStyle {
-  /** 给律师看的档位名，与后端 `domain/contracts.py` 的 Severity 一一对应 */
-  label: string
-  chip: string
-  title: string
-}
-
-const SEVERITY_RED: SeverityStyle = {
-  label: '红线',
-  chip: 'bg-red-50 text-red-700 ring-red-200',
-  title: 'text-red-700',
-}
-const SEVERITY_YELLOW: SeverityStyle = {
-  label: '疑似',
-  chip: 'bg-amber-50 text-amber-700 ring-amber-200',
-  title: 'text-amber-800',
-}
-const SEVERITY_GRAY: SeverityStyle = {
-  label: '无法核对',
-  chip: 'bg-zinc-100 text-zinc-600 ring-zinc-200',
-  title: 'text-zinc-600',
-}
-
-/**
- * severity → 展示样式。三档是三种处置（红线不得放行 / 疑似待确认 / 无法核对），
- * 不是三种装饰。未知值按 gray 渲染：把不认识的档位画成红线会制造假警报。
- */
-function severityStyle(severity: string): SeverityStyle {
-  if (severity === 'red') return SEVERITY_RED
-  if (severity === 'yellow') return SEVERITY_YELLOW
-  return SEVERITY_GRAY
-}
-
-/** 一条发现项：档位徽标 + 标题 + `expected → actual`（后端为空串时不渲染箭头）。 */
-function FindingLine({ finding }: { finding: FindingOut }) {
-  const style = severityStyle(finding.severity)
-  const pair =
-    finding.expected || finding.actual ? `${finding.expected || '（空）'} → ${finding.actual || '（空）'}` : ''
-  return (
-    <div className="flex items-start gap-1.5 text-[11.5px] leading-relaxed">
-      <span className={cn('mt-px flex-none rounded px-1 text-[10px] leading-4 ring-1 ring-inset', style.chip)}>
-        {style.label}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className={cn('font-medium', style.title)}>{finding.title}</span>
-        {pair && <span className="ml-1 text-muted-foreground">{pair}</span>}
-      </span>
-    </div>
-  )
-}
-
-/** 核对时间：ISO（可能带时区偏移）→ 本地 "YYYY-MM-DD HH:mm"；解析失败原样返回，不编一个时间出来。 */
-function runTimeText(iso: string): string {
-  const at = new Date(iso)
-  if (Number.isNaN(at.getTime())) return iso
-  return `${at.getFullYear()}-${pad2(at.getMonth() + 1)}-${pad2(at.getDate())} ${pad2(at.getHours())}:${pad2(at.getMinutes())}`
 }
 
 /** 一次核对：文书名 + 当时的结论 + 时间 + 覆盖率，再摊开前两条发现项。 */

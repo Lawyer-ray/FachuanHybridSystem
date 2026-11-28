@@ -34,6 +34,6 @@ class Command(BaseCommand):
             self.stdout.write("模型已准备就绪,可以开始使用 OCR 功能.")
 
         except Exception as e:
-            logger.exception("操作失败")
+            logger.exception("download_ocr_models.handle: OCR 模型初始化失败")
             self.stdout.write(self.style.ERROR(f"模型初始化失败: {e}"))
             self.stdout.write("请检查网络连接后重试.")

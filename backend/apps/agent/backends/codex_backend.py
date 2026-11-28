@@ -57,7 +57,15 @@ from typing import Any, AsyncGenerator
 
 from asgiref.sync import sync_to_async
 
-from .base import BackendCapabilities, BackendError, BackendErrorKind, LiveBackendHandle, RunContext, StreamFrame
+from .base import (
+    BackendCapabilities,
+    BackendError,
+    BackendErrorKind,
+    LiveBackendHandle,
+    RunContext,
+    SkillDelivery,
+    StreamFrame,
+)
 from .codex_gateway import GatewayProxy
 from .gateway_cache import get_gateway_settings, resolve_gateway_target
 from .toolface import (
@@ -401,6 +409,32 @@ class _RunState:
     last_total: int = 0
 
 
+def _reject_unsupported_run_options(ctx: RunContext) -> None:
+    """codex 做不到的运行选项：显式报错，不静默忽略（``base.py`` 的硬要求）。
+
+    - ``system_prompt``：app-server 没有按轮替换 system prompt 的参数，能改的只有
+      ``home/AGENTS.md``（而本后端从未写过它）；
+    - ``max_turns``：``turn/start`` 没有轮次上限参数。
+
+    ``ctx.isolated`` **当前不支持**（未验证）：本后端每轮新 thread、不续接历史，
+    行为上可能已等价于隔离，但从未用探针验证过——未验证的隔离逻辑比缺口更危险，
+    所以只登记为缺口（见 ``HANDOFF-P1.md`` §7.1）。
+    """
+    unsupported = [
+        name
+        for name, value in (
+            ("system_prompt", ctx.system_prompt is not None),
+            ("max_turns", ctx.max_turns is not None),
+        )
+        if value
+    ]
+    if unsupported:
+        raise BackendError(
+            BackendErrorKind.UNAVAILABLE,
+            f"codex 不支持本轮运行选项：{', '.join(unsupported)}；请换用 pi / claude-agent / qoder / antigravity",
+        )
+
+
 class CodexBackend:
     """codex 运行时（每次 ``stream()`` 拉起一条 ``codex app-server``）。"""
 
@@ -417,6 +451,10 @@ class CodexBackend:
             compaction=False,  # 每轮新 thread，历史由编排层渲染
             steer=True,  # turn/steer 在协议里
             concurrent_in_session=True,
+            # **硬锁 TOOL_ONLY，修洞前不许升档**：内置文件/shell 工具没有真正封死
+            # （``BUILTIN_TOOLS`` 只是死常量，``sandbox="read-only"`` 仍可读同 UID
+            # 全盘），且未知审批 fail-open。见 ``HANDOFF-P1.md`` §7.1。
+            skill_delivery=SkillDelivery.TOOL_ONLY,
         )
         self._results = OrderedDict()
 
@@ -433,6 +471,7 @@ class CodexBackend:
         return self._stream(ctx)
 
     async def _stream(self, ctx: RunContext) -> AsyncGenerator[StreamFrame, None]:
+        _reject_unsupported_run_options(ctx)
         resolved = await self._resolve_gateway(ctx)
         run_dir = session_dir(str(ctx.session.session_id))
         home, work = run_dir / "home", run_dir / "work"

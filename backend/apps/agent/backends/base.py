@@ -56,6 +56,26 @@ from typing import Any, Protocol, runtime_checkable
 StreamFrame = dict[str, Any] | None
 
 
+class SkillDelivery(enum.StrEnum):
+    """技能送达方式：这个后端**这一轮**到底怎么把技能交给模型。
+
+    默认 ``TOOL_ONLY``——声明不实比没有更难查：调用方按 ``PROMPT`` 写的路径
+    （注入索引块、指望模型自主命中）一旦落到实际没注入的后端上，表现是
+    「技能偶发不生效」，没有任何报错。
+    """
+
+    #: 只能靠 MCP 工具按需取全文（``get_agent_skill`` / ``list_my_skills``），
+    #: 系统提示里没有索引块，``/skill:`` 仍由编排层展开。
+    TOOL_ONLY = "tool_only"
+    #: 索引块进系统提示 + 编排层 ``/skill:`` 展开 + MCP 取全文（pi / claude-agent /
+    #: qoder / antigravity / opencode 走这一档）。
+    PROMPT = "prompt"
+    #: 后端自带技能发现与注入（方案 B 的 pi ``--skill`` 目录）。方案 A 下没有
+    #: 后端归这一档——pi 也走 ``PROMPT``（它没有文件读取工具时不生成
+    #: ``<available_skills>``，``--skill`` 带不来自主发现）。
+    NATIVE = "native"
+
+
 @dataclass(frozen=True)
 class BackendCapabilities:
     """后端能力声明。
@@ -108,6 +128,19 @@ class BackendCapabilities:
     #: 显式声明。反过来（默认 ``True``）会让新后端在没验证过的情况下被编排层
     #: 直接并行拉起，污染会话上下文且没有任何测试能提前发现。
     concurrent_in_session: bool = False
+
+    #: 技能送达档位（见 :class:`SkillDelivery`）。三档含义：
+    #: ``TOOL_ONLY`` 只靠 MCP 按需取；``PROMPT`` 索引进系统提示 + 编排层
+    #: ``/skill:`` 展开 + MCP 取全文；``NATIVE`` 后端自己发现并注入。
+    #:
+    #: **声明 ``PROMPT`` 就必须真的把 ``RunContext.skill_block`` 注进去**：
+    #: 这是事实陈述，不是愿望。声明了却静默忽略，编排层与前端都会按「技能已
+    #: 可达」去承诺律师，而模型其实从来没见过索引——只在「某条技能该被自主
+    #: 命中时没命中」这种软指标上暴露。
+    #:
+    #: 带默认值（``TOOL_ONLY``）且放在最后：所有后端都用关键字构造，未改造的
+    #: 后端不必改一行也不会因为多一个必填字段而炸。
+    skill_delivery: str = SkillDelivery.TOOL_ONLY
 
 
 class BackendErrorKind(enum.StrEnum):
@@ -429,3 +462,18 @@ class RunContext:
     #: 审批路由、日志、归因仍用真实 ``session``（``session_id`` 不变）。保证不了隔离的
     #: 后端必须报 ``BackendError``，宁可失败也不污染会话历史。
     isolated: bool = False
+
+    #: 本轮技能索引块（``services/skills/prompt_block.render_skill_block`` 的产物）。
+    #: 非空时，声明 ``skill_delivery=PROMPT`` 的后端应把它拼进本轮的系统提示
+    #: （pi 走 ``--append-system-prompt``）；``None`` / 空串 = 不注入。
+    #: 内容随用户与已发布技能变化，所以只能是**每轮**的输入而不是全局常量。
+    skill_block: str | None = None
+
+    #: 发布前试跑：把「待审的那一条技能」渲染块直接注进本轮，**绕过
+    #: ``isolated=True`` 的强制空块**。
+    #:
+    #: 契约（不变量门禁）：``isolated=True`` 且 ``skill_block_override is None``
+    #: 时，后端**必须**不注入任何技能——隔离运行（综合结论）不该带上律师的个人
+    #: 技能与所内索引，那会把与本任务无关的工作流混进客观合并。给了 override 时
+    #: 只注 override，不叠加 ``skill_block``：试跑要验证的正是「只装这一条会怎样」。
+    skill_block_override: str | None = None

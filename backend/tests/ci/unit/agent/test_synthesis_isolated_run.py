@@ -388,7 +388,7 @@ class _FakeLiveRegistry:
 def pi_backend_env(monkeypatch: pytest.MonkeyPatch) -> Any:
     from apps.agent.services.event_bus import EventBus
 
-    state: dict[str, Any] = {"session": _BackendStubSession(), "routes": [], "skills_called": 0}
+    state: dict[str, Any] = {"session": _BackendStubSession(), "routes": []}
     live = _FakeLiveRegistry()
 
     async def fake_stream(pi_session: Any, *, agent: str = "pi") -> Any:
@@ -402,17 +402,12 @@ def pi_backend_env(monkeypatch: pytest.MonkeyPatch) -> Any:
     async def fake_model() -> str | None:
         return "kimi-2.6"
 
-    def fake_skills(user_id: int) -> list[str]:
-        state["skills_called"] += 1
-        return ["/skills/a"]
-
     monkeypatch.setattr("apps.agent.backends.pi_backend.chat_pool.get_pool", fake_get_pool)
     monkeypatch.setattr("apps.agent.backends.pi_backend.chat_pool._resolve_model", fake_model)
     monkeypatch.setattr("apps.agent.backends.pi_backend.stream_events", fake_stream)
     monkeypatch.setattr("apps.agent.backends.pi_backend.get_live_registry", lambda: live)
     monkeypatch.setattr("apps.agent.backends.pi_backend.register_live_route", lambda *a, **k: state["routes"].append(a))
     monkeypatch.setattr("apps.agent.backends.pi_backend.unregister_live_route", lambda *a, **k: None)
-    monkeypatch.setattr("apps.agent.backends.pi_backend.enabled_skill_paths", fake_skills)
     monkeypatch.setattr(EventBus, "_ensure_relay", lambda self: None)
     state["live"] = live
     return state
@@ -438,9 +433,10 @@ class TestPiBackendIsolation:
         # 用户对本会话的插话不能被路由到综合进程
         assert pi_backend_env["live"].registered == []
         assert pi_backend_env["routes"] == []
-        # 律师技能不注入隔离运行
+        # 律师技能不注入隔离运行：零技能目录 + 无系统提示追加块（方案 A 下技能
+        # 走 ``--append-system-prompt`` 索引块，不再是 ``--skill`` 目录）。
         assert kwargs["skill_paths"] == []
-        assert pi_backend_env["skills_called"] == 0
+        assert kwargs["append_system_prompt"] is None
 
     def test_regular_ctx_acquire_kwargs_unchanged(self, pi_backend_env: Any) -> None:
         _drain(_ctx())

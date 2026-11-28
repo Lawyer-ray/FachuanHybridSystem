@@ -3,7 +3,7 @@ import { FolderPlus, Loader2 } from 'lucide-react'
 
 import { errMessage } from '@/lib/errors'
 import type { FolderOwnerKind } from '../../api'
-import type { TreeCtx } from './folder-tree-types'
+import type { FolderEntryMutation, TreeCtx } from './folder-tree-types'
 import { FolderNodeList } from './FolderNodeList'
 import { TreeContextMenu } from './folder-tree-menu'
 import { buildFolderMenuItems } from './folder-tree-menu-items'
@@ -28,6 +28,7 @@ export function FolderTree({
   onReviewFile,
   onOpenFile,
   selectedSubpath,
+  onEntryMutated,
 }: {
   kind: FolderOwnerKind
   ownerId: number
@@ -46,8 +47,17 @@ export function FolderTree({
   onOpenFile?: (f: { subpath: string; name: string }) => void
   /** 当前预览中的 subpath（行高亮用） */
   selectedSubpath?: string | null
+  /**
+   * 改名/删除成功后回调。
+   *
+   * 页面要拿它把「正在预览的那份文件」关掉：否则画布还指着旧路径，
+   * 标题还是旧名字，⌘S 打到一个不存在的文件上（看起来一切正常）。
+   */
+  onEntryMutated?: (e: FolderEntryMutation) => void
 }) {
-  const state = useFolderTreeState(kind, ownerId)
+  // selectedSubpath 只用于首次挂载时把当前文件所在的目录链展开（见 useFolderTreeState
+  // 注释：详情页开文档会让这棵树重挂一次，不这样的话刚点的那份就沉进折叠目录里）
+  const state = useFolderTreeState(kind, ownerId, selectedSubpath, onEntryMutated)
   const actions = state.mutation
   // 拖入文件夹行时展开目标（未展开才展开；toggle 会收起已展开的）
   const drop = useFolderDrop(kind, ownerId, actions.upload, (subpath) => {
@@ -91,7 +101,19 @@ export function FolderTree({
     )
   }
   if (root.isError) {
-    return <div className="py-2 text-xs text-muted-foreground/70">{errMessage(root.error, '文件夹读取失败')}</div>
+    return (
+      <div className="flex flex-wrap items-center gap-2 py-2 text-xs text-muted-foreground/70">
+        <span>{errMessage(root.error, '文件夹读取失败')}</span>
+        {/* 没有重试的话，唯一出路是刷新整页——一次临时失败看着像「文件夹没了」 */}
+        <button
+          type="button"
+          className="cursor-pointer underline underline-offset-2 hover:text-foreground"
+          onClick={() => void root.refetch()}
+        >
+          重试
+        </button>
+      </div>
+    )
   }
 
   return (

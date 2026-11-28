@@ -1,4 +1,4 @@
-import { Suspense, type ReactNode } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router'
 
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
@@ -8,6 +8,7 @@ import { LoginPage, SocialCallbackPage } from '@/features/auth'
 import { AppShell } from './shell/AppShell'
 import {
   AssistantPageLazy,
+  EditProjectPageLazy,
   BankLitigationPageLazy,
   ClientUploadPageLazy,
   DeskPageLazy,
@@ -63,6 +64,32 @@ function lazyPage(node: ReactNode) {
   return <Suspense fallback={<RouteFallback />}>{node}</Suspense>
 }
 
+/**
+ * 探针页路径。**唯一**允许出现在 paths.ts 之外的路径字面量，理由是它必须**不**进
+ * `ROUTES`：`ui-tools/routes.ts` 的 navigate 白名单是由 ROUTES 编译出来的，进 ROUTES
+ * 等于让 AI 能跳到一个 prod 里根本不存在的页面（被通配重定向回首页，白跳一次）。
+ */
+const DEV_UI_ACTION_PROBE_PATH = '/_dev/ui-action'
+
+/**
+ * 开发专用：界面动作探针页（`/_dev/ui-action`）。
+ *
+ * **为什么免登录、不在 RequireAuth 之下**：它只调用执行器、不发任何 API 请求。目的是让人
+ * 在**真 Safari / Firefox** 上不登录就能验「点了按钮地址真的变了吗」「被拒的动作真的没动
+ * 地址吗」——jsdom 证不了这一段（理由见 `features/copilot/dev/UiActionProbe.tsx` 文件头）。
+ *
+ * **prod 排除**：`import.meta.env.DEV` 在构建期被替换成 `false`，整个三元连同它包着的
+ * `import()` 一起被摇掉，探针模块不进 dist（验证：`pnpm build` 后
+ * `grep -rl "probe-loc" dist/` 必须无输出）。
+ *
+ * **为什么写相对路径而不是 `@/features/copilot/dev/UiActionProbe`**：ESLint 的跨 feature
+ * 边界规则禁止深引别的 feature 内部文件；而把它放进 copilot 的桶出口，探针代码就会
+ * 进 prod 的 copilot chunk —— 这正是本页唯一不能接受的事。
+ */
+const UiActionProbeLazy = import.meta.env.DEV
+  ? lazy(() => import('../features/copilot/dev/UiActionProbe'))
+  : null
+
 export function AppRouter() {
   return (
     <ErrorBoundary>
@@ -72,6 +99,10 @@ export function AppRouter() {
         <Route path={ROUTES.socialCallback} element={<SocialCallbackPage />} />
         {/* 客户材料上传（公开）：链接即凭证，不进 RequireAuth */}
         <Route path={ROUTES.clientUpload} element={lazyPage(<ClientUploadPageLazy />)} />
+        {/* dev-only 界面动作探针页：与 /login 同层（不在 RequireAuth 之下），理由见上方声明处 */}
+        {import.meta.env.DEV && UiActionProbeLazy && (
+          <Route path={DEV_UI_ACTION_PROBE_PATH} element={lazyPage(<UiActionProbeLazy />)} />
+        )}
         <Route
           element={
             <RequireAuth>
@@ -93,6 +124,8 @@ export function AppRouter() {
           {/* 项目详情：一条 URL（:id = 委托合同 id），按 deal.lit 分流左栏——
               诉讼走案件程序链、非诉走合同文件夹。不再用 /nonlit 后缀暴露分类词。 */}
           <Route path={ROUTES.projectDetail} element={<ProjectDetailPageLazy />} />
+        {/* 静态段 `edit` 比 `:id` 更具体，react-router 按分段优先匹配，不会抢详情页 */}
+        <Route path={ROUTES.projectEdit} element={<EditProjectPageLazy />} />
           {/* 银行批量诉讼（场景 2）：列表与立案工作台共用同一页组件，
               `:id` 有值时打开指定案件的工作台。两者必须同一条组件 ——
               工作台内的四个分区（起诉条件/要素式转换/OA/一张网）都依赖

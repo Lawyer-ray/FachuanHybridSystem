@@ -2,11 +2,13 @@ import { projectDetail } from '@/app/paths'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 
-import { ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
+import { ErrorBlock } from '@/components/shared/AsyncState'
+import { SkeletonStatus } from '@/components/shared/Skeleton'
 import { DEFAULT_FILTER } from '../constants'
 import { useWorkbenchData } from '../hooks/use-workbench-data'
 import type { WorkbenchDeal, WorkbenchFilter } from '../types'
 import { DealRow } from './DealRow'
+import { DealRowSkeleton } from './DealRowSkeleton'
 import { DealSheet } from './DealSheet'
 import { FilterBar } from './FilterBar'
 
@@ -80,7 +82,12 @@ export function WorkbenchPage() {
         </div>
 
         {isLoading ? (
-          <LoadingBlock text="正在加载项目数据…" className="py-[90px]" />
+          /* 首屏用与真行同源的骨架（DealRowSkeleton）：接口 p50 410ms，转圈只占
+             ~150px 而真列表 50 行 ~3300px，切成真列表那一下视口会猛跳。
+             SkeletonStatus 默认延迟 300ms——更快的请求根本不该看见骨架。 */
+          <SkeletonStatus text="正在加载项目数据…">
+            <DealRowSkeleton count={8} />
+          </SkeletonStatus>
         ) : error ? (
           /* hook 已把错误收成一句中文（errMessage），交给 ErrorBlock 时
              fallback 也传同一句：ErrorBlock 只对「有 message 的 Error」透出

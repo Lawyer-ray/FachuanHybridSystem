@@ -64,6 +64,13 @@ export interface TimelineEntry {
   atts: DealLogAtt[]
   /** 相同内容自动合并后的条数（>1 显示 ×N） */
   n: number
+  /**
+   * 这个内容各次发生的日期（升序，含 `date`）。
+   *
+   * 合并行只显示最新日期会把「第一次是什么时候」抹掉——而时间轴恰恰是案件
+   * 过往的唯一叙事入口。×N 因此带一份日期清单，点开就能看到每一次。
+   */
+  dates: string[]
 }
 
 /**
@@ -82,6 +89,7 @@ export function timelineEntries(c: DealCase): TimelineEntry[] {
     if (exist) {
       exist.n += 1
       exist.date = date
+      exist.dates.push(date)
       exist.who = l.who || exist.who
       const seenNames = new Set(exist.atts.map((a) => a.name))
       for (const a of l.atts) {
@@ -108,6 +116,7 @@ export function timelineEntries(c: DealCase): TimelineEntry[] {
       attN: atts.length,
       atts,
       n: 1,
+      dates: [date],
     }
     byText.set(l.text, entry)
     out.push(entry)

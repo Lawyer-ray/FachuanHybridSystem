@@ -46,7 +46,6 @@ from ..history import render_transcript
 from ..live_sessions import get_live_registry
 from ..memory_tasks import enqueue_extraction
 from ..session_cleanup import has_pi_session
-from ..skill_service import enabled_skill_paths
 from .dual import stream_dual
 from .env import _worker_id
 from .env import mint_user_token
@@ -141,5 +140,4 @@ __all__ = [
     "get_live_registry",
     "enqueue_extraction",
     "has_pi_session",
-    "enabled_skill_paths",
 ]

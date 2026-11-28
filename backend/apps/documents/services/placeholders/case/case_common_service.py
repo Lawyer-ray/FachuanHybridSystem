@@ -123,7 +123,7 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         try:
             authorities = list(case.supervising_authorities.all().order_by("id"))
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("case_common_service._get_trial_authorities: 读取主管机关失败")
             authorities = []
 
         names: list[str] = []
@@ -143,7 +143,7 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         try:
             parties = list(case.parties.select_related("client").all().order_by("id"))
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("case_common_service._get_party_names: 读取当事人名称失败")
             parties = []
 
         names: list[str] = []
@@ -166,7 +166,7 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         try:
             parties = list(case.parties.select_related("client").all().order_by("id"))
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("case_common_service._get_party_values: 读取当事人字段值失败")
             parties = []
 
         values: list[str] = []
@@ -189,7 +189,7 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         try:
             parties = list(case.parties.select_related("client").all().order_by("id"))
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("case_common_service._get_our_party_addresses: 读取我方当事人地址失败")
             parties = []
 
         parts: list[str] = []
@@ -214,7 +214,7 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         try:
             parties = list(case.parties.select_related("client").all().order_by("id"))
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("case_common_service._get_our_party_signature_info: 读取我方当事人签章信息失败")
             parties = []
 
         our_parties: list[Any] = []
@@ -298,7 +298,7 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         try:
             parties = list(case.parties.select_related("client").all().order_by("id"))
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("case_common_service._get_opposing_party_info: 读取对方当事人信息失败")
             parties = []
 
         opposing_parties: list[Any] = []
@@ -342,7 +342,7 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         try:
             display = str(party.get_legal_status_display() or "").strip()
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("case_common_service._resolve_party_role: 读取当事人诉讼地位失败")
             display = ""
         return display or "当事人"
 
@@ -383,7 +383,7 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         try:
             assignments = list(case.assignments.select_related("lawyer").all().order_by("id"))
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("case_common_service._get_ordered_lawyer_names: 读取承办律师名单失败")
             assignments = []
 
         def sort_key(a: Any) -> tuple[Any, ...]:

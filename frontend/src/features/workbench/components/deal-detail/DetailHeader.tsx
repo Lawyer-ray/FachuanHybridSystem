@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 
+import { projectEdit } from '@/app/paths'
+
 import type { WorkbenchDeal } from '../../types'
 import { crumbName, headerMetaParts } from './detail-domain'
 import { ProjectMemoryDrawer } from './ProjectMemoryDrawer'
@@ -13,15 +15,7 @@ import { ActionButton, MetaLine } from './ui'
  * 主标题即合同名（建档时的全称），领域身份不另造名称；标题不限宽——限宽会留下
  * 一大片「标题够不着、按钮够不着」的空白（长案名 3 行折行时尤其明显）。
  */
-export function DetailHeader({
-  deal,
-  onAddDue,
-  onAddLog,
-}: {
-  deal: WorkbenchDeal
-  onAddDue: () => void
-  onAddLog: () => void
-}) {
+export function DetailHeader({ deal }: { deal: WorkbenchDeal }) {
   /** 抽屉开关留在页头（谁渲染触发器谁持状态）：抽屉自身不碰导航，纯只读面板 */
   const [memoryOpen, setMemoryOpen] = useState(false)
 
@@ -37,8 +31,10 @@ export function DetailHeader({
         </span>
       </nav>
 
+      {/* 窄屏：标题与动作各占一整行。此前它是「标题 flex-1 + 动作 ml-auto」，
+          手机上 flex 会先把标题压成一条窄柱去容纳四个按钮，标题于是折成七八行 */}
       <div className="mb-4 flex flex-wrap items-start gap-[18px]">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 max-[680px]:basis-full">
           <h1 className="text-[23px] leading-[1.4] font-[760] tracking-[-0.022em] break-all max-[680px]:text-[19px]">
             {deal.client}
           </h1>
@@ -47,14 +43,18 @@ export function DetailHeader({
             className="mt-1.5 text-[13px] leading-[1.8] text-muted-foreground tabular-nums"
           />
         </div>
-        <div className="ml-auto flex flex-wrap gap-2 pt-1.5 max-[680px]:ml-0 max-[680px]:pt-0">
+        <div className="ml-auto flex flex-wrap gap-2 pt-1.5 max-[680px]:ml-0 max-[680px]:w-full max-[680px]:basis-full max-[680px]:pt-0">
+          {/* 放在最左：它是一次**导航**，不是本页的创建动作——所以渲染成真锚点
+              （可中键开新标签）。页头主按钮位留给真能完成的事，不再给占位动作 */}
+          <ActionButton title="改项目名称 / 案型 / 状态 / 服务期 / 收费 / 代理阶段" to={projectEdit(deal.id)}>
+            编辑
+          </ActionButton>
           <ActionButton title="本项目所有 AI 笔记（同团队可见）" onClick={() => setMemoryOpen(true)}>
             AI 上下文
           </ActionButton>
-          <ActionButton onClick={onAddDue}>＋ 新增期限</ActionButton>
-          <ActionButton dark onClick={onAddLog}>
-            ＋ 记项目日志
-          </ActionButton>
+          {/* 这里不再放「＋ 新增期限 / ＋ 记项目日志」：右栏「期限」节和每张案件卡
+              已有对应入口，页头再来一份只是重复。页头只留「编辑」（导航）与
+              「AI 上下文」（只读抽屉） */}
         </div>
       </div>
 

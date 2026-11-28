@@ -22,8 +22,16 @@ export type Case = components['schemas']['CaseOut']
  * contract_name / group_key / group_name —— 调用点只好用 `as unknown as` 把差异盖住。
  * 现在一律 Pick 生成物：`id` 保持 `number | null` 口径，由列表页显式处理。
  */
+/**
+ * 列表行口径：后端 `slim=true` 的 `CaseSlimOut`。
+ *
+ * 标量列与 `CaseOut` 完全一致（后端同一份 CASE_SCALAR_FIELDS），差别只在
+ * `CaseSlimOut` 不含那 7 个嵌套集合——所以下面的 Pick 在两边都成立，但指向
+ * `CaseSlimOut` 才能让类型和后端实际返回的形状一致（否则谁往 CaseRow 里加
+ * 一个集合字段，类型会静默放行、运行时拿到 undefined）。
+ */
 export type CaseRow = Pick<
-  components['schemas']['CaseOut'],
+  components['schemas']['CaseSlimOut'],
   'id' | 'name' | 'status' | 'current_stage' | 'cause_of_action' | 'target_amount' | 'filing_number'
 >
 

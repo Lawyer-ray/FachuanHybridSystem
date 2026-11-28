@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
 from typing import Any, ClassVar, Literal
 
 from apps.core.models.enums import CaseStatus
@@ -27,6 +28,20 @@ except ImportError:
 
 
 class CaseIn(ModelSchema):
+    """
+    建案入参。
+
+    `contract_id` 必须显式声明：`Case.contract` 是 FK，但 ModelSchema 的 fields
+    白名单里没有它，而 `CaseCommandService.create_case` 读的正是 `data["contract_id"]`
+    ——既拿它做合同有效性校验，也拿它解析并校验代理阶段。漏了这一个字段，
+    REST 建出来的案件会挂空合同（前端「新建下一程序案件」等于白建）。
+    """
+
+    contract_id: int | None = None
+    # 收案日期。模型上有默认值（date.today），但二审/执行这类后续程序常要回填
+    # 真实收案日；不给这个字段就只能建完再去改，而 CaseUpdate 同样没有它。
+    start_date: date | None = None
+
     class Meta:
         model = Case
         fields: ClassVar = [
@@ -49,6 +64,26 @@ class CaseChatOut(ModelSchema):
         fields: ClassVar = ["id", "platform", "name", "is_active"]
 
 
+# Case 自身的标量列（不含任何关联集合）。CaseOut 与 CaseSlimOut 共用这一份：
+# 列表瘦身版（case_slim_schemas.py）裁掉的只有 7 个嵌套集合，标量列两边同口径，
+# 否则「slim 时 is_filed 怎么没了」这类缺口会逐个冒出来。
+CASE_SCALAR_FIELDS: list[str] = [
+    "id",
+    "name",
+    "status",
+    "is_filed",
+    "filing_number",
+    "case_type",
+    "start_date",
+    "effective_date",
+    "specified_date",
+    "target_amount",
+    "preservation_amount",
+    "cause_of_action",
+    "current_stage",
+]
+
+
 class CaseOut(ModelSchema):
     parties: list[CasePartyOut]
     assignments: list[CaseAssignmentOut]
@@ -61,21 +96,7 @@ class CaseOut(ModelSchema):
 
     class Meta:
         model = Case
-        fields: ClassVar = [
-            "id",
-            "name",
-            "status",
-            "is_filed",
-            "filing_number",
-            "case_type",
-            "start_date",
-            "effective_date",
-            "specified_date",
-            "target_amount",
-            "preservation_amount",
-            "cause_of_action",
-            "current_stage",
-        ]
+        fields: ClassVar = CASE_SCALAR_FIELDS
 
     @staticmethod
     def _resolve_list_field(obj: Any, key: str) -> list:
@@ -123,7 +144,8 @@ class CaseOut(ModelSchema):
                 #    写成 `case` 会继续报 "case_id Field required"——实测踩过。
                 "case_id": getattr(it, "case_id", None),
                 "client_id": getattr(it, "client_id", None),
-                "legal_status": getattr(it, "legal_status", ""),
+                # ⚠️ 这里必须先翻成中文标签再放进 dict（见 _party_status_label）。
+                "legal_status": CaseOut._party_status_label(it),
             }
             # client_detail 要的是**完整的 Client 对象**（ClientOut 有 id/name/... 一堆必填），
             # 只给 client_id 那个整数会让 resolver 拿到 DjangoGetter: 495，
@@ -132,6 +154,29 @@ class CaseOut(ModelSchema):
             d["client"] = getattr(it, "client", None)
             out.append(d)
         return out
+
+    @staticmethod
+    def _party_status_label(obj: Any) -> str:
+        """`legal_status` 在**转 dict 这一步**就要翻成中文标签。
+
+        为什么不能留给 `CasePartyOut.resolve_legal_status`：那个 resolver 的 dict 分支
+        是直传（它假设传进来的 dict 已是序列化后的形状）。于是「原始模型 → dict」这一层
+        放进去的是代码值（`plaintiff`），接口就原样吐英文。
+
+        踩到过：案件卡上「诉讼地位」整行变成 `plaintiff：张三 / defendant：李四`，
+        而同一张卡的 `status`（在办）、`current_stage`（一审）走 `get_*_display` 是中文，
+        一张卡片上半中半英。tests/ci/unit/cases/test_case_schema_party_status.py 钉住这条。
+        """
+        raw = getattr(obj, "legal_status", None)
+        if not raw:
+            return ""
+        getter = getattr(obj, "get_legal_status_display", None)
+        if callable(getter):
+            try:
+                return str(getter())
+            except (AttributeError, ValueError):  # pragma: no cover - 模型字段无 choices 时才会发生
+                return str(raw)
+        return str(raw)
 
     @staticmethod
     def _as_assignment_dicts(items: list) -> list:
@@ -242,6 +287,7 @@ class UnifiedGenerateRequest(Schema):
 
 
 __all__: list[str] = [
+    "CASE_SCALAR_FIELDS",
     "CaseChatOut",
     "CaseCreateFull",
     "CaseFullOut",

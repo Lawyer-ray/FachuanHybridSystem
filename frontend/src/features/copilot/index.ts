@@ -23,6 +23,18 @@ export { AssistantPage } from './components/AssistantPage'
 export { PanelBackdrop } from './components/PanelBackdrop'
 
 /**
+ * 页面自己声明 AI 可操作动作的契约 + 「跳过去之后再继续执行」的消费 hook。
+ *
+ * 别的 feature 要写 `features/<x>/ui-actions.ts` 时只引这两个符号：
+ * - `PageUiAction` 是纯类型（`import type` 编译期擦除，不把本域拖进使用方 chunk）；
+ * - `useUiPendingAction` 是运行时 import。跨 feature 只能走本桶出口（ESLint 边界规则），
+ *   代价是使用方 chunk 会连带 copilot 域（本文件静态引着 CopilotPanel）；
+ *   `launch.ts` 就是为同类「只要一个函数」的需求开过的轻量出口先例。
+ */
+export type { PageUiAction } from './ui-tools'
+export { useUiPendingAction } from './hooks/use-ui-pending-action'
+
+/**
  * 多答裁决的跨 lane 契约（只读）：类型同源于后端 `services/adjudication/contracts.py`。
  * 谁都不许在这里加字段——改契约先改 `docs/04-计划/活跃/adjudication-agent-assignments.md` 附录 A。
  */

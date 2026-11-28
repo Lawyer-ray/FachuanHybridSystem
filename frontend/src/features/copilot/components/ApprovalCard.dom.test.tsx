@@ -8,6 +8,8 @@
  * - 已决态显示「已同意 / 已拒绝」且隐藏按钮（不能再改）
  * - 未决且未超时才显示同意/拒绝按钮，并各自下发对应布尔
  * - 参数预览为空时不渲染预览行
+ *
+ * 另锁 PIT-006（选词 Enter 不得拒批）与 `save_user_skill` 全文/已读解锁。
  */
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -33,6 +35,37 @@ function approval(over: Partial<PendingApproval> = {}): PendingApproval {
     decided: null,
     ...over,
   } as PendingApproval
+}
+
+
+/** 派发带指定 timeStamp 的事件：jsdom 的 Event.timeStamp 只读，只能盖成自有属性 */
+function dispatchAt(target: HTMLElement, event: Event, timeStamp: number): void {
+  Object.defineProperty(event, 'timeStamp', { value: timeStamp, configurable: true })
+  act(() => {
+    target.dispatchEvent(event)
+  })
+}
+
+function keyDown(target: HTMLElement, key: string, timeStamp: number): KeyboardEvent {
+  const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+  dispatchAt(target, event, timeStamp)
+  return event
+}
+
+/** 3KB 级正文（20 倍于 160 字预览）；末尾标记只在「一个字都没截断」时可见 */
+const SKILL_BODY = `## 审查口径\n${'逐条比对法条与合同约定。'.repeat(260)}\n【正文结尾】`
+
+function skillApproval(over: Partial<PendingApproval> = {}): PendingApproval {
+  return approval({
+    toolName: 'mcp__fachuan__save_user_skill',
+    toolArgs: { name: 'contract-review', title: '合同审查', description: '逐条审合同', body: SKILL_BODY },
+    message: '',
+    ...over,
+  })
+}
+
+function approveButton(): HTMLButtonElement {
+  return screen.getByRole('button', { name: '同意' }) as HTMLButtonElement
 }
 
 beforeEach(() => {
@@ -253,5 +286,65 @@ describe('ApprovalCard：按栏归位（多答）', () => {
     fireEvent.click(approveButtons[1]!)
     expect(storeMock.decide).toHaveBeenNthCalledWith(1, 'a-pi', true)
     expect(storeMock.decide).toHaveBeenNthCalledWith(2, 'a-dsh', true)
+  })
+})
+
+describe('ApprovalCard：拒绝理由框的 IME 守卫（PIT-006）', () => {
+  it('compositionEnd 后 80ms 内的 Enter 不拒批，80ms 后的 Enter 才拒批', () => {
+    render(<ApprovalCard approval={approval()} />)
+    fireEvent.click(screen.getByRole('button', { name: '拒绝' }))
+    const input = screen.getByPlaceholderText(/拒绝理由/)
+
+    // 中文输入法选词：start → 打字 → end（WebKit 先派发 compositionend、再派发 keydown）
+    fireEvent.compositionStart(input)
+    fireEvent.change(input, { target: { value: '金额不对' } })
+    dispatchAt(input, new CompositionEvent('compositionend', { bubbles: true }), 1000)
+
+    // 选词确认的 Enter（end 后 10ms）：不得下发决定，且默认行为被吞掉
+    const trailing = keyDown(input, 'Enter', 1010)
+    expect(storeMock.decide).not.toHaveBeenCalled()
+    expect(trailing.defaultPrevented).toBe(true)
+
+    // 律师事后真按的 Enter（end 后 81ms，出了尾随窗口）：正常拒批并带上理由
+    keyDown(input, 'Enter', 1081)
+    expect(storeMock.decide).toHaveBeenCalledWith('a1', false, '金额不对')
+  })
+})
+
+describe('ApprovalCard：save_user_skill 全文展示与已读解锁', () => {
+  it('渲染 3KB 正文全文（不是 160 字预览）；未勾「已阅读」时「同意」不可点', () => {
+    const { container } = render(<ApprovalCard approval={skillApproval()} />)
+    const body = container.querySelector('[data-testid="approval-skill-body"]')
+    expect(SKILL_BODY.length).toBeGreaterThan(3000)
+    // 逐字相等 = 一个字都没截断；末尾标记再断一次，失败时一眼看出截断位置
+    expect(body?.textContent).toBe(SKILL_BODY)
+    expect(body?.textContent).toContain('【正文结尾】')
+    expect(container.textContent).toContain('合同审查')
+    expect(container.textContent).toContain('/skill:contract-review')
+    expect(container.textContent).toContain('保存后，此后每轮对话都会带着这段指令（个人作用域）')
+
+    expect(approveButton().disabled).toBe(true)
+    fireEvent.click(approveButton())
+    expect(storeMock.decide).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByLabelText('已阅读上述指令全文'))
+    expect(approveButton().disabled).toBe(false)
+    fireEvent.click(approveButton())
+    expect(storeMock.decide).toHaveBeenCalledWith('a1', true)
+  })
+})
+
+describe('ApprovalCard：技能写工具（delete / submit）展示 key 与后果', () => {
+  it('delete 说清不可恢复；submit 展示目标作用域与「审批通过前不生效」', () => {
+    const del = render(
+      <ApprovalCard approval={approval({ toolName: 'mcp__fachuan__delete_user_skill', toolArgs: { key: 'user:abc' } })} />,
+    )
+    expect(del.container.textContent).toContain('user:abc')
+    expect(del.container.textContent).toContain('不可恢复')
+    const sub = render(
+      <ApprovalCard approval={approval({ toolName: 'mcp__fachuan__submit_skill_for_review', toolArgs: { key: 'user:abc', target_scope: 'firm' } })} />,
+    )
+    expect(sub.container.textContent).toContain('user:abc')
+    expect(sub.container.textContent).toContain('所内（全所律师）')
+    expect(sub.container.textContent).toContain('审批通过前不生效')
   })
 })
