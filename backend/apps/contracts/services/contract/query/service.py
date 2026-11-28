@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.db.models import Count, DecimalField, IntegerField, OuterRef, QuerySet, Subquery, Sum
+from django.db.models import Count, DecimalField, IntegerField, OuterRef, QuerySet, Subquery, Sum, Value
+from django.db.models.functions import Coalesce
 
 from apps.cases.models import Case
 from apps.contracts.models import Contract, ContractPayment
@@ -25,9 +26,10 @@ class ContractQueryService:
         return self._access_policy
 
     def get_contract_queryset(self, *, slim: bool = False) -> QuerySet[Contract, Contract]:
-        # slim=True（列表视图）跳过两组重关系预取：finalized_materials（归档材料，
+        # slim=True（列表视图）跳过三组重关系预取：finalized_materials（归档材料，
         # 占列表响应约 60% 体积）与 client_payment_records 由序列化侧代理一并跳过，
-        # DB 取数与 DTO 构建双省；详情视图保持全量预取。
+        # DB 取数与 DTO 构建双省；cases 只服务非 slim 的 case_dtos（见下方 if not slim），
+        # slim 侧的行数由 _case_count 子查询提供。详情视图保持全量预取。
         prefetch = [
             "contract_parties__client",
             # 当事人证件：ClientOut.resolve_identity_docs 读 client.identity_docs，
@@ -35,19 +37,24 @@ class ContractQueryService:
             # cases_clientidentitydoc 查询（真库 50 行页面实测 96 条，占全部 SQL 的 85%）。
             # 再下一层即可，不必单独预取 client。
             "contract_parties__client__identity_docs",
-            "payments__invoices",
+            # 只到 payments 一层：ContractPaymentOut（payment_schemas.py）只有收款自身字段，
+            # 没有 invoices；原先的 payments__invoices 是死预取——发票侧由
+            # contractpayment_enhance_api 的独立查询服务负责，不经这条链路。
+            # 去掉这一层：全量预取页实测 16→15 条 SQL，序列化结果逐字节相同（实测比对）。
+            "payments",
             "reminders",
             "assignments__lawyer",
             "assignments__lawyer__law_firm",
             "supplementary_agreements__parties__client",
             # 补充协议的当事人证件同理（同一页里补充协议方的 ClientOut 也会逐条补查）
             "supplementary_agreements__parties__client__identity_docs",
-            # cases 仅供列表 DTO（contract_list_assembler 的 case_dtos）prefetch 展开，
-            # 消除循环内 contract.cases.all() 的 N+1。
-            "cases",
         ]
         if not slim:
-            prefetch += ["finalized_materials", "client_payment_records"]
+            # cases 仅供列表 DTO（contract_list_assembler 的 case_dtos）prefetch 展开，
+            # 消除循环内 contract.cases.all() 的 N+1；assembler 只在非 slim 路径（
+            # facade.list_contracts / detail）跑，slim 列表不需要它——slim 侧的行数
+            # 走下面的 _case_count 子查询。
+            prefetch += ["finalized_materials", "client_payment_records", "cases"]
         return (
             Contract.objects.prefetch_related(*prefetch)
             # 用 DB 层聚合替代 ContractOut.resolve_total_received/invoiced 中的 Python 循环求和。
@@ -71,12 +78,20 @@ class ContractQueryService:
                     .values("s")[:1],
                     output_field=DecimalField(max_digits=14, decimal_places=2),
                 ),
-                _case_count=Subquery(
-                    Case.objects.filter(contract_id=OuterRef("pk"))
-                    .values("contract_id")
-                    .annotate(c=Count("pk"))
-                    .values("c")[:1],
-                    output_field=IntegerField(),
+                # Coalesce 兜住「没有案件」的合同：聚合子查询在无匹配行时返回 NULL，
+                # 而 ContractOut.resolve_case_count 把 None 当「没有注解」，落到
+                # obj.cases.count() 逐行补一条 COUNT（真库 50 行页面 28 行没有案件）。
+                # 包成 0 之后注解永远非 NULL，resolve_case_count 不再走 ORM 兜底，
+                # 才敢把 "cases" 预取从 slim 路径摘掉。
+                _case_count=Coalesce(
+                    Subquery(
+                        Case.objects.filter(contract_id=OuterRef("pk"))
+                        .values("contract_id")
+                        .annotate(c=Count("pk"))
+                        .values("c")[:1],
+                        output_field=IntegerField(),
+                    ),
+                    Value(0),
                 ),
             )
         )

@@ -182,7 +182,7 @@ export function DealDetailPage() {
 
   if (!valid) return <Navigate to="/projects" replace />
   if (d.isLoading) {
-    return <LoadingBlock text="正在加载委托…" className="py-[90px]" />
+    return <LoadingBlock text="正在加载委托…" className="min-h-[calc(100vh-100px)]" />
   }
   if (d.error || !deal) {
     return <DetailError error={d.error ?? '委托不存在'} onRetry={() => d.refetch()} />

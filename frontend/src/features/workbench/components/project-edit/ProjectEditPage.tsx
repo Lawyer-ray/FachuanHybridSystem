@@ -30,7 +30,9 @@ export function ProjectEditPage() {
   })
 
   if (!valid) return <Navigate to="/projects" replace />
-  if (q.isPending) return <LoadingBlock text="正在加载项目…" className="py-[90px]" />
+  // 占位按「页头 + 表单卡」的真高（实测 ≈780px）留位：真表单是 ProjectEditForm.tsx:124
+  // 的 <main>，它只给 max-w-[820px] 与内边距、没有可引用的高度，所以这里只能量出来写死。
+  if (q.isPending) return <LoadingBlock text="正在加载项目…" className="min-h-[720px]" />
   if (q.error || !q.data) {
     return (
       <div className="mx-auto max-w-[720px] px-6 py-10">

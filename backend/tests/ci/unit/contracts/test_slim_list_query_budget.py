@@ -12,7 +12,7 @@
 根因：slim 序列化代理对 finalized_materials / client_payment_records 抛 AttributeError，
 而 resolver 的 blanket `except Exception` 把它当失败记 ERROR——一条正常的设计路径被
 记成了 150 次失败；另一头是当事人证件没预取到 `client__identity_docs`。
-修法落地后（0 日志 / 19 条 SQL）本文件把两件事钉死：
+修法落地后（0 日志 / 12 条 SQL）本文件把两件事钉死：
 1. 查询数只由固定 prefetch 组决定、与行数无关：任何 per-row 补查 = N+1 复发；
 2. 整段调用期间不得出现任何 resolver 日志：降级分支被正常路径覆盖，不再刷栈。
 
@@ -46,15 +46,24 @@ _PAYMENT_DATE = datetime.date(2026, 1, 1)
 _RUN_TAG = uuid.uuid4().hex[:8]
 _NAME_PREFIX = f"预算合同-{_RUN_TAG}-"
 
-# 预算来历（实测）：本种子 12 行合同、每行 1 当事人 + 1 证件，计到 14 条——
+# 预算来历（实测）：本种子 12 行合同、每行 1 当事人 + 1 证件，计到 12 条——
 #   1  count(*)                —— list_contracts_page 的 total
 #   1  合同页本身
 #   3  facets 的三次全表聚合（端点默认 include_facets=true，按默认口径测）
-#  ~9  固定 prefetch 组（contract_parties__client__identity_docs / payments__invoices /
-#      reminders / assignments__lawyer / supplementary_agreements__parties__client__identity_docs / cases …）
-# 余量只留 6：本种子 12 行，任何 per-row 补查至少 +12，余量藏不住 N+1。
-# 真实做过反向验证：把两条 identity_docs 预取拆掉，本用例立刻变红（14 → 25 条）。
-_QUERY_BUDGET = 20
+#  ~7  固定 prefetch 组（contract_parties__client__identity_docs / payments /
+#      reminders / assignments__lawyer / supplementary_agreements__parties__client__identity_docs …）
+#
+# 从 20 收到 14 的两笔节省（含拆分口径变更）：
+#   1）payments__invoices → payments：ContractPaymentOut 没有 invoices 字段，多下一层
+#      纯浪费（-1）；
+#   2）"cases" 预取从通用组移进 `if not slim:`，slim 主路径不再拉整页案件（-1），
+#      前提是 _case_count 子查询包了 Coalesce(..., 0)——否则注解为 NULL 的合同会落到
+#      ContractOut.resolve_case_count 的 obj.cases.count() 兜底，slim 侧反而逐行补
+#      COUNT（真库 50 行页面 28 行无案件，实测拆掉预取后 19 → 46 条）。
+#      下方 test_case_count_annotation_has_no_nulls 钉住这个前提。
+# 余量只留 2：本种子 12 行，任何 per-row 补查至少 +12，余量藏不住 N+1。
+# 真实做过反向验证：把两条 identity_docs 预取拆掉，本用例立刻变红（12 → 23 条）。
+_QUERY_BUDGET = 14
 
 
 def _seed() -> list[str]:
@@ -97,8 +106,29 @@ class TestSlimListQueryBudget:
         ]
         assert len(business) <= _QUERY_BUDGET, (
             f"slim 列表用掉 {len(business)} 条 SQL（预算 {_QUERY_BUDGET}）：N+1 复发，"
-            f"检查 get_contract_queryset(slim=True) 的 prefetch 组是否被拆散"
+            f"检查 get_contract_queryset(slim=True) 的 prefetch 组是否被拆散，"
+            f"或 _case_count 的 Coalesce 被拆掉（NULL 注解会让每行回落到 cases.count()）"
         )
+
+    def test_case_count_annotation_has_no_nulls(self) -> None:
+        """slim 路径去掉 "cases" 预取的前提：注解本身必须是 0 而不是 NULL。
+
+        ContractOut.resolve_case_count 把 None 当「没有注解」、回落到
+        `obj.cases.count()`——预取一旦拆掉，每行没有案件就是一个 COUNT(*)。
+        所以这里不靠序列化结果（0 和「NULL + count()==0」输出相同），直接看
+        注解列本身。本文件的种子完全不建案件，每一行都走「聚合子查询无匹配行」分支。
+        """
+        _seed()
+        counts = list(
+            ContractQueryService()
+            .get_contract_queryset(slim=True)
+            .filter(name__startswith=_NAME_PREFIX)
+            .order_by("id")
+            .values_list("_case_count", flat=True)
+        )
+
+        assert counts, "种子合同没进 queryset，断言会真空通过"
+        assert None not in counts, f"_case_count 注解出现 NULL（Coalesce 被拆掉？）: {counts}"
 
     def test_slim_page_writes_no_error_log(self, caplog: pytest.LogCaptureFixture) -> None:
         """序列化期不许再有任何 resolver 日志：被剔除的重关系走空 relation，不进异常分支。

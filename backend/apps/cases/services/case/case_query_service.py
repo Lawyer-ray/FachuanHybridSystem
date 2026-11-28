@@ -33,6 +33,9 @@ class CaseQueryService(PermissionMixin):
             Case.objects.select_related("contract")
             .prefetch_related(
                 "parties__client",
+                # 同 get_case_queryset：CaseOut 的 client_detail 是 ClientOut，
+                # 会读 client.identity_docs，只预取到 client 这一层就是每当事人一条补查。
+                "parties__client__identity_docs",
                 "assignments__lawyer__law_firm",
                 "logs",
                 "case_numbers",

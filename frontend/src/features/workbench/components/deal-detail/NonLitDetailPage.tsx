@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useParams } from 'react-router'
-import { Loader2 } from 'lucide-react'
-
 import { toast } from 'sonner'
+
+import { LoadingBlock } from '@/components/shared/AsyncState'
 
 import { stageLabelsToCodes } from '../../contract-enums'
 import { AddCaseDialog } from './AddCaseDialog'
@@ -179,12 +179,10 @@ export function NonLitDetailPage() {
 
   if (!valid) return <Navigate to="/projects" replace />
   if (d.isLoading) {
-    return (
-      <div className="flex flex-col items-center gap-2 py-[90px] text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" />
-        正在加载项目…
-      </div>
-    )
+    // 占位高度与真容器同源：真内容里文档栏用的是 DealDocLayout.tsx:132 的
+    // `h-[calc(100vh-100px)] min-h-[520px]`，这里取同一句的「一屏减页头」当最小
+    // 高度，数据到手换页时纵向不跳（不新造高度魔法数）。
+    return <LoadingBlock text="正在加载项目…" className="min-h-[calc(100vh-100px)]" />
   }
   if (d.error || !deal) {
     return <DetailError error={d.error ?? '项目不存在'} onRetry={() => d.refetch()} />
