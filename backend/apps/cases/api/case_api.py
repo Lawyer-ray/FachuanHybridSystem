@@ -101,6 +101,8 @@ async def list_cases(  # pragma: no cover
     offset: int = 0,
     slim: bool = False,
     with_total: bool = False,
+    search: str | None = None,
+    sort: str | None = None,
 ) -> list[dict[str, Any]]:
     """获取案件列表（contract_id 可按合同过滤，供前端详情按需加载）
 
@@ -116,6 +118,16 @@ async def list_cases(  # pragma: no cover
       chats / contacts）。预取同步裁剪，否则 SQL 一条也不省。
     - with_total=true：总量走**响应头 X-Total-Count**（真实总数，不受 limit/offset
       影响），响应体不变。
+
+    服务端分页的两个下推参数（同样不传时行为不变）：
+    - search=<kw>：name 或 cause_of_action 含关键词（icontains，大小写不敏感）。
+    - sort=filable_first：待立案优先（无案号且 status=active 的排在前，同组内
+      id DESC）；其他值一律当作没传，保持默认 -id。
+    **为什么下推**：列表页要做服务端分页，如果关键词过滤与「待立案优先」还留在
+    前端，它们只会作用于当前页——分页一上，前端过滤就是在错误的子集上过滤。
+    两个参数都必须同时进 list_cases 与 count_cases（同一套过滤口径），否则
+    X-Total-Count 与翻页对不上。case_number 分支保持历史行为（不切片、不排序），
+    这两个参数只作用于列表分支。
 
     ╔═ 为什么不把裸数组改成 {items, total} 信封 ═╗
     ║ 本端点已有 4 个消费方直接按裸数组消费：                      ║
@@ -156,10 +168,13 @@ async def list_cases(  # pragma: no cover
                 org_access=ctx.org_access,
                 perm_open_access=ctx.perm_open_access,
                 slim=slim,
+                search=search,
+                sort=sort,
             )
             total = 0
             if with_total:
                 # 切片之前取总量：总数是「过滤后的全集」，与 limit/offset 无关
+                # search 必须同参传下去，否则搜索时 total 会恒为全集
                 total = service.count_cases(
                     case_type=case_type,
                     status=status,
@@ -167,6 +182,8 @@ async def list_cases(  # pragma: no cover
                     user=ctx.user,
                     org_access=ctx.org_access,
                     perm_open_access=ctx.perm_open_access,
+                    search=search,
+                    sort=sort,
                 )
             sliced = qs[bounded_offset : bounded_offset + effective_limit] if effective_limit is not None else qs
             raw = list(sliced)

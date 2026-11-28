@@ -66,10 +66,14 @@ class CaseQueryService(PermissionMixin):
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         slim: bool = False,
+        search: str | None = None,
+        sort: str | None = None,
     ) -> QuerySet[Case, Case]:
         """获取案件列表（带权限过滤；contract_id 可按合同过滤）。
 
         slim=True 只取标量列（供 CaseSlimOut 的轻量列表），不做任何关联预取。
+        search / sort 是可选的过滤与排序下推（详见 CaseSearchService.list_cases），
+        不传时与历史行为逐条一致；count_cases 必须拿到同一组参数。
         """
         return self._search_service.list_cases(
             case_type=case_type,
@@ -79,6 +83,8 @@ class CaseQueryService(PermissionMixin):
             org_access=org_access,
             perm_open_access=perm_open_access,
             slim=slim,
+            search=search,
+            sort=sort,
         )
 
     def count_cases(
@@ -89,6 +95,8 @@ class CaseQueryService(PermissionMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
+        search: str | None = None,
+        sort: str | None = None,
     ) -> int:
         """与 list_cases 同口径的案件总数（不受 limit/offset 影响）。"""
         return self._search_service.count_cases(
@@ -98,6 +106,8 @@ class CaseQueryService(PermissionMixin):
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
+            search=search,
+            sort=sort,
         )
 
     def list_cases_ctx(
