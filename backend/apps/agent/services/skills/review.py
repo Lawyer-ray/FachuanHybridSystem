@@ -37,14 +37,14 @@ from __future__ import annotations
 
 import logging
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.agent.models import AgentSkill, AgentSkillRevision
 
 from . import permissions
 from .constants import MAX_REVISIONS
-from .errors import SkillForbidden, SkillInvalid, SkillNotFound
+from .errors import SkillConflict, SkillForbidden, SkillInvalid, SkillNotFound
 from .render import render_skill_body
 
 logger = logging.getLogger(__name__)
@@ -57,12 +57,19 @@ def submit(
     target_scope: str = "",
     note: str = "",
     acknowledged_firm_wide: bool = False,
+    new_name: str | None = None,
+    team_id: int | None = None,
 ) -> dict:
     """提审：把当前工作区提交给审批人（**不改线上**）。
 
-    ``target_scope`` 只用于「把个人技能提升为所内技能」这一条路径：传了就先把
+    ``target_scope`` 只用于「把个人技能提升为共享技能」这一条路径：传了就先把
     作用域与归属改到目标层，再置 ``pending``。已经在共享层的技能改作用域需要
     管理员，因为那等于改变了谁能审批它。
+
+    ``new_name`` / ``team_id`` 解决的是目标层的**落位冲突**：``(law_firm, name)`` 与
+    ``(team, name)`` 都有唯一约束，不换名地提升一条与目标层同名的个人技能会直接撞
+    约束（此前抛的是未捕获的 ``IntegrityError``，前端只看到 500）。提审是唯一合理
+    的改名时机——``name`` 建后不可改，指的是「已落库的身份不被悄悄换掉」。
     """
     lawyer = _lawyer(user_id)
     with transaction.atomic():
@@ -70,7 +77,14 @@ def submit(
         if skill.scope == AgentSkill.Scope.LAWYER:
             if not target_scope:
                 raise SkillInvalid([{"field": "target_scope", "message": "个人技能提审需要指定目标作用域"}])
-            _promote_scope(lawyer, skill, target_scope, acknowledged_firm_wide=acknowledged_firm_wide)
+            _promote_scope(
+                lawyer,
+                skill,
+                target_scope,
+                acknowledged_firm_wide=acknowledged_firm_wide,
+                new_name=new_name,
+                team_id=team_id,
+            )
         if not permissions.can_submit(lawyer, skill):
             raise SkillForbidden("你没有提审这条技能的权限")
         hard, soft = _scan(title=skill.title, description=skill.description, body=skill.body)
@@ -88,7 +102,7 @@ def submit(
             getattr(revision, "version", 0),
             len(soft),
         )
-        return _detail(skill)
+        return _detail(skill, lawyer)
 
 
 def approve(*, user_id: int, key: str, acknowledged_firm_wide: bool = False) -> dict:
@@ -133,7 +147,7 @@ def approve(*, user_id: int, key: str, acknowledged_firm_wide: bool = False) -> 
             ]
         )
         logger.info("agent.skill_published key=%s scope=%s version=%s", key, skill.scope, revision.version)
-        return _detail(skill)
+        return _detail(skill, lawyer)
 
 
 def reject(*, user_id: int, key: str, note: str) -> dict:
@@ -154,7 +168,7 @@ def reject(*, user_id: int, key: str, note: str) -> dict:
         skill.reviewed_at = timezone.now()
         skill.save(update_fields=["review_status", "review_note", "reviewed_by", "reviewed_at", "updated_at"])
         logger.info("agent.skill_rejected key=%s scope=%s", key, skill.scope)
-        return _detail(skill)
+        return _detail(skill, lawyer)
 
 
 def archive(*, user_id: int, key: str) -> dict:
@@ -168,7 +182,7 @@ def archive(*, user_id: int, key: str) -> dict:
         skill.review_status = AgentSkill.ReviewStatus.NONE
         skill.save(update_fields=["status", "review_status", "updated_at"])
         logger.info("agent.skill_archived key=%s scope=%s", key, skill.scope)
-        return _detail(skill)
+        return _detail(skill, lawyer)
 
 
 def restore(*, user_id: int, key: str) -> dict:
@@ -182,7 +196,7 @@ def restore(*, user_id: int, key: str) -> dict:
         skill.review_status = AgentSkill.ReviewStatus.NONE
         skill.save(update_fields=["status", "review_status", "updated_at"])
         logger.info("agent.skill_restored key=%s scope=%s", key, skill.scope)
-        return _detail(skill)
+        return _detail(skill, lawyer)
 
 
 def discard_draft(*, user_id: int, key: str) -> dict:
@@ -212,7 +226,7 @@ def discard_draft(*, user_id: int, key: str) -> dict:
                 "updated_at",
             ]
         )
-        return _detail(skill)
+        return _detail(skill, lawyer)
 
 
 def diff_versions(*, user_id: int, key: str, v1: int | None = None, v2: int | None = None) -> dict:
@@ -292,8 +306,22 @@ def _locked_skill(user_id: int, key: str) -> AgentSkill:
     return _resolve_skill_row(user_id, key, for_update=True)
 
 
-def _promote_scope(lawyer: object, skill: AgentSkill, target_scope: str, *, acknowledged_firm_wide: bool) -> None:
-    """把个人技能挂到所内/团队名下（提审第一步）。"""
+def _promote_scope(
+    lawyer: object,
+    skill: AgentSkill,
+    target_scope: str,
+    *,
+    acknowledged_firm_wide: bool,
+    new_name: str | None = None,
+    team_id: int | None = None,
+) -> None:
+    """把个人技能挂到所内/团队名下（提审第一步）。
+
+    落位前先把「名字 + 目标层」查重一遍，而不是让数据库唯一约束去撞：撞约束抛的
+    ``IntegrityError`` 会把整轮事务变成 500，而作者需要的是一句「目标层已有同名
+    技能，换个名字」。
+    """
+    owner_field: dict[str, object]
     if target_scope == AgentSkill.Scope.LAW_FIRM:
         if not permissions.can_create_firm(lawyer):
             raise SkillForbidden("只有本所管理员可以把技能发布到所内")
@@ -301,22 +329,59 @@ def _promote_scope(lawyer: object, skill: AgentSkill, target_scope: str, *, ackn
             raise SkillInvalid(
                 [{"field": "acknowledged_firm_wide", "message": "发布为全所技能前，请确认这条指令在全所范围内成立"}]
             )
-        skill.scope = AgentSkill.Scope.LAW_FIRM
-        skill.law_firm_id = lawyer.law_firm_id  # type: ignore[attr-defined]
-        skill.team = None
-        skill.lawyer = None
+        owner_field = {"law_firm_id": getattr(lawyer, "law_firm_id", None)}
+        sibling_filter = {"scope": AgentSkill.Scope.LAW_FIRM, "law_firm_id": owner_field["law_firm_id"]}
     elif target_scope == AgentSkill.Scope.TEAM:
-        team = getattr(lawyer, "lawyer_teams", None)
-        teams = list(team.all()) if team is not None else []
-        target = next((item for item in teams if getattr(item, "team_type", "") == "lawyer"), None)
+        target = _target_team(lawyer, team_id)
         if target is None or not permissions.can_create_team(lawyer, target):
             raise SkillForbidden("你没有可发布技能的目标团队")
-        skill.scope = AgentSkill.Scope.TEAM
-        skill.team_id = target.pk
-        skill.lawyer = None
-        skill.law_firm = None
+        owner_field = {"team_id": target.pk}
+        sibling_filter = {"scope": AgentSkill.Scope.TEAM, "team_id": target.pk}
     else:
         raise SkillInvalid([{"field": "target_scope", "message": "目标作用域只能是 team 或 law_firm"}])
+
+    final_name = _resolve_promoted_name(skill, new_name, sibling_filter)
+
+    skill.name = final_name
+    skill.scope = target_scope
+    skill.lawyer = None
+    skill.team = None
+    skill.law_firm = None
+    for field, value in owner_field.items():
+        setattr(skill, field, value)
+    try:
+        # savepoint：唯一约束真的被并发抢先时，只回滚这一次落位而不是整个提审事务
+        with transaction.atomic():
+            skill.save(update_fields=["name", "scope", "lawyer", "team", "law_firm", "updated_at"])
+    except IntegrityError as exc:
+        raise SkillConflict(f"目标层已有同名技能「{final_name}」，请换一个名字") from exc
+
+
+def _target_team(lawyer: object, team_id: int | None) -> object | None:
+    """选定落位团队：给了 ``team_id`` 就用它（必须在自己的律师团队里），否则取第一个。"""
+    teams_attr = getattr(lawyer, "lawyer_teams", None)
+    teams = [team for team in teams_attr.all() if getattr(team, "team_type", "") == "lawyer"] if teams_attr else []
+    if team_id is not None:
+        return next((team for team in teams if team.pk == team_id), None)
+    return teams[0] if teams else None
+
+
+def _resolve_promoted_name(skill: AgentSkill, new_name: str | None, sibling_filter: dict) -> str:
+    """定下目标层用的名字：换名要走完整校验，不换名也要查目标层是否已被占用。"""
+    from . import validation
+
+    candidate = (new_name or skill.name or "").strip()
+    if new_name is not None and candidate != skill.name:
+        payload = validation.validate_payload(
+            {"name": candidate, "title": skill.title, "description": skill.description, "body": skill.body},
+            require_name=True,
+        )
+        if payload:
+            raise SkillInvalid(payload)
+    taken = AgentSkill.objects.filter(**sibling_filter).exclude(pk=skill.pk).filter(name=candidate).exists()
+    if taken:
+        raise SkillConflict(f"目标层已有同名技能「{candidate}」，请换一个名字")
+    return candidate
 
 
 def _write_workspace_revision(skill: AgentSkill, *, edited_by_id: int) -> None:
@@ -358,12 +423,12 @@ def _scan(*, title: str, description: str, body: str) -> tuple[list, list]:
     return hard, soft
 
 
-def _detail(skill: AgentSkill) -> dict:
+def _detail(skill: AgentSkill, lawyer: object) -> dict:
     """生命周期动作的回执（管理面字段 + 工作区正文）。"""
     from .user_skills import entry_for_row
 
     return {
-        **entry_for_row(skill),
+        **entry_for_row(skill, lawyer),
         "body": skill.body,
         "preview": render_skill_body(scope=str(skill.scope), name=skill.name, title=skill.title, body=skill.body),
     }

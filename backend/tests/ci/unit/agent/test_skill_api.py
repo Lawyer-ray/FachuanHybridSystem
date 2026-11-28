@@ -103,6 +103,9 @@ class TestListAndQuota:
             "can_review": False,
             "can_archive": False,
             "can_restore": False,
+            # 内置技能没有可提升的目标层：``can_promote`` 也必须是 False，
+            # 且字段本身要在（少一个就 500）
+            "can_promote": False,
         }
 
     def test_scope_filter(self) -> None:
@@ -127,6 +130,8 @@ class TestListAndQuota:
             "used": 1,
             "by_scope": {"lawyer": 1, "team": 0, "law_firm": 0},
             "max_by_scope": {"lawyer": 20, "team": 30, "law_firm": 60},
+            "can_create_firm": False,
+            "promotable_scopes": [],
         }
 
     def test_requires_auth(self, api_client: Any) -> None:

@@ -98,6 +98,10 @@ def quota_for_user(user_id: int) -> dict:
         "used": by_scope["lawyer"],
         "by_scope": by_scope,
         "max_by_scope": {"lawyer": MAX_USER_SKILLS, **MAX_SHARED_SKILLS},
+        # 「能不能建所内技能」与「能不能把这条提到所内」都由服务端算：
+        # 前端只要渲染布尔，永远不判 is_admin（见 permissions 模块 docstring）。
+        "can_create_firm": permissions.can_create_firm(lawyer) if lawyer is not None else False,
+        "promotable_scopes": permissions.promotable_scopes(lawyer) if lawyer is not None else [],
     }
 
 
@@ -117,6 +121,10 @@ def get_detail(user_id: int, key: str) -> dict:
             # 跑过级联才知道谁遮蔽谁），但详情回执必须与 ``entry_for_row`` 同形——
             # 形状不一致时前端一定会在某个分支上读到 ``undefined``。
             "shadowed": [],
+            # 内置条目没有数据库行，动作权限一律 False；但**字段必须在**，否则按完整
+            # 字段集声明的 SkillDetailOut 直接 500——症状是「内置技能详情打不开」，
+            # 与真正的权限问题看起来毫无关系。
+            **permissions.capability_flags(None, None),
             "body": body,
             "preview": render_skill_body(scope="builtin", name=builtin["name"], title=builtin["title"], body=body),
         }
@@ -125,7 +133,7 @@ def get_detail(user_id: int, key: str) -> dict:
     if not permissions.can_view(lawyer, skill):
         raise SkillNotFound("技能不存在")
     return {
-        **entry_for_row(skill),
+        **entry_for_row(skill, lawyer),
         "body": skill.body,
         "preview": render_skill_body(scope=str(skill.scope), name=skill.name, title=skill.title, body=skill.body),
     }
@@ -154,9 +162,7 @@ def content_for_ref(user_id: int, ref: str, *, start: int = 0, limit: int = CONT
     body = winner.get("body")
     if body is None:
         body = library.read_body(winner["name"])
-    rendered = render_skill_body(
-        scope=winner["scope"], name=winner["name"], title=winner["title"], body=body
-    )
+    rendered = render_skill_body(scope=winner["scope"], name=winner["name"], title=winner["title"], body=body)
     payload = rendered.encode("utf-8")
     total = len(payload)
     page_size = max(1, min(int(limit or CONTENT_PAGE_BYTES), CONTENT_PAGE_BYTES))
@@ -261,7 +267,7 @@ def create_skill(
             skill.activated_at = skill.created_at
             skill.save(update_fields=["published_revision", "activated_at"])
         review.prune_revisions(skill)
-    return {**entry_for_row(skill), "body": skill.body}
+    return {**entry_for_row(skill, _lawyer_or_none(user_id)), "body": skill.body}
 
 
 def update_skill(*, user_id: int, key: str, title: str, description: str, body: str, expected_version: int) -> dict:
@@ -295,7 +301,7 @@ def update_skill(*, user_id: int, key: str, title: str, description: str, body: 
             skill.published_revision = revision
             skill.activated_at = skill.activated_at or skill.updated_at
             skill.save(update_fields=["published_revision", "activated_at"])
-    return {**entry_for_row(skill), "body": skill.body}
+    return {**entry_for_row(skill, _lawyer_or_none(user_id)), "body": skill.body}
 
 
 def delete_skill(*, user_id: int, key: str) -> None:
@@ -367,8 +373,13 @@ def duplicate_builtin(*, user_id: int, key: str) -> dict:
 # ── 供 review / API 复用 ──────────────────────────────────────
 
 
-def entry_for_row(skill: AgentSkill) -> dict:
-    """ORM 行 → 管理面条目（字段集见 CONTRACT §2）。"""
+def entry_for_row(skill: AgentSkill, lawyer: object | None = None) -> dict:
+    """ORM 行 → 管理面条目（字段集见 CONTRACT §2）。
+
+    ``lawyer`` 传进来才带 ``can_*``：动作权限必须服务端算（前端不得自判
+    ``is_admin``）。不传时一律 ``False``——宁可按钮不出现，也不给一个点了就 403 的
+    按钮（那比没有更糟，律师会以为是自己没权限而不是界面错了）。
+    """
     published = skill.published_revision
     return {
         "key": f"{USER_PREFIX}{skill.pk}",
@@ -387,6 +398,7 @@ def entry_for_row(skill: AgentSkill) -> dict:
         "published_version": published.version if published is not None else skill.version,
         "has_unpublished_changes": bool(published is not None and published.version != skill.version),
         "shadowed": [],
+        **permissions.capability_flags(lawyer, skill if lawyer is not None else None),
     }
 
 

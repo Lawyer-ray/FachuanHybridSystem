@@ -201,6 +201,36 @@ def can_create_team(lawyer: Any, team: Any) -> bool:
     return int(getattr(team, "pk", 0) or 0) in _team_ids(lawyer) or _is_admin(lawyer)
 
 
+def can_promote(lawyer: Any, skill_row: Any) -> bool:
+    """能否把这条技能**提到共享层**（个人 → 所内 / 团队）。
+
+    单独成函数而不是复用 ``can_create_firm``：后者回答的是「你能不能在所内建一条
+    新技能」，而这里还要看这条技能自身的状态——已在共享层的、待审中的、已下线的
+    都不该出现「提升」入口。前端只渲染服务端算出来的布尔，所以口径必须精确。
+    """
+    if lawyer is None or skill_row is None:
+        return False
+    if str(getattr(skill_row, "scope", "")) != "lawyer":
+        return False
+    if getattr(skill_row, "status", "") == "archived":
+        return False
+    if getattr(skill_row, "review_status", "none") == "pending":
+        return False
+    return bool(promotable_scopes(lawyer))
+
+
+def promotable_scopes(lawyer: Any) -> list[str]:
+    """这条律师可以把技能提到哪些作用域（顺序即前端展示顺序）。"""
+    if lawyer is None or _firm_id(lawyer) is None:
+        return []
+    scopes: list[str] = []
+    if _team_ids(lawyer) or _is_admin(lawyer):
+        scopes.append("team")
+    if _is_admin(lawyer):
+        scopes.append("law_firm")
+    return scopes
+
+
 def requires_firm_wide_ack(lawyer: Any, skill_row: Any) -> bool:
     """审批时是否需要勾选「已确认全所生效」。
 
@@ -216,12 +246,16 @@ def requires_firm_wide_ack(lawyer: Any, skill_row: Any) -> bool:
 def capability_flags(lawyer: Any, skill_row: Any | None = None) -> dict[str, bool]:
     """一次性算出条目上要随 API 下发的 ``can_*`` 字段（前端只读这些）。"""
     if skill_row is None:
+        # 内置技能没有数据库行：五个动作全 False（它能做的只有「复制为我的」）。
+        # 字段集必须与有行时**完全一致**——少一个就会让按 §2 声明的 response schema
+        # 直接 422/500，而症状是「清单接口挂了」，很难联想到是这里少了一行。
         return {
             "can_edit": False,
             "can_submit": False,
             "can_review": False,
             "can_archive": False,
             "can_restore": False,
+            "can_promote": False,
         }
     return {
         "can_edit": can_edit(lawyer, skill_row),
@@ -229,4 +263,5 @@ def capability_flags(lawyer: Any, skill_row: Any | None = None) -> dict[str, boo
         "can_review": can_review(lawyer, skill_row),
         "can_archive": can_archive(lawyer, skill_row),
         "can_restore": can_restore(lawyer, skill_row),
+        "can_promote": can_promote(lawyer, skill_row),
     }

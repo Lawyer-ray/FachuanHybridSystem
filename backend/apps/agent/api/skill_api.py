@@ -280,6 +280,8 @@ async def submit_skill(request: Any, key: str, payload: SkillSubmitIn) -> SkillD
         target_scope=(payload.target_scope or "").strip(),
         note=payload.note,
         acknowledged_firm_wide=payload.acknowledged_firm_wide,
+        new_name=payload.name,
+        team_id=payload.team_id,
     )
     return SkillDetailOut(**detail)
 

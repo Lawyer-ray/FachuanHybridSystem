@@ -55,6 +55,8 @@ class SkillOut(Schema):
     can_review: bool
     can_archive: bool
     can_restore: bool
+    #: 能否把这条个人技能提到共享层（服务端算；前端只渲染，不自己判）
+    can_promote: bool
 
 
 class SkillDetailOut(Schema):
@@ -77,6 +79,15 @@ class SkillDetailOut(Schema):
     has_unpublished_changes: bool
     shadowed: list[SkillShadowRef]
     body: str
+    #: 服务端算出的动作权限。详情（含写操作回执）与清单必须下同一套字段，
+    #: 否则「列表里能点、详情里点不了」——前端为了兼容只能自己算，那正好是
+    #: 我们要禁止的事（见 ``services/skills/permissions.py`` 模块 docstring）。
+    can_edit: bool
+    can_submit: bool
+    can_review: bool
+    can_archive: bool
+    can_restore: bool
+    can_promote: bool
 
 
 class SkillListOut(Schema):
@@ -96,6 +107,10 @@ class SkillQuotaOut(Schema):
     used: int
     by_scope: SkillScopeCounts
     max_by_scope: SkillScopeCounts
+    #: 能否新建所内技能（前端据此显示「新建到所内」入口，不自己判 is_admin）
+    can_create_firm: bool
+    #: 能把个人技能提到哪些作用域（顺序即展示顺序）；空列表 = 不显示「提升」入口
+    promotable_scopes: list[str]
 
 
 class SkillContentOut(Schema):
@@ -191,11 +206,21 @@ class SkillToggleOut(Schema):
 
 
 class SkillSubmitIn(Schema):
-    """提审：个人技能必须给 ``target_scope``（提升到团队/所内）。"""
+    """提审：个人技能必须给 ``target_scope``（提升到团队/所内）。
+
+    ``name`` 与 ``team_id`` 都是可选的，存在的理由是**目标层可能已经有同名技能**：
+    ``uniq_agent_skill_firm_name`` / ``uniq_agent_skill_team_name`` 会让改名前的
+    提升直接撞唯一约束。提审是这个唯一能改名的时机（``name`` 建后不可改的规则
+    针对的是「已落库的身份」，而跨层提升本质上是一次新的落位）。
+    """
 
     target_scope: str = ""
     note: str = ""
     acknowledged_firm_wide: bool = False
+    #: 目标层已有同名技能时，用这个新名字落位（不传 = 沿用原名）
+    name: str | None = None
+    #: ``target_scope=team`` 时指定落到哪个团队（不传 = 取第一个律师团队）
+    team_id: int | None = None
 
 
 class SkillReviewIn(Schema):
