@@ -89,16 +89,20 @@ class AgentUiAction(models.Model):
     #: 派发时生成的 32 位十六进制 id（``publish_ui_action`` 的 ``call_id``）。
     #: 回执按它定位那一行，所以必须唯一；唯一约束自带索引，见 :class:`Meta`。
     call_id = models.CharField(max_length=64, unique=True, verbose_name="动作调用标识")
+    #: 动作所属会话。**SET_NULL 而不是 CASCADE**（2026-11-28 真机手测现场踩到）：
+    #: 律师删掉一个对话会话是常规操作，而审计台账是「谁让 AI 干过什么」的合规痕迹——
+    #: 会话一删就跟着消失，等于合规记录可以被「清一下对话列表」抹掉。实测：删会话后
+    #: 4 行审计全部级联删除。所以会话只是**线索**（回查上下文用），不是生命周期主人。
     session = models.ForeignKey(
         AgentSession,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="ui_actions",
         null=True,
         blank=True,
         verbose_name="所属会话",
     )
-    #: 动作所属用户（由会话推得）。不与会话级联删除：会话被清掉后审计仍要能回答
-    #: 「谁让 AI 干过这件事」，所以是 SET_NULL 而不是 CASCADE。
+    #: 动作所属用户（由会话推得）。与 `session` 同口径：SET_NULL 而不是 CASCADE——
+    #: 会话被清掉、甚至用户被停用后，审计仍要能回答「谁让 AI 干过这件事」。
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

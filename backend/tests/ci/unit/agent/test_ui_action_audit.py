@@ -215,6 +215,35 @@ async def test_second_receipt_does_not_overwrite_first(monkeypatch: pytest.Monke
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
+async def test_deleting_the_session_keeps_the_audit_row() -> None:
+    """删会话不许连带删台账（2026-11-28 真机手测现场踩到的那条）。
+
+    律师清理对话列表是常规操作，而台账是「谁让 AI 干过什么」的合规痕迹。``session`` 若是
+    ``CASCADE``，清一下会话就能把它抹掉——实测删除测试会话时 4 行审计全部消失。所以这条
+    用真实删除动作钉住：会话没了，行还在，只是 ``session`` 变 NULL。
+    """
+    user = await _make_user("uiaudit-cascade")
+    session = await _make_session(user)
+    await AgentUiAction.objects.acreate(
+        call_id=uuid.uuid4().hex,
+        session=session,
+        user=user,
+        action=JUDGE.name,
+        arguments={"packId": 1, "target": "done"},
+        risk=JUDGE.risk,
+        outcome="ok",
+    )
+
+    await session.adelete()
+
+    row = await AgentUiAction.objects.filter(user=user).afirst()
+    assert row is not None, "删会话把审计行一起级联删掉了——合规痕迹被「清一下对话列表」抹掉"
+    assert row.session_id is None, "会话引用应置空而不是留一个悬空 id"
+    assert row.action == JUDGE.name and row.outcome == "ok", "除会话引用外，行的内容不许被动过"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
 async def test_history_only_shows_own_rows() -> None:
     """两个用户各一条，``list_recent_for_user`` 只看见自己的（别人的按钮记录不共享）。"""
     mine = await _make_user("uiaudit-mine")
