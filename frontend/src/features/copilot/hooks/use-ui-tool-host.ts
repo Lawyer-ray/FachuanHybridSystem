@@ -30,9 +30,12 @@ import { toast } from 'sonner'
 import { openCopilot } from '../launch'
 import { releaseUiToolPorts, setUiToolPorts } from '../store/ui-tools'
 import type { UiToolPorts } from '../ui-tools'
+import { useUiGuardedConfirm } from './use-ui-guarded-confirm'
 
 export function useUiToolHost(): void {
   const navigate = useNavigate()
+  // `guarded` 动作的本地二次确认框：它自带一个命令式 React root，所以一行就够（见该 hook 文件头）
+  useUiGuardedConfirm()
 
   useEffect(() => {
     const ports: UiToolPorts = {

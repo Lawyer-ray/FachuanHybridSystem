@@ -15,6 +15,7 @@ export type UiToolName =
   | 'ui_copilot_open'
   | 'ui_material_prep_set_stage'
   | 'ui_material_prep_judge'
+  | 'ui_material_prep_delete_pack'
 
 /**
  * 三档风险：`safe` 无外部副作用直接执行；`confirm` 走后端审批；
@@ -150,6 +151,28 @@ export const UI_TOOL_SPECS: readonly UiToolSpec[] = [
     risk: 'confirm',
     tier: 'direct',
     handler: 'material_prep_judge',
+    idempotent: false,
+    undo: 'none',
+  },
+  {
+    name: 'ui_material_prep_delete_pack',
+    title: '删除材料包（不可恢复）',
+    describe: '永久删除一个材料包（连同它的附件文件）。不可撤销：「不接归档」不是删除，只改状态。只有律师明确说「删掉这个包」时才用，且必须先确认他指的是哪一个。',
+    argsSchema: {
+      additionalProperties: false,
+      properties: {
+        packId: {
+          description: '材料包 id（收件箱里的一条消息也算一个材料包，用它的 id）。',
+          type: 'integer',
+        },
+      },
+      required: ['packId'],
+      type: 'object',
+    },
+    route: '/material-prep',
+    risk: 'guarded',
+    tier: 'direct',
+    handler: 'material_prep_delete_pack',
     idempotent: false,
     undo: 'none',
   },

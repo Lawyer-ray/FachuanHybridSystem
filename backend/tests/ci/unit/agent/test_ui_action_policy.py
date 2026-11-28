@@ -116,7 +116,11 @@ def test_floor_escalates_safe_action_and_confirm_names(
     finally:
         # context 退出时环境已复原；重算一遍，别把抬高后的集合留给同进程的其它用例。
         restored = importlib.reload(manifest_module)
-    assert set(restored.CONFIRM_ACTION_NAMES) == {JUDGE.name}, "策略复原后确认集合必须回到清单档"
+    # 期望值从清单派生而不是写死 {JUDGE.name}：确认集合的定义就是「清单里所有非 safe 动作」，
+    # 写死一份名字等于把清单抄了第二遍——新增一条 guarded 动作时它会红在一个与断言意图无关的地方。
+    assert set(restored.CONFIRM_ACTION_NAMES) == {
+        action.name for action in manifest_module.UI_ACTIONS if action.risk != "safe"
+    }, "策略复原后确认集合必须回到清单档"
 
     # guarded 档：同一套 max 逻辑，safe 动作直接抬到最高档
     monkeypatch.setenv(policy.FLOOR_ENV, "guarded")

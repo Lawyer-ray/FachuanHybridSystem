@@ -21,7 +21,7 @@
 import type { PageUiAction, UiToolOutcome } from '@/features/copilot/ui-tools/contract'
 import { errMessage } from '@/lib/errors'
 
-import { setPackStatusRemote } from './api/inbox-packs'
+import { deletePack, setPackStatusRemote } from './api/inbox-packs'
 import type { PackStatus } from './types'
 
 /**
@@ -94,6 +94,69 @@ export async function judgeMaterialPack(args: Record<string, unknown>): Promise<
   return writePackStatus(parsed)
 }
 
+/**
+ * 删除成功的广播事件名。
+ *
+ * 为什么不沿用 `PACK_STATUS_CHANGED_EVENT`：那条事件的载荷是 `{packId, status}`，描述「包还在、
+ * 状态变成了什么」；删除之后包已经不在了，`status` 字段对它没有意义（塞一个 `null` 进去只会
+ * 让监听方多一个「到底是删了还是清空了状态」的分叉）。事件名就是页面侧的判定条件，
+ * 所以单独一条。
+ */
+export const PACK_DELETED_EVENT = 'material-prep:pack-deleted'
+
+/** 删除广播的载荷：只有包 id（包已不存在，没有别的可报） */
+export interface PackDeletedDetail {
+  packId: number
+}
+
+/** 已收窄的删除参数 */
+interface DeletePackArgs {
+  packId: number
+}
+
+/** `args` → 收窄后的删除参数；`null` = 形状不对（调用方按 `invalid_args` 处置） */
+function parseDeletePackArgs(args: Record<string, unknown>): DeletePackArgs | null {
+  const { packId } = args
+  if (typeof packId !== 'number' || !Number.isInteger(packId)) return null
+  return { packId }
+}
+
+function invalidDeleteArgs(args: Record<string, unknown>): UiToolOutcome {
+  return {
+    ok: false,
+    code: 'invalid_args',
+    message: `删除材料包参数不合法：${JSON.stringify(args)}（要 packId 整数）`,
+  }
+}
+
+/** 真的删库的那一步（不碰 UI）：成功给可读 detail，失败分类成 `UiToolOutcome`。 */
+async function removePack({ packId }: DeletePackArgs): Promise<UiToolOutcome> {
+  try {
+    // 后端先把附件物理文件清掉再删记录（见 `api/inbox-packs.ts::deletePack` 的注释）：
+    // 这是清单里唯一「不可逆」的动作，所以失败必须原样上报，不得重试、不得当成成功。
+    await deletePack(packId)
+    return { ok: true, detail: `材料包 ${packId} 已删除` }
+  } catch (error) {
+    return {
+      ok: false,
+      code: 'executor_error',
+      message: errMessage(error, '删除材料包失败，请重试'),
+    }
+  }
+}
+
+/**
+ * 删除一个材料包（公开给测试与需要分类的唯一入口）。
+ *
+ * 前端本地二次确认不在这里：它由 `store/ui-tools.ts` 在**调执行器之前**统一做
+ * （理由：确认是执行层的守门，不是页面实现的自由——否则新增一个页面就可能漏掉那层）。
+ */
+export async function deleteMaterialPack(args: Record<string, unknown>): Promise<UiToolOutcome> {
+  const parsed = parseDeletePackArgs(args)
+  if (parsed === null) return invalidDeleteArgs(args)
+  return removePack(parsed)
+}
+
 export const uiActions: readonly PageUiAction[] = [
   {
     action: 'ui_material_prep_judge',
@@ -106,6 +169,22 @@ export const uiActions: readonly PageUiAction[] = [
       if (outcome.ok) {
         const detail: PackStatusChangedDetail = { packId: parsed.packId, status: parsed.target }
         ports.dispatch(PACK_STATUS_CHANGED_EVENT, detail)
+      }
+      return outcome
+    },
+  },
+  {
+    action: 'ui_material_prep_delete_pack',
+    async execute(args, ports) {
+      // 与 judge 同一写法：先收窄参数再调库。**不能**在这里 `args.packId as number`——
+      // 那等于把守卫写成断言（理由见文件头「`typeof` 收窄必须留着」）。
+      const parsed = parseDeletePackArgs(args)
+      if (parsed === null) return invalidDeleteArgs(args)
+      const outcome = await removePack(parsed)
+      // 只有真的删成功才广播：失败也广播会让页面白拉一次列表，还让律师以为已经删了。
+      if (outcome.ok) {
+        const detail: PackDeletedDetail = { packId: parsed.packId }
+        ports.dispatch(PACK_DELETED_EVENT, detail)
       }
       return outcome
     },

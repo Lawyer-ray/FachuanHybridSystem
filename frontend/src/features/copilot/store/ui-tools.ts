@@ -73,6 +73,7 @@ import type { UiToolRun } from '../state-types'
 import type { CopilotState } from '../types'
 import type { Slice } from './slice'
 import { claimUiActionExecution } from './ui-action-claim'
+import { confirmGuardedAction } from './ui-guarded-confirm'
 
 /** 清单项类型从清单自己推导：动作字段与生成物永远一致，不另抄一份 */
 type UiToolSpec = (typeof UI_TOOL_SPECS)[number]
@@ -315,6 +316,14 @@ export const createUiToolSlice: Slice<UiToolSlice> = (set, get) => {
     // 操作被重发」，再弹一次错误提示反而制造噪音。
     // 也不回执：这一次**什么都没执行**，回 ok 是撒谎，而契约里没有「已去重」这个码。
     if (!spec.idempotent && !allowNonIdempotent(req.action, req.args, startedAt)) return
+
+    // `guarded`（不可逆 / 对外系统 / 涉及凭证）：执行器调用前再要一次律师的本地确认。
+    // 位置在写锁内——弹框期间别的写动作排队，此刻也还没发出任何请求。这一下只是防误点，
+    // 不是批准凭据（批准在服务端审批闸门）；没有确认宿主时 fail closed，走既有 aborted 回执。
+    if (spec.risk === 'guarded' && !(await confirmGuardedAction(req, spec.title))) {
+      markAborted(req, '律师在二次确认里取消了')
+      return
+    }
 
     // 不写 pending：从受理到调用执行器之间没有任何 await，pending 在真实链路里不可观察，
     // 写它只是自欺（懒 chunk / T3 快照那种「已受理未落地」的态接入时再补）。

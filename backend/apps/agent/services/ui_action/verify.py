@@ -137,3 +137,42 @@ async def material_prep_status(arguments: dict[str, Any]) -> dict[str, Any]:
         "note": f"页面报成功但服务端核实不通过：库里仍是 {actual or '空'}。不得对律师说已完成",
         "observed": observed,
     }
+
+
+@verifier("material_prep_absent")
+async def material_prep_absent(arguments: dict[str, Any]) -> dict[str, Any]:
+    """核实 ``ui_material_prep_delete_pack`` 是否真的把材料包删掉了。
+
+    删除是**不可逆**的，所以「页面说删成功」与「库里查不到」必须分开判：
+    - 查不到 → ``True``（这也正是删除的定义：记录不在，附件文件随之没了）；
+    - 仍能查到 → ``False``。这一档的措词要明确禁止模型说「已删除」——它是唯一会把
+      “还在的包”说成“已经没了”的路径，而律师会据此不再管它。
+
+    与 ``material_prep_status`` 同一套口径：参数名 ``packId`` 与清单同名；脏参数回
+    ``verified=None`` 而不是把 ``filter(pk=...)`` 的异常扔给上游；查询本身报错由
+    :func:`run_verifier` 兑成 ``None``，本函数不自己 catch（仓库禁扩大 ``except``）。
+
+    为什么不查附件文件是否物理删除：那是存储层的事，核实的唯一问题是「库里还有没有
+    这个包」。把核实器扩成「还要看文件系统」只会让它更容易报错，而报错就是「无法核实」，
+    对模型反而更没用。
+    """
+    # 延迟 import：本模块要能在无 Django settings 的进程里被 import（见模块 docstring）。
+    from apps.message_hub.models.inbox_message import InboxMessage
+
+    raw_pack_id = arguments.get("packId")
+    if not isinstance(raw_pack_id, int):
+        return {
+            "verified": None,
+            "note": f"无法核实：材料包标识 {raw_pack_id!r} 不是整数",
+            "observed": {"packId": raw_pack_id},
+        }
+    pack_id = raw_pack_id
+    still_there = await InboxMessage.objects.filter(pk=pack_id).aexists()
+    observed = {"packId": pack_id, "exists": still_there}
+    if not still_there:
+        return {"verified": True, "note": f"服务端核实通过：材料包 {pack_id} 已不存在", "observed": observed}
+    return {
+        "verified": False,
+        "note": f"页面报删除成功但服务端仍能查到材料包 {pack_id}，不得说已删除",
+        "observed": observed,
+    }

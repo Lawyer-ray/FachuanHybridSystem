@@ -16,10 +16,11 @@
 参数 → URL、怎么开面板、跨 feature 发哪条 window 事件，全是前端的知识（只有前端
 知道路由表与组件边界）。清单里写执行细节的唯一结果是两端各演化一套口径。
 
-## 本次范围（P0+P1 + 第一条 ``confirm`` 动作）
+## 本次范围（P0+P1 + 第一条 ``confirm`` 动作 + 第一条 ``guarded`` 动作）
 
 P0/P1 登记了 3 条 ``safe`` 动作，之后补了**第一条** ``confirm`` 动作
-``ui_material_prep_judge``（判定材料包归属）。
+``ui_material_prep_judge``（判定材料包归属），再补了**第一条** ``guarded`` 动作
+``ui_material_prep_delete_pack``（永久删除材料包）。
 
 为什么不继续留在 ``safe``：它真的写一次库（改材料包的归属状态），按三档定义
 （见 :data:`UiActionRisk`）就该走审批。
@@ -31,7 +32,10 @@ P0/P1 登记了 3 条 ``safe`` 动作，之后补了**第一条** ``confirm`` �
   「不可修复」）；
 - 因此只需要后端审批，不需要 ``guarded`` 那层前端本地二次确认。
 
-``guarded``（对外系统 / 不可逆 / 涉及凭证）仍留到 P3。
+而 ``ui_material_prep_delete_pack`` 是**不可逆**的（删记录 + 附件物理文件，没有回收站），
+所以它落在第三档 ``guarded``：后端审批（既有闸门）+ 前端本地二次确认（防误点，
+**不是**批准凭据；CopilotKit 的坑正是把客户端那次确认当成授权）+ 服务端核实
+（``material_prep_absent``：声称删掉之后自己回库查一眼）。三件事缺一不可，也互不替代。
 
 ## 风险与策略（部署级 floor / deny）
 
@@ -158,6 +162,23 @@ _COPILOT_OPEN_ARGS: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+#: ``ui_material_prep_delete_pack`` 的参数。
+#:
+#: 只有 ``packId`` 一个字段：删除不需要别的输入，而「哪一个包」必须由**模型从页面快照/
+#: 律师的话里取到**（编一个 id 的代价是删错材料，比判错状态严重得多）。描述里点名
+#: 「材料包 id」是为了让模型知道该从快照的 ``selected`` / 列表里取值，而不是自己造。
+_DELETE_PACK_ARGS: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "packId": {
+            "type": "integer",
+            "description": "材料包 id（收件箱里的一条消息也算一个材料包，用它的 id）。",
+        },
+    },
+    "required": ["packId"],
+    "additionalProperties": False,
+}
+
 #: ``ui_material_prep_judge`` 的参数。``target`` 的两个值就是前端 ``PrepStage``
 #: （``features/material-prep/stages.ts``）里的两个**终态**，与 ``_SET_STAGE_ARGS``
 #: 同一套词：收件箱/待处理是「还没判」，判定只能落到 ``done`` 或 ``filed``。
@@ -265,12 +286,32 @@ UI_ACTIONS: tuple[UiAction, ...] = (
         # 这是清单里第一条「页面说有、库里不一定有」的写动作，也是这套机制的样板。
         verify="material_prep_status",
     ),
+    UiAction(
+        name="ui_material_prep_delete_pack",
+        title="删除材料包（不可恢复）",
+        describe=(
+            "永久删除一个材料包（连同它的附件文件）。不可撤销：「不接归档」不是删除，"
+            "只改状态。只有律师明确说「删掉这个包」时才用，且必须先确认他指的是哪一个。"
+        ),
+        args_schema=_DELETE_PACK_ARGS,
+        # ``guarded``：不可逆（记录与附件文件一起没），所以除了后端审批还要前端本地
+        # 二次确认。那一层**只是防误点**，不算批准凭据——批准由服务端审批闸门给出。
+        risk="guarded",
+        tier="direct",
+        handler="material_prep_delete_pack",
+        route="/material-prep",
+        undo="none",
+        side_effects=("delete",),
+        idempotent=False,
+        # 页面报「删了」不算数：服务端回库查一眼包还在不在（``material_prep_absent``）。
+        verify="material_prep_absent",
+    ),
 )
 
 
 #: 需要人工审批的动作名——按**生效**风险档派生（清单 ``risk`` 被部署级 floor 抬高后的档）：
-#: 默认只有 ``ui_material_prep_judge``（写材料包归属）；``FACHUAN_UI_ACTION_RISK_FLOOR=confirm``
-#: 时三条 ``safe`` 动作也进来。
+#: 默认是 ``ui_material_prep_judge``（写材料包归属）与 ``ui_material_prep_delete_pack``
+#: （删材料包）；``FACHUAN_UI_ACTION_RISK_FLOOR=confirm`` 时三条 ``safe`` 动作也进来。
 #: ``mcp_server/tool_tiers.py`` 把它们并进 ``DIRECT_TOOLS``——分层政策是「破坏性工具
 #: 必须留在 direct」，而 ``DIRECT_PATTERNS`` 里的 ``delete_*`` 匹配不到 ``ui_*`` 这类名字，
 #: 必须显式并入。这里派生而不是手抄：动作被降级/改名、或部署把 floor 抬高时，分层跟着变。
@@ -287,7 +328,8 @@ CONFIRM_ACTION_NAMES: frozenset[str] = frozenset(
 #: ``deferred``（见 ``apps/agent/pi/shared_mcp.py`` 写 mcp.json 那一段）——**没列进
 #: DIRECT_TOOLS 的工具不会声明给模型**，模型要先 ``tool_search`` 才知道有 ``ui_navigate``。
 #: 而 ``ui_navigate`` / ``ui_copilot_open`` / ``set_stage`` 是“律师开口就要动页面”的高频动作，
-#: ``ui_material_prep_judge`` 则是“写一次库”的 ``confirm`` 动作——同样必须常驻可见
+#: ``ui_material_prep_judge`` / ``ui_material_prep_delete_pack`` 则是不可逆或写库的
+#: ``confirm`` / ``guarded`` 动作——同样必须常驻可见
 #: （08 §2.2 + 分层政策的「破坏性工具必须可见」）。
 #:
 #: 一律从清单派生，而不是让 ``tool_tiers`` 手抄一遍名字：`tier` 写两处就是「装样子的

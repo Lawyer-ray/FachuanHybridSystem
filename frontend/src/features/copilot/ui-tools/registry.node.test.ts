@@ -28,6 +28,7 @@ const INVALID_SAMPLES: Record<UiToolName, unknown> = {
   ui_copilot_open: { origin: 'invoice' }, // origin 不在枚举里
   ui_material_prep_set_stage: { stage: 'archived' }, // stage 不在枚举里
   ui_material_prep_judge: { packId: 812, target: 'archived' }, // target 只能 done/filed
+  ui_material_prep_delete_pack: { packId: '812' }, // packId 必须是整数（JSON 里 id 常见是字符串）
 }
 
 /** 每条 schema 至少一个合法样例（守卫不能把正常参数也拒了） */
@@ -36,6 +37,7 @@ const VALID_SAMPLES: Record<UiToolName, unknown> = {
   ui_copilot_open: {},
   ui_material_prep_set_stage: { stage: 'done' },
   ui_material_prep_judge: { packId: 812, target: 'done' },
+  ui_material_prep_delete_pack: { packId: 812 },
 }
 
 describe('双端完备：清单与执行器是同一组名字', () => {
