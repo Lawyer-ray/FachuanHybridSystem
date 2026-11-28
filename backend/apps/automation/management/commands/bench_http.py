@@ -72,7 +72,7 @@ class Command(BaseCommand):
                             timings.append(ms)
                             statuses[resp.status_code] = statuses.get(resp.status_code, 0) + 1
                         except Exception:
-                            logger.exception("操作失败")
+                            logger.exception("bench_http.handle: 压测请求失败")
                             ms = (time.perf_counter() - t0) * 1000.0
                             timings.append(ms)
                             statuses["error"] = statuses.get("error", 0) + 1

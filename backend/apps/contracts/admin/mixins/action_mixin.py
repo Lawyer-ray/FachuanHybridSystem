@@ -75,7 +75,7 @@ class ContractActionMixin:  # pragma: no cover
                 return HttpResponseRedirect(request.path)
             return self._build_docx_response(result)
         except (BusinessException, RuntimeError, Exception) as e:
-            logger.exception("操作失败")
+            logger.exception("action_mixin._handle_generate_contract: 生成合同文档失败")
             messages.error(request, "生成合同失败: %(err)s" % {"err": e})
             return HttpResponseRedirect(request.path)
 
@@ -92,7 +92,7 @@ class ContractActionMixin:  # pragma: no cover
                 return HttpResponseRedirect(request.path)
             return self._build_docx_response(result)
         except (BusinessException, RuntimeError, Exception) as e:
-            logger.exception("操作失败")
+            logger.exception("action_mixin._handle_generate_supplementary: 生成补充协议失败")
             messages.error(request, "生成补充协议失败: %(err)s" % {"err": e})
             return HttpResponseRedirect(request.path)
 
@@ -104,7 +104,7 @@ class ContractActionMixin:  # pragma: no cover
             messages.success(request, "续签成功！已创建新合同: %(name)s" % {"name": new_contract.name})
             return HttpResponseRedirect(reverse("admin:contracts_contract_change", args=[new_contract.pk]))
         except (BusinessException, RuntimeError, Exception) as e:
-            logger.exception("操作失败")
+            logger.exception("action_mixin._handle_renew_advisor: 续签合同失败")
             messages.error(request, "续签失败: %(err)s" % {"err": e})
             return HttpResponseRedirect(request.path)
 
@@ -116,7 +116,7 @@ class ContractActionMixin:  # pragma: no cover
             messages.success(request, "已复制合同: %(name)s" % {"name": new_contract.name})
             return HttpResponseRedirect(reverse("admin:contracts_contract_change", args=[new_contract.pk]))
         except (BusinessException, RuntimeError, Exception) as e:
-            logger.exception("操作失败")
+            logger.exception("action_mixin._handle_duplicate: 复制合同失败")
             messages.error(request, "复制失败: %(err)s" % {"err": e})
             return HttpResponseRedirect(request.path)
 
@@ -128,7 +128,7 @@ class ContractActionMixin:  # pragma: no cover
             messages.success(request, "已创建案件: %(name)s" % {"name": new_case.name})
             return HttpResponseRedirect(reverse("admin:cases_case_change", args=[new_case.id]))
         except (BusinessException, RuntimeError, Exception) as e:
-            logger.exception("操作失败")
+            logger.exception("action_mixin._handle_create_case: 从合同创建案件失败")
             messages.error(request, "创建案件失败: %(err)s" % {"err": e})
             return HttpResponseRedirect(request.path)
 
@@ -144,7 +144,7 @@ class ContractActionMixin:  # pragma: no cover
                 messages.success(request, "已创建案件: %(name)s" % {"name": new_case.name})
                 return HttpResponseRedirect(reverse("admin:cases_case_change", args=[new_case.id]))
             except (BusinessException, RuntimeError, Exception) as e:
-                logger.exception("操作失败")
+                logger.exception("action_mixin.response_add: 新增合同后创建案件失败")
                 messages.error(request, "创建案件失败: %(err)s" % {"err": e})
                 return HttpResponseRedirect(reverse("admin:contracts_contract_change", args=[obj.pk]))
 

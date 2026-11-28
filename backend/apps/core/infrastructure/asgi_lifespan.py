@@ -25,7 +25,7 @@ class LifespanApp:
                     if self._on_startup:
                         await self._on_startup()
                 except Exception as e:
-                    logger.exception("操作失败")
+                    logger.exception("asgi_lifespan.__call__: lifespan 启动钩子失败")
                     await send({"type": "lifespan.startup.failed", "message": str(e)})
                     return
                 await send({"type": "lifespan.startup.complete"})
@@ -35,7 +35,7 @@ class LifespanApp:
                     if self._on_shutdown:
                         await self._on_shutdown()
                 except Exception as e:
-                    logger.exception("操作失败")
+                    logger.exception("asgi_lifespan.__call__: lifespan 关闭钩子失败")
                     await send({"type": "lifespan.shutdown.failed", "message": str(e)})
                     return
                 await send({"type": "lifespan.shutdown.complete"})

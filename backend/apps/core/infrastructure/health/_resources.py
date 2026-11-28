@@ -41,7 +41,7 @@ def check_system_resources() -> ComponentHealth:
         return _check_via_psutil(diagnostic_info)
 
     except Exception as e:
-        logger.exception("操作失败")
+        logger.exception("_resources.check_system_resources: 系统资源检查失败")
         diagnostic_info.update(
             {
                 "error_type": type(e).__name__,

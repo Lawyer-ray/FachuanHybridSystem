@@ -327,7 +327,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
                     merge_finished_at=timezone.now(),
                     merge_message="合并任务提交失败",
                 )
-            logger.exception("操作失败")
+            logger.exception("views.merge_view: 提交合并任务失败")
             if is_ajax:
                 return JsonResponse({"success": False, "error": f"提交合并任务失败: {e!s}"})
             messages.error(request, "提交合并任务失败: %(e)s" % {"e": e})

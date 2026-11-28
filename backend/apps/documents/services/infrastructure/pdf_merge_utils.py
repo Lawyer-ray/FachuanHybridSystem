@@ -242,7 +242,7 @@ def add_page_numbers(pdf_input: io.BytesIO, start_page: int = 1) -> bytes:  # pr
             pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
             font_name = "STSong-Light"
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("pdf_merge_utils.add_page_numbers: 注册中文字体失败")
             font_name = "Helvetica"
 
         pdf_input.seek(0)
@@ -287,7 +287,7 @@ def add_page_numbers(pdf_input: io.BytesIO, start_page: int = 1) -> bytes:  # pr
         return output_buffer.read()
 
     except Exception:
-        logger.exception("操作失败")
+        logger.exception("pdf_merge_utils.add_page_numbers: 添加页码失败")
 
         pdf_input.seek(0)
         return pdf_input.read()

@@ -73,7 +73,7 @@ class HealthChecker:
                     }
                 )
             except Exception as e:
-                logger.exception("操作失败")
+                logger.exception("checker_class.get_system_health: 收集系统信息失败")
                 system_info["collection_error"] = str(e)
 
         version = os.environ.get("APP_VERSION") or str(getattr(settings, "API_VERSION", "1.0.0"))
@@ -115,7 +115,7 @@ class HealthChecker:
             else:
                 llm_health_value = "healthy" if llm_ok else "unhealthy"
         except Exception as e:
-            logger.exception("操作失败")
+            logger.exception("checker_class.readiness_check: 读取 LLM 预热状态失败")
             llm_health_value = "unknown"
             llm_error = str(e)
 

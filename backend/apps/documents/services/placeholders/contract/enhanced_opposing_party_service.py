@@ -131,7 +131,7 @@ class EnhancedOpposingPartyService(BasePlaceholderService):
                 else:
                     our_ids.add(cp.client_id)
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("enhanced_opposing_party_service._get_contract_party_ids: 读取合同当事人失败")
         return (opposing_ids, our_ids)
 
     def _format_single_case(self, case: Any, opposing_client_ids: set[Any], our_client_ids: set[Any]) -> str:

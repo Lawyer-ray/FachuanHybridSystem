@@ -304,12 +304,12 @@ class OCRService:
                 result: list[Any] = tolist()
                 return result
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("ocr_service._to_list: ndarray.tolist() 转换失败")
             pass
         try:
             return list(x)
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("ocr_service._to_list: 序列化为 list 失败")
             return [x]
 
     def _get_position_key(self, box: Any) -> tuple[Any, ...]:
@@ -402,7 +402,7 @@ class OCRService:
                         if float(scores[i]) < 0.50:
                             continue
                     except (TypeError, ValueError):
-                        logger.exception("操作失败")
+                        logger.exception("ocr_service._extract_text_local: 置信度数值转换失败")
 
                         pass
 

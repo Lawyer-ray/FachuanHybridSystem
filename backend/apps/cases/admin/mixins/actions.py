@@ -27,7 +27,7 @@ class CaseAdminActionsMixin(CaseAdminServiceMixin):  # pragma: no cover
                 messages.success(request, "已复制案件,正在编辑新案件: %s" % new_case.name)
                 return HttpResponseRedirect(reverse("admin:cases_case_change", args=[new_case.pk]))
             except Exception as e:
-                logger.exception("操作失败")
+                logger.exception("actions.response_change: 复制案件失败")
                 messages.error(request, "复制失败: %s" % str(e))
                 return HttpResponseRedirect(request.path)
 
@@ -73,7 +73,7 @@ class CaseAdminActionsMixin(CaseAdminServiceMixin):  # pragma: no cover
                     "为案件 %(case)s 创建飞书群聊失败: %(error)s" % {"case": case.name, "error": str(e)},
                 )
             except Exception as e:
-                logger.exception("操作失败")
+                logger.exception("actions.create_feishu_chat_for_selected_cases: 为案件创建飞书群聊失败")
                 error_count += 1
                 messages.error(
                     request,

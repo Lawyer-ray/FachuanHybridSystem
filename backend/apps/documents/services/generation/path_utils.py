@@ -37,5 +37,5 @@ def resolve_media_path(media_root: str, file_path: str) -> str:
             return ""
         return str(Path(media_root) / value)
     except Exception:
-        logger.exception("操作失败")
+        logger.exception("path_utils.resolve_media_path: 解析媒体文件路径失败")
         return ""

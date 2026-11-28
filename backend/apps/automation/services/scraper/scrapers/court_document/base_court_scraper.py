@@ -137,7 +137,7 @@ class BaseCourtDocumentScraper(BaseScraper):
                         }
                     )
                 except Exception:
-                    logger.exception("操作失败")
+                    logger.exception("base_court_scraper._analyze_page_elements: 收集按钮信息失败")
 
                     pass
 
@@ -154,7 +154,7 @@ class BaseCourtDocumentScraper(BaseScraper):
                         }
                     )
                 except Exception:
-                    logger.exception("操作失败")
+                    logger.exception("base_court_scraper._analyze_page_elements: 收集链接信息失败")
 
                     pass
 
@@ -172,7 +172,7 @@ class BaseCourtDocumentScraper(BaseScraper):
                         }
                     )
                 except Exception:
-                    logger.exception("操作失败")
+                    logger.exception("base_court_scraper._analyze_page_elements: 收集可点击元素信息失败")
 
                     pass
 
@@ -187,12 +187,12 @@ class BaseCourtDocumentScraper(BaseScraper):
                         }
                     )
                 except Exception:
-                    logger.exception("操作失败")
+                    logger.exception("base_court_scraper._analyze_page_elements: 收集 iframe 信息失败")
 
                     pass
 
         except Exception as e:
-            logger.exception("操作失败")
+            logger.exception("base_court_scraper._analyze_page_elements: 页面元素分析失败")
             analysis["error"] = str(e)
 
         return analysis

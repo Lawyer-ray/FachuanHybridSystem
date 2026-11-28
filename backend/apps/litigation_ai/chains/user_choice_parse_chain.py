@@ -64,7 +64,7 @@ class UserChoiceParseChain:  # pragma: no cover
             llm_resp = await llm_service.achat(messages=messages, model=self._model, temperature=0.0)
             return parse_model_content(llm_resp.content, UserChoiceResult)
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("user_choice_parse_chain.arun: 解析用户选择失败")
 
             return self._fallback_parse(
                 user_input=user_input,

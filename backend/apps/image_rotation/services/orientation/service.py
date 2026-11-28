@@ -209,7 +209,7 @@ class OrientationDetectionService:
                 result["filename"] = img_item.get("filename", "")
                 results.append(result)
             except Exception as e:
-                logger.exception("操作失败")
+                logger.exception("service.detect_batch: 单张图片方向识别失败")
                 results.append(
                     {
                         "filename": img_item.get("filename", ""),

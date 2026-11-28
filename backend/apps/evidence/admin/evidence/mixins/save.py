@@ -48,7 +48,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):  # pragma: no c
                     ):
                         obj.created_by = user
                 except Exception:
-                    logger.exception("操作失败")
+                    logger.exception("save.save_model: 设置创建人失败")
 
         required_previous_type = LIST_TYPE_PREVIOUS.get(obj.list_type)
         if required_previous_type:

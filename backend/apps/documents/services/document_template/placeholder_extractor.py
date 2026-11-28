@@ -18,7 +18,7 @@ def extract_placeholders(file_path: str) -> list[str]:  # pragma: no cover
         undeclared = doc.get_undeclared_template_variables()
         placeholders.update(undeclared)
     except Exception:
-        logger.exception("操作失败")
+        logger.exception("placeholder_extractor.extract_placeholders: docxtpl 提取失败")
 
         pass
 
@@ -34,7 +34,7 @@ def extract_placeholders(file_path: str) -> list[str]:  # pragma: no cover
                 for cell in row.cells:
                     placeholders.update(PLACEHOLDER_PATTERN.findall(cell.text))
     except Exception:
-        logger.exception("操作失败")
+        logger.exception("placeholder_extractor.extract_placeholders: python-docx 提取失败")
 
         pass
 

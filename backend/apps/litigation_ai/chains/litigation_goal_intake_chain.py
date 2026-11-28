@@ -60,7 +60,7 @@ class LitigationGoalIntakeChain:  # pragma: no cover
             llm_resp = await llm_service.achat(messages=messages, model=self._model, temperature=0.2)
             return parse_model_content(llm_resp.content, GoalIntakeResult)
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("litigation_goal_intake_chain.arun: 解析诉讼目标失败")
 
             return self._fallback_intake(document_type=document_type, user_input=user_input, notes="llm_call_failed")
 

@@ -17,14 +17,14 @@ logger = logging.getLogger(__name__)
 try:
     from docxtpl import DocxTemplate as _DocxTemplate
 except Exception:
-    logger.exception("操作失败")
+    logger.exception("placeholder_usage_service: 导入 docxtpl 失败")
 
     _DocxTemplate = None
 
 try:
     from docx import Document as _DocxDocument
 except Exception:
-    logger.exception("操作失败")
+    logger.exception("placeholder_usage_service: 导入 python-docx 失败")
 
     _DocxDocument = None  # type: ignore[assignment]
 

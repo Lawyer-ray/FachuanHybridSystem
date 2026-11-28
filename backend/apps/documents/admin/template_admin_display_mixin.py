@@ -151,7 +151,7 @@ class TemplateAdminDisplayMixin:
             admin_service = _get_admin_service()
             return admin_service.render_placeholders_table(placeholders, undefined)
         except Exception as e:
-            logger.exception("操作失败")
+            logger.exception("template_admin_display_mixin.placeholders_display: 提取模板占位符失败")
             return format_html('<span style="color: #c62828;">提取失败: {}</span>', str(e))
 
     @admin.display(description="未定义占位符")
@@ -167,7 +167,7 @@ class TemplateAdminDisplayMixin:
             admin_service = _get_admin_service()
             return admin_service.render_undefined_placeholders_warning(undefined)
         except Exception as e:
-            logger.exception("操作失败")
+            logger.exception("template_admin_display_mixin.undefined_placeholders_display: 检查未定义占位符失败")
             return format_html('<span style="color: #c62828;">检查失败: {}</span>', str(e))
 
     # ── Admin actions ───────────────────────────────────────────────

@@ -93,7 +93,7 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
             result = service.generate(data) or {}
             return result.get("指定日期") or self._format_today()
         except Exception:
-            logger.exception("操作失败")
+            logger.exception("power_of_attorney_service._get_specified_date_text: 生成指定日期失败")
             return self._format_today()
 
     def _format_today(self) -> str:
@@ -212,7 +212,7 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
         try:
             parties = list(case.parties.select_related("client").all())
         except (TypeError, ValueError):
-            logger.exception("操作失败")
+            logger.exception("power_of_attorney_service._get_party_legal_statuses: 读取案件当事人失败")
             parties = []
         for party in parties:
             client = getattr(party, "client", None)
