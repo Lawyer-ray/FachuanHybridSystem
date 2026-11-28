@@ -269,3 +269,74 @@ export interface AgentSkillReviewInput {
   note?: string
   acknowledged_firm_wide?: boolean
 }
+
+// ── 试跑（发布前真跑一轮，把模型的实际回复交给审批人）──────────────
+
+/**
+ * 试跑的注入模式：三档分别验证**不同的一层**，混起来就会把一次通过当成上线保证。
+ * `auto` 由服务端按发布态挑（已发布走真实索引，未发布走内联全文）；`inline` 把正文
+ * 整篇内联，验的是**指令语义**；`index` 只给名字与描述、模型得自己调
+ * `get_agent_skill`，验的是**自主发现**。
+ */
+export type AgentSkillTrialMode = 'auto' | 'inline' | 'index'
+
+/** `POST agent/skills/{key}/trial` 的请求体（三个字段都可省，服务端各有缺省） */
+export interface AgentSkillTrialInput {
+  /** 留空 = 服务端默认探针问法（先原样复述第一条要求，再说明接下来怎么做） */
+  question?: string
+  /** 用哪个后端跑；省略 = 服务端默认（pi）。声明 `tool_only` 的后端会被 422 */
+  backend?: string
+  mode?: AgentSkillTrialMode
+}
+
+/** 试跑里没调通的一次工具调用（模型想调 X 但失败了） */
+export interface AgentSkillTrialToolError {
+  /** 工具名（服务端原样给的，可能是 `mcp__fachuan__get_agent_skill` 这种全名） */
+  tool: string
+  message: string
+}
+
+/**
+ * 试跑回执（`SkillTrialOut`）。★ 三项是后端并行 lane 正在扩的字段：**缺失即当没有**，
+ * 界面绝不补默认值。尤其 `mode`——补成 `auto` 等于替服务端表态「这次是按索引验的」。
+ */
+export interface AgentSkillTrialResult {
+  ok: boolean
+  /** 模型回复正文（保留换行原样展示） */
+  text: string
+  backend: string
+  /** 服务端报不出模型名时为 null / 空串；界面**整项不显示**（不能渲染成 "null"） */
+  model: string | null
+  duration_ms: number
+  skill_key: string
+  skill_name: string
+  /** 作用域原始字符串（服务端口径）：只展示，不用它推权限 */
+  skill_scope: string
+  skill_version: number
+  /** 实际注入给模型的那段文字——审批人要能看见「我们到底让它看了什么」 */
+  injected: string
+  tool_calls: string[]
+  /** `ok=false` 时的原因；`ok=true` 时为空串 */
+  error: string
+  /** ★ 这次实际用的注入方式（可能因服务端降级而与请求不同） */
+  mode?: AgentSkillTrialMode
+  /** ★ 失败的工具调用；非空说明模型没读到全文 */
+  tool_errors?: AgentSkillTrialToolError[]
+  /** ★ 试跑流水号（服务端审计用；缺失只是不能追号） */
+  trial_id?: string
+}
+
+/**
+ * `GET agent/skills/trial-quota`：今日试跑额度。整个端点都是新加的（★），所以**每个
+ * 字段都可缺**：旧后端回 `{}` / 404 时不能被读成「剩余 0 次」把按钮禁死。只有明确拿到
+ * `remaining === 0` 才拦。
+ */
+export interface AgentSkillTrialQuota {
+  /** 每日上限；缺失 = 服务端没下发额度信息 */
+  limit?: number
+  used?: number
+  /** 今日剩余次数（服务端算的权威值）；缺失 = 不知道，不拦 */
+  remaining?: number
+  /** 恢复时间（ISO8601，带时区）；只做展示，缺失时不说恢复时间 */
+  reset_at?: string
+}

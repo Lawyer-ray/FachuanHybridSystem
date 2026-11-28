@@ -37,6 +37,7 @@ import { errMessage } from '@/lib/errors'
 import { fetchAgentSkill, fetchAgentSkillDiff, reviewAgentSkill, validateAgentSkill } from '../../skill-api'
 import type { AgentSkill, AgentSkillFinding, AgentSkillReviewInput } from '../../skill-types'
 import { SkillDiffView } from './SkillDiffView'
+import { SkillTrialPanel } from './SkillTrialPanel'
 import { useSkillMutations } from './use-skill-mutations'
 
 /** 告警字段的中文说法（`field` 是服务端的 title/description/body） */
@@ -205,6 +206,13 @@ export function SkillReviewPanel({
           <SkillFindingList findings={findings} />
         )}
       </section>
+
+      {/*
+        试跑放在审批动作之前：审批人要凭「模型真读了一遍之后是什么效果」做决定，所以它
+        必须和 diff / 安全告警在同一屏，而不是藏进另一层弹窗。可见性只看服务端能力位
+        （`can_review`）或本人可编辑——前端不判 is_admin。
+      */}
+      {skill.can_review || skill.editable ? <SkillTrialPanel skill={skill} /> : null}
 
       <section className="mt-3">
         <label htmlFor="skill-review-note" className="mb-1 block text-[11.5px] font-[650] text-foreground">

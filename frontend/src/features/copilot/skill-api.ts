@@ -36,8 +36,12 @@ import type {
   AgentSkillValidation,
 } from './skill-types'
 
-/** `agent/skills/{encoded key}{suffix}`：key 的编码只在这一处做，避免某个端点漏编 */
-function skillPath(key: string, suffix = ''): string {
+/** `agent/skills/{encoded key}{suffix}`：key 的编码只在这一处做，避免某个端点漏编。
+ *
+ * 导出给 `skill-trial-api.ts`（试跑域拆出去后仍要拼同一套路径）——两处各写一份
+ * `encodeURIComponent` 的那天，就是某个端点漏编码的那天。
+ */
+export function skillPath(key: string, suffix = ''): string {
   return `agent/skills/${encodeURIComponent(key)}${suffix}`
 }
 
@@ -272,3 +276,11 @@ export function fetchAgentSkillDiff(key: string, v1?: number, v2?: number): Prom
   const query = params.toString() ? `?${params.toString()}` : ''
   return api.get(skillPath(key, `/diff${query}`)).json<AgentSkillDiff>()
 }
+
+/** 试跑域（慢端点 + 额度）搬进 `skill-trial-api.ts`，import 路径不变。 */
+export {
+  fetchAgentSkillTrialQuota,
+  normalizeAgentSkillTrial,
+  normalizeAgentSkillTrialQuota,
+  runAgentSkillTrial,
+} from './skill-trial-api'
