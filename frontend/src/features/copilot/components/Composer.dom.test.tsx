@@ -304,6 +304,18 @@ describe('Composer `/` 命令菜单', () => {
     container.remove()
   })
 
+  it('按中文名搜技能：主文案是 title，副文案带 /skill: 命令名', async () => {
+    const { container } = renderComposer()
+    const box = within(container).getByRole('textbox') as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: '/核对' } })
+    // 清单是异步拉的：等技能项真渲染出来（空清单时也会渲染「无匹配命令」的 listbox）
+    await waitFor(() => expect(within(container).getByRole('listbox').textContent).toContain('我的核对清单'))
+    const menu = within(container).getByRole('listbox')
+    // 中文名能搜到，但真正要敲的命令名不能藏起来
+    expect(menu.textContent).toContain('/skill:my-checklist')
+    container.remove()
+  })
+
   it('Esc 关闭菜单，同查询词不再弹出', async () => {
     const { container } = renderComposer()
     const box = within(container).getByRole('textbox') as HTMLTextAreaElement

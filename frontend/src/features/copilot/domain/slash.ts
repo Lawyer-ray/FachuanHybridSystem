@@ -16,6 +16,9 @@ export const SLASH_COMMANDS: Array<Pick<SlashMenuItem, 'kind' | 'id' | 'label' |
  * 技能只列已启用的，并带 `badge`（我的 / 系统）——同名时用户要能分清这条
  * `/skill:名` 是自己写的还是内置的。compact 无活动会话时禁用；`manage-skills`
  * 与弹抽屉的入口不依赖会话，恒可用。
+ *
+ * `title` 必须带过来：律师给技能起的是中文名，`/` 菜单要显示它、也要能搜到它
+ * （只留 slug 等于逼人背自己没写过的名字）。命令项没有 `title`。
  */
 export function buildSlashMenuItems(skills: AgentSkill[], hasSession: boolean): SlashMenuItem[] {
   const skillItems: SlashMenuItem[] = skills
@@ -25,6 +28,7 @@ export function buildSlashMenuItems(skills: AgentSkill[], hasSession: boolean): 
       kind: 'skill' as const,
       id: s.name,
       label: s.name,
+      title: s.title,
       description: s.description,
       badge: s.source === 'user' ? '我的' : '系统',
     }))
@@ -36,20 +40,27 @@ export function buildSlashMenuItems(skills: AgentSkill[], hasSession: boolean): 
   return [...commandItems, ...skillItems]
 }
 
+/** 技能项按「slug 或中文显示名」匹配：中文子串也要命中，否则记得住中文名也搜不到 */
+function matchesNameOrTitle(item: SlashMenuItem, q: string): boolean {
+  return item.id.toLowerCase().includes(q) || (item.title?.toLowerCase().includes(q) ?? false)
+}
+
 /**
  * 按输入过滤菜单项。query 是 `/` 之后的文本：
- * - `skill:xxx` 打头 → 只在技能里按名过滤（用户已明确在挑技能）
- * - 其余 → name/label/description/中文标签大小写不敏感子串匹配
+ * - `skill:xxx` 打头 → 只在技能里按名/中文名过滤（用户已明确在挑技能）
+ * - 其余 → name/title/label/description/中文标签大小写不敏感子串匹配
  * 无匹配时返回空数组（调用方据此显示「无匹配命令」并保持菜单打开）。
  */
 export function filterSlashMenuItems(items: SlashMenuItem[], query: string): SlashMenuItem[] {
   const q = query.trim().toLowerCase()
   if (q.startsWith('skill:')) {
     const rest = q.slice('skill:'.length).trim()
-    return items.filter((i) => i.kind === 'skill' && (rest === '' || i.id.includes(rest)))
+    return items.filter((i) => i.kind === 'skill' && (rest === '' || matchesNameOrTitle(i, rest)))
   }
   if (!q) return items
-  return items.filter((i) => i.id.toLowerCase().includes(q) || i.label.toLowerCase().includes(q) || i.description.toLowerCase().includes(q))
+  return items.filter(
+    (i) => matchesNameOrTitle(i, q) || i.label.toLowerCase().includes(q) || i.description.toLowerCase().includes(q),
+  )
 }
 
 /** 输入是否应触发菜单（多行输入的第二行起不再触发，避免正常文本被菜单劫持） */

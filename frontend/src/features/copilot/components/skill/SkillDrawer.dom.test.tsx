@@ -8,7 +8,9 @@
  * 3. **开关乐观更新**：点了立即变色，失败回滚到请求前的值；
  * 4. **保存前先校验**：服务端字段错误落到对应字段下方，草稿不丢；
  * 5. **首次保存前的一次性告知**：确认后才真的发创建请求，localStorage 记一次；
- * 6. **未保存离开要二次确认**。
+ * 6. **未保存离开要二次确认**；
+ * 7. **`dirty` 不能说谎**：新建态的初始名只生成一次，空表单/改回原样都不算未保存
+ *    （render 期间生成名字会让任意重渲染都换名，`dirty` 被永久锁死为真）。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -31,6 +33,7 @@ vi.mock('../../skill-api', () => apiMock)
 import { useSkillDrawer } from '../../skill-drawer'
 import type { AgentSkill } from '../../types'
 import { SkillDrawer } from './SkillDrawer'
+import { SkillEditor } from './SkillEditor'
 
 function builtin(overrides: Partial<AgentSkill> = {}): AgentSkill {
   return {
@@ -72,7 +75,7 @@ function renderDrawer() {
 function fillDraft(values: { title: string; name: string; description: string; body: string }) {
   fireEvent.change(screen.getByLabelText('显示名'), { target: { value: values.title } })
   fireEvent.change(screen.getByLabelText('技能名（/skill: 后面的命令名）'), { target: { value: values.name } })
-  fireEvent.change(screen.getByLabelText('描述（决定 AI 什么时候用它）'), { target: { value: values.description } })
+  fireEvent.change(screen.getByLabelText('描述（一句话说清它管什么）'), { target: { value: values.description } })
   fireEvent.change(screen.getByLabelText('正文（AI 执行的做法）'), { target: { value: values.body } })
 }
 
@@ -208,6 +211,19 @@ describe('SkillDrawer：编辑器', () => {
     await waitFor(() => expect(screen.getByRole('tab', { name: '我的' })).toBeTruthy())
   })
 
+  it('空表单点抽屉关闭（X）不弹放弃确认：dirty 不因重渲染变真', async () => {
+    renderDrawer()
+    fireEvent.click(await screen.findByRole('button', { name: '新建技能' }))
+    // 改一个字再删回去：草稿回到初值，dirty 必须跟着回落
+    const title = screen.getByLabelText('显示名')
+    fireEvent.change(title, { target: { value: 'x' } })
+    fireEvent.change(title, { target: { value: '' } })
+
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    await waitFor(() => expect(useSkillDrawer.getState().open).toBe(false))
+    expect(screen.queryByText('放弃未保存的修改？')).toBeNull()
+  })
+
   it('有未保存改动时点抽屉关闭（X）同样要二次确认', async () => {
     renderDrawer()
     fireEvent.click(await screen.findByRole('button', { name: '新建技能' }))
@@ -220,5 +236,39 @@ describe('SkillDrawer：编辑器', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '放弃修改' }))
     await waitFor(() => expect(useSkillDrawer.getState().open).toBe(false))
+  })
+})
+
+describe('SkillEditor：dirty 只说真话', () => {
+  /** 直接渲染编辑器：`dirty` 是它上报给抽屉的唯一出口，在这一层断言最直接 */
+  function renderEditor(onDirtyChange: (dirty: boolean) => void) {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    const wrap = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    return render(<SkillEditor target={{ mode: 'create' }} onClose={() => {}} onDirtyChange={onDirtyChange} />, { wrapper: wrap })
+  }
+
+  it('新建态重渲染不换初始名（初始名只生成一次）', () => {
+    const onDirtyChange = vi.fn()
+    const { rerender } = renderEditor(onDirtyChange)
+    const nameInput = () => screen.getByLabelText('技能名（/skill: 后面的命令名）') as HTMLInputElement
+    const first = nameInput().value
+    expect(first).toMatch(/^skill-[a-z0-9]{4}$/)
+
+    // 外部重渲染（抽屉切 tab、清单刷新都会触发）：名字不能被换掉，dirty 不能变真
+    rerender(<SkillEditor target={{ mode: 'create' }} onClose={() => {}} onDirtyChange={onDirtyChange} />)
+    expect(nameInput().value).toBe(first)
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+  })
+
+  it('改了又改回原样：dirty 回落到 false', () => {
+    const onDirtyChange = vi.fn()
+    renderEditor(onDirtyChange)
+    const title = screen.getByLabelText('显示名')
+
+    fireEvent.change(title, { target: { value: '写了一半' } })
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+
+    fireEvent.change(title, { target: { value: '' } })
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false)
   })
 })

@@ -109,8 +109,8 @@ export function SkillDrawer() {
             个人技能
           </SheetTitle>
           <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
-            技能是交给 AI 执行的做法说明，用 <code className="font-mono text-[11px]">/skill:名字</code> 点名或由 AI
-            自己判断何时使用；它<strong className="font-medium text-foreground">不会</strong>
+            技能是交给 AI 执行的做法说明，用 <code className="font-mono text-[11px]">/skill:名字</code> 点名使用；
+            描述会在启用索引后进入系统提示。它<strong className="font-medium text-foreground">不会</strong>
             改变审批等级，启停从下一轮对话生效。
           </p>
         </SheetHeader>

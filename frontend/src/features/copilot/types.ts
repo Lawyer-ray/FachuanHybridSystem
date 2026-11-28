@@ -318,6 +318,8 @@ export interface SlashMenuItem {
   id: string
   label: string
   description: string
+  /** 技能项的中文显示名（律师自己起的 `title`，主文案与搜索都用它）；非技能项没有 */
+  title?: string
   badge?: string
   disabled?: boolean
   disabledHint?: string

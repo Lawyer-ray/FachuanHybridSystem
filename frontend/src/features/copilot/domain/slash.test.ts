@@ -67,6 +67,28 @@ describe('slash 菜单（build/filter/query）', () => {
     expect(new Set(keys).size).toBe(keys.length)
   })
 
+  it('技能项保留中文 title；命令项没有 title', () => {
+    const items = buildSlashMenuItems([skill({ name: 'contract-review', title: '合同审查三段式', description: '按四段核对' })], true)
+    expect(items.find((i) => i.id === 'contract-review')?.title).toBe('合同审查三段式')
+    // `title` 只属于技能项：命令没有中文显示名这一说法
+    expect(items.find((i) => i.id === 'compact')?.title).toBeUndefined()
+  })
+
+  it('过滤：按中文 title 能搜到（不必背 slug），skill: 前缀同样生效', () => {
+    const items = buildSlashMenuItems(
+      [
+        skill({ name: 'deadline-queries', title: '期限查询', description: 'deadline scan' }),
+        skill({ name: 'contract-review', title: '合同审查三段式', description: 'review contract' }),
+      ],
+      true,
+    )
+    expect(filterSlashMenuItems(items, '审查').map((i) => i.id)).toEqual(['contract-review'])
+    // compact 的描述里也有「期限」（保留案号/期限等锚点），所以它同被命中
+    expect(filterSlashMenuItems(items, '期限').map((i) => i.id)).toEqual(['compact', 'deadline-queries'])
+    // 用户已明确在挑技能时，中文名也要能挑
+    expect(filterSlashMenuItems(items, 'skill:审查').map((i) => i.id)).toEqual(['contract-review'])
+  })
+
   it('过滤：子串匹配名与描述；skill: 前缀只挑技能', () => {
     const items = buildSlashMenuItems(skills, true)
     // 「期限」同时命中 deadline-queries 的描述与 compact 的描述（保留…期限等锚点）

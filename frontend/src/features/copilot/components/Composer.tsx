@@ -1,47 +1,37 @@
 /**
  * 输入区：Enter 发送、Shift+Enter 换行；流式期间变为「停止」+ 可插话（steer）。
+ * 三种提交路径：常规 Enter/发送钮 → store.send；流式中 Enter → store.steer（不改写
+ * 当前输出，可整条撤回）；后台模式提交后立即返回、跑完写进会话通知。
  *
- * 三种提交路径：
- * - 常规：Enter / 发送钮 → store.send（SSE 流式）
- * - 流式中：输入框保持可用，Enter → store.steer（运行中插话，不改写当前输出）；
- *   已插话的文本以「已插话 N 条」提示，可整体撤回（DELETE /queue）
- * - 后台模式（时钟开关）：提交后立即返回，任务在后台跑完写入会话通知
+ * `/` 弹命令菜单（技能补全 `/skill:名字 ` + 内置命令；取数与分发在 use-skill-slash）、
+ * `@` 弹引用菜单（案件/合同/文书/文件夹；交互态在 use-mention-menu）；底栏显示上下文水位。
  *
- * `/` 打头时弹命令菜单（技能补全 `/skill:名字 ` + 内置命令），交互态在
- * use-slash-menu；`@` 弹引用菜单（案件/合同/文书/文件夹），交互态在
- * use-mention-menu；底栏显示会话上下文水位（done 事件 / stats 接口回填）。
- *
- * **两个菜单共用一条按键管线**：`use-slash-menu` 与本文件里的 `menuKeyDown` 被
- * 合成一个 `{ onKeyDown }` 塞进 `useComposerSubmit`，于是「IME 守卫 → Shift+Enter
- * 放行 → 菜单是否吃掉这个键 → 发送」的顺序只有一处（use-composer-submit），
- * 两个菜单不可能出现「一个吃 Enter、另一个把 Enter 落到发送」的竞态。
- * `use-mention-menu` 与 `use-slash-menu` 也共用同一个 token 检测器
- * （`detectMentionToken`）与同一个草稿改写原语（`applyMention`）。
+ * **两个菜单共用一条按键管线**：两者的 `onKeyDown` 由本文件的 `menuKeyDown` 合成一个
+ * 塞进 `useComposerSubmit`，于是「IME 守卫 → Shift+Enter 放行 → 菜单是否吃掉这个键 →
+ * 发送」的顺序只有一处（use-composer-submit），不可能出现「一个吃 Enter、另一个把
+ * Enter 落到发送」的竞态。两者也共用同一个 token 检测器（`detectMentionToken`）与
+ * 同一个草稿改写原语（`applyMention`）。
  *
  * 主题：中性灰阶，无 emoji；发送成功静默，失败由 MessageList 的错误行兜底。
  *
- * 拆分记录（现行 338 行，仍在 200–350 可接受带）：ComposerFooter / ComposerQuote /
- * PendingChips / ComposerToolbar（左侧三个工具按钮 + 隐藏 file input）、
- * use-composer-submit（submit + handleKeyDown + autoGrow + 具名导出的 growTextarea /
- * MAX_COMPOSER_HEIGHT）、use-composer-intake（框选引用 / 选区预填
- * 两条事件通道）。submit 牵动 speech / slash / send 三个 hook 的协调顺序，
- * 改它之前先读 use-composer-submit.ts 的文件头。
+ * 拆分记录：ComposerFooter / ComposerQuote / PendingChips / ComposerToolbar、
+ * use-composer-submit（submit + handleKeyDown + autoGrow + growTextarea /
+ * MAX_COMPOSER_HEIGHT）、use-composer-intake（框选引用 / 选区预填）、
+ * use-skill-slash（`/` 菜单取数 + 补全 + 光标复位）。submit 牵动 speech / slash /
+ * send 三个 hook 的协调顺序，改它之前先读 use-composer-submit.ts 的文件头。
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { ArrowUp, Square, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { fetchAgentSkills } from '../api'
-import { applyMention, detectMentionToken, type MentionInsert, type MentionToken } from '../domain'
+import { applyMention, type MentionInsert, type MentionToken } from '../domain'
 import { useComposerIntake } from '../hooks/use-composer-intake'
 import { useDraft } from '../hooks/use-draft'
 import { growTextarea, useComposerSubmit } from '../hooks/use-composer-submit'
 import { useMentionMenu } from '../hooks/use-mention-menu'
-import { useSlashMenu } from '../hooks/use-slash-menu'
+import { useSkillSlash } from '../hooks/use-skill-slash'
 import { useSpeechInput } from '../hooks/use-speech-input'
-import { useSkillDrawer } from '../skill-drawer'
 import { defaultAgentKind } from '../store/backends'
 import { useCopilot } from '../store'
 import type { CopilotScope } from '../types'
@@ -62,11 +52,10 @@ const STOP_BUTTON_CLASS = 'flex h-7 w-7 flex-none items-center justify-center ro
 const SEND_BUTTON_CLASS = 'copilot-send flex h-7 w-7 flex-none items-center justify-center rounded-full disabled:opacity-30 disabled:shadow-none'
 
 /**
- * @param steerEnabled 当前后端是否支持运行中插话（`BackendCapabilities.steer`）。
- *   由 CopilotPanel 按会话/待建会话的后端能力传入——`false` 时流式中不再提示
- *   「插话补充指令」，Enter 改为明确告知等本轮结束（见 use-composer-submit）。
- *   为什么不由本组件自己从 store 算：已建会话的后端只存在于会话列表缓存里，
- *   那是 CopilotPanel 的数据源。
+ * @param steerEnabled 当前后端是否支持运行中插话（`BackendCapabilities.steer`），由
+ *   CopilotPanel 按会话/待建会话的后端能力传入；`false` 时流式中不再提示「插话补充
+ *   指令」，Enter 改为明确告知等本轮结束（见 use-composer-submit）。不由本组件从 store
+ *   算：已建会话的后端只存在于会话列表缓存里，那是 CopilotPanel 的数据源。
  */
 export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
   // 草稿按会话持久化：切会话/刷新都不丢（律师常写一整段事实，重打一遍代价很高）
@@ -84,9 +73,6 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
   // 发送全过程在途（建会话/上传附件期间）：与 uploading 一起置忙，堵住
   // 「上传完成 → 消息入列」这段两者都为 false 的窗口里的二次提交
   const sending = useCopilot((s) => s.sending)
-  const compactContext = useCopilot((s) => s.compactContext)
-  const sessionId = useCopilot((s) => s.sessionId)
-  const messageCount = useCopilot((s) => s.messages.length)
   const addAttachmentFiles = useCopilot((s) => s.addAttachmentFiles)
   // 本轮跑哪几个 AI（多答）：清单 + 已选 + 默认项，「选满 4 个」由菜单自己置灰
   const backends = useCopilot((s) => s.backends)
@@ -98,7 +84,6 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
   const toggleAnswerAgent = useCopilot((s) => s.toggleAnswerAgent)
   const setAnswerModel = useCopilot((s) => s.setAnswerModel)
   const defaultKind = useCopilot((s) => defaultAgentKind(s.backends))
-  const openSkillDrawer = useSkillDrawer((s) => s.openDrawer)
   const send = useCopilot((s) => s.send)
   const stop = useCopilot((s) => s.stop)
   const steer = useCopilot((s) => s.steer)
@@ -113,8 +98,7 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
   /** 光标位置：`@`/`/` 的 token 识别要的是「光标前」而不是「草稿末尾」 */
   const [caret, setCaret] = useState(0)
 
-  /** 语音听写（Chrome/Edge 原生，zh-CN）：内容实时进草稿；onText 带 autoGrow
-   *  ——语音进来也要长个儿，不能等用户敲键才撑高 */
+  /** 语音听写（Chrome/Edge 原生，zh-CN）：内容实时进草稿；onText 带 autoGrow——语音进来也要长个儿 */
   const speech = useSpeechInput({
     onText: (t) => {
       setText(t)
@@ -127,40 +111,8 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
     if (speech.error) toast.error('语音输入失败', { description: speech.error })
   }, [speech.error])
 
-  // 技能清单（`/` 菜单数据源）：菜单打开才被消费，失败静默降级为「只有内置命令」
-  const skillsQuery = useQuery({ queryKey: ['agent-skills'], queryFn: () => fetchAgentSkills(), staleTime: 5 * 60_000, retry: false })
-  const skills = skillsQuery.data?.skills ?? []
-
-  const slash = useSlashMenu({
-    text,
-    skills,
-    hasSession: Boolean(sessionId && messageCount > 0),
-    onSkill: (name) => {
-      // 与 `@` 用**同一个改写原语**（applyMention + detectMentionToken）：
-      // 命令的 token 按「整行」算（命令语义是整行 = 命令 + 参数，不看光标在哪），
-      // 所以这里显式传 text.length 而不是跟随 caret
-      const token = detectMentionToken(text, text.length)
-      const next = token?.trigger === '/' ? applyMention(text, token, { insertText: `/skill:${name} ` }) : null
-      const value = next?.text ?? `/skill:${name} `
-      const caretAt = next?.caret ?? value.length
-      setText(value)
-      // 光标落到补全后的位置（原先只 focus，光标留在开头，再打参数会插到 /skill: 前面）
-      requestAnimationFrame(() => {
-        const el = textareaRef.current
-        if (!el) return
-        el.focus()
-        el.setSelectionRange(caretAt, caretAt)
-        setCaret(caretAt)
-      })
-    },
-    onCommand: (id) => {
-      if (id !== 'compact' && id !== 'manage-skills') return
-      setText('')
-      // `manage-skills` 只弹抽屉：编辑器逻辑在 components/skill/，不在这
-      if (id === 'manage-skills') openSkillDrawer()
-      else void compactContext()
-    },
-  })
+  // `/` 菜单（技能清单 + 补全）：取数与分发全在 hook，本组件只管把菜单挂到输入框上
+  const slash = useSkillSlash({ text, setText, textareaRef, setCaret })
 
   /** 业务范围（对象形状要稳定：源列表按它 memo，变了会重拉候选） */
   const scope = useMemo<CopilotScope | undefined>(
