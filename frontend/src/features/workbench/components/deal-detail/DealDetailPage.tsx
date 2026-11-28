@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useParams } from 'react-router'
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
-import { DraftDialog } from '@/features/doc-generation'
 import { CaseVerifyCard } from '@/features/material-prep'
 
 import { ambiguousStages, chainSteps, chainSummary } from './detail-domain'
@@ -12,20 +11,14 @@ import { ChainStepper } from './ChainStepper'
 
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
-import { stageLabelsToCodes } from '../../contract-enums'
-import { AddCaseDialog } from './AddCaseDialog'
-import { AddDeadlineDialog } from './AddDeadlineDialog'
-import { AddLogDialog } from './AddLogDialog'
+import { DealDetailDialogs } from './DealDetailDialogs'
 import { ContractFileOverlays } from './ContractFileOverlays'
 import { DealDocLayout } from './DealDocLayout'
 import type { FolderEntryMutation } from './folder-tree-types'
-import { UnsavedChangesDialog } from './UnsavedChangesDialog'
 import { useDocPreview } from './use-doc-preview'
 import { useDraftDialog } from './use-draft-dialog'
 import { useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
-import { PaymentDialog } from './PaymentDialog'
 import { refetchContractAndCases } from './refetch-contract'
-import { InvoicePoolDialog } from './InvoicePoolDialog'
 import { Card, DetailError } from './ui'
 import type { FolderOwnerKind } from '../../api'
 
@@ -292,71 +285,31 @@ export function DealDetailPage() {
         onReviewClose={() => setReviewTarget(null)}
       />
 
-      {/* 记收款：粘贴到账短信 / 拖发票。保存后刷新合同，右栏收费节即时更新 */}
-      <PaymentDialog
-        open={payOpen}
-        contractId={deal.id}
-        fixedAmount={deal.amountNum}
-        receivedAmount={Number(deal.totalReceived?.replace(/[^\d.]/g, '') || 0)}
-        onClose={() => setPayOpen(false)}
-        // 与「关联发票」同一口径：合同 + 案件 + 工作台列表一起刷。
-        // 只 refetch 本页的话，退回列表 60s 内还是旧金额（staleTime），
-        // 看起来像「记了收款但没记上」。
-        onSaved={onMoneyChanged}
-      />
-
-      {/* 先开票后付款：票挂合同名下；关闭即失效未关联缓存，右栏计数同步 */}
-      <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
-
-      {/* 新建下一程序案件：阶段固定为合同勾选、尚未立案的那个程序 */}
-      <AddCaseDialog
-        open={caseOpen}
+      <DealDetailDialogs
         contractId={contractId}
-        stage={next ?? ''}
-        stageCode={stageLabelsToCodes([next ?? ''])[0] ?? ''}
-        caseType={deal.caseType}
-        defaults={{
-          name: defaultCaseName,
-          cause: ordered.at(-1)?.cause ?? '',
-          amount: deal.amountNum != null ? String(deal.amountNum) : '',
-          court: ordered.at(-1)?.auth ?? '',
-        }}
-        onClose={() => setCaseOpen(false)}
-        onSaved={(caseId) => {
+        deal={deal}
+        ordered={ordered}
+        next={next}
+        defaultCaseName={defaultCaseName}
+        payOpen={payOpen}
+        onPayClose={() => setPayOpen(false)}
+        onPaymentSaved={onMoneyChanged}
+        invoiceOpen={invoiceOpen}
+        onInvoiceClose={() => setInvoiceOpen(false)}
+        caseOpen={caseOpen}
+        onCaseClose={() => setCaseOpen(false)}
+        onCaseSaved={(caseId) => {
           // 建完先刷合同+案件；滚动由上面的 effect 在「id 出现」时接手
           refetchContractAndCases(queryClient, contractId)
           setNewCaseId(caseId)
         }}
-      />
-
-      {/* 记日志：归属就是点它的那张案件卡；「同时设期限」走同一次请求 */}
-      <AddLogDialog
-        open={logTarget !== null}
-        caseId={logTarget?.id ?? 0}
-        caseLabel={logTarget?.label ?? ''}
-        onClose={() => setLogTarget(null)}
-        onSaved={onScheduleChanged}
-      />
-
-      {/* 新增期限：默认挂整个委托，也可以挑某个案件 */}
-      <AddDeadlineDialog
-        open={deadlineOpen}
-        contractId={contractId}
-        cases={ordered.map((c) => ({ id: c.id, proc: c.proc }))}
-        onClose={() => setDeadlineOpen(false)}
-        onSaved={onScheduleChanged}
-      />
-
-      {/* 未保存改动的确认：拦的是「关文档 / 换文件」，不是页面级导航 */}
-      <UnsavedChangesDialog open={doc.pending} onStay={doc.stay} onLeave={doc.leave} />
-
-      {/* 一句话生成文书。只有诉讼分支挂它：已上线的 spec 都是案件文书，合同文件夹
-          模板里没有对应落位节点（传 contract 侧会得到 created=false + 原因） */}
-      <DraftDialog
-        open={draft.caseId != null}
-        onOpenChange={(v) => { if (!v) draft.close() }}
-        caseId={draft.caseId}
-        onCreated={draft.onCreated}
+        logTarget={logTarget}
+        onLogClose={() => setLogTarget(null)}
+        onScheduleSaved={onScheduleChanged}
+        deadlineOpen={deadlineOpen}
+        onDeadlineClose={() => setDeadlineOpen(false)}
+        doc={doc}
+        draft={draft}
       />
     </main>
   )

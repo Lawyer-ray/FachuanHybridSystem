@@ -5,12 +5,8 @@ import { toast } from 'sonner'
 
 import { LoadingBlock } from '@/components/shared/AsyncState'
 
-import { stageLabelsToCodes } from '../../contract-enums'
-import { AddCaseDialog } from './AddCaseDialog'
-import { AddDeadlineDialog } from './AddDeadlineDialog'
 import { DealDocLayout, type PickedFile } from './DealDocLayout'
 import type { FolderEntryMutation } from './folder-tree-types'
-import { UnsavedChangesDialog } from './UnsavedChangesDialog'
 import { useDocPreview } from './use-doc-preview'
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
@@ -22,13 +18,12 @@ import { AdvisorWorkbench, CrossBorderWorkbench, SpecialPhaseWorkbench } from '.
 import { useServiceItems } from './use-service-items'
 import { useSpecialPhases } from './use-special-phases'
 import { listFolderEntries } from '../../api'
-import { TermBar } from './TermBar'
-import { PaymentDialog } from './PaymentDialog'
-import { InvoicePoolDialog } from './InvoicePoolDialog'
+import { NonLitDetailDialogs } from './NonLitDetailDialogs'
+import { NonLitTermBar } from './NonLitTermBar'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { refetchContractAndCases } from './refetch-contract'
-import { addDeliverable } from './special-phase-crud'
-import { flattenTree, patchPhase, type PhaseNode } from './special-phase-tree'
+import { usePhaseFileActions } from './use-phase-file-actions'
+import { flattenTree } from './special-phase-tree'
 import { Card, DetailError, RailSection } from './ui'
 
 /**
@@ -129,53 +124,12 @@ export function NonLitDetailPage() {
   useDealCopilotContext(deal, '非诉项目详情')
 
   const tree = special.tree
-  /** 阶段目录里已有的文件数（元信息「N 个文件」）：展开行时按实际交付物计数 */
-  const fileCountOf = useCallback(
-    (node: PhaseNode) => flattenTree([node]).reduce((s, x) => s + x.node.deliverables.filter((d) => !d.planned).length, 0),
-    [],
-  )
-
-  /**
-   * 「从 0 起草」/「＋ 起草」的落点：把计划项写进目标阶段、展开它，并**直接打开
-   * 编辑器**——律师此刻要的是「马上改」，不是回到列表自己去找文件。
-   */
-  const draftIntoPhase = useCallback(
-    (phaseKey: string, name: string) => {
-      const next = patchPhase(addDeliverable(tree, phaseKey, name), phaseKey, { open: true })
-      void special.saveStages(next)
-      const hit = flattenTree(next).find((x) => x.node.key === phaseKey)
-      const created = hit?.node.deliverables.at(-1)
-      toast.success(`已起草《${name.replace(/^《|》$/g, '')}》`, {
-        description: `落到「${hit?.node.name ?? ''}」，保存后即进入编辑器`,
-      })
-      if (created?.subpath) openPreview({ subpath: created.subpath, name: created.name })
-    },
-    [tree, special, openPreview],
-  )
-
-  /**
-   * 点右栏派生目录 → 展开该目录里第一份可预览的文件。
-   *
-   * 目录是阶段派生出来的，可能还没建（律师刚设计的阶段）或只有子目录；读不到
-   * 就给一句明确提示，不静默什么都不发生。
-   */
-  const openFolderFromTree = useCallback(
-    async (folder: string) => {
-      if (!deal) return
-      try {
-        const res = await listFolderEntries('contract', deal.id, folder)
-        const file = (res.files ?? [])[0]
-        if (!file) {
-          toast.info(`「${folder}」目录里还没有文件`, { description: '把交付物拖进合同文件夹后即可点开' })
-          return
-        }
-        openPreview({ subpath: file.subpath, name: file.name, size: file.size ?? undefined, modified_at: file.modified_at })
-      } catch {
-        toast.info(`「${folder}」目录还不存在`, { description: '保存阶段后系统会在合同文件夹里建同名目录' })
-      }
-    },
-    [deal, openPreview],
-  )
+  const { fileCountOf, draftIntoPhase, openFolderFromTree } = usePhaseFileActions({
+    deal,
+    tree,
+    saveStages: special.saveStages,
+    openPreview,
+  })
 
   if (!valid) return <Navigate to="/projects" replace />
   if (d.isLoading) {
@@ -210,33 +164,14 @@ export function NonLitDetailPage() {
       <DetailHeader deal={deal} />
 
       {/* 周期轴：常法 → 服务期 + 事项刻度；专项 → 项目周期 + 阶段里程碑 */}
-      {deal.from && deal.to && (
-        <div className="mb-[18px]">
-          {isSpecial ? (
-            <TermBar
-              from={deal.from}
-              to={deal.to}
-              today={todayStr}
-              title="项目周期"
-              milestones={flattenTree(tree)
-                .filter((x) => !!x.node.startDate)
-                .map((x) => ({ date: x.node.startDate, title: x.node.name, state: phaseTone(x.node.state) }))}
-              legend={
-                flattenTree(tree).length > 0
-                  ? `阶段 ${flattenTree(tree).filter((x) => x.node.state === 'done').length} / ${flattenTree(tree).length}`
-                  : undefined
-              }
-            />
-          ) : (
-            <TermBar
-              from={deal.from}
-              to={deal.to}
-              today={todayStr}
-              events={serviceItems.map((i) => ({ date: i.date, title: i.title }))}
-            />
-          )}
-        </div>
-      )}
+      <NonLitTermBar
+        from={deal.from}
+        to={deal.to}
+        today={todayStr}
+        isSpecial={isSpecial}
+        tree={tree}
+        serviceItems={serviceItems}
+      />
 
       {/* 栅格三态（就地编辑）：① 左内容 + 右事实卡；② 净宽≥1100 时文档在右、事实卡退左栏底部；
           ③ 净宽不足时文档通栏、事实卡在其下。判定口径与实现见 DealDocLayout / use-net-width。 */}
@@ -349,44 +284,22 @@ export function NonLitDetailPage() {
         onReviewClose={() => setReviewTarget(null)}
       />
 
-      <PaymentDialog
-        open={payOpen}
-        contractId={deal.id}
-        fixedAmount={deal.amountNum}
-        receivedAmount={Number(deal.totalReceived?.replace(/[^\d.]/g, '') || 0)}
-        onClose={() => setPayOpen(false)}
-        onSaved={() => void d.refetch()}
+      <NonLitDetailDialogs
+        deal={deal}
+        next={next}
+        payOpen={payOpen}
+        onPayClose={() => setPayOpen(false)}
+        onPaymentSaved={() => void d.refetch()}
+        invoiceOpen={invoiceOpen}
+        onInvoiceClose={() => setInvoiceOpen(false)}
+        caseOpen={caseOpen}
+        onCaseClose={() => setCaseOpen(false)}
+        onCaseSaved={() => refetchContractAndCases(qc, deal.id)}
+        deadlineOpen={deadlineOpen}
+        onDeadlineClose={() => setDeadlineOpen(false)}
+        onScheduleSaved={onScheduleChanged}
+        doc={doc}
       />
-
-      <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
-
-      <AddCaseDialog
-        open={caseOpen}
-        contractId={deal.id}
-        stage={next ?? ''}
-        stageCode={stageLabelsToCodes([next ?? ''])[0] ?? ''}
-        caseType={deal.caseType}
-        defaults={{ name: `${deal.client}·${next ?? ''}`, cause: '', amount: '', court: '' }}
-        onClose={() => setCaseOpen(false)}
-        onSaved={() => refetchContractAndCases(qc, deal.id)}
-      />
-
-      <AddDeadlineDialog
-        open={deadlineOpen}
-        contractId={deal.id}
-        cases={[]}
-        onClose={() => setDeadlineOpen(false)}
-        onSaved={onScheduleChanged}
-      />
-
-      {/* 未保存改动的确认：拦的是「关文档 / 换文件」 */}
-      <UnsavedChangesDialog open={doc.pending} onStay={doc.stay} onLeave={doc.leave} />
     </main>
   )
-}
-
-/** 阶段状态 → 周期轴刻度语义（done 对齐 term-timeline 的 ok） */
-function phaseTone(state: PhaseNode['state']): 'ok' | 'doing' | 'todo' {
-  if (state === 'done') return 'ok'
-  return state === 'doing' ? 'doing' : 'todo'
 }
